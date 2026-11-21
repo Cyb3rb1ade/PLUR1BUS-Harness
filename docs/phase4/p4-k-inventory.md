@@ -672,6 +672,16 @@ knowledge file, media search and the engine forwards are K7b onward).
 - *Proof:* `fixtures/parity/jobs/{cron,user,rpc,system}.json` from `scripts/parity/export-jobs.ts` (the real TypeScript over real files,
   scripted clock, ids and ports) replayed by `jobs::{cron_vectors,user::vectors,system::vectors}`; 31 mutants, 29 killed and two explained.
 
+
+**K7c as built** (P4-51)
+
+- `skill_mining/` stores dispatcher-confirmed execution evidence, reconstructs bounded workflows from archived scoped sessions and submits inactive proposals. Review rechecks the human's current authority and the proposal's exact content hash before claiming the single-use approval. Artifact attribution binds an explicit owner decision to current file bytes. Manual files and files that changed since attribution require a proposal. The owner-controlled direct route returns a conditional write precondition.
+- `knowledge/` handles quoted imports, fixed file slots, resumable staged migrations and rollback with a private lock and SHA-256 conditional writes. The model-free job maintains an explicit schedule and dispatches registered agents through an authorized port. The host owns persistent job history, timers and promotion.
+- `media_search/` uses the shared model catalog, explicit per-call route and budget checks, a scoped bounded reference index with rank fusion, deletion-aware queue work, and fingerprint backfill planning. Caption ports handle prompt and user text, local model and ASR results, keyframe sampling and metered cloud vision with function-specific consent. Codec plans use a confined input lease, typed process commands and bounded outputs.
+- Mode B exercises the unversioned private execution and artifact SQLite ledgers in both directions, including exact schema comparison and rejection of a newer schema. Mode V replays actual TS vectors for all three areas. Mode W exercises the TS cloud caption wire and metering with in-process doubles.
+- Composition owns the identity resolver, rooted files, audit, SQLite paths, provider dispatch, D109 once-grant consumption, codec execution and all timers. Engine forwards, model installation, classifier/provider loading, native RPC registration and CLI wiring are outside this library slice.
+- Intentional restrictions include immutable execution evidence, scoped mutations, limits on work and bytes, deletion and credential revocation taking precedence over delayed work, exact endpoint consent and a stable metered route, and budget settlement for a cloud call with uncertain provider usage. See the K7c ledger for per-rule differences and verification evidence.
+
 ## 9. K8: ACP (P4-71, without external agents)
 
 Sources: `acp/`: backend(197) core-permissions(152) failure(14) file-changes(123) framing(54) index(3) main(42) modes(13) permissions(103) protocol(19) server(277) text(62)

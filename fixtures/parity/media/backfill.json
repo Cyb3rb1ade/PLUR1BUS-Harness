@@ -1,0 +1,814 @@
+[
+  {
+    "after": "{\"fingerprint\":\"p1\"}",
+    "before": null,
+    "calls": [
+      [
+        "start",
+        "enable"
+      ]
+    ],
+    "cfg": {
+      "backfill": "auto",
+      "enabled": true,
+      "provider": "local"
+    },
+    "events": [
+      {
+        "name": "media.index.status",
+        "payload": {
+          "backfill": {
+            "done": 0,
+            "state": "running",
+            "total": 2
+          },
+          "counts": {
+            "failed": 0,
+            "indexed": 0,
+            "pending": 2,
+            "unsupported": 0
+          },
+          "dim": 1,
+          "enabled": true,
+          "fingerprint": "p1",
+          "model": "test",
+          "provider": "local"
+        }
+      }
+    ],
+    "initial": {
+      "backfill": {
+        "done": 0,
+        "state": "idle",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "first",
+    "outcome": "started"
+  },
+  {
+    "after": "{\"fingerprint\":\"p1\"}",
+    "before": "{\"fingerprint\":\"p1\"}",
+    "calls": [],
+    "cfg": {
+      "backfill": "auto",
+      "enabled": true,
+      "provider": "local"
+    },
+    "events": [],
+    "initial": {
+      "backfill": {
+        "done": 0,
+        "state": "idle",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "same",
+    "outcome": "idle"
+  },
+  {
+    "after": "{\"fingerprint\":\"p1\"}",
+    "before": "{\"fingerprint\":\"p0\"}",
+    "calls": [
+      [
+        "start",
+        "model-change"
+      ]
+    ],
+    "cfg": {
+      "backfill": "auto",
+      "enabled": true,
+      "provider": "local"
+    },
+    "events": [
+      {
+        "name": "media.index.status",
+        "payload": {
+          "backfill": {
+            "done": 0,
+            "state": "running",
+            "total": 2
+          },
+          "counts": {
+            "failed": 0,
+            "indexed": 0,
+            "pending": 2,
+            "unsupported": 0
+          },
+          "dim": 1,
+          "enabled": true,
+          "fingerprint": "p1",
+          "model": "test",
+          "provider": "local"
+        }
+      }
+    ],
+    "initial": {
+      "backfill": {
+        "done": 0,
+        "state": "idle",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "changed",
+    "outcome": "started"
+  },
+  {
+    "after": "{\"fingerprint\":\"p1\"}",
+    "before": "broken",
+    "calls": [
+      [
+        "start",
+        "enable"
+      ]
+    ],
+    "cfg": {
+      "backfill": "auto",
+      "enabled": true,
+      "provider": "local"
+    },
+    "events": [
+      {
+        "name": "media.index.status",
+        "payload": {
+          "backfill": {
+            "done": 0,
+            "state": "running",
+            "total": 2
+          },
+          "counts": {
+            "failed": 0,
+            "indexed": 0,
+            "pending": 2,
+            "unsupported": 0
+          },
+          "dim": 1,
+          "enabled": true,
+          "fingerprint": "p1",
+          "model": "test",
+          "provider": "local"
+        }
+      }
+    ],
+    "initial": {
+      "backfill": {
+        "done": 0,
+        "state": "idle",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "corrupt",
+    "outcome": "started"
+  },
+  {
+    "after": "{\"fingerprint\":\"p1\"}",
+    "before": null,
+    "calls": [],
+    "cfg": {
+      "backfill": "auto",
+      "enabled": true,
+      "provider": "local"
+    },
+    "events": [],
+    "initial": {
+      "backfill": {
+        "done": 2,
+        "state": "done",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "done",
+    "outcome": "idle"
+  },
+  {
+    "after": null,
+    "before": null,
+    "calls": [
+      "resume"
+    ],
+    "cfg": {
+      "backfill": "auto",
+      "enabled": true,
+      "provider": "local"
+    },
+    "events": [
+      {
+        "name": "media.index.status",
+        "payload": {
+          "backfill": {
+            "done": 0,
+            "state": "running",
+            "total": 2
+          },
+          "counts": {
+            "failed": 0,
+            "indexed": 0,
+            "pending": 2,
+            "unsupported": 0
+          },
+          "dim": 1,
+          "enabled": true,
+          "fingerprint": "p1",
+          "model": "test",
+          "provider": "local"
+        }
+      }
+    ],
+    "initial": {
+      "backfill": {
+        "done": 0,
+        "state": "running",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "running",
+    "outcome": "resumed"
+  },
+  {
+    "after": null,
+    "before": null,
+    "calls": [],
+    "cfg": {
+      "backfill": "auto",
+      "enabled": true,
+      "provider": "local"
+    },
+    "events": [],
+    "initial": {
+      "backfill": {
+        "done": 1,
+        "pausedReason": "user",
+        "state": "paused",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "user",
+    "outcome": "idle"
+  },
+  {
+    "after": null,
+    "before": null,
+    "calls": [
+      "resume"
+    ],
+    "cfg": {
+      "backfill": "auto",
+      "enabled": true,
+      "provider": "local"
+    },
+    "events": [
+      {
+        "name": "media.index.status",
+        "payload": {
+          "backfill": {
+            "done": 1,
+            "state": "running",
+            "total": 2
+          },
+          "counts": {
+            "failed": 0,
+            "indexed": 0,
+            "pending": 2,
+            "unsupported": 0
+          },
+          "dim": 1,
+          "enabled": true,
+          "fingerprint": "p1",
+          "model": "test",
+          "provider": "local"
+        }
+      }
+    ],
+    "initial": {
+      "backfill": {
+        "done": 1,
+        "pausedReason": "budget",
+        "state": "paused",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "budget",
+    "outcome": "resumed"
+  },
+  {
+    "after": null,
+    "before": null,
+    "calls": [
+      "resume"
+    ],
+    "cfg": {
+      "backfill": "auto",
+      "enabled": true,
+      "provider": "local"
+    },
+    "events": [
+      {
+        "name": "media.index.status",
+        "payload": {
+          "backfill": {
+            "done": 1,
+            "state": "running",
+            "total": 2
+          },
+          "counts": {
+            "failed": 0,
+            "indexed": 0,
+            "pending": 2,
+            "unsupported": 0
+          },
+          "dim": 1,
+          "enabled": true,
+          "fingerprint": "p1",
+          "model": "test",
+          "provider": "local"
+        }
+      }
+    ],
+    "initial": {
+      "backfill": {
+        "done": 1,
+        "pausedReason": "error",
+        "state": "paused",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "error",
+    "outcome": "resumed"
+  },
+  {
+    "after": null,
+    "before": null,
+    "calls": [],
+    "cfg": {
+      "backfill": "manual",
+      "enabled": true,
+      "provider": "local"
+    },
+    "events": [],
+    "initial": {
+      "backfill": {
+        "done": 0,
+        "state": "idle",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "manual",
+    "outcome": "idle"
+  },
+  {
+    "after": null,
+    "before": null,
+    "calls": [],
+    "cfg": {
+      "backfill": "auto",
+      "enabled": false,
+      "provider": "local"
+    },
+    "events": [],
+    "initial": {
+      "backfill": {
+        "done": 0,
+        "state": "idle",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "disabled",
+    "outcome": "idle"
+  },
+  {
+    "after": null,
+    "before": null,
+    "calls": [],
+    "cfg": {
+      "backfill": "auto",
+      "enabled": true,
+      "provider": "off"
+    },
+    "events": [],
+    "initial": {
+      "backfill": {
+        "done": 0,
+        "state": "idle",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "off",
+    "outcome": "idle"
+  },
+  {
+    "after": "{\"fingerprint\":\"p1\"}",
+    "before": null,
+    "calls": [
+      "cancel",
+      [
+        "start",
+        "manual"
+      ]
+    ],
+    "cfg": {
+      "backfill": "auto",
+      "enabled": true,
+      "provider": "local"
+    },
+    "events": [
+      {
+        "name": "media.index.status",
+        "payload": {
+          "backfill": {
+            "done": 0,
+            "state": "running",
+            "total": 2
+          },
+          "counts": {
+            "failed": 0,
+            "indexed": 0,
+            "pending": 2,
+            "unsupported": 0
+          },
+          "dim": 1,
+          "enabled": true,
+          "fingerprint": "p1",
+          "model": "test",
+          "provider": "local"
+        }
+      }
+    ],
+    "initial": {
+      "backfill": {
+        "done": 0,
+        "state": "idle",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "reindex",
+    "outcome": {
+      "backfill": {
+        "done": 0,
+        "state": "running",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    }
+  },
+  {
+    "after": null,
+    "before": null,
+    "calls": [
+      "pause",
+      "resume",
+      "cancel"
+    ],
+    "cfg": {
+      "backfill": "auto",
+      "enabled": true,
+      "provider": "local"
+    },
+    "events": [
+      {
+        "name": "media.index.status",
+        "payload": {
+          "backfill": {
+            "done": 0,
+            "pausedReason": "user",
+            "state": "paused",
+            "total": 2
+          },
+          "counts": {
+            "failed": 0,
+            "indexed": 0,
+            "pending": 2,
+            "unsupported": 0
+          },
+          "dim": 1,
+          "enabled": true,
+          "fingerprint": "p1",
+          "model": "test",
+          "provider": "local"
+        }
+      },
+      {
+        "name": "media.index.status",
+        "payload": {
+          "backfill": {
+            "done": 0,
+            "state": "running",
+            "total": 2
+          },
+          "counts": {
+            "failed": 0,
+            "indexed": 0,
+            "pending": 2,
+            "unsupported": 0
+          },
+          "dim": 1,
+          "enabled": true,
+          "fingerprint": "p1",
+          "model": "test",
+          "provider": "local"
+        }
+      },
+      {
+        "name": "media.index.status",
+        "payload": {
+          "backfill": {
+            "done": 0,
+            "state": "cancelled",
+            "total": 2
+          },
+          "counts": {
+            "failed": 0,
+            "indexed": 0,
+            "pending": 2,
+            "unsupported": 0
+          },
+          "dim": 1,
+          "enabled": true,
+          "fingerprint": "p1",
+          "model": "test",
+          "provider": "local"
+        }
+      }
+    ],
+    "initial": {
+      "backfill": {
+        "done": 0,
+        "state": "idle",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "controls",
+    "outcome": {
+      "backfill": {
+        "done": 0,
+        "state": "cancelled",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    }
+  },
+  {
+    "after": null,
+    "before": null,
+    "calls": [],
+    "cfg": {
+      "backfill": "auto",
+      "enabled": true,
+      "provider": "local"
+    },
+    "events": [
+      {
+        "name": "media.index.status",
+        "payload": {
+          "backfill": {
+            "done": 0,
+            "state": "idle",
+            "total": 2
+          },
+          "counts": {
+            "failed": 0,
+            "indexed": 0,
+            "pending": 2,
+            "unsupported": 0
+          },
+          "dim": 1,
+          "enabled": true,
+          "fingerprint": "p1",
+          "model": "test",
+          "provider": "local"
+        }
+      },
+      {
+        "name": "media.index.status",
+        "payload": {
+          "backfill": {
+            "done": 0,
+            "state": "idle",
+            "total": 2
+          },
+          "counts": {
+            "failed": 0,
+            "indexed": 1,
+            "pending": 2,
+            "unsupported": 0
+          },
+          "dim": 1,
+          "enabled": true,
+          "fingerprint": "p1",
+          "model": "other",
+          "provider": "local"
+        }
+      }
+    ],
+    "initial": {
+      "backfill": {
+        "done": 0,
+        "state": "idle",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 0,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "test",
+      "provider": "local"
+    },
+    "name": "changes",
+    "outcome": {
+      "backfill": {
+        "done": 0,
+        "state": "idle",
+        "total": 2
+      },
+      "counts": {
+        "failed": 0,
+        "indexed": 1,
+        "pending": 2,
+        "unsupported": 0
+      },
+      "dim": 1,
+      "enabled": true,
+      "fingerprint": "p1",
+      "model": "other",
+      "provider": "local"
+    }
+  }
+]
