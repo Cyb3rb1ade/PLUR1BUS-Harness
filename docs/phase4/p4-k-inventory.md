@@ -646,6 +646,9 @@ Ports: clock, ids, git, process runner, session store (K5), budget (K1).
 
 **K6b as built** (P4-50 coding surface libraries).
 
+- **K6-D26 (RF-4):** A review key binds the card, exact tree, canonical worktree and assigned completing agent.
+  Entries with the content-only TypeScript key do not count as Rust review evidence. The SQLite schema and the
+  verifier's public tree hash remain compatible. TypeScript still reads the store and uses its own review keys.
 - The coding gate snapshots the tracked worktree and bound manifests, picks verifiers from committed settings, and checks the
   tree again before accepting results. Independent local reviews belong to a task, tree and writer. The surface rechecks live
   card assignment, canonical worktree and tree hash before moving a card. Human overrides require live lead or owner authority,
