@@ -5845,6 +5845,8 @@ name = "plur1bus-channels"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "chrono",
+ "encoding_rs",
  "indexmap 2.14.2",
  "percent-encoding",
  "plur1bus-wire-fixtures",

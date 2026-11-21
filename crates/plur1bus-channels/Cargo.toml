@@ -12,13 +12,15 @@ telegram = ["http", "dep:indexmap", "dep:regex", "dep:percent-encoding"]
 discord = ["http", "websocket", "dep:regex"]
 slack = ["http", "websocket", "dep:indexmap"]
 signal = ["dep:serde", "dep:serde_json", "dep:regex"]
-email = ["dep:base64"]
+email = ["dep:base64", "dep:chrono", "dep:encoding_rs", "dep:regex", "dep:serde"]
 buzz = ["websocket"]
 http = ["dep:serde", "dep:serde_json", "dep:ureq", "dep:url"]
 websocket = ["dep:serde_json", "dep:tungstenite", "dep:url"]
 
 [dependencies]
 base64 = { version = "0.22", optional = true }
+chrono = { version = "0.4", default-features = false, features = ["std"], optional = true }
+encoding_rs = { version = "0.8", optional = true }
 indexmap = { version = "2", features = ["serde"], optional = true }
 percent-encoding = { version = "2.3", optional = true }
 regex = { version = "1", optional = true }

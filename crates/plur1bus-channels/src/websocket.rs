@@ -1,7 +1,9 @@
 //! Blocking WebSocket handshake and framing over a host-authorized stream.
+use crate::stream::DeadlineStream;
+pub use crate::stream::TimedStream;
 use std::fmt;
-use std::io::{self, Read, Write};
-use std::net::{IpAddr, SocketAddr, TcpStream};
+use std::io;
+use std::net::{IpAddr, SocketAddr};
 use std::time::{Duration, Instant};
 use tungstenite::client::IntoClientRequest;
 use tungstenite::handshake::HandshakeError;
@@ -24,28 +26,6 @@ pub trait SocketPorts {
         pin: SocketAddr,
         deadline: Instant,
     ) -> io::Result<Box<dyn TimedStream>>;
-}
-
-pub trait TimedStream: Read + Write + Send {
-    fn peer_addr(&self) -> io::Result<SocketAddr>;
-
-    /// Bound the underlying socket operation, including any TLS I/O it may perform.
-    fn set_deadline(&mut self, deadline: Instant) -> io::Result<()>;
-}
-
-impl TimedStream for TcpStream {
-    fn peer_addr(&self) -> io::Result<SocketAddr> {
-        TcpStream::peer_addr(self)
-    }
-
-    fn set_deadline(&mut self, deadline: Instant) -> io::Result<()> {
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        if remaining.is_zero() {
-            return Err(io::Error::from(io::ErrorKind::TimedOut));
-        }
-        self.set_read_timeout(Some(remaining))?;
-        self.set_write_timeout(Some(remaining))
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -100,30 +80,6 @@ pub enum Peer {
     Ping,
     Pong,
     Closed(Option<u16>),
-}
-
-struct DeadlineStream {
-    io: Box<dyn TimedStream>,
-    deadline: Instant,
-}
-
-impl Read for DeadlineStream {
-    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
-        self.io.set_deadline(self.deadline)?;
-        self.io.read(buffer)
-    }
-}
-
-impl Write for DeadlineStream {
-    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
-        self.io.set_deadline(self.deadline)?;
-        self.io.write(buffer)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.io.set_deadline(self.deadline)?;
-        self.io.flush()
-    }
 }
 
 pub struct Socket {
