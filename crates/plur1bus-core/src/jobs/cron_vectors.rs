@@ -83,3 +83,31 @@ fn timezone_validity_is_typescripts() {
         );
     }
 }
+
+#[test]
+fn morocco_transition_records_the_tzdb_difference() {
+    let f = fixture();
+    let cases = f["tzdbDifferences"].as_array().unwrap();
+    assert_eq!(cases.len(), 4);
+    for c in cases {
+        assert_eq!(c["divergence"], "K7-D6");
+        assert_eq!(c["nodeTzdb"], "2026c");
+        assert_eq!(c["rustTzdb"], chrono_tz::IANA_TZDB_VERSION);
+        let cron = parse_cron(c["cron"].as_str().unwrap()).unwrap();
+        let from = c["from"].as_i64().unwrap();
+        let tz = c["tz"].as_str().unwrap();
+        let rust = c["rustNext"].as_i64().unwrap();
+        let typescript = c["next"].as_i64().unwrap();
+        assert_eq!(
+            next_after(&cron, tz, from).unwrap(),
+            Some(rust),
+            "{tz} {from}"
+        );
+        let offset_difference = if from >= 1_789_862_400_000 {
+            3_600_000
+        } else {
+            0
+        };
+        assert_eq!(typescript - rust, offset_difference, "{tz} {from}");
+    }
+}

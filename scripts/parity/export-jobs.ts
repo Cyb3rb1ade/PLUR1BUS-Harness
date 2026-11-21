@@ -92,8 +92,8 @@ function cronVectors() {
   };
   const next: unknown[] = [];
   // Beyond 2037 the Rust zone tables (chrono-tz) hold no DST rules; a case there carries `later` and the replay allows the
-  // known gap for zones that observe DST (finding K7-D4). Africa/Casablanca is left out: its rules differ between tz database
-  // releases (the ICU of this Node and the tables of the Rust crate), so a recording of it would depend on the machine.
+  // known gap for zones that observe DST (finding K7-D4). The known Morocco transition is recorded separately below,
+  // with both database versions and an exact replay expectation.
   const add = (cron: string, tz: string, from: number, note?: string) => {
     const later = from > Date.UTC(2037, 11, 31) && from < 8e15 ? { later: true } : {};
     try { const c = parseCron(cron); next.push({ cron, tz, from, next: nextAfter(c, tz, from), ...later, ...(note ? { note } : {}) }); }
@@ -117,7 +117,15 @@ function cronVectors() {
   // Years before 1900: the zone's local mean time, with offsets in seconds.
   for (const tz of ["Europe/Amsterdam", "Europe/Berlin", "America/New_York", "Asia/Kolkata", "Australia/Sydney"]) for (const from of [Date.UTC(1850, 5, 1), Date.UTC(1899, 11, 31), Date.UTC(1920, 3, 1), Date.UTC(1937, 5, 1)]) for (const cron of ["0 0 * * *", "30 12 * * *", "*/20 * * * *"]) add(cron, tz, from, "historic offset");
   const validTz = [...ZONES, ...BAD_ZONES].map((tz) => ({ tz, valid: isValidTimezone(tz) }));
-  return { parse, next, validTz };
+  const tzdbDifferences = ["Africa/Casablanca", "Africa/El_Aaiun"].flatMap(tz => [
+    { from: Date.UTC(2026, 8, 19), rustNext: Date.UTC(2026, 8, 19, 8) },
+    { from: Date.UTC(2026, 8, 20), rustNext: Date.UTC(2026, 8, 20, 8) },
+  ].map(({ from, rustNext }) => {
+    const cron = "0 9 * * *";
+    return { cron, tz, from, next: nextAfter(parseCron(cron), tz, from), rustNext,
+      divergence: "K7-D6", nodeTzdb: process.versions.tz, rustTzdb: "2025b" };
+  }));
+  return { parse, next, validTz, tzdbDifferences };
 }
 
 // --- user jobs ------------------------------------------------------------------------------------------------------------

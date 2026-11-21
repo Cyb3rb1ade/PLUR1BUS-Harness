@@ -693,8 +693,9 @@ knowledge file, media search and the engine forwards are K7b onward).
   a real timer (a host calls `tick` and `IntegrityArm::fire`), the engine forward of the job runner.
 - *Known deviations:* no DST rules after 2037 in `chrono-tz` (zones with DST give the standard offset there), a wall year below 100 and the
   instants within a day of the earliest `Date` are errors, a lone surrogate in a definition cannot be held, the user-jobs directory is 0700,
-  a newer store schema is refused where TypeScript opens it. The tz database release of the exporting Node can differ from the crate's
-  (`Africa/Casablanca` left out of the vectors).
+  a newer store schema is refused where TypeScript opens it. **K7-D6 (K7a-R3):** The pinned Rust tzdb 2025b and Node tzdb 2026c
+  disagree on the transition to permanent UTC in `Africa/Casablanca` and `Africa/El_Aaiun` on 2026-09-20. The recorded examples on
+  both sides of the transition pin the database versions and the exact UTC outcomes. [IANA 2026c release notes](https://data.iana.org/time-zones/tzdb-2026c/NEWS).
 - *Ports for the flip:* clock, ids (`randomUUID`), audit (`AuditSink`), principal lookup (`resolve`), delivery check (`validateDelivery`),
   agent existence and list, budget gate, display name, the turn (`submitTurn`), `notify`, `onRecorded`, `onFailed`, `isStopping`, the
   owner-only hook, `engineHasJob`, a logger, the integrity arm's timers.

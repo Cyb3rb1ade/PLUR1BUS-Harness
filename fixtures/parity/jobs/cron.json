@@ -25497,6 +25497,48 @@
       }
     }
   ],
+  "tzdbDifferences": [
+    {
+      "cron": "0 9 * * *",
+      "divergence": "K7-D6",
+      "from": 1789776000000,
+      "next": 1789804800000,
+      "nodeTzdb": "2026c",
+      "rustNext": 1789804800000,
+      "rustTzdb": "2025b",
+      "tz": "Africa/Casablanca"
+    },
+    {
+      "cron": "0 9 * * *",
+      "divergence": "K7-D6",
+      "from": 1789862400000,
+      "next": 1789894800000,
+      "nodeTzdb": "2026c",
+      "rustNext": 1789891200000,
+      "rustTzdb": "2025b",
+      "tz": "Africa/Casablanca"
+    },
+    {
+      "cron": "0 9 * * *",
+      "divergence": "K7-D6",
+      "from": 1789776000000,
+      "next": 1789804800000,
+      "nodeTzdb": "2026c",
+      "rustNext": 1789804800000,
+      "rustTzdb": "2025b",
+      "tz": "Africa/El_Aaiun"
+    },
+    {
+      "cron": "0 9 * * *",
+      "divergence": "K7-D6",
+      "from": 1789862400000,
+      "next": 1789894800000,
+      "nodeTzdb": "2026c",
+      "rustNext": 1789891200000,
+      "rustTzdb": "2025b",
+      "tz": "Africa/El_Aaiun"
+    }
+  ],
   "validTz": [
     {
       "tz": "UTC",
