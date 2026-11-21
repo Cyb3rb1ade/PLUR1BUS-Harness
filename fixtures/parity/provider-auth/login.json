@@ -1885,16 +1885,12 @@
           }
         },
         {
-          "divergence": "K4-D3",
           "request": {
             "host": "127.0.0.1:$PORT",
             "method": "GET",
             "target": "//["
           },
           "response": {
-            "noAnswer": true
-          },
-          "rust": {
             "body": "Not found.",
             "headers": {
               "cache-control": "no-store",
@@ -1903,22 +1899,15 @@
               "referrer-policy": "no-referrer"
             },
             "status": 404
-          },
-          "threw": [
-            "TypeError"
-          ]
+          }
         },
         {
-          "divergence": "K4-D3",
           "request": {
             "host": "127.0.0.1:$PORT",
             "method": "GET",
             "target": "http://["
           },
           "response": {
-            "noAnswer": true
-          },
-          "rust": {
             "body": "Not found.",
             "headers": {
               "cache-control": "no-store",
@@ -1927,10 +1916,7 @@
               "referrer-policy": "no-referrer"
             },
             "status": 404
-          },
-          "threw": [
-            "TypeError"
-          ]
+          }
         },
         {
           "request": {

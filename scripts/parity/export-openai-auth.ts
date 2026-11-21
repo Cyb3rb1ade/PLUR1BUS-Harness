@@ -410,7 +410,7 @@ function rsaFromSeed(bits: number, e: bigint, label: string) {
 /** Review C: the members of a key and a header as TypeScript compares and reads them. `kid` is compared with `===` (two
  *  arrays or objects are never equal, `1` equals `1.0`), and a JWK with a private member `d` is read by `createPublicKey` as a
  *  private key. The key set and the header are raw JSON text, so a number keeps its spelling. `ok` is TypeScript's verdict;
- *  a case with `divergence` is one Rust refuses and TypeScript accepts (Rust stays strict there). */
+ *  a case with `divergence` is one Rust refuses and TypeScript accepts (Rust stays strict there: K4-D7). */
 async function memberCases(c: {
   ed: ReturnType<typeof createPrivateKey>; ed2: ReturnType<typeof createPrivateKey>; rsa: ReturnType<typeof createPrivateKey>;
   edJwk: Record<string, unknown>; rsaJwk: Record<string, unknown>; now: number; d: Record<string, string>; claims: Record<string, unknown>; b64: (v: unknown) => string;
@@ -470,16 +470,26 @@ async function memberCases(c: {
     ["d, q missing", { ...crt(rsaPriv), q: null }], ["d, qi number", { ...crt(rsaPriv), qi: "1" }]] as const)
     rows.push({ name: `rsa ${what}`, keys: [key(rsaPub, { kid: '"e"', ...over })], header: HR, signer: RS });
   for (const m of ["p", "q", "dp", "dq", "qi", "oth"]) for (const v of ['"AAAA"', "1", "null"]) rows.push({ name: `rsa ${m} ${v} without d`, keys: [key(rsaPub, { kid: '"e"', [m]: v })], header: HR, signer: RS });
-  // `alg` as an array: TypeScript accepts such a header, Rust refuses it.
+  // `alg` as an array: both refuse it (TypeScript since P4D-44, which requires the string; formerly K4-D6).
   for (const [h, k, s] of [['{"alg":["EdDSA"],"kid":"e"}', edPub, ED], ['{"alg":[["EdDSA"]],"kid":"e"}', edPub, ED], ['{"alg":["RS256"],"kid":"e"}', rsaPub, RS], ['{"alg":["RS256"],"kid":"e"}', edPub, ED], ['{"alg":["EdDSA"],"kid":"e"}', rsaPub, RS]] as const)
-    rows.push({ name: `alg ${h.slice(7, h.indexOf(',"kid"'))} with ${k.kty} key`, keys: [key(k, { kid: '"e"' })], header: h, signer: s, divergence: "K4-D6" });
+    rows.push({ name: `alg ${h.slice(7, h.indexOf(',"kid"'))} with ${k.kty} key`, keys: [key(k, { kid: '"e"' })], header: h, signer: s });
   rows.push({ name: "alg [EdDSA,RS256]", keys: [key(edPub, { kid: '"e"' })], header: '{"alg":["EdDSA","RS256"],"kid":"e"}', signer: ED });
-  // RSA keys below 2048 bits or with exponent 1: TypeScript accepts them, Rust refuses them. Exponent 3 at 2048 bits passes both.
-  rows.push({ name: "rsa 512", keys: [key(pub(rsa512), { kid: '"e"' })], header: HR, signer: { key: rsa512, alg: "RSA-SHA256" }, divergence: "K4-D5" });
-  rows.push({ name: "rsa 1024", keys: [key(pub(rsa1024), { kid: '"e"' })], header: HR, signer: { key: rsa1024, alg: "RSA-SHA256" }, divergence: "K4-D5" });
+  // RSA keys below 2048 bits, with exponent 1 or an even exponent: both refuse them (TypeScript since P4D-44; formerly
+  // K4-D5). Exponent 3 at 2048 bits passes both.
+  rows.push({ name: "rsa 512", keys: [key(pub(rsa512), { kid: '"e"' })], header: HR, signer: { key: rsa512, alg: "RSA-SHA256" } });
+  rows.push({ name: "rsa 1024", keys: [key(pub(rsa1024), { kid: '"e"' })], header: HR, signer: { key: rsa1024, alg: "RSA-SHA256" } });
   rows.push({ name: "rsa 2048 e=3", keys: [key(pub(rsa2048e3), { kid: '"e"' })], header: HR, signer: { key: rsa2048e3, alg: "RSA-SHA256" } });
-  rows.push({ name: "rsa 2048 e=1", keys: [key(rsaPub, { kid: '"e"', e: '"AQ"' })], header: HR, signer: { raw: Buffer.from(String(c.rsaJwk.n), "base64url").length }, divergence: "K4-D5" });
-  rows.push({ name: "rsa 1024 e=1", keys: [key(pub(rsa1024), { kid: '"e"', e: '"AQ"' })], header: HR, signer: { raw: 128 }, divergence: "K4-D5" });
+  rows.push({ name: "rsa 2048 e=1", keys: [key(rsaPub, { kid: '"e"', e: '"AQ"' })], header: HR, signer: { raw: Buffer.from(String(c.rsaJwk.n), "base64url").length } });
+  rows.push({ name: "rsa 1024 e=1", keys: [key(pub(rsa1024), { kid: '"e"', e: '"AQ"' })], header: HR, signer: { raw: 128 } });
+  rows.push({ name: "rsa 2048 e=4", keys: [key(rsaPub, { kid: '"e"', e: '"BA"' })], header: HR, signer: RS });
+  rows.push({ name: "rsa 2048 e=65536", keys: [key(rsaPub, { kid: '"e"', e: '"AQAA"' })], header: HR, signer: RS });
+  // The modulus and the exponent must be strings (P4D-44).
+  rows.push({ name: "rsa n number", keys: [key(rsaPub, { kid: '"e"', n: "1" })], header: HR, signer: RS });
+  rows.push({ name: "rsa e number", keys: [key(rsaPub, { kid: '"e"', e: "65537" })], header: HR, signer: RS });
+  // A key's own `alg`: absent matches any header algorithm, anything else must be the header's string (P4D-44; before
+  // it TypeScript also matched a falsy member such as `""`, `null`, `0` or `false`).
+  for (const v of ['""', "null", "0", "false", '"EdDSA"', '"RS256"', "[]", '["EdDSA"]'])
+    rows.push({ name: `okp key alg ${v}`, keys: [key(edPub, { kid: '"e"', alg: v })], header: H, signer: ED });
   const out = [];
   for (const r of rows) {
     const keys = `{"keys":[${r.keys.join(",")}]}`, token = tokenOf(r.header, r.signer);
@@ -521,7 +531,7 @@ async function httpCases() {
 
 // ---- the plan's loopback listener: real requests to the real listener (review B) ----
 
-type ListenerRequest = { method?: string; target: string; host?: string; origin?: string; site?: string; at: number; divergence?: string };
+type ListenerRequest = { method?: string; target: string; host?: string; origin?: string; site?: string; at: number };
 const PLAN_STATE = "plan-listener-state";
 const LISTENER_REQUESTS: ListenerRequest[] = [
   { method: "POST", target: `/auth/callback?state=${PLAN_STATE}`, at: 5000 },
@@ -531,10 +541,10 @@ const LISTENER_REQUESTS: ListenerRequest[] = [
   { target: `/auth/callback?state=${PLAN_STATE}`, site: "same-site", at: 5000 },
   { target: "/auth/callback?state=x", site: "none", at: 5000 },
   { target: `/other?state=${PLAN_STATE}`, at: 5000 },
-  // K4-D4 (divergence): a target that is no URL against the redirect makes TypeScript's handler throw (no answer; in the
-  // core an uncaught exception). The port answers 404, as for any other path.
-  { target: "//[", at: 5000, divergence: "K4-D4" },
-  { target: "http://[", at: 5000, divergence: "K4-D4" },
+  // A target that is no URL against the redirect is answered 404, as any other path (P4D-45; before it TypeScript's
+  // handler threw and the request got no answer: K4-D4).
+  { target: "//[", at: 5000 },
+  { target: "http://[", at: 5000 },
   { target: "/auth/callback", at: 5000 },
   { target: `/auth/callback?state=${PLAN_STATE}&state=${PLAN_STATE}`, at: 5000 },
   ...Array.from({ length: 9 }, (_, i) => ({ target: `/auth/callback?state=f${i}`, at: 5000 })),
@@ -575,15 +585,13 @@ async function listenerRun(uncaught: string[]) {
     .then((u) => { resolved = u; }, (e) => { resolved = { error: (e as OpenAIError).code }; });
   const requests: unknown[] = [];
   try {
-    let plain404: unknown;
     for (const r of LISTENER_REQUESTS) {
       t = r.at;
       const before = uncaught.length;
       const response = await send(port, r);
       const threw = uncaught.slice(before);
-      if (r.target.startsWith("/other")) plain404 = response;
       requests.push({ method: r.method ?? "GET", target: r.target, host: r.host ?? "127.0.0.1:$PORT", origin: r.origin ?? null, secFetchSite: r.site ?? null, at: r.at, response,
-        ...(threw.length > 0 ? { threw } : {}), ...(r.divergence ? { divergence: r.divergence, rust: plain404 } : {}) });
+        ...(threw.length > 0 ? { threw } : {}) });
     }
     await done;
   } finally { ctrl.abort(); await l.close(); }

@@ -270,9 +270,10 @@ impl<'a> JwksVerifier<'a> {
             .filter(|k| {
                 // `k.kid === header.kid`: absent equals absent, numbers compare as doubles (`1` is `1.0`), and an array or
                 // object equals nothing, not even one of the same shape (review C, RC-2).
+                // A key's own `alg` matches only when absent or the header's string (`k.alg === undefined || k.alg ===
+                // alg`, P4D-44): a member that is present but falsy (`""`, `null`, `0`, `false`) no longer matches.
                 strict_eq(k.get("kid"), header.get("kid"))
-                    && k.get("alg")
-                        .is_none_or(|a| !super::super::record::truthy(a) || a.as_str() == Some(alg))
+                    && k.get("alg").is_none_or(|a| a.as_str() == Some(alg))
                     && k.get("use").is_none_or(|u| {
                         !super::super::record::truthy(u) || u.as_str() == Some("sig")
                     })

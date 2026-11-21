@@ -601,9 +601,8 @@ const portless = (v: unknown, port: number): unknown => {
   if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, portless(x, port)]));
   return v;
 };
-/** `target` replaces path and query; `divergence` marks a request TypeScript's handler cannot answer, where the port answers
- *  as it does for any other path (the answer of the scenario's first callback, a plain 404). */
-type Callback = { method?: string; path?: string; query?: string; host?: string; target?: string; divergence?: string };
+/** `target` replaces path and query. */
+type Callback = { method?: string; path?: string; query?: string; host?: string; target?: string };
 type LoginScenario = {
   name: string; profile?: Record<string, unknown>; env?: keyof typeof LOGIN_ENVS; paste?: boolean; method?: string; secretRef?: string; timeoutMs?: number;
   script: Scripted[]; callbacks?: Callback[]; pasted?: string; browser?: "fail" | "absent"; ui?: "absent"; failSets?: number;
@@ -624,9 +623,9 @@ const LOGIN_SCENARIOS: LoginScenario[] = [
   { name: "loopback-two-codes", script: [], callbacks: [{ query: "code=a&code=b&state=$STATE" }] },
   { name: "loopback-rate-limit", timeoutMs: 400, script: [], callbacks: Array.from({ length: 12 }, (_, i) => ({ query: `code=x&state=forged-${i}` })) },
   { name: "loopback-timeout", timeoutMs: 150, script: [], callbacks: [{ query: "code=x&state=wrong" }] },
-  // K4-D3 (divergence): a request target that is no URL against the redirect makes TypeScript's handler throw (no answer;
-  // in the core an uncaught exception). The port answers 404, as for any other path, and the genuine callback still ends it.
-  { name: "loopback-unparsable-target", script: [tok(1)], callbacks: [{ path: "/other", query: "x=1" }, { target: "//[", divergence: "K4-D3" }, { target: "http://[", divergence: "K4-D3" }, { query: GOOD }] },
+  // A request target that is no URL against the redirect is answered 404, as any other path, and the genuine callback still
+  // ends the login (P4D-45; before it TypeScript's handler threw and the request got no answer: K4-D3).
+  { name: "loopback-unparsable-target", script: [tok(1)], callbacks: [{ path: "/other", query: "x=1" }, { target: "//[" }, { target: "http://[" }, { query: GOOD }] },
   { name: "loopback-browser-fails", script: [], browser: "fail" },
   { name: "loopback-no-browser-port", script: [], browser: "absent" },
   { name: "loopback-exchange-invalid-grant", script: [json(400, { error: "invalid_grant" })], callbacks: [{ query: GOOD }] },
@@ -690,8 +689,7 @@ async function runLogin(s: LoginScenario) {
         const before = uncaught.length;
         const response = await hit(port, c.method ?? "GET", target, sub(c.host ?? "127.0.0.1:$PORT"));
         const threw = uncaught.slice(before);
-        answers.push({ request: { method: c.method ?? "GET", target, host: sub(c.host ?? "127.0.0.1:$PORT") }, response, ...(threw.length > 0 ? { threw } : {}),
-          ...(c.divergence ? { divergence: c.divergence, rust: (answers[0] as { response: unknown }).response } : {}) });
+        answers.push({ request: { method: c.method ?? "GET", target, host: sub(c.host ?? "127.0.0.1:$PORT") }, response, ...(threw.length > 0 ? { threw } : {}) });
       }
     };
     const profile = JSON.parse(JSON.stringify(s.profile ?? PKCE_PROFILE));

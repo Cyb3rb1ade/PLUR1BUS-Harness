@@ -1,6 +1,7 @@
 //! The TypeScript tests of the file-system half (`packages/core/test/policy/paths.test.ts`, `paths-hardening.test.ts`,
 //! the `canonicalisePath` part of `system-tree.test.ts`) where the vectors (`fs_vectors.rs`) do not already hold the case,
-//! the Rust-only answers (K2-D5 to K2-D7), and the races inside one call, which only the scripted double can produce.
+//! the Rust-only answers (K2-D6, K2-D7; K2-D5 is parity since P4D-43), and the races inside one call, which only the
+//! scripted double can produce.
 //! Every test works in its own temporary directory; nothing outside it is created or written.
 #![cfg_attr(not(unix), allow(unused_imports, dead_code))]
 

@@ -129,8 +129,16 @@ const CASES: Case[] = [
     c("$ROOT/root/race-write.txt", { access: "write" }), fsDo({ rm: "root/race-write.txt" }, { symlink: "root/race-write.txt", target: "$ROOT/outside/secret.txt" }), open(0, "O_WRONLY", "O_TRUNC"),
     read("$ROOT/outside/secret.txt"),
   ] },
-  { name: "swap-write-for-hard-link", divergence: "K2-D5", tree: [{ file: "root/t.txt", text: "original" }], steps: [
+  // The truncation comes after the identity check, so the other file keeps its contents (P4D-43; formerly K2-D5).
+  { name: "swap-write-for-hard-link", tree: [{ file: "root/t.txt", text: "original" }], steps: [
     c("$ROOT/root/t.txt", { access: "write" }), fsDo({ rm: "root/t.txt" }, { link: "root/t.txt", to: "outside/secret.txt" }), open(0, "O_WRONLY", "O_TRUNC"), read("$ROOT/outside/secret.txt"),
+  ] },
+  // A target missing at the check is opened only to create it; whatever appeared there since is `not-found` (P4D-43).
+  { name: "late-hard-link-without-create", steps: [
+    c("$ROOT/root/late.txt", { access: "write" }), fsDo({ link: "root/late.txt", to: "outside/secret.txt" }), open(0, "O_WRONLY", "O_TRUNC"), read("$ROOT/outside/secret.txt"),
+  ] },
+  { name: "late-file-read-without-create", steps: [
+    c("$ROOT/root/late-read.txt"), fsDo({ file: "root/late-read.txt", text: "planted" }), open(0, "O_RDONLY"),
   ] },
   { name: "planted-link-at-create", steps: [
     c("$ROOT/root/race-create.txt", { access: "write" }), fsDo({ symlink: "root/race-create.txt", target: "$ROOT/outside/planted.txt" }), open(0, "O_WRONLY", "O_CREAT"), list("$ROOT/outside"),

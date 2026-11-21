@@ -15,9 +15,10 @@
 //! macOS). NFC is [`super::paths::Nfc`] (production: [`super::paths::IcuNfc`]). Nothing here is wired.
 //!
 //! **Deliberate differences from TypeScript** (each in the K2 entry of the ledger of P4-K):
-//! - K2-D5: `O_TRUNC` is not passed to the open; the file is truncated only after every post-open check passed. The
-//!   TypeScript open truncates first, so a leaf swapped for a hard link to another file loses that file's contents
-//!   before the identity check refuses it.
+//! - K2-D5, closed by P4D-43: `O_TRUNC` is not passed to the open; the file is truncated only after every post-open
+//!   check passed. The TypeScript open truncated first, so a leaf swapped for a hard link to another file lost that
+//!   file's contents before the identity check refused it; since P4D-43 it truncates after the checks as well, and the
+//!   vector `swap-write-for-hard-link` is plain parity.
 //! - K2-D6: the open adds `O_NONBLOCK` on unix and refuses a descriptor that is neither a regular file nor a directory
 //!   (`unsupported-open`). The TypeScript open of a FIFO blocks until a writer appears, which can be never.
 //! - K2-D7: after a create, the leaf at the checked path must be the created file (same device and inode, not a link).
@@ -2243,7 +2244,8 @@ pub fn open_verified_in<F: PathFs>(
     }
     // A target that did not exist when it was checked has no identity an opened file could be compared with: whatever
     // is at the path now was not checked. Only an open that creates it (exclusively, below) may go on; any other open
-    // of it is `not-found` before anything is opened. TypeScript opens it and compares nothing (a Rust-only refusal).
+    // of it is `not-found` before anything is opened. TypeScript refuses it the same way since P4D-43 (vectors
+    // `late-hard-link-without-create`, `late-file-read-without-create`).
     if !c.exists && !flags.create {
         return Err(refuse("not-found", "the target does not exist"));
     }

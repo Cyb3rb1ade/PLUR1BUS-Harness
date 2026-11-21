@@ -668,9 +668,10 @@ fn eddsa_edges_get_typescripts_verdict() {
     assert_eq!(accepted, 17);
 }
 
-/// Review C: `kid` as TypeScript's `===` compares it, keys with private members, `alg` as an array and RSA keys below the
-/// verifier's floor. The key set is raw JSON text (a number keeps its spelling). A case with `divergence` is one TypeScript
-/// accepts and Rust refuses (K4-D5, K4-D6, K4-D7); every other case gets TypeScript's verdict.
+/// Review C: `kid` as TypeScript's `===` compares it, keys with private members, `alg` as an array or as a key member, and
+/// RSA keys below the verifier's floor or with an exponent it refuses. The key set is raw JSON text (a number keeps its
+/// spelling). A case with `divergence` is one TypeScript accepts and Rust refuses (K4-D7); every other case gets
+/// TypeScript's verdict. P4D-44 made TypeScript refuse what K4-D5 and K4-D6 recorded, so those cases are plain parity now.
 #[test]
 fn key_members_get_typescripts_verdict() {
     let f = fixture("jwks");
@@ -719,14 +720,7 @@ fn key_members_get_typescripts_verdict() {
         cases.len(),
         wrong.join("\n")
     );
-    assert_eq!(
-        divergent,
-        BTreeMap::from([
-            ("K4-D5".to_owned(), 4),
-            ("K4-D6".to_owned(), 5),
-            ("K4-D7".to_owned(), 4)
-        ])
-    );
+    assert_eq!(divergent, BTreeMap::from([("K4-D7".to_owned(), 4)]));
 }
 
 /// Review C, RC-6: `startLogin`/`cancelLogin`/`awaitLogin` of TypeScript's service over the bookkeeping. A cancelled login
@@ -926,8 +920,8 @@ fn openai_http_replays() {
     }
 }
 
-/// The plan's loopback gate over the requests TypeScript's real listener answered (review B). A request with `divergence`
-/// (K4-D4) is one TypeScript's handler throws on, so it never answers; `rust` is the port's answer, a plain 404.
+/// The plan's loopback gate over the requests TypeScript's real listener answered (review B). A target that is no URL is a
+/// plain 404 on both sides (P4D-45; it was the divergence K4-D4 while TypeScript's handler threw on it).
 #[test]
 fn plan_listener_requests_replay() {
     use super::super::login::CallbackRequest;
@@ -941,7 +935,10 @@ fn plan_listener_requests_replay() {
     .unwrap();
     let mut genuine = None;
     let requests = f["requests"].as_array().unwrap();
-    assert!(requests.iter().any(|r| r["divergence"] == "K4-D4"));
+    assert!(requests.iter().any(|r| r["target"] == "//["));
+    assert!(requests
+        .iter()
+        .all(|r| r.get("divergence").is_none() && r.get("rust").is_none()));
     for (i, r) in requests.iter().enumerate() {
         let opt = |k: &str| r[k].as_str().map(port);
         let req = CallbackRequest {
@@ -961,8 +958,11 @@ fn plan_listener_requests_replay() {
             .map(|(k, v)| ((*k).to_owned(), json!(v)))
             .collect();
         let ours = json!({ "status": answer.status, "body": answer.body, "headers": headers });
-        let theirs = r.get("rust").unwrap_or(&r["response"]);
-        assert_same(&ours, theirs, &format!("request {i} ({})", req.target));
+        assert_same(
+            &ours,
+            &r["response"],
+            &format!("request {i} ({})", req.target),
+        );
         if url.is_some() {
             genuine = url;
         }

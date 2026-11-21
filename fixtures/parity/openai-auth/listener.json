@@ -173,14 +173,10 @@
     },
     {
       "at": 5000,
-      "divergence": "K4-D4",
       "host": "127.0.0.1:$PORT",
       "method": "GET",
       "origin": null,
       "response": {
-        "noAnswer": true
-      },
-      "rust": {
         "body": "",
         "headers": {
           "cache-control": "no-store",
@@ -190,21 +186,14 @@
         "status": 404
       },
       "secFetchSite": null,
-      "target": "//[",
-      "threw": [
-        "TypeError"
-      ]
+      "target": "//["
     },
     {
       "at": 5000,
-      "divergence": "K4-D4",
       "host": "127.0.0.1:$PORT",
       "method": "GET",
       "origin": null,
       "response": {
-        "noAnswer": true
-      },
-      "rust": {
         "body": "",
         "headers": {
           "cache-control": "no-store",
@@ -214,10 +203,7 @@
         "status": 404
       },
       "secFetchSite": null,
-      "target": "http://[",
-      "threw": [
-        "TypeError"
-      ]
+      "target": "http://["
     },
     {
       "at": 5000,

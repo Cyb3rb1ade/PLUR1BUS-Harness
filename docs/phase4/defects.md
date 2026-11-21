@@ -1027,24 +1027,36 @@ required an absent body. They now construct a response with a null body for 204 
 adapter does the same for 304. The provider transport continues to refuse 304 through its existing
 redirect policy. Adapter tests cover the statuses, response headers and the provider refusal.
 
+<a id="p4d-43"></a>
+
 ## P4D-43 — verified file opens
 
 The path policy now verifies the open file handle before applying a truncation request. A target that
 was absent at the check is refused unless the caller asked to create it. The path tests cover both
-conditions. This is K2-D5 (TS-1) from P4-K.
+conditions. This is K2-D5 (TS-1) from P4-K, numbered [P4D-52](#p4d-52) in the P4-K table. The P4-K
+`policy-fs` vectors record the shared answer since the package took in PR #937, including a target
+that appeared after the check and is opened without a create.
+
+<a id="p4d-44"></a>
 
 ## P4D-44 — RSA keys in OIDC verification
 
 The ID-token verifier requires an allowed string algorithm and the corresponding key member types.
 RS256 requires a modulus of at least 2048 bits and an odd exponent greater than one before signature
 verification. Rejection uses the existing `id-token-invalid` error. The tests cover key and algorithm
-types, the exponent rule and the 2047/2048-bit boundary. This is K4-D5 (T-C1) from P4-K.
+types, the exponent rule and the 2047/2048-bit boundary. This is K4-D5 (T-C1) from P4-K,
+numbered [P4D-67](#p4d-67), and it also closes K4-D6 ([P4D-68](#p4d-68), an `alg` that is an array).
+A key's own `alg` member now matches only when it is absent or equal to the header's algorithm; the
+Rust verifier of P4-K follows that rule. K4-D7 ([P4D-69](#p4d-69)) is not affected.
+
+<a id="p4d-45"></a>
 
 ## P4D-45 — unreadable login callback targets
 
 The login-port and ChatGPT Plan listeners answer an unreadable request target with the existing
 404 for an unknown route. The listener stays open for the legitimate callback. Both listener tests
-cover this sequence. This is K4-D3 and K4-D4 (T-1) from P4-K.
+cover this sequence. This is K4-D3 and K4-D4 (T-1) from P4-K, numbered [P4D-65](#p4d-65) and
+[P4D-66](#p4d-66).
 
 ## P4-K findings and decisions
 
@@ -1071,7 +1083,7 @@ refusal and K7-D5 identifies the calendar difference.
 | <a id="p4d-49"></a>P4D-49 | K2-D2 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/policy/` | info | Rust strict | A policy audit field capped at 256 UTF-16 units can end inside a surrogate pair. Rust stops before that pair. |
 | <a id="p4d-50"></a>P4D-50 | K2-D3 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/policy/` | info | in parity | An ill-typed last-job timestamp can follow JavaScript addition and coercion in grant expiry. The real grant store supplies numbers. |
 | <a id="p4d-51"></a>P4D-51 | K2-D4 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/egress/` | low | Rust strict | The egress host parser rejects invalid IDNA labels accepted by Node. The URL and gate vectors record the separate outcomes. |
-| <a id="p4d-52"></a>P4D-52 | K2-D5 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/policy/paths.ts` | security | flip | The legacy verified-open sequence can apply truncation before confirming file identity. The Rust path verifies the opened descriptor first. Keep the checked descriptor through the flip. |
+| <a id="p4d-52"></a>P4D-52 | K2-D5 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/policy/paths.ts` | security | in parity | Closed in TypeScript by [P4D-43](#p4d-43) (PR #937): both sides truncate only after the opened descriptor passed the identity check, and refuse a target missing at the check unless the open creates it. The policy-fs vectors record the shared answers. Keep the checked descriptor through the flip. |
 | <a id="p4d-53"></a>P4D-53 | K2-D6 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/policy/paths.ts` | low | Rust strict | A FIFO can block the legacy open. Rust opens without blocking and refuses descriptors other than files and directories. |
 | <a id="p4d-54"></a>P4D-54 | K2-D7 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/policy/paths.ts` | low | Rust strict | Detection of a changed parent during file creation differs by platform. Rust compares the created descriptor with the entry at the checked location before accepting it. |
 | <a id="p4d-55"></a>P4D-55 | K2-D8 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/policy/` | low | Rust strict | An invalid configuration object can throw during JavaScript policy coercion. Rust refuses the value at the affected boundary, as recorded by the policy vectors. |
@@ -1094,10 +1106,10 @@ refusal and K7-D5 identifies the calendar difference.
 |---|---|---|---|---|---|
 | <a id="p4d-63"></a>P4D-63 | K4-D1 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/auth/` | info | in parity | An ill-typed extra_headers member can be enumerated as JavaScript object entries. Rust reproduces the legacy profile validation in the vectors. |
 | <a id="p4d-64"></a>P4D-64 | K4-D2 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/auth/` | info | Rust port | The login callback rate limit reads wall time in TypeScript. Rust reads its injected clock. |
-| <a id="p4d-65"></a>P4D-65 | K4-D3 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/auth/` | low | Rust strict | A malformed loopback login request target can leave the legacy request unanswered. Rust returns 404 and continues to accept callbacks. |
-| <a id="p4d-66"></a>P4D-66 | K4-D4 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | low | Rust strict | The plan OAuth loopback has the same malformed-target difference after method and host checks. The listener vector records it separately. |
-| <a id="p4d-67"></a>P4D-67 | K4-D5 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | security | flip | The Rust ID-token verifier rejects undersized RSA keys and exponent 1. The JWKS members fixture records the legacy acceptance difference. |
-| <a id="p4d-68"></a>P4D-68 | K4-D6 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | low | Rust strict | The Rust ID-token verifier requires a string alg member. The JWKS members fixture includes an array accepted by the JavaScript path. |
+| <a id="p4d-65"></a>P4D-65 | K4-D3 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/auth/` | low | in parity | Closed in TypeScript by [P4D-45](#p4d-45) (PR #937): a malformed loopback login request target gets 404 on both sides, and the listener continues to accept callbacks. The login vector records the shared answer. |
+| <a id="p4d-66"></a>P4D-66 | K4-D4 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | low | in parity | Closed in TypeScript by [P4D-45](#p4d-45) (PR #937): the plan OAuth loopback answers a malformed target after method and host checks with 404 on both sides. The listener vector records the shared answer. |
+| <a id="p4d-67"></a>P4D-67 | K4-D5 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | security | Rust strict | Since [P4D-44](#p4d-44) (PR #937) both verifiers reject RSA keys below 2048 bits and an exponent that is 1 or even; the JWKS members fixture records the shared refusals. Rust stays stricter only at the limits of `ring`: a modulus above 8192 bits or an exponent of 2^33 or more is refused where TypeScript accepts it. No vector covers these limits. |
+| <a id="p4d-68"></a>P4D-68 | K4-D6 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | low | in parity | Closed in TypeScript by [P4D-44](#p4d-44) (PR #937): both verifiers require a string alg member. The JWKS members fixture records the shared refusal of an array. |
 | <a id="p4d-69"></a>P4D-69 | K4-D7 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | security | Rust strict | The verifier rejects a key set entry containing private-key material. The adopted JWK contract is public verification keys only. |
 | <a id="p4d-70"></a>P4D-70 | K4-D8 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | low | Rust strict | The service-account PEM reader rejects malformed leading or trailing bytes that OpenSSL can accept. The PEM vectors pin both sides. |
 | <a id="p4d-71"></a>P4D-71 | K4-D9 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | low | Rust strict | Malformed or unrepresentable identity JSON is refused by the Rust reader. This includes a lone surrogate, an out-of-range number or excessive nesting. |

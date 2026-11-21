@@ -828,9 +828,9 @@ impl LoopbackListener for Listener {
         })
     }
     fn respond(&mut self, r: &CallbackResponse) {
-        // A callback with `divergence` (K4-D3) is one TypeScript's handler throws on; `rust` is the port's answer.
-        let entry = &self.callbacks[self.next];
-        let theirs = entry.get("rust").unwrap_or(&entry["response"]);
+        // Every callback is compared with TypeScript's answer; a target that is no URL is a plain 404 on both sides since
+        // P4D-45 (it was the divergence K4-D3 while TypeScript's handler threw on it).
+        let theirs = &self.callbacks[self.next]["response"];
         let headers: Map<String, Value> = r
             .headers
             .iter()

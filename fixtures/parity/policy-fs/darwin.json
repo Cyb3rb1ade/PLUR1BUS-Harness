@@ -2459,7 +2459,6 @@
       ]
     },
     {
-      "divergence": "K2-D5",
       "name": "swap-write-for-hard-link",
       "portable": true,
       "results": [
@@ -2480,7 +2479,7 @@
           "reason": "identity-changed"
         },
         {
-          "text": ""
+          "text": "outside-secret"
         }
       ],
       "steps": [
@@ -2522,6 +2521,108 @@
           "text": "original"
         }
       ]
+    },
+    {
+      "name": "late-hard-link-without-create",
+      "portable": true,
+      "results": [
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/late.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the target does not exist",
+          "ok": false,
+          "reason": "not-found"
+        },
+        {
+          "text": "outside-secret"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/late.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "do": [
+            {
+              "link": "root/late.txt",
+              "to": "outside/secret.txt"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_TRUNC"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "op": "read",
+          "path": "$ROOT/outside/secret.txt"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "late-file-read-without-create",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/late-read.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the target does not exist",
+          "ok": false,
+          "reason": "not-found"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/late-read.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "do": [
+            {
+              "file": "root/late-read.txt",
+              "text": "planted"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        }
+      ],
+      "tree": []
     },
     {
       "name": "planted-link-at-create",

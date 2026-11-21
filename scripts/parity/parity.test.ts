@@ -784,8 +784,12 @@ describe("policy file-system vectors (P4-K K2, plan P4-21)", { skip: process.pla
     const text = readFileSync(fixturePath("policy-fs", POLICY_FS_OS), "utf8");
     assert.equal(text, fixtureText(built[POLICY_FS_OS]), `fixtures/parity/policy-fs/${POLICY_FS_OS}.json is stale: run scripts/parity/export-policy-fs.ts on ${POLICY_FS_OS}`);
     assert.ok(text.length <= 1024 * 1024, "R-K-10: a vector file stays at or under 1 MiB");
-    // The TypeScript truncation before the identity check (K2-D5) is on record, and the file-system-dependent cases are marked.
-    assert.ok(built[POLICY_FS_OS].cases.some((c: any) => c.divergence === "K2-D5"));
+    // Since P4D-43 the truncation follows the identity check (formerly K2-D5): the other file keeps its contents, and a
+    // target missing at the check is not opened without a create. The file-system-dependent cases are marked.
+    const fsCase = (n: string) => built[POLICY_FS_OS].cases.find((c: any) => c.name === n);
+    assert.deepEqual(fsCase("swap-write-for-hard-link").results.at(-1), { text: "outside-secret" });
+    assert.equal(fsCase("late-hard-link-without-create").results[2].reason, "not-found");
+    assert.ok(built[POLICY_FS_OS].cases.every((c: any) => c.divergence === undefined));
     assert.ok(built[POLICY_FS_OS].cases.some((c: any) => c.portable === false));
   });
 });
@@ -811,8 +815,13 @@ describe("OpenAI auth vectors (P4-K K4, plan P4-23)", () => {
   it("the committed fixtures are exactly what the exporter records, in pieces where they hold a secret", async () => {
     const built = await buildOpenAIAuthVectors() as any;
     assert.deepEqual(Object.keys(built).sort(), ["http", "jwks", "listener", "plan", "pure", "service", "workload"]);
-    // Review B: TypeScript's plan listener throws on a target that is no URL (K4-D4); the port answers it.
-    assert.ok(built.listener.requests.filter((r: any) => r.divergence === "K4-D4").every((r: any) => r.response.noAnswer === true && r.rust.status === 404));
+    // Review B: a target that is no URL is answered 404 (P4D-45, formerly K4-D4), and no request divergence remains.
+    const unparsable = built.listener.requests.filter((r: any) => r.target === "//[" || r.target === "http://[");
+    assert.equal(unparsable.length, 2);
+    assert.ok(unparsable.every((r: any) => r.response.status === 404 && r.threw === undefined));
+    assert.ok(built.listener.requests.every((r: any) => r.divergence === undefined));
+    // P4D-44 closed K4-D5 and K4-D6; of the identity divergences only K4-D7 (a key carrying `d`) remains.
+    assert.deepEqual([...new Set(built.jwks.members.filter((c: any) => c.divergence).map((c: any) => c.divergence))], ["K4-D7"]);
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("openai-auth", name), "utf8");
       assert.equal(text, fixtureText(data), `fixtures/parity/openai-auth/${name}.json is stale: run scripts/parity/export-openai-auth.ts`);

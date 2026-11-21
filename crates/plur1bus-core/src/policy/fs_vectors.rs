@@ -246,20 +246,6 @@ fn run(d: &Dirs, steps: &[Value]) -> Vec<Value> {
     out
 }
 
-/// K2-D5: the TypeScript open truncates before its identity check refuses, so the file the leaf was swapped for loses its
-/// contents; Rust truncates only after the checks. The vector holds the TypeScript answer; Rust must give this one.
-fn rust_answer(case: &str, step: usize, recorded: &Value) -> Value {
-    if case == "swap-write-for-hard-link" && step == 3 {
-        assert_eq!(
-            recorded,
-            &json!({ "text": "" }),
-            "the vector records the TypeScript truncation (K2-D5)"
-        );
-        return json!({ "text": "outside-secret" });
-    }
-    recorded.clone()
-}
-
 // The count of cases not played is asserted below per system; the line is for `--nocapture`, so a reader sees it.
 #[allow(clippy::print_stderr)]
 #[test]
@@ -304,12 +290,8 @@ fn fs_path_vectors_replay() {
         let want = case["results"].as_array().unwrap();
         assert_eq!(got.len(), want.len(), "{name}");
         for (i, (g, w)) in got.iter().zip(want).enumerate() {
-            assert_eq!(
-                g,
-                &rust_answer(name, i, w),
-                "case {name}, step {i}: {}",
-                case["steps"][i]
-            );
+            // Every step is TypeScript's answer, the truncation case of P4D-43 (formerly K2-D5) included.
+            assert_eq!(g, w, "case {name}, step {i}: {}", case["steps"][i]);
         }
         played += 1;
     }

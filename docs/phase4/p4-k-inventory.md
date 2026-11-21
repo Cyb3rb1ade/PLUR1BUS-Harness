@@ -2,6 +2,11 @@
 
 Package P4-K (card `reviews/paket-p4-k-kern-bibliotheken-2026-11-18.md`). The K0 inventory used basis `fc113b4e2d`.
 The implementation, parity evidence and host boundaries are in the “as built” sections and the K12 closure below.
+Paket T used the reserved defect numbers P4D-40, P4D-43, P4D-44 and P4D-45 (PR #937); K12 numbers start at P4D-46. Three
+of the TypeScript fixes of PR #937 close package findings: P4D-43 closes K2-D5 ([P4D-52](defects.md#p4d-52)), P4D-44 closes
+K4-D5 ([P4D-67](defects.md#p4d-67), apart from the limits of `ring`) and K4-D6 ([P4D-68](defects.md#p4d-68)), and P4D-45
+closes K4-D3 and K4-D4 ([P4D-65](defects.md#p4d-65), [P4D-66](defects.md#p4d-66)). Their vectors were re-recorded and are
+plain parity cases now.
 
 Parity modes (plan §3): **V** vectors (exporter), **B** store round trip, **T** transcripts, **W** wire fixtures, **S** system
 suites. A test file with no mode has its reason in the "no mode" column. Sizes are lines of `.ts` under `packages/core/src` and
@@ -181,10 +186,12 @@ one `pub mod` line each in `lib.rs`; no RPC method, nothing wired into the front
 - *Deliberately not ported:* `egress.request` (P4-30), the chain's `verify`/`rotate` on the core object, `health.ts`, `notices.ts`, `rpc.ts`
   (surface of the flip), the process, hash and signature work of `attestation/helper.ts` (the flip's `HelperHost`).
 - *Deliberately different from TypeScript, the file-system half* (the TypeScript code is frozen, D129; numbers in K12, R-K-6):
-  **K2-D5** (security): the TypeScript open passes `O_TRUNC` to `open(2)`, before its identity check, so a leaf swapped for a hard link
-  to another file (or opened through a parent swapped for a link between the pre-check and the open) empties that file before the
-  refusal; the vector `swap-write-for-hard-link` records it. Rust opens without `O_TRUNC` and truncates the descriptor only after every
-  check. **K2-D6** (availability): the TypeScript open of a FIFO blocks until a writer appears; Rust adds `O_NONBLOCK` (unix) and refuses
+  **K2-D5** ([P4D-52](defects.md#p4d-52), security, closed in TypeScript by P4D-43, PR #937): the TypeScript open passed `O_TRUNC`
+  to `open(2)`, before its identity check, so a leaf swapped for a hard link to another file (or opened through a parent swapped for a
+  link between the pre-check and the open) emptied that file before the refusal. Rust opens without `O_TRUNC` and truncates the
+  descriptor only after every check; since P4D-43 TypeScript does the same, and it refuses a target missing at the check unless the
+  open creates it, as Rust did from the start. The vectors `swap-write-for-hard-link`, `late-hard-link-without-create` and
+  `late-file-read-without-create` record the shared answers. **K2-D6** (availability): the TypeScript open of a FIFO blocks until a writer appears; Rust adds `O_NONBLOCK` (unix) and refuses
   a descriptor that is neither a regular file nor a directory (`unsupported-open`). **K2-D7** (detection): a create through a parent
   swapped for a link and back between the pre-check and the open leaves a file outside the root that TypeScript on macOS does not notice;
   Rust checks that the created file is the leaf at the checked path (refused, but the stray empty file stays: preventing it needs
@@ -421,21 +428,27 @@ front door, the relay, `native*.rs` or the supervisor; no schema change, no new 
   where TypeScript reads the wall clock; the credentials provider takes the refresh owner's timer and randomness as ports; a JSON body
   is written with its members in key order (`serde_json`), TypeScript keeps insertion order (nothing a server reads); a token answer
   `serde_json` cannot read (a lone surrogate escape, a number beyond a double) is `invalid_response` or `transport-failed`, fail
-  closed; `ring` refuses RSA keys below 2048 bits (a service-account key, a JWKS key: K4-D5) where Node accepts them, fail closed;
+  closed; `ring` refuses RSA keys below 2048 bits for a service-account key where Node accepts them, fail closed (for a JWKS key
+  TypeScript refuses them as well since P4D-44; see K4-D5);
   a caller waiting for another caller's refresh gives up after the wait limit, where TypeScript awaits the shared promise; a workload
   exchange answer whose `token_type` is an array that `String()` turns into `bearer` is refused, TypeScript takes it; the plan
   registration and the credential index are rewritten with their known members only (TypeScript spreads what it read, so a member
   only a hand could have added survives there); the usage book's file is created 0600 (TypeScript relies on the 0700 `state/`).
 - *`K4-D` findings:* K4-D1 (robustness): `validateProfile` accepts an `extra_headers` that is a string, an array or a number
   (`Object.entries` reads indexes; `"ab"` becomes the headers `0: a`, `1: b`); Rust does the same (parity, vector). K4-D2 (test seam):
-  the forged-callback rate limit of `auth/login.ts` reads `Date.now()`, not the injected clock. K4-D3 (availability, divergence):
-  `auth/login.ts` resolves a request target against the redirect without a guard, so a target that is no URL makes its handler throw
-  and the request gets no answer; the port answers 404 and keeps listening (`login.json`, scenario `loopback-unparsable-target`).
-  K4-D4 (availability, divergence): the same in the plan's listener `openai-auth/loopback.ts` once method and headers pass
-  (`listener.json`). The id-token verifier's EdDSA branch refuses keys and R of small order as Node does (`jwks.json`, `eddsa`).
-  K4-D5 (divergence, fail closed): the id-token verifier refuses RSA keys below 2048 bits and with exponent 1, which TypeScript
-  accepts (`jwks.json` `members`; exponent 3 at 2048 bits passes both). K4-D6 (divergence, fail closed): a header whose `alg` is an
-  array is refused; TypeScript accepts it (`members`). K4-D7 (divergence, fail closed): a key set entry with a member `d` is refused
+  the forged-callback rate limit of `auth/login.ts` reads `Date.now()`, not the injected clock. K4-D3 ([P4D-65](defects.md#p4d-65),
+  availability, closed in TypeScript by P4D-45, PR #937): `auth/login.ts` resolved a request target against the redirect without a
+  guard, so a target that is no URL made its handler throw and the request got no answer; the port answers 404 and keeps listening,
+  and since P4D-45 TypeScript does the same (`login.json`, scenario `loopback-unparsable-target`, plain parity).
+  K4-D4 ([P4D-66](defects.md#p4d-66), availability, closed by P4D-45): the same in the plan's listener `openai-auth/loopback.ts`
+  once method and headers pass (`listener.json`, plain parity). The id-token verifier's EdDSA branch refuses keys and R of small
+  order as Node does (`jwks.json`, `eddsa`). K4-D5 ([P4D-67](defects.md#p4d-67), fail closed, closed by P4D-44 apart from the
+  limits of `ring`): the id-token verifier refuses RSA keys below 2048 bits and with an exponent that is 1 or even, and since P4D-44
+  TypeScript refuses them too (`jwks.json` `members`, plain parity; exponent 3 at 2048 bits passes both). What remains is Rust
+  only: `ring` also refuses a modulus above 8192 bits and an exponent of 2^33 or more, which TypeScript accepts (no vector).
+  K4-D6 ([P4D-68](defects.md#p4d-68), fail closed, closed by P4D-44): a header whose `alg` is an array is refused on both sides
+  (`members`). P4D-44 also changed the match on a key's own `alg`: it matches only when absent or equal to the header's string,
+  where TypeScript before matched any falsy member; the Rust verifier now applies the same rule (`members`, `okp key alg`). K4-D7 (divergence, fail closed): a key set entry with a member `d` is refused
   whatever its other members say; Node reads such an entry as a private key and accepts it when the private members are complete
   (`members`). K4-D8 (divergence, fail closed): a service account PEM with `\r` at the start of a line, a NUL at the end of one or a
   byte-order mark before it is refused; OpenSSL reads it (`pem.json`). K4-D9 (fail closed): a stored record, a token header or
