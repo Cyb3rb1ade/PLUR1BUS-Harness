@@ -185,11 +185,15 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/tools/sandbox/worktree-inventory.ts` | port | D123 SB-3 ports seatbeltProfile() and backendArgv(); referenced by the plan, not duplicated |
 | `packages/core/src/tools/sandbox/worktree-mount.ts` | port | D123 SB-3 ports seatbeltProfile() and backendArgv(); referenced by the plan, not duplicated |
 
+<a id="source-p4-02"></a>
+
 ### P4-02 — Parity harness (this package)
 
 | File | Disposition | Note |
 |---|---|---|
 | `packages/module-api/src/parity-recorder.ts` | stays-TS | the transcript recorder seam of this package |
+
+<a id="source-p4-10"></a>
 
 ### P4-10 — Front door, relay, legacy demotion
 
@@ -227,6 +231,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/module-api/src/orphan-watch.ts` | stays-TS | published SDK (ADR-016 §1); its behaviour is the reference P4-10 reproduces in crates/plur1bus-rpc |
 | `packages/module-api/src/rpc-server.ts` | stays-TS | published SDK (ADR-016 §1); its behaviour is the reference P4-10 reproduces in crates/plur1bus-rpc |
 | `packages/module-api/src/trust.ts` | stays-TS | published SDK (ADR-016 §1); its behaviour is the reference P4-10 reproduces in crates/plur1bus-rpc |
+
+<a id="source-p4-11"></a>
 
 ### P4-11 — Configuration, logs, doctor, metrics
 
@@ -274,6 +280,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/log-schema/src/gen-fixtures.d.mts` | fold | crates/plur1bus-log-schema mirrors it (plan §1.3) |
 | `packages/log-schema/src/gen-fixtures.mjs` | fold | crates/plur1bus-log-schema mirrors it (plan §1.3) |
 | `packages/log-schema/src/index.ts` | fold | crates/plur1bus-log-schema mirrors it (plan §1.3) |
+
+<a id="source-p4-12"></a>
 
 ### P4-12 — Identity, RBAC, principals, memory exposure
 
@@ -327,6 +335,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/rpc/identity-surface.ts` | port | identity and break-glass surfaces |
 | `packages/core/src/rpc/memory-caller-access.ts` | port | assigned by content: API principal admission, forwarded identity, personal-token store, caller binding |
 
+<a id="source-p4-20"></a>
+
 ### P4-20 — Secrets and the redactor
 
 | File | Disposition | Note |
@@ -350,6 +360,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/secrets/runtime.ts` | port | plan §1.2 |
 | `packages/core/src/secrets/store.ts` | port | plan §1.2 |
 | `packages/core/src/secrets/types.ts` | port | plan §1.2 |
+
+<a id="source-p4-21"></a>
 
 ### P4-21 — D109 policy, egress, audit append, attestation
 
@@ -378,6 +390,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/policy/index.ts` | port | plan §1.2 |
 | `packages/core/src/policy/paths-index.ts` | port | plan §1.2 |
 | `packages/core/src/policy/paths.ts` | port | plan §1.2 |
+
+<a id="source-p4-22"></a>
 
 ### P4-22 — Approvals, grants, inbox, delivery, channel hand-off
 
@@ -412,6 +426,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/inbox/service.ts` | port | plan §1.2 |
 | `packages/core/src/inbox/store.ts` | port | plan §1.2 |
 | `packages/core/src/rpc/inbox-surface.ts` | port | inbox.* |
+
+<a id="source-p4-23"></a>
 
 ### P4-23 — Auth ladder, credential pool, OAuth clients
 
@@ -448,6 +464,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/openai-auth/workload.ts` | port | plan §1.2 |
 | `packages/core/src/rpc/auth-surface.ts` | port | auth.* surface |
 
+<a id="source-p4-24"></a>
+
 ### P4-24 — Budgets and usage
 
 | File | Disposition | Note |
@@ -469,6 +487,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/rpc/licence-surface.ts` | port | licences, usage (plan P4-24 source), telemetry.cache.summary reads the budget ledger |
 | `packages/core/src/rpc/session-usage.ts` | port | licences, usage (plan P4-24 source), telemetry.cache.summary reads the budget ledger |
 | `packages/core/src/rpc/telemetry-surface.ts` | port | licences, usage (plan P4-24 source), telemetry.cache.summary reads the budget ledger |
+
+<a id="source-p4-30"></a>
 
 ### P4-30 — exec, fs and web tools
 
@@ -502,6 +522,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/tools/web/searxng.ts` | port | plan §1.2 executors |
 | `packages/core/src/tools/web/tools.ts` | port | plan §1.2 executors |
 
+<a id="source-p4-31"></a>
+
 ### P4-31 — Host tools and hostctl
 
 | File | Disposition | Note |
@@ -531,6 +553,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/hostctl/src/pool.ts` | port | plan P4-31 |
 | `packages/hostctl/src/processes.ts` | port | plan P4-31 |
 | `packages/hostctl/src/search.ts` | port | plan P4-31 |
+
+<a id="source-p4-40"></a>
 
 ### P4-40 — Session store and maintenance
 
@@ -563,6 +587,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/session/tokens.ts` | port | plan §1.2 |
 | `packages/core/src/session/turn-telemetry.ts` | port | plan §1.2 |
 | `packages/core/src/session/types.ts` | port | plan §1.2 |
+
+<a id="source-p4-41"></a>
 
 ### P4-41 — Providers and wire formats
 
@@ -625,6 +651,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/providers/src/sse.ts` | port | plan §1.1 |
 | `packages/providers/src/types.ts` | port | plan §1.1 |
 
+<a id="source-p4-42"></a>
+
 ### P4-42 — Prompt builder, tool-call runtime, decision service, triage
 
 | File | Disposition | Note |
@@ -671,6 +699,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/triage/index.ts` | port | plan §1.2 |
 | `packages/core/src/triage/message-eval.ts` | port | plan §1.2 |
 | `packages/core/src/triage/runtime.ts` | port | plan §1.2 |
+
+<a id="source-p4-43"></a>
 
 ### P4-43 — Dispatcher, registry, turn loop, provider loop, composition
 
@@ -730,6 +760,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/tools/secret-names.ts` | port | dispatcher, registry, repair, approval, memory, collaboration (plan §1.2 turn engine) |
 | `packages/core/src/tools/tool-adapter-error.ts` | port | dispatcher, registry, repair, approval, memory, collaboration (plan §1.2 turn engine) |
 
+<a id="source-p4-44"></a>
+
 ### P4-44 — Model discovery and the extension catalogue
 
 | File | Disposition | Note |
@@ -767,6 +799,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/discovery/testing.ts` | port | plan §1.2 |
 | `packages/core/src/discovery/types.ts` | port | plan §1.2 |
 | `packages/core/src/discovery/validate.ts` | port | plan §1.2 |
+
+<a id="source-p4-50"></a>
 
 ### P4-50 — Collaboration, the coding surface and the team shell
 
@@ -812,6 +846,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/rpc/collab-surface.ts` | port | code.session.*, collab.*, project.*, team.* (the TK team shell of PR #900, plan P4-50) |
 | `packages/core/src/rpc/project-board-surface.ts` | port | code.session.*, collab.*, project.*, team.* (the TK team shell of PR #900, plan P4-50) |
 | `packages/core/src/rpc/team-surface.ts` | port | code.session.*, collab.*, project.*, team.* (the TK team shell of PR #900, plan P4-50) |
+
+<a id="source-p4-51"></a>
 
 ### P4-51 — Jobs and the memory-facing forwards
 
@@ -898,6 +934,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/user-jobs/index.ts` | port | core side of the jobs; the engine side is RE-10, the forward is written in Rust (plan P4-51 ordering rule) |
 | `packages/core/src/user-jobs/rpc.ts` | port | core side of the jobs; the engine side is RE-10, the forward is written in Rust (plan P4-51 ordering rule) |
 
+<a id="source-p4-52"></a>
+
 ### P4-52 — Voice
 
 | File | Disposition | Note |
@@ -941,6 +979,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/voice-providers/src/types.ts` | port | cloud STT/TTS/realtime (plan P4-52) |
 | `packages/voice-providers/src/util.ts` | port | cloud STT/TTS/realtime (plan P4-52) |
 | `packages/voice-providers/src/ws.ts` | port | cloud STT/TTS/realtime (plan P4-52) |
+
+<a id="source-p4-53"></a>
 
 ### P4-53 — Media jobs and documents
 
@@ -991,6 +1031,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/media/src/upload-types.ts` | port | plan P4-53 |
 | `packages/media/src/video.ts` | port | plan P4-53 |
 
+<a id="source-p4-60"></a>
+
 ### P4-60 — Telegram
 
 | File | Disposition | Note |
@@ -1005,6 +1047,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/channels-telegram/src/rate-limit.ts` | port | plan track G |
 | `packages/channels-telegram/src/redact.ts` | port | plan track G |
 | `packages/channels-telegram/src/split.ts` | port | plan track G |
+
+<a id="source-p4-61"></a>
 
 ### P4-61 — Discord
 
@@ -1026,6 +1070,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/channels-discord/src/split.ts` | port | plan track G |
 | `packages/channels-discord/src/state.ts` | port | plan track G |
 
+<a id="source-p4-62"></a>
+
 ### P4-62 — Slack
 
 | File | Disposition | Note |
@@ -1046,6 +1092,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/channels-slack/src/socket.ts` | port | plan track G |
 | `packages/channels-slack/src/split.ts` | port | plan track G |
 
+<a id="source-p4-63"></a>
+
 ### P4-63 — Signal
 
 | File | Disposition | Note |
@@ -1061,6 +1109,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/channels-signal/src/redact.ts` | port | plan track G |
 | `packages/channels-signal/src/rpc.ts` | port | plan track G |
 | `packages/channels-signal/src/split.ts` | port | plan track G |
+
+<a id="source-p4-64"></a>
 
 ### P4-64 — E-mail
 
@@ -1085,6 +1135,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/channels-email/src/uid-store.ts` | port | plan track G |
 | `packages/channels-email/src/wire.ts` | port | plan track G |
 
+<a id="source-p4-65"></a>
+
 ### P4-65 — Matrix
 
 | File | Disposition | Note |
@@ -1107,6 +1159,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/channels-matrix/src/sync-safety.ts` | port | plan track G; crypto through matrix-sdk-crypto |
 | `packages/channels-matrix/src/sync-store.ts` | port | plan track G; crypto through matrix-sdk-crypto |
 
+<a id="source-p4-66"></a>
+
 ### P4-66 — Buzz
 
 | File | Disposition | Note |
@@ -1115,6 +1169,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/channels-buzz/src/index.ts` | port | plan track G |
 | `packages/channels-buzz/src/nostr.ts` | port | plan track G |
 | `packages/channels-buzz/src/seen.ts` | port | plan track G |
+
+<a id="source-p4-67"></a>
 
 ### P4-67 — Switchboard flip
 
@@ -1137,6 +1193,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/channels/types.ts` | port | router, switchboard, bindings |
 | `packages/core/src/composition/channel-uploads.ts` | port | plan P4-67 source |
 | `packages/core/src/rpc/channel-surface.ts` | port | plan P4-67 source |
+
+<a id="source-p4-70"></a>
 
 ### P4-70 — MCP client and server
 
@@ -1172,6 +1230,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/mcp/windows-job.ts` | port | plan §1.2 |
 | `packages/core/src/tools/mcp-bridge.ts` | port | plan P4-70 source |
 
+<a id="source-p4-71"></a>
+
 ### P4-71 — ACP server, ACP client and external agents
 
 | File | Disposition | Note |
@@ -1204,6 +1264,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/external-agents/provisioner.ts` | port | containment and the launcher are D123's |
 | `packages/core/src/external-agents/watchdog-detail.ts` | port | containment and the launcher are D123's |
 
+<a id="source-p4-72"></a>
+
 ### P4-72 — A2A client and server
 
 | File | Disposition | Note |
@@ -1231,6 +1293,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/rpc/a2a-peers.ts` | port | plan P4-72 source |
 | `packages/core/src/tools/a2a-transport.ts` | port | plan P4-72 source |
 
+<a id="source-p4-80a"></a>
+
 ### P4-80a — API server core
 
 | File | Disposition | Note |
@@ -1257,6 +1321,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/api/src/ws-routes.ts` | stays-TS | plan track I; the API may stay TypeScript for 0.1 (Q1) |
 | `packages/api/src/ws.ts` | stays-TS | plan track I; the API may stay TypeScript for 0.1 (Q1) |
 | `packages/core/src/api-bin.ts` | stays-TS | node entry of the API slot; the API may stay TypeScript for 0.1 (plan Q1) |
+
+<a id="source-p4-80b"></a>
 
 ### P4-80b — API accounts and OAuth
 
@@ -1287,6 +1353,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/api/src/totp.ts` | stays-TS | plan track I |
 | `packages/api/src/webauthn-routes.ts` | stays-TS | plan track I |
 | `packages/api/src/webauthn.ts` | stays-TS | plan track I |
+
+<a id="source-p4-80c"></a>
 
 ### P4-80c — API desktop and remote access
 
@@ -1329,6 +1397,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/remote-access/src/types.ts` | stays-TS | the API stack may stay TypeScript for 0.1 (plan Q1) |
 | `packages/remote-access/src/x509.ts` | stays-TS | the API stack may stay TypeScript for 0.1 (plan Q1) |
 
+<a id="source-p4-80d"></a>
+
 ### P4-80d — API uploads and protocol endpoints
 
 | File | Disposition | Note |
@@ -1358,6 +1428,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/api/src/mcp/tools/skills.ts` | stays-TS | plan track I |
 | `packages/api/src/mcp/types.ts` | stays-TS | plan track I |
 | `packages/api/src/protocol-routes.ts` | stays-TS | plan track I |
+
+<a id="source-p4-85"></a>
 
 ### P4-85 — Import
 
@@ -1477,6 +1549,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/remote-fs/src/types.ts` | stays-TS | import discovery; crates/plur1bus-remote-fs is the Rust worker; follows import (plan Q1) |
 | `packages/remote-fs/src/worker.ts` | stays-TS | import discovery; crates/plur1bus-remote-fs is the Rust worker; follows import (plan Q1) |
 
+<a id="source-p4-90"></a>
+
 ### P4-90 — Legacy removal
 
 | File | Disposition | Note |
@@ -1512,6 +1586,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/embedding-adapters/src/validate.ts` | drop | not connected to the core or the engine; deleted by P4-90 (plan Q8) |
 | `packages/embedding-adapters/src/vector.ts` | drop | not connected to the core or the engine; deleted by P4-90 (plan Q8) |
 
+<a id="source-p4-91"></a>
+
 ### P4-91 — Eval tooling relocation
 
 | File | Disposition | Note |
@@ -1539,6 +1615,8 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/toolcall/coding-bench.ts` | stays-TS | eval tooling; moves to scripts/eval/ and drives the Rust core over RPC |
 | `packages/core/src/toolcall/turn-eval-live.ts` | stays-TS | eval tooling; moves to scripts/eval/ and drives the Rust core over RPC |
 | `packages/core/src/toolcall/turn-eval.ts` | stays-TS | eval tooling; moves to scripts/eval/ and drives the Rust core over RPC |
+
+<a id="source-p4-93"></a>
 
 ### P4-93 — Local ML on ONNX Runtime (after 0.1)
 

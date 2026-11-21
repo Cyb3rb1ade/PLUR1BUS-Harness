@@ -434,6 +434,7 @@ export function render({ src, tests, other }, systemFiles = []) {
   for (const o of owners) {
     const rows = src.filter((r) => r.owner === o);
     if (!rows.length) continue;
+    if (o.startsWith("P4-")) L.push(`<a id="source-${o.toLowerCase()}"></a>`, "");
     L.push(`### ${o}${OWNERS[o] ? ` — ${OWNERS[o]}` : ""}`, "", "| File | Disposition | Note |", "|---|---|---|", ...pad(rows.map((r) => [`\`${r.path}\``, r.disp, r.note])), "");
   }
   L.push("## Test rows", "", "Columns: file · mode · reason (the reason names why a test has no mode, or what the mode covers). A reason starting with `PROVISIONAL` is a low-confidence assignment that needs the owner's confirmation.", "");
