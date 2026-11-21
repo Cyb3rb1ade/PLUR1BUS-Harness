@@ -1,0 +1,86 @@
+{
+  "cases": [
+    {
+      "correct": true,
+      "delivered": 0,
+      "method": "GET",
+      "name": "get",
+      "response": {
+        "status": 405
+      }
+    },
+    {
+      "body": "{\"update_id\":10,\"message\":{\"message_id\":100,\"date\":1700000000,\"text\":\"Hallo 👋\",\"chat\":{\"id\":42,\"type\":\"private\"},\"from\":{\"id\":42}}}",
+      "correct": false,
+      "delivered": 0,
+      "method": "POST",
+      "name": "wrong-secret",
+      "response": {
+        "status": 403
+      }
+    },
+    {
+      "correct": true,
+      "delivered": 0,
+      "method": "POST",
+      "name": "missing-body",
+      "response": {
+        "status": 400
+      }
+    },
+    {
+      "body": "{",
+      "correct": true,
+      "delivered": 0,
+      "method": "POST",
+      "name": "bad-json",
+      "response": {
+        "status": 400
+      }
+    },
+    {
+      "body": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "correct": true,
+      "delivered": 0,
+      "method": "POST",
+      "name": "oversize",
+      "response": {
+        "status": 413
+      }
+    },
+    {
+      "body": "{\"update_id\":-1,\"message\":{\"message_id\":100,\"date\":1700000000,\"text\":\"Hallo 👋\",\"chat\":{\"id\":42,\"type\":\"private\"},\"from\":{\"id\":42}}}",
+      "correct": true,
+      "delivered": 0,
+      "method": "POST",
+      "name": "negative-id",
+      "response": {
+        "status": 400
+      }
+    },
+    {
+      "body": "{\"update_id\":10,\"message\":{\"message_id\":100,\"date\":1700000000,\"text\":\"Hallo 👋\",\"chat\":{\"id\":42,\"type\":\"private\"},\"from\":{\"id\":42}}}",
+      "correct": true,
+      "delivered": 1,
+      "method": "POST",
+      "name": "normal-update",
+      "response": {
+        "status": 200
+      }
+    },
+    {
+      "body": "{\"update_id\":10,\"message\":{\"message_id\":100,\"date\":1700000000,\"text\":\"Hallo 👋\",\"chat\":{\"id\":42,\"type\":\"private\"},\"from\":{\"id\":42}}}",
+      "correct": true,
+      "delivered": 1,
+      "method": "POST",
+      "name": "duplicate",
+      "response": {
+        "status": 200
+      }
+    }
+  ],
+  "exporter": "scripts/parity/export-channels.ts",
+  "maxBodyBytes": 512,
+  "schema": "plur1bus.parity-webhook/1",
+  "source": "packages/channels-telegram/src/channel.ts"
+}

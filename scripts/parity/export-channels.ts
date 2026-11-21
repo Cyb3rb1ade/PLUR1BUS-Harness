@@ -4,7 +4,9 @@ import { DiscordApi, DiscordApiError, type RequestSpec } from "../../packages/ch
 import { SlackApi, SlackApiError } from "../../packages/channels-slack/src/api.ts";
 import { TelegramApi, TelegramApiError } from "../../packages/channels-telegram/src/api.ts";
 import { startStub } from "../../packages/providers/test/helpers/stub.ts";
+import { buzzRelay } from "./channel-buzz.ts";
 import { imap, mime, smtp } from "./channel-email.ts";
+import { telegramWebhook } from "./channel-telegram.ts";
 import { signalRpc } from "./channel-signal.ts";
 import { discordGateway, slackSocket } from "./channel-sockets.ts";
 import { exporterMain } from "./lib.mjs";
@@ -205,6 +207,8 @@ export async function buildChannelFixtures(): Promise<Record<string, unknown>> {
     "imap-fetch": { schema, exporter, ...await imap(true) },
     "imap-no-starttls": { schema, exporter, ...await imap(false) },
     "email-mime": { exporter, ...mime() },
+    "buzz-relay": { schema, exporter, ...await buzzRelay() },
+    "telegram-webhook": { exporter, ...await telegramWebhook() },
   };
 }
 

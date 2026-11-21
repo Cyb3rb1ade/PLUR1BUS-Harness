@@ -7,7 +7,7 @@ use url::Url;
 struct Loopback(SocketAddr);
 
 impl HttpPorts for Loopback {
-    fn pin(&self, endpoint: &Url) -> Option<SocketAddr> {
+    fn pin(&self, endpoint: &Url, _: std::time::Instant) -> Option<SocketAddr> {
         (endpoint.host_str() == Some("127.0.0.1") && endpoint.port() == Some(self.0.port()))
             .then_some(self.0)
     }

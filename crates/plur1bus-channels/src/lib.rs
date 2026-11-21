@@ -1,6 +1,8 @@
 //! Channel wire protocols with host-supplied credentials, connections, clocks and stores.
 #![forbid(unsafe_code)]
 
+#[cfg(feature = "buzz")]
+pub mod buzz;
 #[cfg(feature = "discord")]
 pub mod discord;
 #[cfg(feature = "email")]

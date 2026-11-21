@@ -13,7 +13,7 @@ use url::{Host, Url};
 
 pub trait HttpPorts {
     /// Verify policy and resolve with a bounded deadline. Returning no address denies the request.
-    fn pin(&self, endpoint: &Url) -> Option<SocketAddr>;
+    fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr>;
     fn cancelled(&self) -> bool {
         false
     }
@@ -133,7 +133,7 @@ impl<'a> Http<'a> {
         if self.cancelled() {
             return Err(Failure::Aborted);
         }
-        let start = Instant::now();
+        let deadline = Instant::now() + timeout.min(Duration::from_secs(600));
         let host = endpoint.host().ok_or(Failure::Denied)?;
         let literal = match host {
             Host::Ipv4(ip) => Some(IpAddr::V4(ip)),
@@ -148,7 +148,7 @@ impl<'a> Http<'a> {
         {
             return Err(Failure::Denied);
         }
-        let pin = self.ports.pin(endpoint).ok_or(Failure::Denied)?;
+        let pin = self.ports.pin(endpoint, deadline).ok_or(Failure::Denied)?;
         if Some(pin.port()) != endpoint.port_or_known_default()
             || literal.is_some_and(|ip| ip != pin.ip())
             || (plain && !pin.ip().is_loopback())
@@ -158,9 +158,7 @@ impl<'a> Http<'a> {
         if self.cancelled() {
             return Err(Failure::Aborted);
         }
-        let timeout = timeout
-            .min(Duration::from_secs(600))
-            .saturating_sub(start.elapsed());
+        let timeout = deadline.saturating_duration_since(Instant::now());
         if timeout.is_zero() {
             return Err(Failure::TimedOut);
         }

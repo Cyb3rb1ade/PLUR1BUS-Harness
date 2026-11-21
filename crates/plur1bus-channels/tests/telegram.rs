@@ -58,7 +58,7 @@ fn mismatched_pins_and_cancelled_requests_never_reach_loopback() {
         cancel: bool,
     }
     impl HttpPorts for Untrusted {
-        fn pin(&self, _: &Url) -> Option<SocketAddr> {
+        fn pin(&self, _: &Url, _: std::time::Instant) -> Option<SocketAddr> {
             Some(self.pin)
         }
         fn cancelled(&self) -> bool {
@@ -104,5 +104,43 @@ fn mismatched_pins_and_cancelled_requests_never_reach_loopback() {
             }
         );
         assert!(server.received().is_empty());
+    }
+}
+
+#[test]
+fn webhook_checks_authentication_and_size_before_delivery() {
+    use plur1bus_channels::telegram::Webhook;
+    use serde_json::Value;
+    use std::io::Cursor;
+
+    const SECRET: &str = "synthetic-webhook-marker";
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/channels/telegram-webhook.json"
+    ))
+    .unwrap();
+    let mut hook =
+        Webhook::new(SECRET, fixture["maxBodyBytes"].as_u64().unwrap() as usize).unwrap();
+    let mut received = 0;
+    for row in fixture["cases"].as_array().unwrap() {
+        let mut reader = row["body"].as_str().map(|s| Cursor::new(s.as_bytes()));
+        let token = if row["correct"] == true {
+            SECRET
+        } else {
+            "incorrect-fixture-value"
+        };
+        let status = hook.handle(
+            true,
+            row["method"].as_str().unwrap(),
+            token,
+            reader
+                .as_mut()
+                .map(|reader| reader as &mut dyn std::io::Read),
+            |_| {
+                received += 1;
+                true
+            },
+        );
+        assert_eq!(json!(status), row["response"]["status"], "{}", row["name"]);
+        assert_eq!(json!(received), row["delivered"], "{}", row["name"]);
     }
 }
