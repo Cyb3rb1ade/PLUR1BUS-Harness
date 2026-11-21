@@ -18,7 +18,8 @@ use plur1bus_store::rusqlite::types::Value;
 use plur1bus_store::rusqlite::{Connection, Params, Row};
 use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreSpec, Synchronous};
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
+use std::fs::{File, TryLockError};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 pub(crate) const MAX_TITLE: usize = 200;
@@ -41,7 +42,8 @@ pub struct RewindToken(pub(crate) u64);
 pub(crate) struct Env {
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) ids: Arc<dyn IdSource>,
-    pub(crate) reservations: HashMap<String, RewindToken>,
+    pub(crate) reservations: HashMap<String, (RewindToken, Option<File>)>,
+    rewind_lock_dir: Option<PathBuf>,
 }
 
 impl Env {
@@ -52,6 +54,99 @@ impl Env {
     pub(crate) fn new_id(&self, prefix: &str) -> String {
         format!("{prefix}_{}", self.ids.next_id())
     }
+
+    pub(crate) fn rewind_blocked(&self, session_id: &str, token: Option<RewindToken>) -> bool {
+        match self.reservations.get(session_id) {
+            Some((held, _)) => Some(*held) != token,
+            None => self.lock_rewind(session_id, false).is_err(),
+        }
+    }
+
+    // The file descriptor holds the reservation across SQLite connections and releases it
+    // on drop or process exit. A sidecar keeps the shared TypeScript schema unchanged.
+    pub(crate) fn lock_rewind(
+        &self,
+        session_id: &str,
+        create: bool,
+    ) -> Result<Option<File>, SessionError> {
+        use sha2::{Digest, Sha256};
+        let Some(dir) = &self.rewind_lock_dir else {
+            return Ok(None);
+        };
+        let storage = || {
+            SessionError::new(
+                super::ErrorCode::Storage,
+                "rewind lock unavailable",
+                Some("rewind-lock"),
+            )
+        };
+        if create {
+            let mut builder = std::fs::DirBuilder::new();
+            builder.recursive(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::DirBuilderExt;
+                builder.mode(0o700);
+            }
+            builder.create(dir).map_err(|_| storage())?;
+        }
+        match std::fs::symlink_metadata(dir) {
+            Ok(metadata) if metadata.is_dir() && !rewind_reparse_point(&metadata) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound && !create => {
+                return Ok(None)
+            }
+            _ => return Err(storage()),
+        }
+        let path = dir.join(format!("{:x}", Sha256::digest(session_id.as_bytes())));
+        let mut options = File::options();
+        options
+            .read(true)
+            .write(true)
+            .create(create)
+            .truncate(false);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options
+                .mode(0o600)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            // Read and write sharing let other connections check the lock. Refuse reparse points.
+            options.share_mode(3).custom_flags(0x0020_0000);
+        }
+        let file = match options.open(path) {
+            Ok(file) => file,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound && !create => {
+                return Ok(None)
+            }
+            Err(_) => return Err(storage()),
+        };
+        let metadata = file.metadata().map_err(|_| storage())?;
+        if !metadata.is_file() || rewind_reparse_point(&metadata) {
+            return Err(storage());
+        }
+        match file.try_lock() {
+            Ok(()) => Ok(Some(file)),
+            Err(TryLockError::WouldBlock) => Err(SessionError::conflict(
+                "file rewind is awaiting or applying approval",
+                "rewind-in-progress",
+            )),
+            Err(TryLockError::Error(_)) => Err(storage()),
+        }
+    }
+}
+
+fn rewind_reparse_point(metadata: &std::fs::Metadata) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        metadata.file_attributes() & 0x400 != 0
+    }
+    #[cfg(not(windows))]
+    metadata.file_type().is_symlink()
 }
 
 /// The session store on one open file (or an in-memory database).
@@ -252,6 +347,9 @@ impl SessionStore {
         clock: Arc<dyn Clock>,
         ids: Arc<dyn IdSource>,
     ) -> Result<Self, SessionError> {
+        if path == Path::new(":memory:") {
+            return Self::open_memory(clock, ids);
+        }
         let owner = OwnerSpec {
             store: StoreSpec {
                 synchronous: Synchronous::Normal,
@@ -267,7 +365,18 @@ impl SessionStore {
             use std::os::unix::fs::PermissionsExt;
             let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
         }
-        Ok(Self::with(db, clock, ids))
+        let mut lock_dir = path
+            .canonicalize()
+            .map_err(|_| {
+                SessionError::new(
+                    super::ErrorCode::Storage,
+                    "cannot resolve session store for rewind locking",
+                    Some("rewind-lock"),
+                )
+            })?
+            .into_os_string();
+        lock_dir.push(".rewind-locks");
+        Ok(Self::with(db, clock, ids, Some(PathBuf::from(lock_dir))))
     }
 
     /// `path: ":memory:"`: no WAL, no `synchronous`, no file mode.
@@ -282,16 +391,22 @@ impl SessionStore {
             create: true,
         };
         let db = Store::open_owner(Path::new(":memory:"), &owner)?;
-        Ok(Self::with(db, clock, ids))
+        Ok(Self::with(db, clock, ids, None))
     }
 
-    fn with(db: Store, clock: Arc<dyn Clock>, ids: Arc<dyn IdSource>) -> Self {
+    fn with(
+        db: Store,
+        clock: Arc<dyn Clock>,
+        ids: Arc<dyn IdSource>,
+        rewind_lock_dir: Option<PathBuf>,
+    ) -> Self {
         Self {
             db,
             env: Env {
                 clock,
                 ids,
                 reservations: HashMap::new(),
+                rewind_lock_dir,
             },
             archive_listeners: Vec::new(),
             erase_listeners: Vec::new(),

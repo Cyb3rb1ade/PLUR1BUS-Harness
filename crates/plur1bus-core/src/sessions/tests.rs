@@ -130,6 +130,39 @@ fn a_session_file_is_private() {
 }
 
 #[test]
+fn a_rewind_reservation_excludes_other_connections_and_releases_on_drop() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("sessions.sqlite");
+    let ids = Arc::new(Ids(AtomicU64::new(0)));
+    let mut first = SessionStore::open(&path, Arc::new(Clk), ids.clone()).unwrap();
+    let mut second = SessionStore::open(&path, Arc::new(Clk), ids).unwrap();
+    let session = direct(&mut first, "rewind");
+    let other = direct(&mut second, "other");
+    let token = first.reserve_rewind(&session.id, None).unwrap();
+
+    let begin =
+        |store: &mut SessionStore, id| store.begin_turn(id, "fixture", 1, &BeginOptions::default());
+    let error = begin(&mut second, &session.id).unwrap_err();
+    assert_eq!(error.reason.as_deref(), Some("rewind-in-progress"));
+    assert!(second.rewind_reserved(&session.id));
+    assert_eq!(
+        second
+            .reserve_rewind(&session.id, None)
+            .unwrap_err()
+            .reason
+            .as_deref(),
+        Some("rewind-in-progress")
+    );
+    assert!(begin(&mut second, &other.id).is_ok());
+    second.release_rewind(&session.id, token);
+    assert!(second.rewind_reserved(&session.id));
+
+    drop(first);
+    assert!(!second.rewind_reserved(&session.id));
+    assert!(begin(&mut second, &session.id).is_ok());
+}
+
+#[test]
 fn an_error_never_carries_message_text() {
     let mut s = store();
     let r = direct(&mut s, "x");

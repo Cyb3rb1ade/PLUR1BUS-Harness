@@ -566,6 +566,9 @@ Ports: clock, ids, engine memory port, git process (checkpoints), summariser.
 - The vectors were recorded on unix; the guard test skips on Windows.
 - **K5-D8 (K5-R1):** Rust checks the working tree, index and untracked targets again after consuming approval
   and recording audit, immediately before requesting the restore. Changes after this final check still need host coordination.
+- **K5-D9 (K5-R2):** The Rust session store holds an advisory lock for each reserved session in a sibling
+  directory of its SQLite file. Admission and reservation both use the SQLite write lock. Independent Rust connections
+  see held reservations and process exit releases them. Legacy TypeScript connections do not participate in this lock.
 
 **What the flip finds:** the host drives `tick` (10 s) and `idle`; the approval port must answer with scope `once` and consume it in `begin`; `ProjectLookup` must return the realpath of the card's worktree; `turn-loop` calls `RewindFilesPort::capture` before a model turn and `RewindService::after_turn`.
 

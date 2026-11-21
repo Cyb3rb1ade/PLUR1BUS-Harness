@@ -164,7 +164,7 @@ impl SessionStore {
             if sess.archived_at.is_some() {
                 return Err(SessionError::conflict(&format!("session {session_id} is archived"), "archived"));
             }
-            if env.reservations.contains_key(session_id) {
+            if env.rewind_blocked(session_id, None) {
                 return Err(SessionError::conflict(
                     "file rewind is awaiting or applying approval",
                     "rewind-in-progress",
