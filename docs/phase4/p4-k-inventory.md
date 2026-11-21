@@ -905,8 +905,9 @@ builder, the decision service and triage are K9a.
   place for a few arguments in a hundred; Rust computes the unfused routine everywhere, so the last digit of a score can differ from
   TypeScript on Apple Silicon; the vectors' scenarios are chosen so that it does not). `regress` folds U+017F and U+212A into `s` and `k`
   under `i` without `u`, which JavaScript does not: the runtime's patterns without `u` spell their case out instead of using the engine's
-  `i` (and `\b` of the `/iu` patterns is spelled out over JavaScript's word characters). On Windows `skill.read` does not compare the
-  opened handle's volume and index with the path (stable Rust does not expose them); the path is re-checked before and after the read.
+  `i` (and `\b` of the `/iu` patterns is spelled out over JavaScript's word characters).
+  **K9b-D3 (K9b-R1):** Rust refuses a Windows skill read or load with `unsafe-path` before opening the resource.
+  Both operations require identity verification against the opened handle before Windows can enable them.
   A failing registry inside the lexical port gives no lexical score instead of an exception. A thrown `TypeError` is compared by name.
   **K9b-D2 (K9b-R2)**: schema patterns are capped at 256 UTF-16 units and their input at 1,024 units.
   The regex library has no step budget. The length limits do not guarantee a linear match.

@@ -77,7 +77,7 @@ async function build(home: string, nodes: Node[]): Promise<void> {
   }
 }
 
-async function outcome(tools: ReturnType<typeof createSkillTools>, mode: "load" | "read", args: unknown, aborted?: boolean): Promise<unknown> {
+async function outcome(tools: ReturnType<typeof createSkillTools>, mode: "load" | "read", args: unknown, aborted?: boolean): Promise<{ ok: unknown } | { aborted: true } | { code: string; message: string }> {
   const tool = tools.find(t => t.name === `skill.${mode}`)!;
   const controller = new AbortController();
   if (aborted) controller.abort();
@@ -98,7 +98,12 @@ export async function buildSkillTools() {
       const loaded: string[] = [];
       const tools = createSkillTools({ home, skills: s.admitted.map(name => ({ entry: { id: `skill:${name}`, name, description: "d", category: "docs.create", kind: "skill", effect: "read", risk: "low", source: "skills", version: "v" }, text: "" })), onLoad: name => loaded.push(name) });
       const calls: unknown[] = [];
-      for (const [mode, args, aborted] of s.calls) calls.push([mode, args === undefined ? { undefined: true } : { value: JSON.stringify(args) }, aborted === true, await outcome(tools, mode, args, aborted)]);
+      for (const [mode, args, aborted] of s.calls) {
+        const result = await outcome(tools, mode, args, aborted);
+        const requiresHandle = "ok" in result || ("code" in result && ["too-large", "file-list-too-large"].includes(result.code));
+        const call = [mode, args === undefined ? { undefined: true } : { value: JSON.stringify(args) }, aborted === true, result];
+        calls.push(requiresHandle ? [...call, "K9b-D3"] : call);
+      }
       scenarios.push({ name: s.name, ...(s.unix ? { unix: true } : {}), nodes: s.nodes, admitted: s.admitted, calls, loaded });
     } finally {
       await rm(home, { recursive: true, force: true });

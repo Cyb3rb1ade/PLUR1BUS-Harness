@@ -5,7 +5,7 @@
 use super::json::{JsStr, V};
 use super::skill_tools::{
     create_skill_tools, is_secret_file_name, requests_credential, tool_definitions, Cancelled,
-    SkillError, SkillMode, SkillTools, DENY_NAMES,
+    SkillAccessCode, SkillError, SkillMode, SkillTools, DENY_NAMES,
 };
 use super::vectors::{js, raw_of};
 use serde_json::Value;
@@ -121,15 +121,27 @@ fn skill_tool_scenarios() {
                 args.as_ref(),
                 &Flag(call[2].as_bool().unwrap()),
             );
-            check_outcome(&format!("{name} #{i} {}", call[1]), &call[3], got);
+            let case = format!("{name} #{i} {}", call[1]);
+            if !cfg!(unix) && call[4] == "K9b-D3" {
+                assert_eq!(
+                    got.unwrap_err(),
+                    SkillError::Access(SkillAccessCode::UnsafePath),
+                    "{case}"
+                );
+            } else {
+                check_outcome(&case, &call[3], got);
+            }
             ran += 1;
         }
-        let want: Vec<&str> = s["loaded"]
+        let mut want: Vec<&str> = s["loaded"]
             .as_array()
             .unwrap()
             .iter()
             .map(|a| a.as_str().unwrap())
             .collect();
+        if !cfg!(unix) {
+            want.clear();
+        }
         assert_eq!(*loaded.lock().unwrap(), want, "{name}: recorded loads");
     }
     assert!(ran > 100, "only {ran} calls replayed");
