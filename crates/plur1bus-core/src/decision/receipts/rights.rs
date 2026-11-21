@@ -20,7 +20,8 @@ impl Action {
     pub fn scope_name(self) -> &'static str {
         match self {
             Action::List => "decision.receipts.list",
-            Action::Replay | Action::Adopt => "decision.replay",
+            Action::Replay => "decision.replay",
+            Action::Adopt => "decision.baseline.adopt",
         }
     }
 }

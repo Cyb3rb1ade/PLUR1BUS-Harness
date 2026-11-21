@@ -1364,6 +1364,58 @@
       "world": {}
     },
     {
+      "name": "K9b-R3 rank at a platform-sensitive IDF",
+      "ops": [
+        {
+          "entry": "{\"id\":\"x-tie\",\"name\":\"sample\",\"description\":\"report input\",\"category\":\"docs.create\",\"kind\":\"tool\",\"effect\":\"read\",\"risk\":\"low\",\"source\":\"synthetic\",\"version\":\"1\"}",
+          "op": "upsert"
+        },
+        {
+          "entry": "{\"id\":\"z-near\",\"name\":\"sample\",\"description\":\"report input\",\"category\":\"docs.create\",\"kind\":\"tool\",\"effect\":\"read\",\"risk\":\"low\",\"source\":\"synthetic\",\"version\":\"1\"}",
+          "op": "upsert"
+        },
+        {
+          "entry": "{\"id\":\"a-tie\",\"name\":\"sample\",\"description\":\"report input\",\"category\":\"docs.create\",\"kind\":\"tool\",\"effect\":\"read\",\"risk\":\"low\",\"source\":\"synthetic\",\"version\":\"1\"}",
+          "op": "upsert"
+        },
+        {
+          "entry": "{\"id\":\"m-tie\",\"name\":\"sample\",\"description\":\"report input\",\"category\":\"docs.create\",\"kind\":\"tool\",\"effect\":\"read\",\"risk\":\"low\",\"source\":\"synthetic\",\"version\":\"1\"}",
+          "op": "upsert"
+        },
+        {
+          "entry": "{\"id\":\"t-tie\",\"name\":\"sample\",\"description\":\"report input\",\"category\":\"docs.create\",\"kind\":\"tool\",\"effect\":\"read\",\"risk\":\"low\",\"source\":\"synthetic\",\"version\":\"1\"}",
+          "op": "upsert"
+        },
+        {
+          "entry": "{\"id\":\"b-tie\",\"name\":\"sample\",\"description\":\"report input\",\"category\":\"docs.create\",\"kind\":\"tool\",\"effect\":\"read\",\"risk\":\"low\",\"source\":\"synthetic\",\"version\":\"1\"}",
+          "op": "upsert"
+        },
+        {
+          "entry": "{\"id\":\"unrelated\",\"name\":\"sample\",\"description\":\"folder input\",\"category\":\"docs.create\",\"kind\":\"tool\",\"effect\":\"read\",\"risk\":\"low\",\"source\":\"synthetic\",\"version\":\"1\"}",
+          "op": "upsert"
+        },
+        {
+          "op": "rank",
+          "query": "report"
+        }
+      ],
+      "steps": [
+        "null",
+        "null",
+        "null",
+        "null",
+        "null",
+        "null",
+        "null",
+        "[\"z-near\",\"a-tie\",\"b-tie\",\"m-tie\",\"t-tie\",\"x-tie\",\"unrelated\"]"
+      ],
+      "world": {
+        "prior": {
+          "z-near": 1.6653345369377348e-16
+        }
+      }
+    },
+    {
       "name": "generated 0",
       "ops": [
         {

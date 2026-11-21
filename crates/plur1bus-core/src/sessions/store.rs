@@ -950,7 +950,8 @@ impl SessionStore {
     }
 
     /// `eraseSession`: an explicit transcript erasure requires an archived session and leaves a content-free audit
-    /// tombstone (ids and counts only). Private checkpoint rows survive until their native refs have been released.
+    /// tombstone (a principal, a catalog reason, ids and counts only). The host supplies the authenticated actor.
+    /// Private checkpoint rows survive until their native refs have been released.
     pub fn erase_session(
         &mut self,
         id: &str,
@@ -963,6 +964,17 @@ impl SessionStore {
                 "erasure-audit",
             ));
         }
+        use crate::identity::principals::{derive_user_principal, is_user_principal};
+        let actor = if is_user_principal(actor) {
+            actor.to_owned()
+        } else {
+            derive_user_principal(actor)
+                .map_err(|_| SessionError::invalid("invalid erasure actor", "erasure-audit"))?
+        };
+        let reason = match reason {
+            "gdpr" | "explicit direct-chat deletion" => reason,
+            _ => "explicit deletion",
+        };
         let result = self.tx(|env, c| {
             let sess = get_session_in(c, id)?
                 .ok_or_else(|| SessionError::not_found(&format!("session {id} not found"), Some("session")))?;

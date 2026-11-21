@@ -1241,6 +1241,16 @@ fn replay(file: &str) {
                     want.insert(k.into(), v.clone());
                 }
             }
+            if step["divergence"] == "K5-D10" {
+                for row in want.get_mut("ok").unwrap().as_array_mut().unwrap() {
+                    let actor = row["actor"].as_str().unwrap();
+                    row["actor"] =
+                        json!(crate::identity::principals::derive_user_principal(actor).unwrap());
+                    if row["reason"] != "gdpr" && row["reason"] != "explicit direct-chat deletion" {
+                        row["reason"] = json!("explicit deletion");
+                    }
+                }
+            }
             if !same_outcome(&step["op"], &Value::Object(want.clone()), &got) {
                 failures.push(format!(
                     "{name} #{i} {}\n  {}",

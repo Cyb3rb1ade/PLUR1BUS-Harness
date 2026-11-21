@@ -16,7 +16,7 @@ use std::sync::Arc;
 pub struct DelegateRequest<'a> {
     /// Identity, agents, content and trace of this call.
     pub admission: AdmitInput<'a>,
-    /// Optional parent task in the trace.
+    /// Parent task in the trace, required for a nested delegation.
     pub parent_task: Option<&'a str>,
     /// Selects the configured run limits.
     pub task_class: TaskClass,
@@ -24,8 +24,6 @@ pub struct DelegateRequest<'a> {
     pub contract: Option<V>,
     /// Trusted current tool view of the target.
     pub allowed_tools: &'a [String],
-    /// The parent's allocation, when this is a nested delegation.
-    pub parent_budget: Option<&'a DelegationWorkBudget>,
     /// An existing writer reservation issued by this service.
     pub writer: Option<WriterReservation>,
     /// Cancellation from the parent turn.

@@ -26,6 +26,15 @@ impl Audience {
         }
     }
 
+    pub(super) fn recognizes_owner(self, owner: &str) -> bool {
+        let mut parts = owner.split(':');
+        matches!(
+            (parts.next(), parts.next(), parts.next(), parts.next(), parts.next()),
+            (Some("ext"), Some(audience), Some("person" | "token"), Some(subject), None)
+                if audience == self.name() && id(subject)
+        )
+    }
+
     pub(super) fn from_origin(origin: Option<SessionOrigin>) -> Option<Self> {
         match origin {
             Some(SessionOrigin::Mcp) => Some(Self::Mcp),
@@ -49,7 +58,7 @@ impl Subject {
 
     pub(super) fn owner(&self, audience: Audience) -> String {
         match &self.exposure.token_id {
-            Some(id) => format!("ext:{}:{id}", audience.name()),
+            Some(id) => format!("ext:{}:token:{id}", audience.name()),
             None => format!("ext:{}:person:{}", audience.name(), self.user()),
         }
     }

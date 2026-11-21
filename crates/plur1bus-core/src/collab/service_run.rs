@@ -1,8 +1,8 @@
 //! Delegate admission, target dispatch and completion on an explicit clock tick.
-use super::{CollabError, CollabService, WriterIdentity, C, R};
+use super::{AdmitInput, CollabError, CollabService, GuardrailReason, WriterIdentity, C, R};
 use crate::collab::handoff::{deadline, property, HandoffTicket};
 use crate::collab::ids::project_repeat_key;
-use crate::collab::limits::{CallClass, DelegationWorkBudget};
+use crate::collab::limits::{CallClass, DelegationWorkBudget, TaskClass};
 use crate::collab::ports::{BudgetCheck, RunInput, RunOutput};
 use crate::collab::replay::{RecordEnd, RecordStart, RecordedTurn};
 use crate::collab::run::RunPhase;
@@ -21,6 +21,64 @@ use crate::sessions::compaction::truncate_with_pointer;
 use crate::toolcall::json::V;
 use serde_json::{json, Value};
 use std::sync::Arc;
+
+const DEFAULT_READ_TOOLS: &[&str] = &["file.read", "file.list", "file.stat"];
+
+struct DelegationParent {
+    task: DelegateTask,
+    budget: DelegationWorkBudget,
+    tools: Vec<String>,
+}
+
+fn bad_delegation_path() -> CollabError {
+    CollabError::guardrail("invalid delegation path", GuardrailReason::Depth)
+}
+
+fn delegation_tool_view(
+    req: &DelegateRequest<'_>,
+    parent: Option<&DelegationParent>,
+) -> R<Vec<String>> {
+    let class = req.admission.call_class;
+    let tools = req
+        .contract
+        .as_ref()
+        .and_then(|contract| property(contract, &["constraints", "scope", "tools"]).as_arr());
+    if let Some(tools) = tools {
+        if class != CallClass::Write
+            && tools
+                .iter()
+                .any(|tool| !DEFAULT_READ_TOOLS.iter().any(|read| tool.is_str(read)))
+        {
+            return Err(CollabError::new(
+                C::Unauthorized,
+                "read delegation requires read tools",
+            ));
+        }
+        if let Some(parent) = parent {
+            if tools
+                .iter()
+                .any(|tool| !parent.tools.iter().any(|name| tool.is_str(name)))
+            {
+                return Err(CollabError::new(
+                    C::Unauthorized,
+                    "nested tool scope cannot widen its caller",
+                ));
+            }
+        }
+    }
+    Ok(req
+        .allowed_tools
+        .iter()
+        .filter(|name| {
+            parent.is_none_or(|parent| parent.tools.contains(name))
+                && tools.map_or_else(
+                    || class != CallClass::Write && DEFAULT_READ_TOOLS.contains(&name.as_str()),
+                    |requested| requested.iter().any(|tool| tool.is_str(name)),
+                )
+        })
+        .cloned()
+        .collect())
+}
 
 fn stopped() -> CollabError {
     CollabError::new(C::Aborted, "collaboration service is stopping")
@@ -58,12 +116,102 @@ impl CollabService {
         }
     }
 
+    fn delegation_parent(
+        &self,
+        i: &AdmitInput<'_>,
+        parent_task: Option<&str>,
+    ) -> R<Option<DelegationParent>> {
+        let trace = if let Some(trace_id) = i.trace_id.filter(|trace| !trace.is_empty()) {
+            Some(
+                self.store
+                    .get_trace(trace_id)?
+                    .filter(|trace| trace.project_id == i.project_id)
+                    .ok_or_else(|| {
+                        CollabError::with_reason(C::NotFound, "delegation trace not found", "trace")
+                    })?,
+            )
+        } else {
+            None
+        };
+        let Some(parent_task) = parent_task else {
+            if trace
+                .as_ref()
+                .is_some_and(|trace| trace.root_agent != i.from_agent)
+                || i.parent_span_id.is_some()
+                || i.path
+                    .as_ref()
+                    .is_some_and(|path| path.len() != 1 || path[0] != i.from_agent)
+            {
+                return Err(bad_delegation_path());
+            }
+            return Ok(None);
+        };
+        let trace = trace.ok_or_else(bad_delegation_path)?;
+        let task = self
+            .store
+            .get_task(parent_task)?
+            .filter(|task| {
+                task.status == "running"
+                    && task.project_id == i.project_id
+                    && task.trace_id == trace.trace_id
+                    && task.to_agent == i.from_agent
+                    && i.path.as_ref() == Some(&task.path)
+                    && i.parent_span_id.is_none_or(|span| span == task.span_id)
+            })
+            .ok_or_else(bad_delegation_path)?;
+        let now = self.store.now();
+        let state = self.st();
+        let run = state
+            .pending
+            .get(parent_task)
+            .filter(|run| {
+                run.task.trace_id == task.trace_id
+                    && run.task.span_id == task.span_id
+                    && run.task.path == task.path
+                    && run.principal.user_id == i.principal.user_id
+                    && run.principal.kind == i.principal.kind
+                    && run.phase == RunPhase::Running
+                    && !run.cancelled()
+                    && !run.timed_out(now)
+            })
+            .ok_or_else(bad_delegation_path)?;
+        Ok(Some(DelegationParent {
+            task,
+            budget: run.budget.clone(),
+            tools: run.scope.tool_view.clone(),
+        }))
+    }
+
     /// Check the chain and reserve its writer, then atomically record the new task and span.
     pub fn delegate(&self, mut req: DelegateRequest<'_>) -> R<DelegateHandle> {
-        let i = &mut req.admission;
-        i.consult = false;
+        req.admission.consult = false;
         self.redactor()?;
-        let (chain, project, mut path) = self.admit_inner(i)?;
+        let project = self.admission_project(&req.admission)?;
+        let class = match req.task_class {
+            TaskClass::Consult | TaskClass::Research => CallClass::Read,
+            TaskClass::Review => CallClass::Review,
+            TaskClass::CodeSmall | TaskClass::CodeLarge => CallClass::Write,
+        };
+        if req.admission.call_class != class {
+            return Err(CollabError::new(
+                C::Unauthorized,
+                "delegation class does not match its task",
+            ));
+        }
+        let parent = self.delegation_parent(&req.admission, req.parent_task)?;
+        if parent.is_some() && class == CallClass::Write {
+            return Err(bad_delegation_path());
+        }
+        let mut admission = req.admission.clone();
+        if let Some(parent) = &parent {
+            admission.path = Some(parent.task.path.clone());
+            admission.parent_span_id = Some(&parent.task.span_id);
+        }
+        // The caller's task label identifies a handoff, but cannot create a fresh fan-out bucket.
+        admission.task_id = parent.as_ref().map(|parent| parent.task.id.as_str());
+        let i = &admission;
+        let (chain, project, mut path) = self.guard_admission(i, project)?;
+        let tool_view = delegation_tool_view(&req, parent.as_ref())?;
         if chain.ended || chain.aborted || req.cancel.as_ref().is_some_and(AbortSignal::is_aborted)
         {
             return Err(CollabError::new(C::Aborted, "delegation chain ended"));
@@ -75,7 +223,9 @@ impl CollabService {
         let mut work_tokens = limits.work_tokens;
         if let Some(h) = req.contract.as_ref() {
             let invalid = || CollabError::new(C::Invalid, "invalid handoff ticket");
-            if property(h, &["kind"]).is_str("consult") {
+            if property(h, &["kind"]).is_str("consult")
+                || (class != CallClass::Write && property(h, &["kind"]).is_str("handoff"))
+            {
                 return Err(invalid());
             }
             end = end.min(deadline(h).ok_or_else(invalid)?);
@@ -136,7 +286,7 @@ impl CollabService {
             project_id: project.id.clone(),
             trace_id: chain.trace_id.clone(),
             span_id: span_id.clone(),
-            parent_task_id: req.parent_task.map(str::to_owned),
+            parent_task_id: parent.as_ref().map(|parent| parent.task.id.clone()),
             from_agent: i.from_agent.to_owned(),
             to_agent: i.to_agent.to_owned(),
             kind: "delegate".to_owned(),
@@ -179,7 +329,8 @@ impl CollabService {
                     .or_insert(0) += 1;
             }
         });
-        let budget = DelegationWorkBudget::new(work_tokens, req.parent_budget);
+        let budget =
+            DelegationWorkBudget::new(work_tokens, parent.as_ref().map(|parent| &parent.budget));
         let mut scope = scope::scope_for(i.to_agent, &project.id);
         scope.delegation = Some(DelegationScope {
             trace_id: chain.trace_id.clone(),
@@ -188,25 +339,7 @@ impl CollabService {
             call_class: i.call_class,
             work_budget: budget.clone(),
         });
-        let tools = req
-            .contract
-            .as_ref()
-            .and_then(|h| property(h, &["constraints", "scope", "tools"]).as_arr());
-        const DEFAULT_READ_TOOLS: &[&str] = &["file.read", "file.list", "file.stat"];
-        scope.tool_view = req
-            .allowed_tools
-            .iter()
-            .filter(|name| {
-                tools.map_or_else(
-                    || {
-                        i.call_class != CallClass::Write
-                            && DEFAULT_READ_TOOLS.contains(&name.as_str())
-                    },
-                    |contract_tools| contract_tools.iter().any(|tool| tool.is_str(name)),
-                )
-            })
-            .cloned()
-            .collect();
+        scope.tool_view = tool_view;
 
         let key = Arc::new(());
         let cancel = AbortSignal::new();
@@ -216,7 +349,7 @@ impl CollabService {
             key: key.clone(),
             task,
             principal: i.principal.clone(),
-            sender_task: i.task_id.map(str::to_owned),
+            sender_task: req.admission.task_id.map(str::to_owned),
             input: RunInput {
                 agent_id: i.to_agent.to_owned(),
                 project_id: project.id.clone(),

@@ -1622,6 +1622,43 @@ fn adopting_is_for_persons_of_owner_and_admin() {
 }
 
 #[test]
+fn replay_token_cannot_adopt_a_baseline() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = cases_store(dir.path(), &["t1a", "t2b"], &["r1", "r2"]);
+    let report = final_report(&store);
+    let dev = vec!["d1".to_owned()];
+    let mut principal = who(Role::Owner, Some(PrincipalKind::Person));
+    principal.token_scopes = Some(vec!["decision.replay".into()]);
+    let mut records = MemoryCalibrationRecords::default();
+    let mut audit = Audit {
+        log: Arc::new(Mutex::new(Vec::new())),
+        fail: false,
+    };
+    assert!(rights::can_replay(&principal));
+    let request = AdoptRequest {
+        who: &principal,
+        report: &report,
+        development_ids: &dev,
+        host: "h1",
+    };
+    assert_eq!(
+        store.adopt(&request, &mut records, &mut audit),
+        Err(ReceiptError::Denied)
+    );
+    assert!(records.list.is_empty() && audit.log.lock().unwrap().is_empty());
+
+    principal.token_scopes = Some(vec!["decision.baseline.adopt".into()]);
+    assert!(!rights::can_replay(&principal));
+    let request = AdoptRequest {
+        who: &principal,
+        report: &report,
+        development_ids: &dev,
+        host: "h1",
+    };
+    assert!(store.adopt(&request, &mut records, &mut audit).is_ok());
+}
+
+#[test]
 fn only_a_closing_comparison_on_other_cases_is_adopted() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = cases_store(dir.path(), &["t1a", "t2b"], &["r1", "r2"]);

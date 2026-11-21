@@ -61,7 +61,7 @@ async function cloud(name: string) {
     outcome = { error: "error" in error ? error.error : error.message,
       reason: "data" in error && error.data && typeof error.data === "object" && "reason" in error.data ? error.data.reason : null };
   }
-  return { name, outcome, events, ...(name === "failed while sent" ? {
+  return { name, outcome, events, ...(["failed while sent", "aborted while sent"].includes(name) ? {
     divergence: "charge-uncertain-provider-usage",
   } : {}) };
 }
@@ -75,6 +75,7 @@ export async function buildMediaCaptionVectors() {
     { input: "  a\tcaption\n\ufeff with spaces  ", cap: 40 },
     { input: "One two, three and four", cap: 15 },
     { input: "abcdefghijk", cap: 6 },
+    { input: "ab\u0085cde", cap: 4 },
     { input: "🔵 do not lose words", cap: 12 },
     { input: "  ", cap: 3 },
   ];

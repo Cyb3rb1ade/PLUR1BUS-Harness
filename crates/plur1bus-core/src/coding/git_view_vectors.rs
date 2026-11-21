@@ -21,11 +21,11 @@ impl GitProcess for Fixture<'_> {
         if tail[0] == "add" || tail[0] == "diff" {
             assert_eq!(
                 call.env["GIT_INDEX_FILE"],
-                self.path.join("scratch/index").to_str().unwrap()
+                self.path.join("scratch").join("index").to_str().unwrap()
             );
             assert_eq!(
                 call.env["GIT_DIR"],
-                self.path.join("scratch/git").to_str().unwrap()
+                self.path.join("scratch").join("git").to_str().unwrap()
             );
         }
         let value = match tail
@@ -62,8 +62,8 @@ impl DiffFiles for Fixture<'_> {
         Ok(root.join(value))
     }
     fn copy_index(&self, source: &Path, dest: &Path, max: u64) -> R<bool> {
-        assert_eq!(source, self.path.join("repo/.git/index"));
-        assert_eq!(dest, self.path.join("scratch/index"));
+        assert_eq!(source, self.path.join("repo").join(".git").join("index"));
+        assert_eq!(dest, self.path.join("scratch").join("index"));
         assert_eq!(max, 64 * 1024 * 1024);
         Ok(true)
     }

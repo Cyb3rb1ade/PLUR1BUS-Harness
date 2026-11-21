@@ -834,6 +834,11 @@ impl CollabService {
     }
 
     fn admit_inner(&self, i: &AdmitInput<'_>) -> R<(Chain, Project, Vec<String>)> {
+        let project = self.admission_project(i)?;
+        self.guard_admission(i, project)
+    }
+
+    fn admission_project(&self, i: &AdmitInput<'_>) -> R<Project> {
         self.check_accepting()?;
         self.require_a2a_owner(i.principal, i.to_agent)?;
         if js_trim(i.text).is_empty() {
@@ -856,6 +861,14 @@ impl CollabService {
         let project = self.live_project(i.project_id)?;
         self.authz(i.principal, "agent.use", &Self::agent_res(i.from_agent))?;
         self.authz(i.principal, "agent.use", &Self::agent_res(i.to_agent))?;
+        Ok(project)
+    }
+
+    fn guard_admission(
+        &self,
+        i: &AdmitInput<'_>,
+        project: Project,
+    ) -> R<(Chain, Project, Vec<String>)> {
         let path = i
             .path
             .clone()

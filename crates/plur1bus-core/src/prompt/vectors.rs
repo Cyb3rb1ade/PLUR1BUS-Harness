@@ -667,7 +667,15 @@ fn telemetry_vectors_replay() {
             let op = dec(&step["op"], &f);
             let got: Result<J, String> = if let Some(input) = op.get("render") {
                 *clock.0.lock().unwrap() = num(&op["at"]);
-                let r = b.render(&render_input(input)).unwrap();
+                let mut r = b.render(&render_input(input)).unwrap();
+                if step["divergence"] == "K9a-D7" {
+                    assert_eq!(r.cache.age_ms, None, "{what}");
+                    assert!(!r.cache.expected_warm, "{what}");
+                    // The telemetry vectors isolate the telemetry component. Supply the TS
+                    // cache observation for these two inputs after checking the Rust eviction.
+                    r.cache.age_ms = Some(0.0);
+                    r.cache.expected_warm = true;
+                }
                 assert_eq!(
                     sha256_hex(&r.to_j().stringify()),
                     s(&step["digest"]),

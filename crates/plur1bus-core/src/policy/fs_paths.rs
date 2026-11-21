@@ -2112,10 +2112,13 @@ pub fn stat_verified<F: PathFs>(fs: &F, c: &CanonicalPath) -> Result<EntryMeta, 
         .entry_at(&dir, leaf)
         .map_err(|_| refuse("identity-changed", "the target or its parent vanished"))?;
     let expected = c.target_stamp;
+    let birth = m.birth_ns.filter(|birth| *birth > 0);
+    let expected_birth = expected.birth_ns.filter(|birth| *birth > 0);
     if m.kind != expected.kind
         || m.dev != expected.dev
         || m.ino != expected.ino
-        || m.birth_ns.filter(|birth| *birth > 0) != expected.birth_ns.filter(|birth| *birth > 0)
+        || birth != expected_birth
+        || (m.kind == FileKind::File && birth.is_none())
         || m.nlink != expected.nlink
         || m.size != expected.size
         || m.mtime_ns != expected.mtime_ns

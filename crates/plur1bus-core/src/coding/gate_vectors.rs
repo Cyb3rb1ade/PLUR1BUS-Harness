@@ -54,9 +54,9 @@ impl WorktreeFiles for Fixture<'_> {
     }
 }
 impl RepoGit for Fixture<'_> {
-    fn read(&self, _: &str, args: &[&str]) -> Result<String, String> {
+    fn read(&self, root: &str, args: &[&str]) -> Result<String, String> {
         match args {
-            ["rev-parse", "--show-toplevel"] => Ok(format!("{ROOT}\n")),
+            ["rev-parse", "--show-toplevel"] => Ok(format!("{root}\n")),
             ["rev-parse", "HEAD"] => Ok(format!("{HEAD}\n")),
             ["ls-files", "-z"] => Ok(format!("package.json\0{BASE}\0")),
             ["ls-files", "--others", "--exclude-standard", "-z"] => Ok(String::new()),
@@ -178,6 +178,7 @@ fn coding_gate_vectors() {
             gate.verify(
                 VerifyInput {
                     task,
+                    writer: "writer",
                     root: ROOT,
                     abort: &signal,
                     override_note: note.map(|note| GateOverride {
@@ -206,6 +207,73 @@ fn coding_gate_vectors() {
         }
         assert_eq!(json!(fixture.checks.take()), expected, "{name}");
     }
+}
+
+#[test]
+fn a_review_is_bound_to_its_writer_and_worktree_even_when_content_matches() {
+    let fixture = Fixture {
+        name: "review binding",
+        lines: 200,
+        changed: Cell::new(false),
+        reviewer: Cell::new(true),
+        checks: RefCell::default(),
+    };
+    let mut audit = |_: &AuditEvent| Ok(());
+    let mut ports = GatePorts {
+        files: &fixture,
+        git: &fixture,
+        verifier: &fixture,
+        local: &|_| true,
+        network_approved: false,
+        clock: &FixedClock,
+        audit: &mut audit,
+    };
+    let gate = CodingGate::open(Path::new(":memory:")).unwrap();
+    let task = "project/card";
+    let before = gate.snapshot(ROOT, &ports).unwrap();
+    let other = gate.snapshot("/other-worktree", &ports).unwrap();
+    assert_eq!(before.tree_hash, other.tree_hash);
+    gate.record_review(task, &before, "reviewer", "writer", &mut ports)
+        .unwrap();
+    gate.db
+        .conn()
+        .execute(
+            "INSERT INTO coding_reviews VALUES (?,?,?,?)",
+            params![
+                "self-review",
+                review_key(&before, "writer"),
+                "writer",
+                "writer"
+            ],
+        )
+        .unwrap();
+    let abort = AbortSignal::new();
+    let mut verify = |task, root, writer| {
+        gate.verify(
+            VerifyInput {
+                task,
+                writer,
+                root,
+                abort: &abort,
+                override_note: None,
+            },
+            &mut ports,
+        )
+        .unwrap()
+    };
+    assert!(verify(task, ROOT, "writer").ok);
+    assert_eq!(
+        verify(task, &other.root, "writer").reason,
+        Some("review-required")
+    );
+    assert_eq!(
+        verify(task, ROOT, "other-writer").reason,
+        Some("review-required")
+    );
+    assert_eq!(
+        verify("self-review", ROOT, "writer").reason,
+        Some("review-required")
+    );
 }
 
 #[test]
@@ -251,12 +319,15 @@ fn coding_review_round_trips_between_stores() {
     };
     let from_ts = CodingGate::open(&dir.path().join("from-ts.sqlite")).unwrap();
     let snapshot = from_ts.snapshot(ROOT, &ports).unwrap();
-    assert!(from_ts
-        .has_review("project/card", &snapshot.tree_hash, &ports)
+    assert!(!from_ts
+        .has_review("project/card", &snapshot, "writer", &ports)
         .unwrap());
     from_ts
         .record_review("from-rust", &snapshot, "reviewer", "writer", &mut ports)
         .unwrap();
+    assert!(from_ts
+        .has_review("from-rust", &snapshot, "writer", &ports)
+        .unwrap());
     drop(from_ts);
     let rust = CodingGate::open(&dir.path().join("from-rust.sqlite")).unwrap();
     rust.record_review("new-rust", &snapshot, "reviewer", "writer", &mut ports)

@@ -1,11 +1,14 @@
 //! Transcript selection for the learning pass.
 
+use std::cmp::Ordering;
 use std::collections::HashSet;
+use std::sync::OnceLock;
 
+use icu_collator::{options::CollatorOptions, CollatorBorrowed};
+use icu_locale_core::locale;
 use sha2::{Digest, Sha256};
 
 use crate::identity::principals::derive_user_principal;
-use crate::metrics::registry::locale_compare;
 use crate::rbac::authorize::authorize;
 use crate::rbac::types::{AuthorizeContext, MemoryAgentScope, Principal, PrincipalKind, Resource};
 use crate::toolcall::json::V;
@@ -16,6 +19,17 @@ pub mod review;
 pub mod runner;
 pub mod service;
 pub mod store;
+
+// Match the en-US default of the pinned Node runtime used by the parity recorder.
+fn locale_compare(left: &str, right: &str) -> Ordering {
+    static COLLATOR: OnceLock<Option<CollatorBorrowed<'static>>> = OnceLock::new();
+    COLLATOR
+        .get_or_init(|| {
+            CollatorBorrowed::try_new(locale!("en-US").into(), CollatorOptions::default()).ok()
+        })
+        .as_ref()
+        .map_or_else(|| left.cmp(right), |collator| collator.compare(left, right))
+}
 
 /// Target scope, owner and destination for a learning run.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]

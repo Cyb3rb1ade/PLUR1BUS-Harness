@@ -8,17 +8,19 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Disclosure level of one reference.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Level {
-    /// May be used with attribution, without treating it as trusted instructions.
-    Shareable,
-    /// May inform decisions, with disclosure prohibited.
-    Confidential,
-    /// Must be excluded from foreign context.
-    Private,
-}
+content_free_enum!("Level", "level", [rename_all = "lowercase"];
+    /// Disclosure level of one reference.
+    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+    #[serde(rename_all = "lowercase")]
+    pub enum Level {
+        /// May be used with attribution, without treating it as trusted instructions.
+        Shareable,
+        /// May inform decisions, with disclosure prohibited.
+        Confidential,
+        /// Must be excluded from foreign context.
+        Private,
+    }
+);
 
 /// Content-free selected reference.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

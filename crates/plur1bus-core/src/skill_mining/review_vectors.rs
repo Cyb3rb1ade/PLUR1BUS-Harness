@@ -2,7 +2,7 @@ use super::*;
 use crate::policy::capabilities::GrantScope;
 use crate::rbac::{
     audit::AuditEvent,
-    types::{PrincipalKind, Role},
+    types::{AgentRight, PrincipalKind, Role, ROLES},
 };
 use serde_json::{json, Value};
 
@@ -99,6 +99,95 @@ impl Approval for Approver<'_> {
         self.starts += 1;
         self.name != "consumed"
     }
+}
+
+#[test]
+fn proposal_review_checks_role_and_person_on_both_identity_snapshots() {
+    struct Live<'a>(&'a Principal);
+    impl Authority for Live<'_> {
+        fn current(&self, _: &str) -> Option<Principal> {
+            Some(self.0.clone())
+        }
+
+        fn allows(&self, _: &Scope, _: &Principal) -> bool {
+            true
+        }
+    }
+
+    let fixture: Vec<Value> = serde_json::from_str(include_str!(
+        "../../../../fixtures/parity/skills/review.json"
+    ))
+    .unwrap();
+    let scope: Scope = serde_json::from_value(fixture[0]["scope"].clone()).unwrap();
+    let proposal: Proposal = serde_json::from_value(fixture[0]["proposal"].clone()).unwrap();
+    let evaluate = |caller: &Principal, current: &Principal, expected: Option<&str>| {
+        let mut queue = Queue {
+            name: "ready",
+            initial: proposal.clone(),
+            calls: vec![],
+            reads: 0,
+        };
+        let mut approval = Approver {
+            name: "once",
+            calls: vec![],
+            starts: 0,
+        };
+        let result = decide(
+            &Request {
+                scope: &scope,
+                who: caller,
+                id: &proposal.id,
+                decision: Decision::Accept,
+                surface: 3,
+                abort: &AbortSignal::new(),
+            },
+            &mut Ports {
+                authority: &Live(current),
+                backend: &mut queue,
+                approval: &mut approval,
+                clock: &Runtime,
+                ids: &Runtime,
+                audit: &mut |_: &AuditEvent| Ok(()),
+            },
+        )
+        .err();
+        assert_eq!(
+            result.as_ref().and_then(|error| error.reason.as_deref()),
+            expected
+        );
+        if expected.is_some() {
+            assert_eq!(queue.reads, 0);
+            assert!(approval.calls.is_empty());
+            assert!(queue.calls.is_empty());
+        } else {
+            assert!(result.is_none());
+            assert_eq!(queue.calls.len(), 1);
+        }
+    };
+
+    for role in ROLES {
+        let mut who = person("ada", role);
+        who.agent_rights = Some(vec![(scope.agent_id.clone(), AgentRight::Manage)]);
+        let expected = match role {
+            Role::Owner | Role::Admin => None,
+            Role::Member => Some("reviewer-role"),
+            Role::Operator | Role::Viewer => Some("scope-unavailable"),
+        };
+        evaluate(&who, &who, expected);
+    }
+    let owner = person("ada", Role::Owner);
+    let agent = Principal {
+        kind: Some(PrincipalKind::Agent),
+        ..owner.clone()
+    };
+    evaluate(&agent, &owner, Some("scope-unavailable"));
+    evaluate(&owner, &agent, Some("scope-unavailable"));
+    let member = Principal {
+        role: Role::Member,
+        agent_rights: Some(vec![(scope.agent_id.clone(), AgentRight::Manage)]),
+        ..owner.clone()
+    };
+    evaluate(&owner, &member, Some("reviewer-role"));
 }
 
 #[test]

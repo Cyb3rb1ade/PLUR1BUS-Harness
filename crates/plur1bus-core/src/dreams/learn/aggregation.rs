@@ -1,16 +1,15 @@
 //! Scoped evidence extraction and shadow-only learning scores.
 
-use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
 use std::sync::OnceLock;
 
 use icu_normalizer::ComposingNormalizerBorrowed;
+use indexmap::IndexMap;
 
-use super::{array, digest, equals, string, target_hash, Error, Target};
+use super::{array, digest, equals, locale_compare, string, target_hash, Error, Target};
 use crate::exposure::scanner::SensitivityScanner;
 use crate::js::{is_js_space, js_trim, sort_default};
 use crate::logs::writer::iso_time;
-use crate::metrics::registry::locale_compare;
 use crate::toolcall::json::{parse, Obj, V};
 
 const LIMIT_TEXT: usize = 4000;
@@ -244,20 +243,16 @@ fn ref_key(item: &V) -> Result<String, Error> {
     Ok(V::Arr(key).stringify())
 }
 
-fn compare(a: &str, b: &str) -> Ordering {
-    locale_compare(a, b).then_with(|| a.cmp(b))
-}
-
 fn unique_by<'a>(
     values: impl IntoIterator<Item = &'a V>,
     key: fn(&V) -> Result<String, Error>,
 ) -> Result<Vec<V>, Error> {
-    let mut unique = BTreeMap::new();
+    let mut unique = IndexMap::new();
     for item in values {
         unique.insert(key(item)?, item);
     }
     let mut rows: Vec<_> = unique.into_iter().collect();
-    rows.sort_by(|a, b| compare(&a.0, &b.0));
+    rows.sort_by(|a, b| locale_compare(&a.0, &b.0));
     Ok(rows.into_iter().map(|(_, item)| item.clone()).collect())
 }
 
@@ -309,7 +304,7 @@ pub fn aggregate(raw: &[V], target: &Target, run: &str, total: usize) -> Result<
             .iter()
             .map(|f| required(f, "text").map(|text| (text, *f)))
             .collect::<Result<Vec<_>, _>>()?;
-        entries.sort_by(|a, b| compare(&a.0, &b.0));
+        entries.sort_by(|a, b| locale_compare(&a.0, &b.0));
         let mut finding = record(entries[0].1)?;
         let parts = group
             .iter()
@@ -361,7 +356,7 @@ pub fn aggregate(raw: &[V], target: &Target, run: &str, total: usize) -> Result<
         }
         findings.push((sessions, id, V::Obj(finding)));
     }
-    findings.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| compare(&a.1, &b.1)));
+    findings.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| locale_compare(&a.1, &b.1)));
     Ok(findings.into_iter().map(|(_, _, value)| value).collect())
 }
 
@@ -373,13 +368,13 @@ pub fn vocabulary(raw: &[V]) -> Result<Vec<V>, Error> {
         let key = normalized(&string(item, "contentKey").unwrap_or_else(|_| text.clone()));
         choices.push((key, text));
     }
-    choices.sort_by(|a, b| compare(&a.1, &b.1));
+    choices.sort_by(|a, b| locale_compare(&a.1, &b.1));
     let mut items: Vec<_> = choices
         .into_iter()
-        .collect::<BTreeMap<_, _>>()
+        .collect::<IndexMap<_, _>>()
         .into_iter()
         .collect();
-    items.sort_by(|a, b| compare(&a.0, &b.0));
+    items.sort_by(|a, b| locale_compare(&a.0, &b.0));
     Ok(items
         .into_iter()
         .map(|(key, text)| V::obj([("key", V::s(&key)), ("text", V::s(&text))]))

@@ -295,6 +295,23 @@ fn text_precedence_models_and_frames_match_typescript() {
 }
 
 #[test]
+fn cancelling_a_sent_caption_without_usage_charges_the_reserved_output() {
+    let rig = Rig::new("aborted while sent", false);
+    assert!(rig.run(&request(), &settings()).is_err());
+    let events = rig.events.into_inner();
+    assert_eq!(events[2][0], "request");
+    assert_eq!(
+        events[3],
+        json!(["settle","hold",{"inputTokens":1500,"outputTokens":120}])
+    );
+}
+
+#[test]
+fn caption_truncation_preserves_non_js_whitespace() {
+    assert_eq!(normalize("ab\u{0085}cde", 4), "ab\u{0085}…");
+}
+
+#[test]
 fn cloud_caption_replays_fake_wire_and_preserves_rights() {
     let f = fixture();
     assert_eq!(PROMPT, f["prompt"].as_str().unwrap());

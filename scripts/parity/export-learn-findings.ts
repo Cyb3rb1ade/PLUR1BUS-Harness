@@ -53,6 +53,13 @@ export function buildLearnFindingVectors(){
     {...current.evidence[0]!,sessionId:"s3",sourceId:"evt3",day:"1970-01-02",agentId:"beta",trust:"verified" as const}]};
   const batch=[current,many,{...current,kind:"procedural" as const,contentKey:"procedure",text:"Procedure"}];
   const findings=aggregate(batch,target,"run-fixture",7);
+  const collationBatch=[
+    ["case", "ärger im Büro"], ["case", "Ärger im Büro"],
+    ["tie", "é"], ["tie", "e\u0301"],
+    ["über", "über"], ["zebra", "Zebra"],
+    ["äther", "Äther"], ["f", "f"],
+    ["😀", "😀"], ["é", "é"],
+  ].map(([contentKey,text]) => ({ ...current, contentKey: contentKey!, text: text! }));
   const other=aggregate([{...many,kind:"knowledge",change:"stale",memoryId:"existing",contentKey:undefined,text:"Same retained record"}],target,"run-fixture",7)[0]!;
   const scored=["agent verified","explicit manual","instruction","sensitive","untrusted","project match","contradicted","stale","retire"].map(name=>{
     const base=structuredClone((name==="stale"?other:findings.find(f=>f.kind==="knowledge"))!);
@@ -71,6 +78,8 @@ export function buildLearnFindingVectors(){
   });
   return {findings:{extraction,aggregate:{batch,target,expected:findings,vocabulary:vocabulary(batch),
     merged:mergeEvidence(findings[0]!,{...findings[0]!,evidence:many.evidence})},scored,
+    collation:{batch:collationBatch,target,expected:aggregate(collationBatch,target,"run-fixture",7),
+      vocabulary:vocabulary(collationBatch)},
     precision:[[0,0],[49,49],[47,50],[48,50],[95,100]].map(([accepted,decided])=>precisionGate(accepted!,decided!))}};
 }
 

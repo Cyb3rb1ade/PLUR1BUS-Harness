@@ -3,13 +3,13 @@ use crate::collab::handoff::HandoffContext;
 use crate::collab::limits::{CollaborationLimitsConfig, TaskClass, TaskLimits};
 use crate::collab::ports::RunOutput;
 use crate::collab::run::{DelegateRequest, DelegationTarget, TargetContext, TargetRequest};
-use crate::collab::store::R;
+use crate::collab::store::{TaskGrantEnd, R};
 use crate::collab::types::TargetKind;
 use crate::logs::methods::AbortSignal;
 use crate::rbac::audit::AuditEvent;
 use crate::toolcall::json::{parse, V};
 use serde_json::json;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 impl crate::budget::IdSource for Seq {
     fn next_id(&self) -> String {
@@ -89,6 +89,16 @@ fn output() -> RunOutput {
     }
 }
 
+#[derive(Default)]
+struct EndedGrants(Mutex<Vec<String>>);
+
+impl TaskGrantEnd for EndedGrants {
+    fn end_task(&self, task: &str) -> Result<(), String> {
+        self.0.lock().unwrap().push(task.to_owned());
+        Ok(())
+    }
+}
+
 #[test]
 fn run_vectors() {
     let vectors: Vec<Value> =
@@ -102,6 +112,8 @@ fn run_vectors() {
         let ids = Arc::new(Seq::default());
         let events = Arc::new(MemoryEmitter::default());
         let mut options = StoreOptions::new(clock.clone(), ids.clone());
+        let grants = Arc::new(EndedGrants::default());
+        options.grants = Some(grants.clone());
         options.limits = Some(Box::new(|| {
             let mut limits = CollaborationLimitsConfig::default();
             limits.task_classes[3] = TaskLimits {
@@ -152,7 +164,6 @@ fn run_vectors() {
                 task_class: TaskClass::CodeSmall,
                 contract: h.clone(),
                 allowed_tools: &["file.read".to_owned(), "file.write".to_owned()],
-                parent_budget: None,
                 writer: None,
                 cancel: None,
                 audit: &mut audit,
@@ -271,6 +282,16 @@ fn run_vectors() {
             None
         };
         assert_eq!(json!(transcript), case["transcript"], "{name}");
+        if matches!(
+            name,
+            "done" | "deadline" | "shutdown abandons" | "shutdown cooperative"
+        ) {
+            assert_eq!(
+                grants.0.lock().unwrap().as_slice(),
+                std::slice::from_ref(&handle.queued.id),
+                "{name}"
+            );
+        }
         let finish = task.map(|t| {
             let trace = svc.get_trace(&lead, &t.trace_id).unwrap();
             let span = trace.spans.iter().find(|s| s.span_id == t.span_id).unwrap();
@@ -285,6 +306,145 @@ fn run_vectors() {
         assert_eq!(json!(target.calls.take()), case["calls"], "{name}");
         assert_eq!(json!(events), case["events"], "{name}");
     }
+}
+
+struct DispatchProbe {
+    kind: TargetKind,
+    called: Cell<bool>,
+}
+
+impl DelegationTarget for DispatchProbe {
+    fn kind(&self) -> TargetKind {
+        self.kind
+    }
+
+    fn accepts(&self, agent: &str) -> bool {
+        agent == "receiver"
+    }
+
+    fn acknowledge(&self, _: &TargetRequest<'_>) -> R<V> {
+        self.called.set(true);
+        Err(CollabError::new(C::Invalid, "unexpected acknowledgement"))
+    }
+
+    fn start(&self, _: &TargetRequest<'_>) -> R<Option<RunOutput>> {
+        self.called.set(true);
+        Ok(None)
+    }
+}
+
+#[test]
+fn discovering_an_a2a_target_rechecks_the_authenticated_owner_person() {
+    let h = open();
+    let project = setup(&h, &["sender", "receiver"]);
+    let member = member(&project, ProjectRight::Lead, &["sender", "receiver"]);
+    let worker = Principal {
+        kind: Some(PrincipalKind::Agent),
+        ..owner()
+    };
+    for (index, caller) in [member, worker].iter().enumerate() {
+        let text = format!("Read report {index}");
+        let mut admission = input(caller, &project, "sender", "receiver", &text);
+        admission.call_class = CallClass::Read;
+        let handle = h
+            .svc
+            .delegate(DelegateRequest {
+                admission,
+                parent_task: None,
+                task_class: TaskClass::Research,
+                contract: None,
+                allowed_tools: &[],
+                writer: None,
+                cancel: None,
+                audit: &mut |_: &AuditEvent| Ok(()),
+            })
+            .unwrap();
+        let target = DispatchProbe {
+            kind: TargetKind::A2a,
+            called: Cell::new(false),
+        };
+        let settled = h
+            .svc
+            .run_target(
+                &handle,
+                &[&target],
+                TargetContext {
+                    handoff: None,
+                    independent_review: false,
+                    local_checkout: false,
+                    on_accepted: None,
+                },
+            )
+            .unwrap()
+            .unwrap();
+        assert!(!target.called.get());
+        assert_eq!(
+            settled.error.as_deref(),
+            Some("A2A assignment and execution require an Owner person")
+        );
+    }
+}
+
+#[test]
+fn handoff_context_must_belong_to_the_queued_person() {
+    let h = open();
+    let owner = owner();
+    let project = setup(&h, &["sender", "receiver"]);
+    let mut admission = input(&owner, &project, "sender", "receiver", "Verify report");
+    admission.call_class = CallClass::Write;
+    admission.task_id = Some("sender-task");
+    let vectors: Vec<Value> =
+        serde_json::from_str(include_str!("../../../../fixtures/parity/collab/run.json")).unwrap();
+    let case = vectors.iter().find(|row| row["name"] == "done").unwrap();
+    let contract = parse(case["handoff"].as_str().unwrap()).unwrap();
+    let mut audit = |_: &AuditEvent| Ok(());
+    let handle = h
+        .svc
+        .delegate(DelegateRequest {
+            admission,
+            parent_task: None,
+            task_class: TaskClass::CodeSmall,
+            contract: Some(contract.clone()),
+            allowed_tools: &[],
+            writer: None,
+            cancel: None,
+            audit: &mut audit,
+        })
+        .unwrap();
+    let target = DispatchProbe {
+        kind: TargetKind::Local,
+        called: Cell::new(false),
+    };
+    let clock = FixedClock(Arc::new(AtomicI64::new(case["start"].as_i64().unwrap())));
+    let mut binding = HandoffContext {
+        person: "different-person",
+        task_id: "sender-task",
+        session_id: "sender-session",
+        from_agent: "sender",
+        project_id: &project,
+        expected: Some(&contract),
+        has_history: false,
+        clock: &clock,
+        approval: &|_: &str| Ok(None),
+        grant: &|_: &str| Ok(None),
+        audit: &mut audit,
+    };
+    let settled = h
+        .svc
+        .run_target(
+            &handle,
+            &[&target],
+            TargetContext {
+                handoff: Some(&mut binding),
+                independent_review: false,
+                local_checkout: false,
+                on_accepted: None,
+            },
+        )
+        .unwrap()
+        .unwrap();
+    assert!(!target.called.get());
+    assert_eq!(settled.error.as_deref(), Some("handoff target mismatch"));
 }
 
 fn transcript_shape(replay: &crate::collab::replay::ReplayTranscript) -> Value {
@@ -321,7 +481,6 @@ fn a_reservation_is_bound_to_a_single_identity_and_run() {
             task_class: TaskClass::CodeSmall,
             contract: None,
             allowed_tools: &[],
-            parent_budget: None,
             writer: Some(writer),
             cancel: None,
             audit: &mut |_: &AuditEvent| Ok(()),
@@ -372,11 +531,226 @@ fn an_audit_failure_refuses_delegation_before_creating_a_task() {
         task_class: TaskClass::CodeSmall,
         contract: None,
         allowed_tools: &[],
-        parent_budget: None,
         writer: None,
         cancel: None,
         audit: &mut |_: &AuditEvent| Err("not recorded".to_owned()),
     });
     assert!(matches!(got, Err(error) if error.code == C::Storage));
     assert!(h.svc.get_trace(&owner, &trace).unwrap().spans.is_empty());
+}
+
+#[test]
+fn nested_delegation_cannot_claim_to_be_the_root_without_its_path() {
+    let h = open();
+    let owner = owner();
+    let project = setup(&h, &["sender", "receiver", "other"]);
+    let mut root = input(&owner, &project, "sender", "receiver", "Top-level work");
+    root.call_class = CallClass::Write;
+    let mut audit = |_: &AuditEvent| Ok(());
+    let parent = h
+        .svc
+        .delegate(DelegateRequest {
+            admission: root,
+            parent_task: None,
+            task_class: TaskClass::CodeSmall,
+            contract: None,
+            allowed_tools: &[],
+            writer: None,
+            cancel: None,
+            audit: &mut audit,
+        })
+        .unwrap();
+    let mut child = input(&owner, &project, "receiver", "other", "Follow-up work");
+    child.trace_id = Some(&parent.queued.trace_id);
+    child.call_class = CallClass::Write;
+    let refused = h.svc.delegate(DelegateRequest {
+        admission: child,
+        parent_task: None,
+        task_class: TaskClass::CodeSmall,
+        contract: None,
+        allowed_tools: &[],
+        writer: None,
+        cancel: None,
+        audit: &mut audit,
+    });
+    assert!(matches!(refused, Err(error) if error.guardrail == Some(GuardrailReason::Depth)));
+    assert_eq!(
+        h.svc
+            .store()
+            .list_tasks(&parent.queued.trace_id)
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn read_delegation_cannot_take_a_writing_tool_from_a_contract() {
+    let h = open();
+    let owner = owner();
+    let project = setup(&h, &["sender", "receiver"]);
+    let mut admission = input(&owner, &project, "sender", "receiver", "Read a report");
+    admission.call_class = CallClass::Read;
+    let mut audit = |_: &AuditEvent| Ok(());
+    let offered = ["file.read".to_owned(), "file.write".to_owned()];
+    let result = h.svc.delegate(DelegateRequest {
+        admission,
+        parent_task: None,
+        task_class: TaskClass::Research,
+        contract: Some(V::from_serde(&json!({
+            "kind": "delegate",
+            "budget": {"deadline": "2030-01-01T00:00:00.000Z", "tokens": 500},
+            "constraints": {"scope": {"tools": ["file.read", "file.write"]}}
+        }))),
+        allowed_tools: &offered,
+        writer: None,
+        cancel: None,
+        audit: &mut audit,
+    });
+    assert!(matches!(result, Err(error) if error.code == C::Unauthorized));
+}
+
+#[test]
+fn a_nested_reader_inherits_its_stored_parent_path_and_live_budget() {
+    struct Reader<'a> {
+        agent: &'a str,
+        budget: RefCell<Option<crate::collab::limits::DelegationWorkBudget>>,
+    }
+    impl DelegationTarget for Reader<'_> {
+        fn kind(&self) -> TargetKind {
+            TargetKind::Local
+        }
+
+        fn accepts(&self, id: &str) -> bool {
+            id == self.agent
+        }
+
+        fn acknowledge(&self, _: &TargetRequest<'_>) -> R<V> {
+            Err(CollabError::new(C::Invalid, "unexpected contract"))
+        }
+
+        fn start(&self, request: &TargetRequest<'_>) -> R<Option<RunOutput>> {
+            assert_eq!(request.scope.unwrap().tool_view, ["file.read"]);
+            self.budget.replace(Some(request.budget.clone()));
+            Ok(None)
+        }
+    }
+
+    let h = open();
+    let owner = owner();
+    let project = setup(&h, &["sender", "receiver", "other"]);
+    let tools = ["file.read".to_owned()];
+    let enqueue = |admission, parent_task| {
+        h.svc.delegate(DelegateRequest {
+            admission,
+            parent_task,
+            task_class: TaskClass::Research,
+            contract: None,
+            allowed_tools: &tools,
+            writer: None,
+            cancel: None,
+            audit: &mut |_: &AuditEvent| Ok(()),
+        })
+    };
+    let start = |handle, reader: &Reader<'_>| {
+        h.svc
+            .run_target(
+                handle,
+                &[reader],
+                TargetContext {
+                    handoff: None,
+                    local_checkout: false,
+                    independent_review: false,
+                    on_accepted: None,
+                },
+            )
+            .unwrap();
+        reader.budget.borrow().as_ref().unwrap().clone()
+    };
+    let root = enqueue(
+        input(&owner, &project, "sender", "receiver", "Read the report"),
+        None,
+    )
+    .unwrap();
+    let parent = start(
+        &root,
+        &Reader {
+            agent: "receiver",
+            budget: RefCell::new(None),
+        },
+    );
+    let mut held = parent.reserve(parent.limit() as f64).unwrap();
+
+    let mut child = input(&owner, &project, "receiver", "other", "Read the annex");
+    child.trace_id = Some(&root.queued.trace_id);
+    child.path = Some(vec!["receiver".to_owned()]);
+    assert!(
+        matches!(enqueue(child.clone(), Some(&root.queued.id)), Err(error)
+        if error.guardrail == Some(GuardrailReason::Depth))
+    );
+    child.path = Some(root.queued.path.clone());
+    let mut writer = child.clone();
+    writer.call_class = CallClass::Write;
+    let denied = h.svc.delegate(DelegateRequest {
+        admission: writer,
+        parent_task: Some(&root.queued.id),
+        task_class: TaskClass::CodeSmall,
+        contract: None,
+        allowed_tools: &tools,
+        writer: None,
+        cancel: None,
+        audit: &mut |_: &AuditEvent| Ok(()),
+    });
+    assert!(matches!(denied, Err(error) if error.guardrail == Some(GuardrailReason::Depth)));
+    let child = enqueue(child, Some(&root.queued.id)).unwrap();
+    assert_eq!(child.queued.path, ["sender", "receiver", "other"]);
+    let budget = start(
+        &child,
+        &Reader {
+            agent: "other",
+            budget: RefCell::new(None),
+        },
+    );
+    assert!(budget.reserve(1.0).is_err());
+    held.release();
+    assert!(budget.reserve(1.0).is_ok());
+}
+
+#[test]
+fn changing_the_handoff_task_label_cannot_reset_the_chain_fanout() {
+    let h = open();
+    let owner = owner();
+    let project = setup(&h, &["sender", "receiver"]);
+    let trace = h.svc.open_chain(&owner, &project, "sender").unwrap();
+    let limit = h
+        .svc
+        .store()
+        .limits(&project)
+        .unwrap()
+        .read_helpers_per_turn;
+    assert!(limit > 0);
+    for index in 0..=limit {
+        let label = format!("handoff-{index}");
+        let text = format!("Read report {index}");
+        let mut admission = input(&owner, &project, "sender", "receiver", &text);
+        admission.trace_id = Some(&trace);
+        admission.task_id = Some(&label);
+        let result = h.svc.delegate(DelegateRequest {
+            admission,
+            parent_task: None,
+            task_class: TaskClass::Research,
+            contract: None,
+            allowed_tools: &[],
+            writer: None,
+            cancel: None,
+            audit: &mut |_: &AuditEvent| Ok(()),
+        });
+        if index < limit {
+            assert!(result.is_ok());
+        } else {
+            assert!(
+                matches!(result, Err(error) if error.guardrail == Some(GuardrailReason::Fanout))
+            );
+        }
+    }
 }
