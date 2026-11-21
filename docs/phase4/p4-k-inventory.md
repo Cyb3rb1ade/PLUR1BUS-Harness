@@ -1,8 +1,7 @@
 # P4-K inventory: what the package ports, and how each part is proven
 
-Package P4-K (card `reviews/paket-p4-k-kern-bibliotheken-2026-11-18.md`), milestone K0, 2026-11-18. Basis `fc113b4e2d`.
-K1 was read in full; K2 to K11 are an inventory from file lists, `grep` and the head comments, not from a reading of the code,
-so a mode named below for them is a proposal that the milestone's own implementer confirms or corrects.
+Package P4-K (card `reviews/paket-p4-k-kern-bibliotheken-2026-11-18.md`). The K0 inventory used basis `fc113b4e2d`.
+The implementation, parity evidence and host boundaries are in the “as built” sections and the K12 closure below.
 
 Parity modes (plan §3): **V** vectors (exporter), **B** store round trip, **T** transcripts, **W** wire fixtures, **S** system
 suites. A test file with no mode has its reason in the "no mode" column. Sizes are lines of `.ts` under `packages/core/src` and
@@ -22,7 +21,7 @@ suites. A test file with no mode has its reason in the "no mode" column. Sizes a
 | K8 ACP | 1,059 (12) | 17 | none | none |
 | K9 prompt, tool-call runtime, decision, triage | 7,030 (65) | 70 | `capabilities.sqlite` (tool-call index) | none found |
 | K10 gate, exec, fs, host tools | 2,833 (26) + hostctl 655 (10) | 17 + hostctl 20 | none | K10a: `plur1bus-core`, `plur1bus-canon`, `plur1bus-log-schema` (first party), `base64`, `regex`, `rustix` (unix) for `plur1bus-tools`; `rustix` (unix) and `winapi-util` (Windows) for `plur1bus-core`. All locked already; added in K10a |
-| K11 decision receipts | new (D133) | new | `decision-receipts.sqlite` v1 (new) | none |
+| K11 decision receipts | new (D133) | new | `decision-receipts.sqlite` v2 (Rust-owned) | none |
 
 
 
@@ -723,11 +722,11 @@ knowledge file, media search and the engine forwards are K7b onward).
   The recorded TypeScript trace retains its original behaviour, where the editor takes over on update.
 - *Deliberately not ported:* the method table and call context of `rpc.ts`, `authenticatedPrincipal`, `createApprovalsIntegrityJob` (approvals),
   a real timer (a host calls `tick` and `IntegrityArm::fire`), the engine forward of the job runner.
-- *Known deviations:* **K7-D4 (K7a-R4):** In the sampled summer dates for `Europe/Berlin` and `America/New_York`, Rust
+- *Known deviations:* **K7-D5 (K7a-R4):** In the sampled summer dates for `Europe/Berlin` and `America/New_York`, Rust
   and Node agree in 2040 and 2099. Rust uses standard time in the sampled summer of 2100 and Node still uses daylight
   saving time. Six March 2100 cases in the broad calendar vector now pin both UTC outcomes. All other cases compare exactly. A wall year below 100 and the
   instants within a day of the earliest `Date` are errors, a lone surrogate in a definition cannot be held, the user-jobs directory is 0700,
-  a newer store schema is refused where TypeScript opens it. **K7-D6 (K7a-R3):** The pinned Rust tzdb 2025b and Node tzdb 2026c
+  **K7-D4:** a newer store schema is refused where TypeScript opens it. **K7-D6 (K7a-R3):** The pinned Rust tzdb 2025b and Node tzdb 2026c
   disagree on the transition to permanent UTC in `Africa/Casablanca` and `Africa/El_Aaiun` on 2026-09-20. The recorded examples on
   both sides of the transition pin the database versions and the exact UTC outcomes. [IANA 2026c release notes](https://data.iana.org/time-zones/tzdb-2026c/NEWS).
 - *Ports for the flip:* clock, ids (`randomUUID`), audit (`AuditSink`), principal lookup (`resolve`), delivery check (`validateDelivery`),
@@ -1176,7 +1175,47 @@ What the helper cannot do today:
   `createCallBudget` and `PeerCallBudget` in `prepare`.
   K3b does it for the three small stores (`k3b-b-driver.ts`: the real `ChannelHandoff`, `DeliveryTargets` and `InboxStore` write the files, and
   an empty one of each is the reference for the schema text); the hand-off driver carries a small copy of the scripted session store of `export-handoff.ts`.
-- **Two writers.** The helper is single-process; `BEGIN IMMEDIATE` interleaving is tested only inside Rust.
+- **Two writers.** Mode B uses a single writer per stage. K12 adds a separate Rust test that holds an actual transaction across
+  two processes on each owner-store connection (see below).
 - **Compare the schema text.** The session driver compares `sqlite_master` of a Rust-migrated file with the TypeScript one; any new driver
   should do the same for stores the Rust core will own.
 - **Rust-side migration entry** exists (`Store::open_owner` with `Schema::Steps`); the TypeScript text must be copied byte for byte into Rust.
+
+
+## 14. K12 closure
+
+P4-K supplies library implementations and parity evidence. The [module map](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries)
+locates the implementation beside the TypeScript package assignment. The flip owners keep handler registration, service composition,
+real host adapters and the single-writer handoff.
+
+| Milestone | Library and proof | Package findings linked to their P4D entries |
+|---|---|---|
+| K1 | v2 budget and unversioned licence ledger | [K1-D1](defects.md#p4d-46), [K1-D2](defects.md#p4d-47) |
+| K2 | policy, path and egress vectors, audit and attestation | [K2-D1](defects.md#p4d-48), [K2-D2](defects.md#p4d-49), [K2-D3](defects.md#p4d-50), [K2-D4](defects.md#p4d-51), [K2-D5](defects.md#p4d-52), [K2-D6](defects.md#p4d-53), [K2-D7](defects.md#p4d-54), [K2-D8](defects.md#p4d-55) |
+| K3 | approval, grant, inbox, delivery and hand-off parity | [K3-D1](defects.md#p4d-56), [K3-D2](defects.md#p4d-57), [K3-D3](defects.md#p4d-58), [K3-D4](defects.md#p4d-59), [K3-D5](defects.md#p4d-60), [K3-D6](defects.md#p4d-61), [K3-D7](defects.md#p4d-62) |
+| K4 | profile and credential rules, OAuth listener and identity vectors | [K4-D1](defects.md#p4d-63), [K4-D2](defects.md#p4d-64), [K4-D3](defects.md#p4d-65), [K4-D4](defects.md#p4d-66), [K4-D5](defects.md#p4d-67), [K4-D6](defects.md#p4d-68), [K4-D7](defects.md#p4d-69), [K4-D8](defects.md#p4d-70), [K4-D9](defects.md#p4d-71), [K4-D10](defects.md#p4d-72) |
+| K5 | session B round-trips, context and rewind maintenance | [K5-D1](defects.md#p4d-73), [K5-D2](defects.md#p4d-74), [K5-D3](defects.md#p4d-75), [K5-D4](defects.md#p4d-76), [K5-D5](defects.md#p4d-77), [K5-D6](defects.md#p4d-78), [K5-D7](defects.md#p4d-79), [K5-D8](defects.md#p4d-80), [K5-D9](defects.md#p4d-81), [K5-D10](defects.md#p4d-82) |
+| K6 | collaboration and coding B round-trips, delegated effects and federation vectors | [K6-D1](defects.md#p4d-83), [K6-D2](defects.md#p4d-84), [K6-D3](defects.md#p4d-85), [K6-D4](defects.md#p4d-86), [K6-D5](defects.md#p4d-87), [K6-D6](defects.md#p4d-88), [K6-D7](defects.md#p4d-89), [K6-D8](defects.md#p4d-90), [K6-D9](defects.md#p4d-91), [K6-D10](defects.md#p4d-92), [K6-D11](defects.md#p4d-93), [K6-D12](defects.md#p4d-94), [K6-D13](defects.md#p4d-95), [K6-D14](defects.md#p4d-96), [K6-D15](defects.md#p4d-97), [K6-D16](defects.md#p4d-98), [K6-D17](defects.md#p4d-99), [K6-D18](defects.md#p4d-100), [K6-D19](defects.md#p4d-101), [K6-D20](defects.md#p4d-102), [K6-D21](defects.md#p4d-103), [K6-D22](defects.md#p4d-104), [K6-D23](defects.md#p4d-105), [K6-D24](defects.md#p4d-106), [K6-D25](defects.md#p4d-107), [K6-D26](defects.md#p4d-108), [K6-D27](defects.md#p4d-109), [K6-D28](defects.md#p4d-110), [K6-D29](defects.md#p4d-111) |
+| K7 | jobs, dream and learn stores, workflow evidence, knowledge and captioning | [K7-D1](defects.md#p4d-112), [K7-D2](defects.md#p4d-113), [K7-D3](defects.md#p4d-114), [K7-D4](defects.md#p4d-115), [K7-D5](defects.md#p4d-116), [K7-D6](defects.md#p4d-117), [K7-D7](defects.md#p4d-118), [K7-D8](defects.md#p4d-119), [K7-D9](defects.md#p4d-120), [K7-D10](defects.md#p4d-121), [K7-D11](defects.md#p4d-122), [K7-D12](defects.md#p4d-123), [K7-D13](defects.md#p4d-124), [K7-D14](defects.md#p4d-125), [K7-D20](defects.md#p4d-126), [K7-D21](defects.md#p4d-127), [K7-D22](defects.md#p4d-128), [K7-D23](defects.md#p4d-129), [K7-D24](defects.md#p4d-130), [K7-D25](defects.md#p4d-131), [K7-D26](defects.md#p4d-132), [K7-D27](defects.md#p4d-133), [K7-D28](defects.md#p4d-134), [K7-D29](defects.md#p4d-135), [K7-D30](defects.md#p4d-136), [K7-D31](defects.md#p4d-137), [K7-D40](defects.md#p4d-138), [K7-D41](defects.md#p4d-139), [K7-D42](defects.md#p4d-140), [K7-D43](defects.md#p4d-141), [K7-D44](defects.md#p4d-142), [K7-D45](defects.md#p4d-143), [K7-D46](defects.md#p4d-144), [K7-D47](defects.md#p4d-145), [K7-D48](defects.md#p4d-146), [K7-D49](defects.md#p4d-147), [K7-D50](defects.md#p4d-148), [K7-D51](defects.md#p4d-149), [K7-D52](defects.md#p4d-150) |
+| K8 | ACP transcripts and connection bounds | [K8-D1](defects.md#p4d-151), [K8-D2](defects.md#p4d-152), [K8-D3](defects.md#p4d-153), [K8-D4](defects.md#p4d-154), [K8-D5](defects.md#p4d-155), [K8-D6](defects.md#p4d-156), [K8-D7](defects.md#p4d-157) |
+| K9a | prompt, triage and decision vectors | [K9a-D1](defects.md#p4d-158), [K9a-D2](defects.md#p4d-159), [K9a-D3](defects.md#p4d-160), [K9a-D6](defects.md#p4d-161), [K9a-D7](defects.md#p4d-162) |
+| K9b | tool-call registry B round-trip and ranking vectors | [K9b-D1](defects.md#p4d-163), [K9b-D2](defects.md#p4d-164), [K9b-D3](defects.md#p4d-165) |
+| K10 | exec, filesystem, gate and Hostctl vectors and negative-effect tests | [K10-D1](defects.md#p4d-166), [K10-D2](defects.md#p4d-167), [K10-D3](defects.md#p4d-168), [K10-D4](defects.md#p4d-169), [K10-D5](defects.md#p4d-170), [K10-D6](defects.md#p4d-171), [K10-D7](defects.md#p4d-172), [K10-D8](defects.md#p4d-173), [K10-D9](defects.md#p4d-174), [K10-D10](defects.md#p4d-175), [K10-D11](defects.md#p4d-176), [K10-D12](defects.md#p4d-177), [K10-D13](defects.md#p4d-178), [K10-D14](defects.md#p4d-179), [K10-D15](defects.md#p4d-180), [K10-D16](defects.md#p4d-181), [K10-D21](defects.md#p4d-182), [K10-D22](defects.md#p4d-183) |
+| K11 | receipt content markers, adoption recovery and live-rights gate tests | [K11-D1](defects.md#p4d-184), [K11-D2](defects.md#p4d-185), [K11-D3](defects.md#p4d-186), [K11-D4](defects.md#p4d-187), [K11-D5](defects.md#p4d-188), [K11-D6](defects.md#p4d-189), [K11-D7](defects.md#p4d-190), [K11-D8](defects.md#p4d-191), [K11-D9](defects.md#p4d-192), [K11-D10](defects.md#p4d-193), [K11-D11](defects.md#p4d-194) |
+
+### Store owners and Windows
+
+The K12 writer tests launch two child processes per store: sessions, delivery, channel hand-off, user jobs, collaboration,
+decision receipts, dreaming and the skill-mining evidence ledger. Each process opens its own real file-backed store.
+A test-only claim table gives both processes the same logical claim, without a unique constraint deciding the winner.
+The first writer holds its transaction until the second receives `SQLITE_BUSY` at `BEGIN IMMEDIATE`. The second retries after
+commit, reads the first writer's claim and verifies there is exactly one committed row. Service-specific claims and Mode B
+round-trips retain their own coverage. These tests exercise SQLite on a local filesystem. A flip still hands each store to one
+resident writer and stops its legacy writer.
+
+Delivery, hand-off, inbox, receipts, dreams, workflow evidence and artifact provenance use the shared private-file preparation.
+Session and collaboration openers accept a host verification port, and the user-jobs port can report the verification outcome.
+The Unix default file modes, schema versions, migrations and journal settings are unchanged. The Windows file openers require
+host verification of the database ACL and private parent ACL for its journal and sidecars before preparing or opening the
+database. No verified production Windows ACL adapter is available for these stores. They refuse disk-backed opens when the port
+is absent or denies access. The test-only callbacks acknowledge synthetic temporary files and do not provide Windows ACL evidence.
