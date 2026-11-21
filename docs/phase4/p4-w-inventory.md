@@ -65,7 +65,8 @@ Die Redaktion verwendet in Rust sowohl die gesendete normalisierte Schreibweise 
 Originalwerte. Die TypeScript-Aufzeichnung erfasst den Unterschied bei nachgestellten
 Leerzeichen in Authorization und bei OWS um Zusatzheader (TS-2). Beide Fälle nutzen
 synthetische Marker. Die Rust-Fehlerform folgt der aufgezeichneten Redaktion bei bereits
-normalisierten Headern.
+normalisierten Headern. Seit RW-5 enthält die Debug-Ansicht der Provider-Konfiguration
+die Namen der Zusatzheader. Ihre Werte sind dort ausgeblendet.
 
 <a id="p4d-40-http-wrapper"></a>
 

@@ -5,6 +5,7 @@ use crate::response::{self, Delivery, Redactor, ToolRepair, ToolRepairInput};
 use crate::{ErrorKind, Json, ProviderError, RequestOptions, TimeoutPhase, Wire};
 use serde_json::Value;
 use socket2::Socket;
+use std::fmt;
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::sync::{
@@ -79,7 +80,7 @@ impl Default for Timeouts {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Config {
     pub request: RequestOptions,
     pub extra_headers: Vec<(String, String)>,
@@ -90,6 +91,23 @@ pub struct Config {
     pub max_body_bytes: usize,
     pub max_event_bytes: usize,
     pub max_tool_argument_bytes: usize,
+}
+
+impl fmt::Debug for Config {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let header_names: Vec<_> = self.extra_headers.iter().map(|(name, _)| name).collect();
+        f.debug_struct("Config")
+            .field("request", &self.request)
+            .field("extra_header_names", &header_names)
+            .field("allow_insecure_http", &self.allow_insecure_http)
+            .field("allow_missing_done", &self.allow_missing_done)
+            .field("anthropic_version", &self.anthropic_version)
+            .field("timeouts", &self.timeouts)
+            .field("max_body_bytes", &self.max_body_bytes)
+            .field("max_event_bytes", &self.max_event_bytes)
+            .field("max_tool_argument_bytes", &self.max_tool_argument_bytes)
+            .finish()
+    }
 }
 
 impl Default for Config {
@@ -963,6 +981,20 @@ mod tests {
                 NO_PHASE_TIMEOUTS,
             )
             .map(|(agent, _)| agent)
+    }
+
+    #[test]
+    fn provider_config_debug_retains_header_names_and_hides_values() {
+        let config = Config {
+            extra_headers: vec![("x-fixture-scope".into(), "fixture-header-marker".into())],
+            ..Config::default()
+        };
+        let debug = format!("{config:?}");
+        assert!(debug.contains("x-fixture-scope"));
+        assert!(
+            !debug.contains("fixture-header-marker"),
+            "config Debug included a header value"
+        );
     }
 
     #[test]
