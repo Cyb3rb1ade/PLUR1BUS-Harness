@@ -152,7 +152,6 @@ fn run_vectors() {
                 task_class: TaskClass::CodeSmall,
                 contract: h.clone(),
                 allowed_tools: &["file.read".to_owned(), "file.write".to_owned()],
-                parent_budget: None,
                 writer: None,
                 cancel: None,
                 audit: &mut audit,
@@ -321,7 +320,6 @@ fn a_reservation_is_bound_to_a_single_identity_and_run() {
             task_class: TaskClass::CodeSmall,
             contract: None,
             allowed_tools: &[],
-            parent_budget: None,
             writer: Some(writer),
             cancel: None,
             audit: &mut |_: &AuditEvent| Ok(()),
@@ -372,11 +370,226 @@ fn an_audit_failure_refuses_delegation_before_creating_a_task() {
         task_class: TaskClass::CodeSmall,
         contract: None,
         allowed_tools: &[],
-        parent_budget: None,
         writer: None,
         cancel: None,
         audit: &mut |_: &AuditEvent| Err("not recorded".to_owned()),
     });
     assert!(matches!(got, Err(error) if error.code == C::Storage));
     assert!(h.svc.get_trace(&owner, &trace).unwrap().spans.is_empty());
+}
+
+#[test]
+fn nested_delegation_cannot_claim_to_be_the_root_without_its_path() {
+    let h = open();
+    let owner = owner();
+    let project = setup(&h, &["sender", "receiver", "other"]);
+    let mut root = input(&owner, &project, "sender", "receiver", "Top-level work");
+    root.call_class = CallClass::Write;
+    let mut audit = |_: &AuditEvent| Ok(());
+    let parent = h
+        .svc
+        .delegate(DelegateRequest {
+            admission: root,
+            parent_task: None,
+            task_class: TaskClass::CodeSmall,
+            contract: None,
+            allowed_tools: &[],
+            writer: None,
+            cancel: None,
+            audit: &mut audit,
+        })
+        .unwrap();
+    let mut child = input(&owner, &project, "receiver", "other", "Follow-up work");
+    child.trace_id = Some(&parent.queued.trace_id);
+    child.call_class = CallClass::Write;
+    let refused = h.svc.delegate(DelegateRequest {
+        admission: child,
+        parent_task: None,
+        task_class: TaskClass::CodeSmall,
+        contract: None,
+        allowed_tools: &[],
+        writer: None,
+        cancel: None,
+        audit: &mut audit,
+    });
+    assert!(matches!(refused, Err(error) if error.guardrail == Some(GuardrailReason::Depth)));
+    assert_eq!(
+        h.svc
+            .store()
+            .list_tasks(&parent.queued.trace_id)
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn read_delegation_cannot_take_a_writing_tool_from_a_contract() {
+    let h = open();
+    let owner = owner();
+    let project = setup(&h, &["sender", "receiver"]);
+    let mut admission = input(&owner, &project, "sender", "receiver", "Read a report");
+    admission.call_class = CallClass::Read;
+    let mut audit = |_: &AuditEvent| Ok(());
+    let offered = ["file.read".to_owned(), "file.write".to_owned()];
+    let result = h.svc.delegate(DelegateRequest {
+        admission,
+        parent_task: None,
+        task_class: TaskClass::Research,
+        contract: Some(V::from_serde(&json!({
+            "kind": "delegate",
+            "budget": {"deadline": "2030-01-01T00:00:00.000Z", "tokens": 500},
+            "constraints": {"scope": {"tools": ["file.read", "file.write"]}}
+        }))),
+        allowed_tools: &offered,
+        writer: None,
+        cancel: None,
+        audit: &mut audit,
+    });
+    assert!(matches!(result, Err(error) if error.code == C::Unauthorized));
+}
+
+#[test]
+fn a_nested_reader_inherits_its_stored_parent_path_and_live_budget() {
+    struct Reader<'a> {
+        agent: &'a str,
+        budget: RefCell<Option<crate::collab::limits::DelegationWorkBudget>>,
+    }
+    impl DelegationTarget for Reader<'_> {
+        fn kind(&self) -> TargetKind {
+            TargetKind::Local
+        }
+
+        fn accepts(&self, id: &str) -> bool {
+            id == self.agent
+        }
+
+        fn acknowledge(&self, _: &TargetRequest<'_>) -> R<V> {
+            Err(CollabError::new(C::Invalid, "unexpected contract"))
+        }
+
+        fn start(&self, request: &TargetRequest<'_>) -> R<Option<RunOutput>> {
+            assert_eq!(request.scope.unwrap().tool_view, ["file.read"]);
+            self.budget.replace(Some(request.budget.clone()));
+            Ok(None)
+        }
+    }
+
+    let h = open();
+    let owner = owner();
+    let project = setup(&h, &["sender", "receiver", "other"]);
+    let tools = ["file.read".to_owned()];
+    let enqueue = |admission, parent_task| {
+        h.svc.delegate(DelegateRequest {
+            admission,
+            parent_task,
+            task_class: TaskClass::Research,
+            contract: None,
+            allowed_tools: &tools,
+            writer: None,
+            cancel: None,
+            audit: &mut |_: &AuditEvent| Ok(()),
+        })
+    };
+    let start = |handle, reader: &Reader<'_>| {
+        h.svc
+            .run_target(
+                handle,
+                &[reader],
+                TargetContext {
+                    handoff: None,
+                    local_checkout: false,
+                    independent_review: false,
+                    on_accepted: None,
+                },
+            )
+            .unwrap();
+        reader.budget.borrow().as_ref().unwrap().clone()
+    };
+    let root = enqueue(
+        input(&owner, &project, "sender", "receiver", "Read the report"),
+        None,
+    )
+    .unwrap();
+    let parent = start(
+        &root,
+        &Reader {
+            agent: "receiver",
+            budget: RefCell::new(None),
+        },
+    );
+    let mut held = parent.reserve(parent.limit() as f64).unwrap();
+
+    let mut child = input(&owner, &project, "receiver", "other", "Read the annex");
+    child.trace_id = Some(&root.queued.trace_id);
+    child.path = Some(vec!["receiver".to_owned()]);
+    assert!(
+        matches!(enqueue(child.clone(), Some(&root.queued.id)), Err(error)
+        if error.guardrail == Some(GuardrailReason::Depth))
+    );
+    child.path = Some(root.queued.path.clone());
+    let mut writer = child.clone();
+    writer.call_class = CallClass::Write;
+    let denied = h.svc.delegate(DelegateRequest {
+        admission: writer,
+        parent_task: Some(&root.queued.id),
+        task_class: TaskClass::CodeSmall,
+        contract: None,
+        allowed_tools: &tools,
+        writer: None,
+        cancel: None,
+        audit: &mut |_: &AuditEvent| Ok(()),
+    });
+    assert!(matches!(denied, Err(error) if error.guardrail == Some(GuardrailReason::Depth)));
+    let child = enqueue(child, Some(&root.queued.id)).unwrap();
+    assert_eq!(child.queued.path, ["sender", "receiver", "other"]);
+    let budget = start(
+        &child,
+        &Reader {
+            agent: "other",
+            budget: RefCell::new(None),
+        },
+    );
+    assert!(budget.reserve(1.0).is_err());
+    held.release();
+    assert!(budget.reserve(1.0).is_ok());
+}
+
+#[test]
+fn changing_the_handoff_task_label_cannot_reset_the_chain_fanout() {
+    let h = open();
+    let owner = owner();
+    let project = setup(&h, &["sender", "receiver"]);
+    let trace = h.svc.open_chain(&owner, &project, "sender").unwrap();
+    let limit = h
+        .svc
+        .store()
+        .limits(&project)
+        .unwrap()
+        .read_helpers_per_turn;
+    assert!(limit > 0);
+    for index in 0..=limit {
+        let label = format!("handoff-{index}");
+        let text = format!("Read report {index}");
+        let mut admission = input(&owner, &project, "sender", "receiver", &text);
+        admission.trace_id = Some(&trace);
+        admission.task_id = Some(&label);
+        let result = h.svc.delegate(DelegateRequest {
+            admission,
+            parent_task: None,
+            task_class: TaskClass::Research,
+            contract: None,
+            allowed_tools: &[],
+            writer: None,
+            cancel: None,
+            audit: &mut |_: &AuditEvent| Ok(()),
+        });
+        if index < limit {
+            assert!(result.is_ok());
+        } else {
+            assert!(
+                matches!(result, Err(error) if error.guardrail == Some(GuardrailReason::Fanout))
+            );
+        }
+    }
 }

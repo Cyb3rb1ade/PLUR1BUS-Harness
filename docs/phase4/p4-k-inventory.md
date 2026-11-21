@@ -612,6 +612,11 @@ Ports: clock, ids, git, process runner, session store (K5), budget (K1).
 
 **K6a-Rest as built** (collaboration execution and transcript library, with no live adapters registered).
 
+- **K6-D24 (RF-1, R-K-25):** Rust validates delegation ancestry against the stored trace and live parent task. It uses
+  that task's path and budget, keys fan-out by the admitted parent, and checks the task class before selecting tools.
+  Read and review delegates admit only the three built-in read tools. A nested delegate cannot expand its parent's
+  tool view, and any write delegate must hold a writer reservation. The flip must still bind the authenticated turn
+  and its parent task in the adapter for `tools/collaboration.ts` and provide the authorized target tool view.
 - **K6-D22 (K6a-R3):** Rust cancels the open tasks under one store transaction and calls the grant port before
   committing any terminal task rows. A failed call rolls back the task changes. The grant port must allow retries:
   grants ended before a later failure stay ended, and the queued or running task rows can be retried. The vectors
