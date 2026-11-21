@@ -29,7 +29,8 @@ use plur1bus_store::rusqlite::{
     self, params_from_iter, types::Value as Sql, Connection, OptionalExtension, Row,
 };
 use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreSpec, Synchronous};
-use std::path::Path;
+use std::fs::File;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// The result of a store call.
@@ -231,6 +232,7 @@ pub struct TaskPatch {
 /// `CollabStore`.
 pub struct CollabStore {
     db: Option<Store>,
+    writer_slot_dir: Option<PathBuf>,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) ids: Arc<dyn CollabIds>,
     grants: Option<Arc<dyn TaskGrantEnd>>,
@@ -525,8 +527,24 @@ impl CollabStore {
             // Best effort, as in TypeScript: the home directory is 0700 and the platform may have no mode bits.
             let _ = private_store::default_secure(path);
         }
+        let writer_slot_dir = if memory {
+            None
+        } else {
+            let mut directory = path
+                .canonicalize()
+                .map_err(|_| {
+                    CollabError::new(
+                        C::Storage,
+                        "cannot resolve collaboration store for writer slots",
+                    )
+                })?
+                .into_os_string();
+            directory.push(".writer-slots");
+            Some(PathBuf::from(directory))
+        };
         Ok(Self {
             db: Some(db),
+            writer_slot_dir,
             clock: o.clock,
             ids: o.ids,
             grants: o.grants,
@@ -578,6 +596,25 @@ impl CollabStore {
         let result = f(&tx)?;
         tx.commit()?;
         Ok(result)
+    }
+
+    pub(crate) fn has_shared_writer_slots(&self) -> bool {
+        self.writer_slot_dir.is_some()
+    }
+
+    pub(crate) fn reserve_writer_slot(
+        &self,
+        project: &str,
+        local: bool,
+        project_limit: i64,
+        local_limit: Option<f64>,
+    ) -> R<Option<File>> {
+        let directory = self.writer_slot_dir.as_deref().ok_or_else(|| {
+            CollabError::new(C::Storage, "shared writer slot storage is unavailable")
+        })?;
+        self.tx(|_| {
+            super::writer_slots::reserve(directory, project, local, project_limit, local_limit)
+        })
     }
 
     /// A raw read for the replay (`sql` ops): every row as JSON values.

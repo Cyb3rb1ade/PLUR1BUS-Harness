@@ -704,6 +704,69 @@ fn writer_slots_are_bounded_per_project_and_released_once() {
 }
 
 #[test]
+fn writer_slots_are_shared_by_connections_and_release_on_drop() {
+    let first = open();
+    use super::capacity::{CapacityFacts, CapacitySettings};
+
+    let project = setup(&first, &["a", "b"]);
+    let separate_project = setup(&first, &["a", "b"]);
+    let ids = Arc::new(Seq::default());
+    let second_store = CollabStore::open(
+        &first.dir.path().join("collab.sqlite"),
+        StoreOptions::new(Arc::new(Clk(Arc::new(AtomicI64::new(1000)))), ids.clone()),
+    )
+    .unwrap();
+    let capacity = Arc::new(AtomicI64::new(8));
+    let limit = Arc::clone(&capacity);
+    let ports = Ports {
+        capacity: Some(Box::new(move || CapacityFacts {
+            cores: 8.0,
+            available_memory: 8.0,
+            total_memory: Some(8.0),
+            settings: CapacitySettings {
+                cores_per_writer: 1.0,
+                memory_per_writer: 1.0,
+                max_writers: Some(limit.load(Ordering::SeqCst) as f64),
+            },
+        })),
+        ..Ports::default()
+    };
+    let second = CollabService::new(second_store, ports, ids);
+    let principal = owner();
+    let request = WriterIdentity {
+        principal: &principal,
+        project_id: &project,
+        from_agent: "a",
+        to_agent: "b",
+        trace_id: None,
+        parent_span_id: None,
+    };
+    let slots: Vec<_> = (0..4)
+        .map(|_| first.svc.reserve_writer(&request).unwrap())
+        .collect();
+    assert_eq!(
+        second.reserve_writer(&request).unwrap_err().message,
+        "project writer slots full"
+    );
+    first.svc.release_writer(slots[0]);
+    let replaced = second.reserve_writer(&request).unwrap();
+    let other_request = WriterIdentity {
+        project_id: &separate_project,
+        ..request
+    };
+    capacity.store(2, Ordering::SeqCst);
+    assert!(second.reserve_writer(&other_request).is_err());
+    capacity.store(8, Ordering::SeqCst);
+    assert!(first.svc.reserve_writer(&request).is_err());
+    drop(first.svc);
+    for _ in 0..3 {
+        second.reserve_writer(&request).unwrap();
+    }
+    assert!(second.reserve_writer(&request).is_err());
+    second.release_writer(replaced);
+}
+
+#[test]
 fn batch_cancellation_ends_grants_before_publishing_terminal_status() {
     use super::store::TaskGrantEnd;
     use plur1bus_store::rusqlite::Connection;

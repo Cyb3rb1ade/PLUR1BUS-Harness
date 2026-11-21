@@ -615,6 +615,11 @@ Ports: clock, ids, git, process runner, session store (K5), budget (K1).
   committing any terminal task rows. A failed call rolls back the task changes. The grant port must allow retries:
   grants ended before a later failure stay ended, and the queued or running task rows can be retried. The vectors
   compare the success path, and the store test observes pending states and a failed grant through a second connection.
+- **K6-D23 (K6a-R1):** File-backed Rust services count writer slots under the same SQLite write transaction and
+  retain OS locks in the database's owner-only side directory. Project and local reservations are shared by connections;
+  the hardware calculation credits only running writers visible to its own service, so it can be conservative. Abandoned
+  lock files are collected by the next admission. A private in-memory store has no other connections. TypeScript
+  maintains its own counters in each service and does not use these leases.
 - *Ported:* sender contract validation and bounded repair, chain-backed authority checks before ack and again before execution,
   single-start receiver tickets, return validation, byte-safe excerpts, and turn-local ownership and delivery receipts.
   The delegate admits and reserves writers, selects exactly one target, persists tasks and spans, records progress and usage, and
