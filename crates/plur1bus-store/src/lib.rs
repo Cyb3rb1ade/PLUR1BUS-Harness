@@ -252,9 +252,19 @@ impl Store {
     /// (the TypeScript stores set their pragmas first; the refusal is the same, the refused file stays as it was); the
     /// journal mode; `foreign_keys`, `synchronous` and the store's own pragmas; then the missing migration steps.
     pub fn open_owner(path: &Path, owner: &OwnerSpec) -> Result<Self, StoreError> {
+        Self::open_owner_before_configure(path, owner, |_| Ok(()))
+    }
+
+    /// Runs caller-supplied compatibility and permission checks on the opened connection, before configuring
+    /// SQLite's journal or applying migrations. An error prevents both operations.
+    pub fn open_owner_before_configure<E: From<StoreError>>(
+        path: &Path,
+        owner: &OwnerSpec,
+        check: impl FnOnce(&Connection) -> Result<(), E>,
+    ) -> Result<Self, E> {
         let spec = &owner.store;
         let mut conn = connect_with(path, owner.create)?;
-        conn.busy_timeout(BUSY_TIMEOUT)?;
+        conn.busy_timeout(BUSY_TIMEOUT).map_err(StoreError::from)?;
         let found = match owner.schema {
             Schema::Unversioned => None,
             Schema::Steps(steps) => {
@@ -267,7 +277,8 @@ impl Store {
                             steps.len(),
                             spec.version
                         ),
-                    )));
+                    ))
+                    .into());
                 }
                 let found = user_version(&conn)?;
                 if found > target {
@@ -275,11 +286,13 @@ impl Store {
                         store: spec.name,
                         found,
                         supported: target,
-                    });
+                    }
+                    .into());
                 }
                 Some((steps, found))
             }
         };
+        check(&conn)?;
         configure_with(&conn, spec, owner.journal)?;
         if let Some((steps, found)) = found {
             apply_steps(&mut conn, spec, steps, found)?;

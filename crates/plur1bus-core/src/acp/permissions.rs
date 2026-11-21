@@ -145,9 +145,8 @@ impl AcpPermissions {
             ),
         ]);
         // A permission is one ACP line too. Do not retain an oversized tool payload while waiting for a human.
-        match message.stringify() {
-            Some(text) if text.len() <= MAX_LINE_BYTES => {}
-            _ => return cancelled_now(),
+        if message.stringify_bounded(MAX_LINE_BYTES).is_none() {
+            return cancelled_now();
         }
         let (tx, rx) = oneshot();
         let listener = signal.map(|s| {

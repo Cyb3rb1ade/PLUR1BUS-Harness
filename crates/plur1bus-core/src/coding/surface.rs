@@ -248,6 +248,7 @@ pub fn complete(
     };
     let verification = gate.verify(VerifyInput {
         task: &task,
+        writer: agent,
         root: &root,
         abort: input.abort,
         override_note,

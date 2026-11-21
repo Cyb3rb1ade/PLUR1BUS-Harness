@@ -89,6 +89,24 @@ fn a_removed_listener_is_not_called() {
 }
 
 #[test]
+fn erasure_tombstone_stores_an_actor_principal_and_a_catalog_reason() {
+    let mut s = store();
+    let session = direct(&mut s, "x");
+    s.archive_session(&session.id).unwrap();
+    let actor = "local account";
+    let free_text = "content that must not be in the tombstone";
+    s.erase_session(&session.id, actor, free_text).unwrap();
+    let tombstones = s.erasures().unwrap();
+    assert_eq!(tombstones.len(), 1);
+    assert_eq!(
+        tombstones[0].actor,
+        crate::identity::principals::derive_user_principal(actor).unwrap()
+    );
+    assert_eq!(tombstones[0].reason, "explicit deletion");
+    assert!(s.get_session(&session.id).unwrap().is_none());
+}
+
+#[test]
 fn a_failed_begin_turn_leaves_no_row_behind() {
     let mut s = store();
     let r = direct(&mut s, "x");

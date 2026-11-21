@@ -784,6 +784,9 @@ impl<'a> Service<'a> {
         let origin = Audience::from_origin(session.origin)
             .filter(|_| session.kind == SessionKind::Direct)
             .ok_or_else(Error::not_found)?;
+        if !origin.recognizes_owner(&session.owner) {
+            return Err(Error::not_found());
+        }
         let audience = identity::audience(subject, target, Some(origin))?;
         if session.owner != subject.owner(audience) && !(method == CANCEL && subject.local_owner())
         {

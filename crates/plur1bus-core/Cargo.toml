@@ -58,6 +58,10 @@ chrono = { version = "0.4", default-features = false, features = ["std"] }
 # `icu_normalizer` through `url`'s IDNA. No new package in the lock file.
 url = "2"
 icu_normalizer = "2.3"
+# K7b uses the existing ICU collator and keeps insertion order for collation ties.
+icu_collator = "=2.3.1"
+icu_locale_core = "=2.3.0"
+indexmap = "=2.14.2"
 # P4-K K9a: the provider cache-profile table and the model-id normaliser behind `prompt::model_table` (the rows the
 # TypeScript builder reads from `packages/providers/schema/cache-profiles.json`). A workspace crate, already in the lock
 # file; it brings no new package.

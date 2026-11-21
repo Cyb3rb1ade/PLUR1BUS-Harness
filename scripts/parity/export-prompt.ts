@@ -410,7 +410,13 @@ function telemetryVectors() {
     let prompt: RenderedPrompt | undefined;
     const ops = s.ops.map((op) => {
       try {
-        if ("render" in op) { clock.t = op.at ?? clock.t; prompt = builder.render(op.render); return { op: { render: t.enc(op.render), at: clock.t }, digest: sha256Hex(JSON.stringify(prompt)) }; }
+        if ("render" in op) {
+          clock.t = op.at ?? clock.t;
+          prompt = builder.render(op.render);
+          const evicted = s.name === "state-limit-1024" && ["n0", "n1"].includes(op.render.sessionId ?? "");
+          const entry = { op: { render: t.enc(op.render), at: clock.t }, digest: sha256Hex(JSON.stringify(prompt)) };
+          return evicted ? { ...entry, divergence: "K9a-D7" } : entry;
+        }
         if ("record" in op) { const r = telemetry.record(patched(prompt!, op.patch), op.record); return { op: t.enc(op), result: t.enc(r), json: sha256Hex(JSON.stringify(r)) }; }
         if ("summary" in op) { const r = telemetry.summary(...op.summary); return { op, result: r === undefined ? null : t.enc(r), json: sha256Hex(JSON.stringify(r ?? null)) }; }
         if ("sessions" in op) {

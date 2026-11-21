@@ -98,9 +98,9 @@ impl LineReader {
 }
 
 /// One message as one line. `JSON.stringify` escapes `\n`; U+2028 and U+2029 stay literal but are no line break for this
-/// framing. `None` where the value cannot be serialised.
+/// framing. `None` where the value cannot be serialised within one frame.
 pub fn encode_line(message: &V) -> Option<String> {
-    let mut s = message.stringify()?;
+    let mut s = message.stringify_bounded(MAX_LINE_BYTES)?;
     s.push('\n');
     Some(s)
 }

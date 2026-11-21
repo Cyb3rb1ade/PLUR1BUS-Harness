@@ -1,4 +1,4 @@
-// Mode B: use the real TypeScript CodingGate to write and verify review records.
+// Mode B: exercise storage compatibility while each implementation uses its own review key.
 import assert from "node:assert/strict";
 import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -50,8 +50,9 @@ if (op === "prepare") {
   const a = make(ts), b = make(rust);
   try {
     const signal = new AbortController().signal;
-    assert.equal((await a.verify({ task: "from-rust", root, signal })).ok, true);
-    assert.equal((await b.verify({ task: "new-rust", root, signal })).ok, true);
+    assert.equal((await a.verify({ task, root, signal })).ok, true);
+    assert.equal((await a.verify({ task: "from-rust", root, signal })).reason, "review-required");
+    assert.equal((await b.verify({ task: "new-rust", root, signal })).reason, "review-required");
     assert.equal((await b.verify({ task: "missing", root, signal })).reason, "review-required");
   } finally { a.close(); b.close(); }
   assert.deepEqual(schema(ts), schema(rust));

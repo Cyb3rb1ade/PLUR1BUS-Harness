@@ -193,6 +193,7 @@
       }
     },
     {
+      "divergence": "charge-uncertain-provider-usage",
       "events": [
         "policy",
         [
@@ -411,6 +412,11 @@
       "cap": 6,
       "input": "abcdefghijk",
       "outcome": "abcde…"
+    },
+    {
+      "cap": 4,
+      "input": "abcde",
+      "outcome": "ab…"
     },
     {
       "cap": 12,

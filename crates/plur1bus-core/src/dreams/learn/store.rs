@@ -263,18 +263,18 @@ impl LearnStore {
     /// Open with an owner-only permission port; mode is 0700 for directory and 0600 for database.
     pub fn open_with_permissions(path: &Path, secure: &dyn Fn(&Path, u32) -> bool) -> R<Self> {
         let memory = path == Path::new(":memory:");
-        if !memory {
+        let directory = if memory {
+            None
+        } else {
             let dir = path
                 .parent()
                 .filter(|p| !p.as_os_str().is_empty())
                 .ok_or_else(|| invalid("learning database requires a private parent directory"))?;
             private_store::prepare(path)
                 .map_err(|_| storage("cannot prepare learning database"))?;
-            if !secure(dir, 0o700) || !secure(path, 0o600) {
-                return Err(storage("cannot protect learning database"));
-            }
-        }
-        let db = Store::open_owner(
+            Some(dir)
+        };
+        let db = Store::open_owner_before_configure(
             path,
             &OwnerSpec {
                 store: StoreSpec {
@@ -288,6 +288,13 @@ impl LearnStore {
                 },
                 schema: Schema::Unversioned,
                 create: true,
+            },
+            |conn| -> R<()> {
+                migrations::checked_version(conn)?;
+                if directory.is_some_and(|dir| !secure(dir, 0o700) || !secure(path, 0o600)) {
+                    return Err(storage("cannot protect learning database"));
+                }
+                Ok(())
             },
         )?;
         migrations::apply(db.conn())?;

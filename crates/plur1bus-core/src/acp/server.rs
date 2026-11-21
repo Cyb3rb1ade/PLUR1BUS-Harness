@@ -510,7 +510,9 @@ impl<B: AcpBackend + 'static> Inner<B> {
             return false;
         }
         let Some(line) = encode_line(m) else {
+            // Losing a complete frame leaves the editor's protocol state indeterminate.
             self.log("output-error", &[]);
+            self.out_gone.set(true);
             return false;
         };
         let wrote = {

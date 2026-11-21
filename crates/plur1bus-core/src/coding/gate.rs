@@ -11,7 +11,7 @@ use crate::rbac::authorize::authorize;
 use crate::rbac::types::{AuthorizeContext, Principal, PrincipalKind, Resource};
 use crate::toolcall::json::V;
 use plur1bus_store::rusqlite::{params, Connection, Transaction, TransactionBehavior};
-use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreSpec};
+use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreError, StoreSpec};
 use serde::Serialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -116,6 +116,8 @@ pub struct GateOverride<'a> {
 pub struct VerifyInput<'a> {
     /// Verified card or other stable task identifier.
     pub task: &'a str,
+    /// The assigned local writer whose work is being verified.
+    pub writer: &'a str,
     /// Bound worktree root.
     pub root: &'a str,
     /// Caller cancellation.
@@ -169,13 +171,6 @@ pub(super) fn open_store(path: &Path, name: &'static str, ddl: &str) -> R<Store>
     if path != Path::new(":memory:") {
         crate::private_store::prepare(path)
             .map_err(|_| CollabError::new(C::Storage, "could not prepare coding store"))?;
-        #[cfg(unix)]
-        if !crate::private_store::default_secure(path) {
-            return Err(CollabError::new(
-                C::Storage,
-                "could not protect coding store",
-            ));
-        }
     }
     let owner = OwnerSpec {
         store: StoreSpec {
@@ -186,7 +181,20 @@ pub(super) fn open_store(path: &Path, name: &'static str, ddl: &str) -> R<Store>
         schema: Schema::Steps(&[]),
         create: true,
     };
-    let db = Store::open_owner(path, &owner)?;
+    let db = Store::open_owner(path, &owner).map_err(|error| match error {
+        newer @ StoreError::NewerSchema { .. } => {
+            CollabError::with_reason(C::Storage, newer.to_string(), "schema-too-new")
+        }
+        other => other.into(),
+    })?;
+    // A newer schema is refused before changing the existing file's permissions.
+    #[cfg(unix)]
+    if path != Path::new(":memory:") && !crate::private_store::default_secure(path) {
+        return Err(CollabError::new(
+            C::Storage,
+            "could not protect coding store",
+        ));
+    }
     write(db.conn(), |cx| {
         cx.execute_batch(ddl)?;
         Ok(())
@@ -207,6 +215,16 @@ fn invalid(message: impl Into<String>) -> CollabError {
 
 fn hash(bytes: impl AsRef<[u8]>) -> String {
     format!("{:x}", Sha256::digest(bytes))
+}
+
+fn review_key(snapshot: &Snapshot, writer: &str) -> String {
+    let identity = V::Arr(vec![
+        V::s("coding-review/2"),
+        V::s(&snapshot.root),
+        V::s(&snapshot.tree_hash),
+        V::s(writer),
+    ]);
+    hash(identity.stringify())
 }
 
 fn git(port: &dyn GateGit, root: &str, args: &[&str]) -> R<String> {
@@ -418,15 +436,18 @@ impl CodingGate {
         caller: &str,
         ports: &mut GatePorts<'_>,
     ) -> R<()> {
-        if reviewer == caller
-            || !local(reviewer, ports)
-            || !local(caller, ports)
-            || self.snapshot(&snapshot.root, ports)?.tree_hash != snapshot.tree_hash
-        {
-            return Err(CollabError::new(
+        let invalid_review = || {
+            CollabError::new(
                 C::Conflict,
                 "independent local review of current tree required",
-            ));
+            )
+        };
+        if reviewer == caller || !local(reviewer, ports) || !local(caller, ports) {
+            return Err(invalid_review());
+        }
+        let live = self.snapshot(&snapshot.root, ports)?;
+        if live.root != snapshot.root || live.tree_hash != snapshot.tree_hash {
+            return Err(invalid_review());
         }
         audit(
             ports,
@@ -441,23 +462,27 @@ impl CodingGate {
         write(self.db.conn(), |cx| {
             cx.execute(
                 "INSERT OR REPLACE INTO coding_reviews VALUES (?,?,?,?)",
-                params![task, snapshot.tree_hash, reviewer, caller],
+                params![task, review_key(snapshot, caller), reviewer, caller],
             )?;
             Ok(())
         })
     }
 
-    fn has_review(&self, task: &str, tree: &str, ports: &GatePorts<'_>) -> R<bool> {
-        let mut sql = self
-            .db
-            .conn()
-            .prepare("SELECT reviewer,caller FROM coding_reviews WHERE task=? AND tree_hash=?")?;
-        let rows = sql.query_map([task, tree], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-        })?;
+    fn has_review(
+        &self,
+        task: &str,
+        snapshot: &Snapshot,
+        writer: &str,
+        ports: &GatePorts<'_>,
+    ) -> R<bool> {
+        let key = review_key(snapshot, writer);
+        let mut sql = self.db.conn().prepare(
+            "SELECT reviewer FROM coding_reviews WHERE task=? AND tree_hash=? AND caller=?",
+        )?;
+        let rows = sql.query_map([task, key.as_str(), writer], |row| row.get::<_, String>(0))?;
         for row in rows {
-            let (reviewer, caller) = row?;
-            if reviewer != caller && local(&reviewer, ports) && local(&caller, ports) {
+            let reviewer = row?;
+            if reviewer != writer && local(&reviewer, ports) && local(writer, ports) {
                 return Ok(true);
             }
         }
@@ -559,9 +584,10 @@ impl CodingGate {
             });
         }
         abort_check(input.abort)?;
-        let unchanged = self.snapshot(input.root, ports)?.tree_hash == before.tree_hash;
+        let after = self.snapshot(input.root, ports)?;
+        let unchanged = after.root == before.root && after.tree_hash == before.tree_hash;
         let reviewed = before.changed_lines < REVIEW_LINES
-            || self.has_review(input.task, &before.tree_hash, ports)?;
+            || self.has_review(input.task, &before, input.writer, ports)?;
         result.reason = if !unchanged {
             Some("worktree-changed-during-verification")
         } else if result.checks.iter().any(|check| !check.ok) {

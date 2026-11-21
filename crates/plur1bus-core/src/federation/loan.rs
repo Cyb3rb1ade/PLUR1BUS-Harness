@@ -32,15 +32,17 @@ pub struct Offer {
     pub secret_names: Vec<String>,
 }
 
-/// Local side of the simulation.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Side {
-    /// Originator of the offer.
-    Lender,
-    /// Receiver of the offer.
-    Borrower,
-}
+content_free_enum!("Side", "side", [rename_all = "lowercase"];
+    /// Local side of the simulation.
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+    #[serde(rename_all = "lowercase")]
+    pub enum Side {
+        /// Originator of the offer.
+        Lender,
+        /// Receiver of the offer.
+        Borrower,
+    }
+);
 
 /// Local lifecycle.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -84,34 +86,36 @@ pub struct LeaseCandidate {
     pub not_after: u64,
 }
 
-/// One external clock observation or local simulation event.
-#[derive(Clone, Debug, Deserialize)]
-#[serde(tag = "type", rename_all = "kebab-case", deny_unknown_fields)]
-pub enum Event {
-    /// Accept under one borrower-local project.
-    Accept {
-        /// Borrower-local context.
-        #[serde(rename = "borrowerProjectId")]
-        borrower_project_id: Option<String>,
-    },
-    /// Renew a simulated lease.
-    Renew {
-        /// Untrusted simulation data.
-        lease: LeaseCandidate,
-    },
-    /// Observe the current clock.
-    Tick,
-    /// Lender recall.
-    Recall,
-    /// Revoke the mission.
-    Revoke,
-    /// Borrower return.
-    Return,
-    /// Decline prior to acceptance.
-    Decline,
-    /// Confirm local removal after terminal transition.
-    ConfirmRemoval,
-}
+content_free_enum!("Event", "type", [
+    tag = "type", rename_all = "kebab-case", rename_all_fields = "camelCase", deny_unknown_fields
+];
+    /// One external clock observation or local simulation event.
+    #[derive(Clone, Debug)]
+    pub enum Event {
+        /// Accept under one borrower-local project.
+        Accept {
+            /// Borrower-local context.
+            borrower_project_id: Option<String>,
+        },
+        /// Renew a simulated lease.
+        Renew {
+            /// Untrusted simulation data.
+            lease: LeaseCandidate,
+        },
+        /// Observe the current clock.
+        Tick,
+        /// Lender recall.
+        Recall,
+        /// Revoke the mission.
+        Revoke,
+        /// Borrower return.
+        Return,
+        /// Decline prior to acceptance.
+        Decline,
+        /// Confirm local removal after terminal transition.
+        ConfirmRemoval,
+    }
+);
 
 /// Validated local state. Network input must enter through a fresh offer or typed event.
 #[derive(Clone, Debug)]

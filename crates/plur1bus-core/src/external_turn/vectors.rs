@@ -1,9 +1,9 @@
 use super::*;
 use crate::{
-    rbac::types::{Principal, PrincipalKind, Role},
+    rbac::types::{AgentRight, Principal, PrincipalKind, Role},
     sessions::{
         Clock, CreateSessionInput, IdSource, ListFilter, RewindInput, RewindTarget, RewindTrigger,
-        SessionKind,
+        SessionKind, SessionOrigin,
     },
 };
 use serde_json::json;
@@ -151,6 +151,91 @@ fn begin() -> Start<'static> {
 }
 
 #[test]
+fn person_and_token_with_the_same_id_have_disjoint_sessions() {
+    let rig = Rig::default();
+    let mut store = store(&rig);
+    let mut service = Service::new(&mut store);
+    let ports = Ports {
+        runtime: &rig,
+        memory: &rig,
+    };
+    let mut token = subject(Audience::Mcp);
+    token.exposure.token_id = Some("alice".into());
+    let mut person = subject(Audience::Mcp);
+    person.exposure.principal.user_id = "alice".into();
+    person.exposure.token_id = None;
+    person.audience = None;
+    person.local_human = true;
+
+    for (owner, other, expected) in [
+        (&person, &token, "ext:mcp:person:alice"),
+        (&token, &person, "ext:mcp:token:alice"),
+    ] {
+        let started = service.start(&begin(), owner, &ports).unwrap();
+        let target = Target {
+            session_id: Some(&started.session_id),
+            ..begin().target
+        };
+        assert!(service.get(&target, Some(5), owner, &ports).is_ok());
+        assert_eq!(
+            service
+                .get(&target, Some(5), other, &ports)
+                .unwrap_err()
+                .code,
+            "E_NOT_FOUND"
+        );
+        assert_eq!(
+            service
+                .store
+                .get_session(&started.session_id)
+                .unwrap()
+                .unwrap()
+                .owner,
+            expected
+        );
+    }
+}
+
+#[test]
+fn an_unqualified_legacy_owner_neither_reads_nor_cancels_an_external_session() {
+    let rig = Rig::default();
+    let mut store = store(&rig);
+    let mut legacy = CreateSessionInput::new(SessionKind::Direct, "a", "ext:mcp:alice");
+    legacy.origin = Some(SessionOrigin::Mcp);
+    let legacy = store.create_session(&legacy).unwrap();
+    let mut service = Service::new(&mut store);
+    let ports = Ports {
+        runtime: &rig,
+        memory: &rig,
+    };
+    let mut token = subject(Audience::Mcp);
+    token.exposure.token_id = Some("alice".into());
+    let mut person = subject(Audience::Mcp);
+    person.exposure.principal.user_id = "alice".into();
+    person.exposure.token_id = None;
+    person.audience = None;
+    person.local_human = true;
+    let target = Target {
+        session_id: Some(&legacy.id),
+        ..begin().target
+    };
+
+    for subject in [&token, &person] {
+        assert_eq!(
+            service
+                .get(&target, Some(5), subject, &ports)
+                .unwrap_err()
+                .code,
+            "E_NOT_FOUND"
+        );
+        assert_eq!(
+            service.cancel(&target, subject, &ports).unwrap_err().code,
+            "E_NOT_FOUND"
+        );
+    }
+}
+
+#[test]
 fn external_turns_replay_typescript_session_store_and_provider_boundary() {
     let f: Vec<Value> = serde_json::from_str(include_str!(
         "../../../../fixtures/parity/external-turn/turn.json"
@@ -266,7 +351,17 @@ fn external_turns_replay_typescript_session_store_and_provider_boundary() {
             }
             assert_eq!(actual, want, "{name}: {method}");
         }
-        assert_eq!(json!(requests), row["requests"], "{name}");
+        let mut expected_requests = row["requests"].clone();
+        for request in expected_requests.as_array_mut().unwrap() {
+            assert_eq!(row["ownerDivergence"], "K6-D25");
+            let (namespace, id) = request["principal"]
+                .as_str()
+                .unwrap()
+                .rsplit_once(':')
+                .unwrap();
+            request["principal"] = json!(format!("{namespace}:token:{id}"));
+        }
+        assert_eq!(json!(requests), expected_requests, "{name}");
         assert_eq!(
             json!(rig.receipts.into_inner()),
             row["deliveries"],
@@ -327,7 +422,7 @@ fn scope_assertions_are_checked_against_live_identity_before_effects() {
     assert!(service
         .store
         .list_sessions(&ListFilter {
-            owner: "ext:mcp:fixture-caller".into(),
+            owner: "ext:mcp:token:fixture-caller".into(),
             ..Default::default()
         })
         .unwrap()
@@ -400,7 +495,7 @@ fn no_provider_attachments_internal_sessions_memory_scope_and_timeout_are_refuse
     assert!(service
         .store
         .list_sessions(&ListFilter {
-            owner: "ext:mcp:fixture-caller".into(),
+            owner: "ext:mcp:token:fixture-caller".into(),
             ..Default::default()
         })
         .unwrap()
@@ -432,6 +527,40 @@ fn no_provider_attachments_internal_sessions_memory_scope_and_timeout_are_refuse
 }
 
 #[test]
+fn the_local_cancel_exception_requires_the_owner_role() {
+    let rig = Rig::default();
+    let mut store = store(&rig);
+    let mut service = Service::new(&mut store);
+    let ports = Ports {
+        runtime: &rig,
+        memory: &rig,
+    };
+    let token = subject(Audience::Mcp);
+    let started = service.start(&begin(), &token, &ports).unwrap();
+    let target = Target {
+        session_id: Some(&started.session_id),
+        ..begin().target
+    };
+    let mut member = subject(Audience::Mcp);
+    member.local_human = true;
+    member.audience = None;
+    member.exposure.token_id = None;
+    member.exposure.principal.role = Role::Member;
+    member.exposure.principal.agent_rights = Some(vec![("a".into(), AgentRight::Use)]);
+    assert_eq!(
+        service.cancel(&target, &member, &ports).unwrap_err().code,
+        "E_NOT_FOUND"
+    );
+
+    let mut owner = member;
+    owner.exposure.principal.role = Role::Owner;
+    assert_eq!(
+        service.cancel(&target, &owner, &ports).unwrap()["cancelled"],
+        true
+    );
+}
+
+#[test]
 fn memory_narrowing_and_stored_terminal_state_win_during_work() {
     let rig = Rig::default();
     let mut store = store(&rig);
@@ -458,7 +587,7 @@ fn memory_narrowing_and_stored_terminal_state_win_during_work() {
 }
 
 #[test]
-fn external_turns_share_exact_session_schema_and_reopen_both_ways() {
+fn external_turns_share_exact_session_schema_without_reassigning_legacy_owners() {
     let tmp = tempfile::tempdir().unwrap();
     let ts = tmp.path().join("typescript.sqlite");
     let rust = tmp.path().join("rust.sqlite");
@@ -493,48 +622,75 @@ fn external_turns_share_exact_session_schema_and_reopen_both_ways() {
         memory: &rig,
     };
     let who = subject(Audience::Mcp);
-    let mut result_sessions = Vec::new();
-    for (path, existing) in [(&ts, Some(session)), (&rust, None)] {
+    {
         let mut store =
-            SessionStore::open(path, rig.clock.clone(), Arc::new(Ids(AtomicUsize::new(0))))
+            SessionStore::open(&ts, rig.clock.clone(), Arc::new(Ids(AtomicUsize::new(0)))).unwrap();
+        let mut service = Service::new(&mut store);
+        let target = Target {
+            session_id: Some(session),
+            ..begin().target
+        };
+        assert_eq!(
+            service
+                .get(&target, Some(5), &who, &ports)
+                .unwrap_err()
+                .code,
+            "E_NOT_FOUND"
+        );
+        let continued = Start { target, ..begin() };
+        assert_eq!(
+            service.start(&continued, &who, &ports).err().unwrap().code,
+            "E_NOT_FOUND"
+        );
+        let row = service.store.get_session(session).unwrap().unwrap();
+        assert_eq!(row.owner, "ext:mcp:fixture-caller");
+        assert!(service
+            .store
+            .list_messages(session, &Default::default())
+            .unwrap()
+            .iter()
+            .any(|message| message.text == "TS result"));
+    }
+    let result_session = {
+        let mut store =
+            SessionStore::open(&rust, rig.clock.clone(), Arc::new(Ids(AtomicUsize::new(0))))
                 .unwrap();
         let mut service = Service::new(&mut store);
         let params = Start {
-            target: Target {
-                session_id: existing,
-                ..begin().target
-            },
             message: "Rust request",
-            attachments: &[],
+            ..begin()
         };
         let started = service.start(&params, &who, &ports).unwrap();
-        let work = service.prepare(started.ticket(), &ports).unwrap();
-        if existing.is_some() {
-            assert!(work
-                .messages
-                .iter()
-                .any(|message| message.text == "TS result"));
-        }
+        service.prepare(started.ticket(), &ports).unwrap();
         service
             .record(started.ticket(), Chunk::Delta("Rust result"), &ports)
             .unwrap();
         service
             .finish(started.ticket(), Completion::Completed, &ports)
             .unwrap();
-        result_sessions.push(started.session_id);
-    }
-    for (path, id) in [(&ts, &result_sessions[0]), (&rust, &result_sessions[1])] {
-        let read = invoke("read", path, Some(id));
+        started.session_id
+    };
+    for (path, id, owner, reply) in [
+        (&ts, session, "ext:mcp:fixture-caller", "TS result"),
+        (
+            &rust,
+            result_session.as_str(),
+            "ext:mcp:token:fixture-caller",
+            "Rust result",
+        ),
+    ] {
+        let read = invoke("read-store", path, Some(id));
         assert_eq!(read["version"], first["version"]);
         assert_eq!(read["schema"], first["schema"]);
         assert_eq!(read["integrity"], "ok");
+        assert_eq!(read["outcome"]["owner"], owner);
         assert_eq!(
             read["outcome"]["messages"]
                 .as_array()
                 .unwrap()
                 .last()
                 .unwrap()["text"],
-            "Rust result"
+            reply
         );
     }
 }

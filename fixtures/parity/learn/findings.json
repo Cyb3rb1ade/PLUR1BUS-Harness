@@ -260,6 +260,567 @@
       }
     ]
   },
+  "collation": {
+    "batch": [
+      {
+        "change": "add",
+        "contentKey": "case",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "ärger im Büro"
+      },
+      {
+        "change": "add",
+        "contentKey": "case",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "Ärger im Büro"
+      },
+      {
+        "change": "add",
+        "contentKey": "tie",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "é"
+      },
+      {
+        "change": "add",
+        "contentKey": "tie",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "é"
+      },
+      {
+        "change": "add",
+        "contentKey": "über",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "über"
+      },
+      {
+        "change": "add",
+        "contentKey": "zebra",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "Zebra"
+      },
+      {
+        "change": "add",
+        "contentKey": "äther",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "Äther"
+      },
+      {
+        "change": "add",
+        "contentKey": "f",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "f"
+      },
+      {
+        "change": "add",
+        "contentKey": "😀",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "😀"
+      },
+      {
+        "change": "add",
+        "contentKey": "é",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "é"
+      }
+    ],
+    "expected": [
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "äther",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "0a9e009144776a2a37d55e1ddc4a4629ee12385805bcf14d365d2867e3781c01",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "Äther",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "😀",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "22bab0790b7ea90f10ac3e81a26ebb8ae4de2780450557ace010a947c3099402",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "😀",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "tie",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "4a42f079bc9b4eada36f5070f941ed888bccd9d856e8dace14b89f1ff65ab973",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "é",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "case",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "6c71a869ab92877a3ad1ef71259221cb61515285f6e1653f1e2d03e1d4d953ce",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "ärger im Büro",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "zebra",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "995d909eea6f399feac54604b37cbce209f59bdb3814ad7ec356dc29e0bb1331",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "Zebra",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "é",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "b43a590f7a6f85c97a2f6fdaac38ba3d2a01c52f6cd3c1dba53abf7bd654c912",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "é",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "f",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "d73faf2e2105c329b7c9a73164adb86dedd5177a7a94e04487bbc7ad8d7aaa9f",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "f",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "über",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "fcfaf26d222ca22f73033dfd5ea49183ceb4e4af1db59fccef5b2a8991b81483",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "über",
+        "verify": "not-applicable"
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "vocabulary": [
+      {
+        "key": "😀",
+        "text": "😀"
+      },
+      {
+        "key": "äther",
+        "text": "Äther"
+      },
+      {
+        "key": "case",
+        "text": "Ärger im Büro"
+      },
+      {
+        "key": "é",
+        "text": "é"
+      },
+      {
+        "key": "f",
+        "text": "f"
+      },
+      {
+        "key": "tie",
+        "text": "é"
+      },
+      {
+        "key": "über",
+        "text": "über"
+      },
+      {
+        "key": "zebra",
+        "text": "Zebra"
+      }
+    ]
+  },
   "extraction": [
     {
       "expected": {

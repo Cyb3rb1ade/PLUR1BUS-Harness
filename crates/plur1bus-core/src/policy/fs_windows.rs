@@ -25,6 +25,7 @@
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::os::windows::fs::OpenOptionsExt;
+use std::path::Path;
 
 const FILE_SHARE_READ: u32 = 0x1;
 const FILE_SHARE_WRITE: u32 = 0x2;
@@ -94,7 +95,7 @@ pub fn info(f: &File) -> io::Result<Info> {
 }
 
 /// A handle for attributes only (no read, write or delete access; every sharing mode, so it never blocks anyone).
-fn probe(p: &str, follow: bool) -> io::Result<File> {
+fn probe(p: impl AsRef<Path>, follow: bool) -> io::Result<File> {
     let mut flags = FILE_FLAG_BACKUP_SEMANTICS;
     if !follow {
         flags |= FILE_FLAG_OPEN_REPARSE_POINT;
@@ -112,7 +113,7 @@ pub fn stat(p: &str) -> io::Result<Info> {
 }
 
 /// `lstat`: the entry at a path itself; a reparse point is reported as one and not followed.
-pub fn lstat(p: &str) -> io::Result<Info> {
+pub fn lstat(p: impl AsRef<Path>) -> io::Result<Info> {
     info(&probe(p, false)?)
 }
 
@@ -162,7 +163,7 @@ pub struct LeafOpen {
 /// Open the leaf at `p` without following it: a reparse point at the leaf is opened as itself
 /// (`FILE_FLAG_OPEN_REPARSE_POINT`) and then refused. With `create_new` nothing may exist at the leaf, a link included.
 /// A create that is not exclusive is not offered: the path layer never asks for one.
-pub fn open_leaf(p: &str, how: LeafOpen) -> io::Result<File> {
+pub fn open_leaf(p: impl AsRef<Path>, how: LeafOpen) -> io::Result<File> {
     let mut o = OpenOptions::new();
     o.read(how.read).write(how.write && !how.append);
     if how.append {

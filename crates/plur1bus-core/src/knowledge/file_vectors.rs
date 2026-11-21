@@ -84,6 +84,30 @@ fn to_value(value: R<impl Serialize>) -> Value {
 }
 
 #[test]
+fn knowledge_writes_require_both_import_and_private_memory_rights() {
+    for capability in ["imports.manage", "memory.agent-private.write"] {
+        let who = Principal {
+            token_scopes: Some(vec![capability.to_owned()]),
+            ..Runtime.current("ada").unwrap()
+        };
+        let mut disk = Disk::default();
+        let mut context = Context {
+            who: &who,
+            agent: "alpha",
+            authority: &Runtime,
+            clock: &Runtime,
+            audit: &mut |_: &AuditEvent| Ok(()),
+        };
+        let result = append(&mut disk, &mut context, "fixture note", "fixture source");
+        assert!(
+            matches!(result, Err(error) if error.code == CollabErrorCode::Unauthorized),
+            "only {capability} is insufficient"
+        );
+        assert!(disk.contents(Slot::Knowledge).is_none());
+    }
+}
+
+#[test]
 fn quoted_knowledge_file_and_atomic_migration_match_typescript() {
     let vectors: Value = serde_json::from_str(include_str!(
         "../../../../fixtures/parity/knowledge/file.json"
