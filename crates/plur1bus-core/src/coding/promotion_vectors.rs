@@ -1,4 +1,44 @@
 use super::*;
+
+// The rejected file's mode is a Unix filesystem property.
+#[cfg(unix)]
+#[test]
+fn the_coding_stores_leave_a_newer_schema_and_permissions_untouched() {
+    use crate::coding::gate::CodingGate;
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = tempfile::tempdir().unwrap();
+    for name in ["coding-gate", "chat-promotions"] {
+        let path = dir.path().join(format!("{name}.sqlite"));
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.pragma_update(None, "user_version", 7).unwrap();
+        }
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        let before = std::fs::metadata(&path).unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        let refused = if name == "coding-gate" {
+            CodingGate::open(&path).map(|_| ())
+        } else {
+            ChatPromotion::open(&path).map(|_| ())
+        };
+        let error = refused.unwrap_err();
+        assert_eq!(error.reason.as_deref(), Some("schema-too-new"));
+        assert!(error.message.starts_with(&format!("{name} store schema")));
+        let after = std::fs::metadata(&path).unwrap();
+        assert_eq!(
+            after.permissions().mode(),
+            before.permissions().mode(),
+            "{name}"
+        );
+        assert_eq!(
+            after.modified().unwrap(),
+            before.modified().unwrap(),
+            "{name}"
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), bytes, "{name}");
+    }
+}
 use crate::approvals::js_json::J;
 use crate::collab::board::CardFields;
 use crate::collab::ids::CollabIds;

@@ -11,7 +11,7 @@ use crate::rbac::authorize::authorize;
 use crate::rbac::types::{AuthorizeContext, Principal, PrincipalKind, Resource};
 use crate::toolcall::json::V;
 use plur1bus_store::rusqlite::{params, Connection, Transaction, TransactionBehavior};
-use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreSpec};
+use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreError, StoreSpec};
 use serde::Serialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -171,13 +171,6 @@ pub(super) fn open_store(path: &Path, name: &'static str, ddl: &str) -> R<Store>
     if path != Path::new(":memory:") {
         crate::private_store::prepare(path)
             .map_err(|_| CollabError::new(C::Storage, "could not prepare coding store"))?;
-        #[cfg(unix)]
-        if !crate::private_store::default_secure(path) {
-            return Err(CollabError::new(
-                C::Storage,
-                "could not protect coding store",
-            ));
-        }
     }
     let owner = OwnerSpec {
         store: StoreSpec {
@@ -188,7 +181,20 @@ pub(super) fn open_store(path: &Path, name: &'static str, ddl: &str) -> R<Store>
         schema: Schema::Steps(&[]),
         create: true,
     };
-    let db = Store::open_owner(path, &owner)?;
+    let db = Store::open_owner(path, &owner).map_err(|error| match error {
+        newer @ StoreError::NewerSchema { .. } => {
+            CollabError::with_reason(C::Storage, newer.to_string(), "schema-too-new")
+        }
+        other => other.into(),
+    })?;
+    // A newer schema is refused before changing the existing file's permissions.
+    #[cfg(unix)]
+    if path != Path::new(":memory:") && !crate::private_store::default_secure(path) {
+        return Err(CollabError::new(
+            C::Storage,
+            "could not protect coding store",
+        ));
+    }
     write(db.conn(), |cx| {
         cx.execute_batch(ddl)?;
         Ok(())
