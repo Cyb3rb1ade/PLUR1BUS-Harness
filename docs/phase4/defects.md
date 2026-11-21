@@ -2,13 +2,15 @@
 
 Plan: `docs/superpowers/plans/2026-11-07-phase4-ts-core-to-rust.md` §4.2 (pull forward on defect) and §3 (parity). Besides
 recorded owner decisions, an entry here is the only allowed divergence between the TypeScript core and the Rust core: a
-defect found in TypeScript (it is ported, not patched), or a difference the Rust front door introduces on purpose and that
+defect found in TypeScript (patched there only with an explicit owner exception), or a difference the Rust front door introduces on purpose and that
 a later package removes. Each entry names the component, its MODULE-MAP row
 (`docs/superpowers/plans/phase4/MODULE-MAP.md`), a severity, the owning package and a reproduction; it is closed by the
 PR that flips the owning package with its vector green.
 
 Severity: `security`, `data-loss`, `low` (a wrong answer or refusal on a path no shipped client takes, or a narrow
 window that was not reproduced; the entry says which), `info` (a documented difference with no wrong answer).
+
+Paket T uses the reserved numbers P4D-40, P4D-43, P4D-44 and P4D-45. P4-K K12 allocates new numbers from P4D-46.
 
 | Id | Component | MODULE-MAP row | Severity | Owner | Status |
 |---|---|---|---|---|---|
@@ -50,7 +52,10 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-36 | The secret store behind the bridge: what the legacy core's bridge store does differently from the TypeScript store | `packages/core/src/secrets/bridge-store.ts`, `crates/plur1bus-core/src/{bridge,secrets_owner}.rs` | low | P4-20 | open; flip B2 takes the owner's six methods and the engine's off the bridge store, the rest ends with it (P4-90) |
 | P4D-37 | The native `secret.*` methods and `host.secret.get`: a lease count of one process, a notice that can fail, one error for every failure of the engine's method, no bound on the engine's calls at the store's lock | `crates/plur1bus-core/src/native_secrets.rs`, `packages/core/src/secrets/bridge-store.ts`, `packages/core/src/engine-host-ports.ts` | low | P4-20 | open; the first two end with the bridge store (P4-90), the third is ported as it is |
 | P4D-38 | The native methods of the front door ran past an import maintenance | `crates/plur1bus-core/src/{native,lib}.rs`, `packages/core/src/import/maintenance-admission.ts` | low (a write the maintenance should have held, on an installation that runs the front door, which is not the default) | P4-20 | fixed (R-20-34); open: after the release the front door relays until it is started again |
-| P4D-40 | A bodyless provider response can terminate the TypeScript core | `packages/core/src/composition/http.ts` (P4-43 composition row) | security (availability) | P4-41 / P4-W W1 | open, Rust behavior set by R-W-7 |
+| P4D-40 | HTTP adapters must represent bodyless responses without a stream | `packages/core/src/composition/http.ts`, `packages/core/src/a2a/client.ts` | security (availability) | P4-W | fixed in TypeScript under the owner exception |
+| P4D-43 | File mutation must wait for handle verification | `packages/core/src/policy/paths.ts` | security (file integrity) | P4-21 | fixed in TypeScript under the owner exception |
+| P4D-44 | RSA signing keys must meet the verifier's minimum requirements | `packages/core/src/openai-auth/identity.ts` | security (identity verification) | P4-21 | fixed in TypeScript under the owner exception |
+| P4D-45 | Login listeners must handle unreadable request targets | `packages/core/src/auth/login.ts`, `packages/core/src/openai-auth/loopback.ts` | security (availability) | P4-21 | fixed in TypeScript under the owner exception |
 | P4D-195 | Provider error redaction can miss normalized header values | `packages/providers/src/client.ts` | low (provider error with affected header spelling) | P4-41 | open in TypeScript, Rust redacts both spellings |
 | P4D-196 | Invalid catalog descriptors can produce ill-typed reasoning directives | `packages/providers/src/reasoning.ts` | low (invalid catalog shapes before adapter validation) | P4-41 | Rust handles malformed fields explicitly |
 
@@ -1017,16 +1022,34 @@ release.
 Tests: `native::secret_tests::started_for_an_import_maintenance_nothing_is_served_here`,
 `tests/front_door.rs` `started_for_an_import_maintenance_the_front_door_serves_nothing_itself`.
 
-## P4D-40 — bodyless provider responses
 
-The TypeScript provider bridge (`packages/core/src/composition/http.ts`) can throw from its response callback
-when a configured, egress-approved provider returns a successful bodyless response. The core's fatal handler
-then stops the process. The finding concerns availability. See the
-[Fetch response initialization rules](https://fetch.spec.whatwg.org/#initialize-a-response).
+## P4D-40 — bodyless HTTP responses
 
-R-W-7 specifies the Rust behavior. A bodyless response uses the same per-call error path and text as an
-empty HTTP 200 response. The exporter records that reference and the isolated constructor outcome for the
-annotated parity case. The [W1 inventory](p4-w-inventory.md#p4d-40-http-wrapper) lists related adapters.
+The provider and A2A adapters used a stream as the body of a Fetch response even when its status
+required an absent body. They now construct a response with a null body for 204 and 205. The A2A
+adapter does the same for 304. The provider transport continues to refuse 304 through its existing
+redirect policy. Adapter tests cover the statuses, response headers and the provider refusal.
+
+## P4D-43 — verified file opens
+
+The path policy now verifies the open file handle before applying a truncation request. A target that
+was absent at the check is refused unless the caller asked to create it. The path tests cover both
+conditions. This is K2-D5 (TS-1) from P4-K.
+
+
+## P4D-44 — RSA keys in OIDC verification
+
+The ID-token verifier requires an allowed string algorithm and the corresponding key member types.
+RS256 requires a modulus of at least 2048 bits and an odd exponent greater than one before signature
+verification. Rejection uses the existing `id-token-invalid` error. The tests cover key and algorithm
+types, the exponent rule and the 2047/2048-bit boundary. This is K4-D5 (T-C1) from P4-K.
+
+
+## P4D-45 — unreadable login callback targets
+
+The login-port and ChatGPT Plan listeners answer an unreadable request target with the existing
+404 for an unknown route. The listener stays open for the legitimate callback. Both listener tests
+cover this sequence. This is K4-D3 and K4-D4 (T-1) from P4-K.
 
 <a id="p4d-195"></a>
 

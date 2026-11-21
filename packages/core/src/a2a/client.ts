@@ -127,7 +127,8 @@ export function createA2aFetch(opts: A2aFetchOptions): typeof fetch {
             }
           }
 
-          const stream = Readable.toWeb(res) as ReadableStream<Uint8Array>;
+          const stream = [204, 205, 304].includes(status) ? null : Readable.toWeb(res) as ReadableStream<Uint8Array>;
+          if (stream === null) res.resume();
           resolve(
             new Response(stream, {
               status,

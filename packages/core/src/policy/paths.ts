@@ -579,10 +579,12 @@ export async function canonicalisePath(input: string, o: CanonicaliseOptions): P
 export async function openVerified(c: CanonicalPath, flags: number, signal?: AbortSignal): Promise<FileHandle | PathRefusal> {
   const write = (flags & (fsc.O_WRONLY | fsc.O_RDWR | fsc.O_APPEND | fsc.O_TRUNC | fsc.O_CREAT)) !== 0;
   if (write && c.access !== "write") return refuse("unsupported-open", "canonicalised for read, opened for write");
+  if (!c.exists && (flags & fsc.O_CREAT) === 0) return refuse("not-found", "the target does not exist");
   const windows = process.platform === "win32";
   const pp = windows ? path.win32 : path.posix;
-  let f = flags | (fsc.O_NOFOLLOW ?? 0);
-  // Only an explicit O_CREAT creates, and then exclusively; a read of a missing file stays ENOENT (`not-found`).
+  const truncate = (flags & fsc.O_TRUNC) !== 0;
+  let f = (flags & ~fsc.O_TRUNC) | (fsc.O_NOFOLLOW ?? 0);
+  // Only an explicit O_CREAT creates, and then exclusively.
   if (!c.exists && (flags & fsc.O_CREAT) !== 0) f |= fsc.O_EXCL;
   if (c.exists && (f & fsc.O_CREAT) !== 0) f &= ~fsc.O_CREAT;
 
@@ -638,6 +640,18 @@ export async function openVerified(c: CanonicalPath, flags: number, signal?: Abo
     }
   } catch {
     return await fail(refuse("identity-changed", "post-open verification failed"));
+  }
+  if (truncate) {
+    // Truncation must happen on the handle that passed the identity and path checks.
+    if (signal?.aborted) {
+      await fh.close().catch(() => {});
+      signal.throwIfAborted();
+    }
+    try {
+      await fh.truncate(0);
+    } catch (e) {
+      return await fail(refuse("unresolvable", `open failed (${(e as NodeJS.ErrnoException).code ?? "error"})`));
+    }
   }
   return fh;
 }

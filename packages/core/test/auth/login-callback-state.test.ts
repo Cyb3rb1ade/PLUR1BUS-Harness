@@ -2,7 +2,8 @@
 // Anything else (forged, stateless, duplicate state, foreign Host) is answered with a constant 400 and leaves the listener open.
 import { it } from "node:test";
 import assert from "node:assert/strict";
-import { request } from "node:http";
+import http, { request, type IncomingMessage, type RequestListener, type ServerResponse } from "node:http";
+import { syncBuiltinESMExports } from "node:module";
 import { inspect } from "node:util";
 import { login } from "../../src/auth/login.ts";
 import { createOAuthHttp } from "../../src/auth/http.ts";
@@ -44,6 +45,42 @@ it("a forged callback does not consume the listener: constant 400 without echo, 
   assert.equal(r.method, "loopback_pkce");
   assert.deepEqual(forged, [`400:${FIXED}`, `400:${FIXED}`, `400:${FIXED}`, `400:${FIXED}`]);
   assert.ok(await store.get("auth/test"));
+  assert.equal(tokenCalls(m), 1);
+});
+
+it("an unreadable request target gets a 404 and the genuine callback still completes login", async t => {
+  const m = await mockOAuth(); t.after(() => m.close());
+  const createServer = http.createServer;
+  let handler: RequestListener | undefined;
+  const mock = t.mock.method(http, "createServer", (options: http.ServerOptions | RequestListener, listener?: RequestListener) => {
+    const server = typeof options === "function" ? createServer(options) : createServer(options, listener);
+    handler = server.listeners("request")[0] as RequestListener | undefined;
+    return server;
+  });
+  syncBuiltinESMExports();
+  let status: number | undefined, body: string | undefined;
+  let parseFailure: unknown;
+  try {
+    const { result } = run(m, async (valid, redirect) => {
+      const req = { method: "GET", url: "http://fixture.invalid:invalid/", headers: { host: new URL(redirect).host } } as IncomingMessage;
+      const res = {
+        setHeader() {},
+        writeHead(code: number) { status = code; },
+        end(text?: string) { body = text; },
+      } as unknown as ServerResponse;
+      assert.ok(handler);
+      try { handler(req, res); } catch (e) { parseFailure = e; }
+      assert.equal(tokenCalls(m), 0);
+      assert.equal((await fetch(valid)).status, 200);
+    });
+    await result;
+  } finally {
+    mock.mock.restore();
+    syncBuiltinESMExports();
+  }
+  assert.equal(parseFailure, undefined);
+  assert.equal(status, 404);
+  assert.equal(body, "Not found.");
   assert.equal(tokenCalls(m), 1);
 });
 

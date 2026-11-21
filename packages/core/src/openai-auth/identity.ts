@@ -47,14 +47,21 @@ export class JwksVerifier {
       const parts = token.split('.'); if (parts.length !== 3 || parts.some(p => !/^[A-Za-z0-9_-]+$/.test(p))) throw new Error();
       const header = object(JSON.parse(Buffer.from(parts[0]!, 'base64url').toString()));
       const claims = object(JSON.parse(Buffer.from(parts[1]!, 'base64url').toString()));
-      if (!['RS256','EdDSA'].includes(String(header.alg))) throw new Error();
+      const alg = header.alg;
+      if (alg !== 'RS256' && alg !== 'EdDSA') throw new Error();
       const keys = await this.#keys(expected.discovery.jwks_uri);
-      const matches = keys.filter(k => k.kid === header.kid && (!k.alg || k.alg === header.alg) && (!k.use || k.use === 'sig'));
+      const matches = keys.filter(k => k.kid === header.kid && (k.alg === undefined || k.alg === alg) && (!k.use || k.use === 'sig'));
       if (matches.length !== 1) throw new Error();
       const jwk = matches[0]!;
-      if ((header.alg === 'RS256' && jwk.kty !== 'RSA') || (header.alg === 'EdDSA' && (jwk.kty !== 'OKP' || jwk.crv !== 'Ed25519'))) throw new Error();
+      if (alg === 'RS256') {
+        if (jwk.kty !== 'RSA' || typeof jwk.n !== 'string' || typeof jwk.e !== 'string') throw new Error();
+      } else if (jwk.kty !== 'OKP' || jwk.crv !== 'Ed25519') throw new Error();
       const key = createPublicKey({ key: jwk as JsonWebKey, format: 'jwk' });
-      if (!verify(header.alg === 'RS256' ? 'RSA-SHA256' : null, Buffer.from(parts[0] + '.' + parts[1]), key, Buffer.from(parts[2]!, 'base64url'))) throw new Error();
+      if (alg === 'RS256') {
+        const { modulusLength, publicExponent } = key.asymmetricKeyDetails ?? {};
+        if (modulusLength === undefined || modulusLength < 2048 || publicExponent === undefined || publicExponent <= 1n || (publicExponent & 1n) === 0n) throw new Error();
+      }
+      if (!verify(alg === 'RS256' ? 'RSA-SHA256' : null, Buffer.from(parts[0] + '.' + parts[1]), key, Buffer.from(parts[2]!, 'base64url'))) throw new Error();
       const aud = claims.aud; const validAud = aud === expected.audience || (Array.isArray(aud) && aud.includes(expected.audience) && (aud.length === 1 || claims.azp === expected.audience));
       if (claims.iss !== expected.discovery.issuer || !validAud || typeof claims.exp !== 'number' || !Number.isFinite(claims.exp) || claims.exp <= this.#clock.now() / 1000 || claims.nonce !== expected.nonce) throw new Error();
       if (claims.nbf !== undefined && (typeof claims.nbf !== 'number' || claims.nbf > this.#clock.now() / 1000)) throw new Error();
