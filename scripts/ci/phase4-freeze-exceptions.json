@@ -1,0 +1,36 @@
+[
+  {
+    "id": "P4D-40",
+    "fix": "Construct bodyless responses in the provider and A2A HTTP adapters.",
+    "decision": "Owner-Entscheidung 18.11.2026, Ausnahme von D129",
+    "paths": [
+      "packages/core/src/a2a/client.ts",
+      "packages/core/src/composition/http.ts"
+    ]
+  },
+  {
+    "id": "P4D-43",
+    "fix": "Defer truncation until the file handle passes verification, and refuse a missing target without creation.",
+    "decision": "Owner-Entscheidung 18.11.2026, Ausnahme von D129",
+    "paths": [
+      "packages/core/src/policy/paths.ts"
+    ]
+  },
+  {
+    "id": "P4D-44",
+    "fix": "Reject RSA verification keys with exponent one or a modulus shorter than 2048 bits.",
+    "decision": "Owner-Entscheidung 18.11.2026, Ausnahme von D129",
+    "paths": [
+      "packages/core/src/openai-auth/identity.ts"
+    ]
+  },
+  {
+    "id": "P4D-45",
+    "fix": "Treat an unparseable request target like any other invalid request in both OAuth callback listeners.",
+    "decision": "Owner-Entscheidung 18.11.2026, Ausnahme von D129",
+    "paths": [
+      "packages/core/src/auth/login.ts",
+      "packages/core/src/openai-auth/loopback.ts"
+    ]
+  }
+]
