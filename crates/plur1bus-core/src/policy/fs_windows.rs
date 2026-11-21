@@ -56,8 +56,8 @@ pub struct Info {
     pub birth_ns: Option<i128>,
     /// The size in bytes.
     pub size: u64,
-    /// The last write time in whole milliseconds since the epoch.
-    pub mtime_ms: i64,
+    /// The last write time in nanoseconds since the epoch.
+    pub mtime_ns: i128,
 }
 
 /// The identity, link count and type of an open handle (`GetFileInformationByHandle`, `GetFileType`).
@@ -75,11 +75,11 @@ pub fn info(f: &File) -> io::Result<Info> {
         std::fs::Metadata::created,
     ))
     .map(|d| i128::try_from(d.as_nanos()).unwrap_or(i128::MAX));
-    let mtime_ms = since_epoch(meta.as_ref().map_or_else(
+    let mtime_ns = since_epoch(meta.as_ref().map_or_else(
         || Err(io::Error::from(io::ErrorKind::Unsupported)),
         std::fs::Metadata::modified,
     ))
-    .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX));
+    .map_or(0, |d| i128::try_from(d.as_nanos()).unwrap_or(i128::MAX));
     Ok(Info {
         volume: i.volume_serial_number(),
         index: i.file_index(),
@@ -89,7 +89,7 @@ pub fn info(f: &File) -> io::Result<Info> {
         disk: t.is_disk(),
         birth_ns,
         size: i.file_size(),
-        mtime_ms,
+        mtime_ns,
     })
 }
 

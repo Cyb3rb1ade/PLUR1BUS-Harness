@@ -82,6 +82,35 @@ fn complete_callback_heads_respect_the_inclusive_byte_limit() {
 }
 
 #[test]
+fn a_full_accept_batch_gets_a_read_pass_then_evicts_the_oldest() {
+    let mut listener = TcpLoopback::new();
+    let port = listener.bind().unwrap();
+    let endpoint = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    let held: Vec<_> = (0..64)
+        .map(|_| TcpStream::connect_timeout(&endpoint, Duration::from_secs(2)).unwrap())
+        .collect();
+    let mut genuine = TcpStream::connect_timeout(&endpoint, Duration::from_secs(2)).unwrap();
+    genuine.write_all(GENUINE).unwrap();
+    listener.wait_diagnostics = Some(Default::default());
+
+    assert_eq!(
+        target(&listener.next(2_000.0)),
+        Some("/auth/callback?code=c&state=s")
+    );
+    let trace = listener.wait_diagnostics.take().unwrap();
+    assert_eq!(trace.first_read_after_accepts, Some(64));
+    assert_eq!(trace.evicted, 1);
+    assert_eq!(trace.evicted_unread, 0);
+    let evicted_port = held[0].local_addr().unwrap().port();
+    assert!(trace.events.contains(&(evicted_port, "evicted")));
+}
+
+#[test]
+fn the_default_callback_head_window_is_five_seconds() {
+    assert_eq!(TcpLoopback::new().request_timeout, Duration::from_secs(5));
+}
+
+#[test]
 fn a_trickling_client_does_not_hold_the_wait_past_its_deadline() {
     let mut l = TcpLoopback::new();
     let port = l.bind().unwrap();

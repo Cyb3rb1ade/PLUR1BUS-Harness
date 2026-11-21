@@ -713,6 +713,9 @@ fn a_file_system_that_reports_no_file_id_refuses_the_root() {
             birth_ns: None,
             kind: FileKind::Dir,
             nlink: 1,
+            size: 0,
+            mtime_ns: 0,
+            ctime_ns: None,
         }))
     });
     let native = |p: String| {
@@ -901,6 +904,9 @@ fn a_file_system_without_file_ids_is_refused() {
             birth_ns: None,
             kind: FileKind::File,
             nlink: 1,
+            size: 0,
+            mtime_ns: 0,
+            ctime_ns: None,
         }))
     });
     assert_eq!(
@@ -1904,4 +1910,66 @@ fn an_entry_is_read_through_the_checked_parent_without_following_it() {
     assert_eq!(reason(stat_verified(&RealFs, &c)), "identity-changed");
     let missing = canon(&RealFs, &t, &t.p("root/none"), |_| {}).unwrap();
     assert_eq!(reason(stat_verified(&RealFs, &missing)), "not-found");
+}
+
+#[test]
+fn an_alias_walk_can_consume_its_last_budgeted_entry() {
+    let tree = Tree::new();
+    let deny = tree.p("outside/budget-fixture");
+    std::fs::create_dir(&deny).unwrap();
+    let file = format!("{deny}/file");
+    std::fs::write(&file, "fixture").unwrap();
+    let snapshot = RealFs.stat(&file).unwrap();
+    let key = (snapshot.dev, snapshot.ino);
+    assert_eq!(
+        path_entry_alias(&RealFs, key, std::slice::from_ref(&deny), 0),
+        Scan::Incomplete
+    );
+    assert_eq!(path_entry_alias(&RealFs, key, &[deny], 1), Scan::Alias);
+}
+
+#[cfg(unix)]
+#[test]
+fn stat_refuses_changed_metadata_even_if_the_pair_matches() {
+    let t = Tree::new();
+    let path = t.p("root/file.txt");
+    let checked = canon(&RealFs, &t, &path, |_| {}).unwrap();
+    let dir = RealFs.open_dir(&t.p("root")).unwrap();
+    let entry = RealFs.entry_at(&dir, "file.txt").unwrap();
+    let changed_entries = [
+        EntryMeta {
+            kind: FileKind::Dir,
+            ..entry
+        },
+        EntryMeta {
+            size: entry.size + 1,
+            ..entry
+        },
+        EntryMeta {
+            nlink: entry.nlink + 1,
+            ..entry
+        },
+        EntryMeta {
+            birth_ns: Some(entry.birth_ns.unwrap_or(0) + 1),
+            ..entry
+        },
+        EntryMeta {
+            mtime_ns: entry.mtime_ns + 1,
+            ..entry
+        },
+        EntryMeta {
+            ctime_ns: Some(entry.ctime_ns.unwrap_or(0) + 1),
+            ..entry
+        },
+    ];
+    assert!(stat_verified(&RealFs, &checked).is_ok());
+    for replacement in changed_entries {
+        let changed = Script::new(RealFs.platform(), |op, _| {
+            (op == "entry_at").then_some(Act::Entry(replacement))
+        });
+        assert_eq!(
+            reason(stat_verified(&changed, &checked)),
+            "identity-changed"
+        );
+    }
 }

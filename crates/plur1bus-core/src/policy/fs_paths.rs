@@ -97,6 +97,12 @@ pub struct FileStat {
     pub kind: FileKind,
     /// `st_nlink`.
     pub nlink: u64,
+    /// File size and times from the same observation.
+    pub size: u64,
+    /// The last modification time in nanoseconds.
+    pub mtime_ns: i128,
+    /// The last metadata change time, where available.
+    pub ctime_ns: Option<i128>,
 }
 
 /// One entry of a directory listing (`readdir` with file types, links not followed).
@@ -126,6 +132,51 @@ pub struct EntryMeta {
     pub mtime_ms: i64,
     /// The permission bits (`st_mode & 0o777`); 0 on Windows, which has none.
     pub mode: u32,
+    /// Link count from the same observation.
+    pub nlink: u64,
+    /// The birth time, where available.
+    pub birth_ns: Option<i128>,
+    /// The modification time in nanoseconds.
+    pub mtime_ns: i128,
+    /// The metadata change time, where available.
+    pub ctime_ns: Option<i128>,
+}
+
+#[cfg(unix)]
+const fn nanos(seconds: i128, fraction: i128) -> i128 {
+    seconds * 1_000_000_000 + fraction
+}
+
+fn entry_meta(stamp: FileStat, mode: u32) -> EntryMeta {
+    EntryMeta {
+        kind: stamp.kind,
+        dev: stamp.dev,
+        ino: stamp.ino,
+        size: stamp.size,
+        mtime_ms: i64::try_from(stamp.mtime_ns.div_euclid(1_000_000)).unwrap_or(
+            if stamp.mtime_ns < 0 {
+                i64::MIN
+            } else {
+                i64::MAX
+            },
+        ),
+        mode,
+        nlink: stamp.nlink,
+        birth_ns: stamp.birth_ns,
+        mtime_ns: stamp.mtime_ns,
+        ctime_ns: stamp.ctime_ns,
+    }
+}
+
+#[cfg(unix)]
+fn raw_kind(mode: rustix::fs::RawMode) -> FileKind {
+    use rustix::fs::FileType;
+    match FileType::from_raw_mode(mode) {
+        FileType::Symlink => FileKind::Symlink,
+        FileType::Directory => FileKind::Dir,
+        FileType::RegularFile => FileKind::File,
+        _ => FileKind::Other,
+    }
 }
 
 /// The access mode of an open.
@@ -340,6 +391,9 @@ fn win_stat(i: &super::fs_windows::Info) -> FileStat {
         birth_ns: i.birth_ns,
         kind,
         nlink: i.links,
+        size: i.size,
+        mtime_ns: i.mtime_ns,
+        ctime_ns: None,
     }
 }
 
@@ -436,6 +490,9 @@ fn stat_of(m: &std::fs::Metadata) -> FileStat {
         birth_ns,
         kind,
         nlink: m.nlink(),
+        size: m.size(),
+        mtime_ns: nanos(m.mtime().into(), m.mtime_nsec().into()),
+        ctime_ns: Some(nanos(m.ctime().into(), m.ctime_nsec().into())),
     }
 }
 
@@ -666,50 +723,75 @@ impl PathFs for RealFs {
 
     fn entry_at(&self, d: &RealDir, leaf: &str) -> Result<EntryMeta, FsError> {
         leaf_ok(leaf)?;
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        {
+            use rustix::fs::{AtFlags, StatxFlags};
+            let flags = StatxFlags::BASIC_STATS | StatxFlags::BTIME;
+            match rustix::fs::statx(&d.file, leaf, AtFlags::SYMLINK_NOFOLLOW, flags) {
+                Ok(st) => {
+                    let supplied = StatxFlags::from_bits_truncate(st.stx_mask);
+                    let required = StatxFlags::MODE
+                        | StatxFlags::TYPE
+                        | StatxFlags::INO
+                        | StatxFlags::NLINK
+                        | StatxFlags::SIZE
+                        | StatxFlags::MTIME
+                        | StatxFlags::CTIME;
+                    if !supplied.contains(required) {
+                        return Err(FsError::new("EIO"));
+                    }
+                    let stamp = FileStat {
+                        dev: rustix::fs::makedev(st.stx_dev_major, st.stx_dev_minor),
+                        ino: st.stx_ino,
+                        kind: raw_kind(st.stx_mode.into()),
+                        nlink: st.stx_nlink.into(),
+                        size: st.stx_size,
+                        birth_ns: supplied.contains(StatxFlags::BTIME).then(|| {
+                            nanos(st.stx_btime.tv_sec.into(), st.stx_btime.tv_nsec.into())
+                        }),
+                        mtime_ns: nanos(st.stx_mtime.tv_sec.into(), st.stx_mtime.tv_nsec.into()),
+                        ctime_ns: Some(nanos(
+                            st.stx_ctime.tv_sec.into(),
+                            st.stx_ctime.tv_nsec.into(),
+                        )),
+                    };
+                    return Ok(entry_meta(stamp, u32::from(st.stx_mode) & 0o777));
+                }
+                Err(
+                    rustix::io::Errno::NOSYS
+                    | rustix::io::Errno::OPNOTSUPP
+                    | rustix::io::Errno::PERM,
+                ) => {}
+                Err(e) => return Err(errno(e)),
+            }
+        }
         #[cfg(unix)]
         {
-            use rustix::fs::{AtFlags, FileType};
+            use rustix::fs::AtFlags;
             let st = rustix::fs::statat(&d.file, leaf, AtFlags::SYMLINK_NOFOLLOW).map_err(errno)?;
-            // The integer types of `struct stat` differ by platform; the casts are the ones `std` makes for `dev()`,
-            // `ino()` and `len()`, so an identity read here equals one read through `std`.
+            // The platforms use different integer types for the fields in stat.
+            #[cfg(target_vendor = "apple")]
+            let birth_ns = Some(nanos(st.st_birthtime.into(), st.st_birthtime_nsec.into()));
+            #[cfg(not(target_vendor = "apple"))]
+            let birth_ns = None;
             #[allow(clippy::unnecessary_cast, clippy::cast_lossless)]
-            let (dev, ino, size, sec, nsec, mode, bits) = (
-                st.st_dev as u64,
-                st.st_ino as u64,
-                st.st_size as u64,
-                st.st_mtime as i64,
-                st.st_mtime_nsec as i64,
-                st.st_mode as rustix::fs::RawMode,
-                (st.st_mode as u32) & 0o777,
-            );
-            let kind = match FileType::from_raw_mode(mode) {
-                FileType::Symlink => FileKind::Symlink,
-                FileType::Directory => FileKind::Dir,
-                FileType::RegularFile => FileKind::File,
-                _ => FileKind::Other,
+            let stamp = FileStat {
+                dev: st.st_dev as u64,
+                ino: st.st_ino as u64,
+                kind: raw_kind(st.st_mode as rustix::fs::RawMode),
+                nlink: st.st_nlink as u64,
+                size: st.st_size as u64,
+                birth_ns,
+                mtime_ns: nanos(st.st_mtime.into(), st.st_mtime_nsec.into()),
+                ctime_ns: Some(nanos(st.st_ctime.into(), st.st_ctime_nsec.into())),
             };
-            Ok(EntryMeta {
-                kind,
-                dev,
-                ino,
-                size,
-                mtime_ms: sec
-                    .saturating_mul(1000)
-                    .saturating_add(nsec.div_euclid(1_000_000)),
-                mode: bits,
-            })
+            #[allow(clippy::unnecessary_cast, clippy::cast_lossless)]
+            Ok(entry_meta(stamp, (st.st_mode as u32) & 0o777))
         }
         #[cfg(not(unix))]
         {
             let i = super::fs_windows::lstat(&below(d, leaf)).map_err(|e| win_error(&e))?;
-            Ok(EntryMeta {
-                kind: win_stat(&i).kind,
-                dev: i.volume,
-                ino: i.index,
-                size: i.size,
-                mtime_ms: i.mtime_ms,
-                mode: 0,
-            })
+            Ok(entry_meta(win_stat(&i), 0))
         }
     }
 
@@ -1037,6 +1119,7 @@ pub struct CanonicalPath {
     root_id: Option<String>,
     exists: bool,
     identity: Identity,
+    target_stamp: FileStat,
     parent_identity: Identity,
     hard_linked: bool,
     deny_guarded: bool,
@@ -1140,6 +1223,7 @@ struct Resolved {
     real: String,
     exists: bool,
     identity: Identity,
+    target_stamp: FileStat,
     parent_identity: Identity,
     hard_linked: bool,
 }
@@ -1200,6 +1284,7 @@ fn resolve_at<F: PathFs>(
         real: full,
         exists: tail.is_empty(),
         identity: id,
+        target_stamp: st,
         parent_identity,
         hard_linked: tail.is_empty() && st.kind == FileKind::File && st.nlink > 1,
     }))
@@ -1725,6 +1810,7 @@ pub fn canonicalise_path<F: PathFs>(
         root_id,
         exists: res.exists,
         identity: res.identity,
+        target_stamp: res.target_stamp,
         parent_identity: res.parent_identity,
         hard_linked: res.hard_linked,
         deny_guarded: !deny.is_empty(),
@@ -1796,6 +1882,21 @@ fn verify_open<F: PathFs>(
         return Ok(Some(refuse(
             "identity-changed",
             "the opened file is not the one that was checked",
+        )));
+    }
+    let checked = c.target_stamp;
+    if c.exists
+        && matches!(st.kind, FileKind::File | FileKind::Dir)
+        && (st.kind != checked.kind
+            || (st.kind == FileKind::File
+                && (id.birth.is_none() || c.identity.birth.is_none())
+                && (st.size != checked.size
+                    || st.mtime_ns != checked.mtime_ns
+                    || st.ctime_ns != checked.ctime_ns)))
+    {
+        return Ok(Some(refuse(
+            "identity-changed",
+            "the opened file metadata differs from the entry that was checked",
         )));
     }
     if (write || c.deny_guarded) && st.kind == FileKind::File && st.nlink > 1 && !c.hard_linked {
@@ -1930,7 +2031,8 @@ fn open_parent<F: PathFs>(
 
 /// The entry a canonicalised path names, read without following it and without opening it: the checked parent
 /// directory is opened (as in [`open_verified`]) and the leaf is looked at relative to that descriptor; it must be the
-/// entry that was checked (device and inode). For a caller that reports type, size and time of a path it may not be
+/// entry that was checked, including its type and metadata from the same observation. For a caller that reports
+/// type, size and time of a path it may not be
 /// able to read.
 pub fn stat_verified<F: PathFs>(fs: &F, c: &CanonicalPath) -> Result<EntryMeta, PathRefusal> {
     if !c.exists {
@@ -1947,11 +2049,15 @@ pub fn stat_verified<F: PathFs>(fs: &F, c: &CanonicalPath) -> Result<EntryMeta, 
     let m = fs
         .entry_at(&dir, leaf)
         .map_err(|_| refuse("identity-changed", "the target or its parent vanished"))?;
-    // Canonicalisation verified a real entry. A symlink cannot be that entry, even
-    // if the filesystem has already reused its device and inode pair.
-    if m.kind == FileKind::Symlink
-        || m.dev.to_string() != c.identity.dev
-        || m.ino.to_string() != c.identity.ino
+    let expected = c.target_stamp;
+    if m.kind != expected.kind
+        || m.dev != expected.dev
+        || m.ino != expected.ino
+        || m.birth_ns.filter(|birth| *birth > 0) != expected.birth_ns.filter(|birth| *birth > 0)
+        || m.nlink != expected.nlink
+        || m.size != expected.size
+        || m.mtime_ns != expected.mtime_ns
+        || m.ctime_ns != expected.ctime_ns
     {
         return Err(refuse(
             "identity-changed",

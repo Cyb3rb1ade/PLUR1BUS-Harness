@@ -1017,6 +1017,12 @@ unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no chan
   **K10-D11** (review D, RD-4): the gate refuses a call whose merged policy context names another person (`principal.person`),
   agent (`subject.agentId`) or session than the caller the approved action is bound to (`policy-never`, rule
   `context-mismatch`); the dispatcher merges its `policyContext` hook over the base unchecked.
+  **K10-D13 (S1-R1):** `stat_verified` compares type, size, link count and available times with the checked
+  entry while holding its parent descriptor. Linux requests birth time with the same descriptor-relative `statx`
+  when supported. Opening a regular file without a birth time also checks its size and available change times
+  before returning the open descriptor. Filesystems can report identical metadata for different historical
+  objects, and a metadata-only operation still has no live reference to the original leaf. A configured root
+  without a birth time still uses its stored device and inode before the parent is opened.
 - *Same as TypeScript, noted:* **K10-D3**: when the `exec.result` line cannot be written after the program ran, the call fails with
   `spawn-failed` and the text "nothing was run". Spawn failures are worded like Node's (`spawn git ENOENT`).
 - *Ports for the flip:* gate `Permissions` (grants, their use, approvals: `ApprovalService` over `approvals.sqlite` behind it, with
