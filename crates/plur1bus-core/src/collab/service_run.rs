@@ -1,7 +1,7 @@
 //! Delegate admission, target dispatch and completion on an explicit clock tick.
 use super::{CollabError, CollabService, WriterIdentity, C, R};
 use crate::collab::handoff::{deadline, property, HandoffTicket};
-use crate::collab::ids::repeat_key;
+use crate::collab::ids::project_repeat_key;
 use crate::collab::limits::{CallClass, DelegationWorkBudget};
 use crate::collab::ports::{BudgetCheck, RunInput, RunOutput};
 use crate::collab::replay::{RecordEnd, RecordStart, RecordedTurn};
@@ -147,8 +147,10 @@ impl CollabService {
         };
         let preview = self.preview(i.text);
         let persisted = self.store.tx(|_| {
-            self.store
-                .remember_repeat(&repeat_key(i.from_agent, i.to_agent, i.text), now)?;
+            self.store.remember_repeat(
+                &project_repeat_key(&project.id, i.from_agent, i.to_agent, i.text),
+                now,
+            )?;
             self.store.insert_span(
                 &span_id,
                 &chain.trace_id,

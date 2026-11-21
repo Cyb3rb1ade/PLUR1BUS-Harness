@@ -78,6 +78,11 @@ pub fn repeat_key(from_agent: &str, to_agent: &str, question: &str) -> String {
     h.finalize().iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// A service-level repeat key belongs to the project whose admission rules are applied.
+pub(super) fn project_repeat_key(project: &str, from: &str, to: &str, question: &str) -> String {
+    format!("{project}:{}", repeat_key(from, to, question))
+}
+
 /// `pairKey(from, to)`.
 pub fn pair_key(from_agent: &str, to_agent: &str) -> String {
     format!("{from_agent}\0{to_agent}")

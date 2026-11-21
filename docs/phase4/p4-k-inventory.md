@@ -564,6 +564,11 @@ Ports: clock, ids, engine memory port, git process (checkpoints), summariser.
 - Paths Git lists are additionally refused when absolute, empty, `.`, `..` or `.git`: the source relies on Git alone. No input Git can produce reaches it.
 - `rewind_project` is behind ports; there is no collab to read.
 - The vectors were recorded on unix; the guard test skips on Windows.
+- **K5-D8 (K5-R1):** Rust checks the working tree, index and untracked targets again after consuming approval
+  and recording audit, immediately before requesting the restore. Changes after this final check still need host coordination.
+- **K5-D9 (K5-R2):** The Rust session store holds an advisory lock for each reserved session in a sibling
+  directory of its SQLite file. Admission and reservation both use the SQLite write lock. Independent Rust connections
+  see held reservations and process exit releases them. Legacy TypeScript connections do not participate in this lock.
 
 **What the flip finds:** the host drives `tick` (10 s) and `idle`; the approval port must answer with scope `once` and consume it in `begin`; `ProjectLookup` must return the realpath of the card's worktree; `turn-loop` calls `RewindFilesPort::capture` before a model turn and `RewindService::after_turn`.
 
@@ -584,6 +589,8 @@ Ports: clock, ids, engine memory port, git process (checkpoints), summariser.
 - **K6-D4** Stored project settings that are not a JSON object (a string or a non-empty array spread into `{...}`) are not reproduced; `null` and unparseable settings give a raw error as TypeScript does.
 - **K6-D5** The grant store's error is not logged with the warning (TypeScript passes it as structured data); the message text is the same.
 - **K6-D6** TypeScript throws a plain `Error` for what SQLite refuses (a foreign key, a missing project row on insert); Rust marks these `raw` and the vectors record only that it failed, not the text.
+- **K6-D21 (K6a-R2)**: Rust scopes the service repeat window to the project. Legacy global repeat entries are
+  ignored by the Rust service. The shared key function and store schema remain available for TypeScript round trips.
 
 ## 7. K6: collaboration, coding surface, federation (P4-50 without team shell)
 
@@ -604,6 +611,15 @@ Ports: clock, ids, git, process runner, session store (K5), budget (K1).
 
 **K6a-Rest as built** (collaboration execution and transcript library, with no live adapters registered).
 
+- **K6-D22 (K6a-R3):** Rust cancels the open tasks under one store transaction and calls the grant port before
+  committing any terminal task rows. A failed call rolls back the task changes. The grant port must allow retries:
+  grants ended before a later failure stay ended, and the queued or running task rows can be retried. The vectors
+  compare the success path, and the store test observes pending states and a failed grant through a second connection.
+- **K6-D23 (K6a-R1):** File-backed Rust services count writer slots under the same SQLite write transaction and
+  retain OS locks in the database's owner-only side directory. Project and local reservations are shared by connections;
+  the hardware calculation credits only running writers visible to its own service, so it can be conservative. Abandoned
+  lock files are collected by the next admission. A private in-memory store has no other connections. TypeScript
+  maintains its own counters in each service and does not use these leases.
 - *Ported:* sender contract validation and bounded repair, chain-backed authority checks before ack and again before execution,
   single-start receiver tickets, return validation, byte-safe excerpts, and turn-local ownership and delivery receipts.
   The delegate admits and reserves writers, selects exactly one target, persists tasks and spans, records progress and usage, and
@@ -685,17 +701,24 @@ knowledge file, media search and the engine forwards are K7b onward).
   of the fresh Rust file with its own.
 - *Rights:* every check goes through `rbac::authorize` (`agent.list` on the system, `agent.manage`, `agent.use`); a job runs with the
   rights of its `runAs` person, looked up when it runs, and is switched off when they are gone, no longer a person or without `use`.
-  Reported, not changed (ledger K7-D1 to K7-D3): a creator who lost `manage` but kept `use` still runs, `update` hands a job to the updater,
-  a manual run needs only `use`.
+  Reported in K7-D1 and K7-D3: a creator who lost `manage` but kept `use` still runs, and a manual run needs only `use`.
+  **K7-D2 (K7a-R2):** Rust edits preserve `runAs`. The Rust service has a separate `take_over` operation
+  that requires current `manage` and `use` rights and records the handover before the conditional update.
+  The recorded TypeScript trace retains its original behaviour, where the editor takes over on update.
 - *Deliberately not ported:* the method table and call context of `rpc.ts`, `authenticatedPrincipal`, `createApprovalsIntegrityJob` (approvals),
   a real timer (a host calls `tick` and `IntegrityArm::fire`), the engine forward of the job runner.
-- *Known deviations:* no DST rules after 2037 in `chrono-tz` (zones with DST give the standard offset there), a wall year below 100 and the
+- *Known deviations:* **K7-D4 (K7a-R4):** In the sampled summer dates for `Europe/Berlin` and `America/New_York`, Rust
+  and Node agree in 2040 and 2099. Rust uses standard time in the sampled summer of 2100 and Node still uses daylight
+  saving time. The exact samples are recorded; the supported horizon depends on the zone. A wall year below 100 and the
   instants within a day of the earliest `Date` are errors, a lone surrogate in a definition cannot be held, the user-jobs directory is 0700,
-  a newer store schema is refused where TypeScript opens it. The tz database release of the exporting Node can differ from the crate's
-  (`Africa/Casablanca` left out of the vectors).
+  a newer store schema is refused where TypeScript opens it. **K7-D6 (K7a-R3):** The pinned Rust tzdb 2025b and Node tzdb 2026c
+  disagree on the transition to permanent UTC in `Africa/Casablanca` and `Africa/El_Aaiun` on 2026-09-20. The recorded examples on
+  both sides of the transition pin the database versions and the exact UTC outcomes. [IANA 2026c release notes](https://data.iana.org/time-zones/tzdb-2026c/NEWS).
 - *Ports for the flip:* clock, ids (`randomUUID`), audit (`AuditSink`), principal lookup (`resolve`), delivery check (`validateDelivery`),
   agent existence and list, budget gate, display name, the turn (`submitTurn`), `notify`, `onRecorded`, `onFailed`, `isStopping`, the
   owner-only hook, `engineHasJob`, a logger, the integrity arm's timers.
+- **K7-D7 (K7a-R1):** Rust rechecks the selected job under a write transaction and conditionally advances the same
+  definition that was observed. A second connection that loses the scheduled claim returns without dispatching.
 - *Proof:* `fixtures/parity/jobs/{cron,user,rpc,system}.json` from `scripts/parity/export-jobs.ts` (the real TypeScript over real files,
   scripted clock, ids and ports) replayed by `jobs::{cron_vectors,user::vectors,system::vectors}`; 31 mutants, 29 killed and two explained.
 
@@ -781,6 +804,9 @@ microtask tick).
   **K8-D4** a Core that answers `session.create` with a session id that is not a string is an internal error here (TypeScript echoes
   the value). **K8-D5** a message deeper than 2,000 levels cannot be encoded and is dropped with `output-error` (only a hostile
   backend can build one; input of any depth is read).
+  **K8-D6 (K8-R1)**: one connection admits at most 128 requests awaiting completion by default, configurable through the library.
+  Replies to permission questions and cancellation notifications are handled outside that request count. Excess requests receive
+  `pending-limit`. The line reader hands off each frame before allocating the next.
 - *Ports for the flip:* a session and approval caller (`RpcCaller`: `session.*`, `code.*`, `approval.*`), the clock and id source of
   `budget` (`Clock`, `IdSource`), the file-change source (events from `session.events`; the library never touches the editor's files),
   the sleeper between two event polls, the input port, and the writer.
@@ -838,6 +864,8 @@ dispatcher or the supervisor). The tool-call runtime is K9b.
   answer; Rust removes the member (the revision comes from the router only), the vector carries `divergence: K9a-D2`. An answer that is
   JSON text `serde_json` cannot hold (a lone surrogate escape, nesting deeper than 128) counts as invalid here. The backend port is
   synchronous: a backend keeps the deadline it is handed and answers `Interrupted`, where TypeScript races it against a timer.
+  **K9a-D6 (K9a-R4):** Rust refuses an external classification with over 32 tasks before copying or validating
+  the tasks. The external classifier's array check leaves the internal rule classifier unchanged.
   **K9a-D3**: a configuration member whose `Number()` throws in TypeScript (an object with its own `toString`, `decision/client.ts`
   `#run`) makes the request reject there; the port has no error path at that point and counts the value as `NaN`, so the request
   fails as `invalid` and never runs (`decision/client.rs` `js_number`).
@@ -890,9 +918,12 @@ builder, the decision service and triage are K9a.
   place for a few arguments in a hundred; Rust computes the unfused routine everywhere, so the last digit of a score can differ from
   TypeScript on Apple Silicon; the vectors' scenarios are chosen so that it does not). `regress` folds U+017F and U+212A into `s` and `k`
   under `i` without `u`, which JavaScript does not: the runtime's patterns without `u` spell their case out instead of using the engine's
-  `i` (and `\b` of the `/iu` patterns is spelled out over JavaScript's word characters). On Windows `skill.read` does not compare the
-  opened handle's volume and index with the path (stable Rust does not expose them); the path is re-checked before and after the read.
+  `i` (and `\b` of the `/iu` patterns is spelled out over JavaScript's word characters).
+  **K9b-D3 (K9b-R1):** Rust refuses a Windows skill read or load with `unsafe-path` before opening the resource.
+  Both operations require identity verification against the opened handle before Windows can enable them.
   A failing registry inside the lexical port gives no lexical score instead of an exception. A thrown `TypeError` is compared by name.
+  **K9b-D2 (K9b-R2)**: schema patterns are capped at 256 UTF-16 units and their input at 1,024 units.
+  The regex library has no step budget. The length limits do not guarantee a linear match.
 - *Ports for the flip:* the model repair port, the secret matcher, the full-result store and the idempotency store of `results`, the
   clock (`budget::Clock`), `EmbeddingPort`, `LexicalPort` and `PriorPort` of the index, `LocalEmbedding`, `SkillSource`,
   `ExtensionFeed` and `CalibrationSource` of the live index, `skill_tools::Cancelled`, and the process's home directory and its
@@ -990,6 +1021,12 @@ unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no chan
   **K10-D11** (review D, RD-4): the gate refuses a call whose merged policy context names another person (`principal.person`),
   agent (`subject.agentId`) or session than the caller the approved action is bound to (`policy-never`, rule
   `context-mismatch`); the dispatcher merges its `policyContext` hook over the base unchecked.
+  **K10-D13 (S1-R1):** `stat_verified` compares type, size, link count and available times with the checked
+  entry while holding its parent descriptor. Linux requests birth time with the same descriptor-relative `statx`
+  when supported. Opening a regular file without a birth time also checks its size and available change times
+  before returning the open descriptor. Filesystems can report identical metadata for different historical
+  objects, and a metadata-only operation still has no live reference to the original leaf. A configured root
+  without a birth time still uses its stored device and inode before the parent is opened.
 - *Same as TypeScript, noted:* **K10-D3**: when the `exec.result` line cannot be written after the program ran, the call fails with
   `spawn-failed` and the text "nothing was run". Spawn failures are worded like Node's (`spawn git ENOENT`).
 - *Ports for the flip:* gate `Permissions` (grants, their use, approvals: `ApprovalService` over `approvals.sqlite` behind it, with
@@ -1028,13 +1065,15 @@ new schema version 1; the helper needs no change (the store is created by Rust, 
 `docs/superpowers/specs/2026-11-18-decision-receipts-design.md`; no RPC method, no CLI, no change to `rpc.schema.json` or
 `config.schema.json`, no new error code, nothing wired into the turn path).
 - *Built:* the format `plur1bus.decisionreceipt/1` (identifiers, hashes, classes, counters and times only; `capture` reads the ids of
-  the options and nothing else of a decision input); `decision-receipts.sqlite` (`user_version` 1 through `plur1bus_store`, one writer,
+  the options and nothing else of a decision input); `decision-receipts.sqlite` (`user_version` 2 through `plur1bus_store`, one writer,
   one receipt per turn and use case, an incognito session writes nothing, a newer schema is refused and the file untouched);
   `record_outcome` for the follow-up fields, once per receipt; retention (30 days, upper limit a parameter with default 20,000, the
   oldest first, `prune` called by a host, the clock a port); the rights of rulings 10 and 11 (`rights`); replay through
   `DecisionClient` with a gate port (jev opt-in, only local models, egress, budget) and a case-text port, a deterministic report that
   keeps fallback cases and failed cases apart and holds no text; adoption of a baseline as a new version of the calibration record
-  through the port `CalibrationRecords` (audit line first through `audit::recorded_then`, adoption row and record in one transaction).
+  through the port `CalibrationRecords`. **K11-R1:** audit and a durable pending adoption precede the calibration append.
+  The host opens with that same calibration port so an absent version is discarded and an exact written version is completed.
+  A conflicting version is refused. Version 1 adoptions migrate as completed records.
 - *Proof:* no vectors (there is no TypeScript); the marker test (no marker in the store file, its WAL, any error or `Debug` text, the
   report), same receipts same report (repeated, and written and asked in another order), one test per role and kind for each of the
   three actions, both retention limits at their boundaries, the interrupted adoption, and 31 mutations (ledger of K11).

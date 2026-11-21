@@ -1203,3 +1203,26 @@ fn an_index_changed_after_the_approval_stops_the_restore_before_it_writes() {
         "the files were not written"
     );
 }
+
+#[test]
+fn an_edit_after_approval_is_preserved_before_restore() {
+    let Some(mut w) = World::new(SessionKind::Card) else {
+        return;
+    };
+    let turn = w.turn();
+    w.repo.write("tracked.txt", "failed edit\n");
+    let (begun, root) = (w.begun.clone(), w.repo.root.clone());
+    let edited = std::cell::Cell::new(false);
+    *w.fail.borrow_mut() = Some(Box::new(move |args| {
+        if begun.get() == 1 && args.iter().any(|a| a == "--git-path") && !edited.replace(true) {
+            std::fs::write(
+                std::path::Path::new(&root).join("tracked.txt"),
+                "later edit\n",
+            )
+            .unwrap();
+        }
+        None
+    }));
+    assert_eq!(reason(restore(&mut w, &turn)), "rewind-files-changed");
+    assert_eq!(w.repo.read("tracked.txt").as_deref(), Some("later edit\n"));
+}

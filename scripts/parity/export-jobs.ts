@@ -91,9 +91,8 @@ function cronVectors() {
     return out;
   };
   const next: unknown[] = [];
-  // Beyond 2037 the Rust zone tables (chrono-tz) hold no DST rules; a case there carries `later` and the replay allows the
-  // known gap for zones that observe DST (finding K7-D4). Africa/Casablanca is left out: its rules differ between tz database
-  // releases (the ICU of this Node and the tables of the Rust crate), so a recording of it would depend on the machine.
+  // Existing distant calendar cases carry `later` for the bounded historical waiver (K7-D4). The targeted future
+  // summer and Morocco samples below record exact results on both sides.
   const add = (cron: string, tz: string, from: number, note?: string) => {
     const later = from > Date.UTC(2037, 11, 31) && from < 8e15 ? { later: true } : {};
     try { const c = parseCron(cron); next.push({ cron, tz, from, next: nextAfter(c, tz, from), ...later, ...(note ? { note } : {}) }); }
@@ -117,7 +116,24 @@ function cronVectors() {
   // Years before 1900: the zone's local mean time, with offsets in seconds.
   for (const tz of ["Europe/Amsterdam", "Europe/Berlin", "America/New_York", "Asia/Kolkata", "Australia/Sydney"]) for (const from of [Date.UTC(1850, 5, 1), Date.UTC(1899, 11, 31), Date.UTC(1920, 3, 1), Date.UTC(1937, 5, 1)]) for (const cron of ["0 0 * * *", "30 12 * * *", "*/20 * * * *"]) add(cron, tz, from, "historic offset");
   const validTz = [...ZONES, ...BAD_ZONES].map((tz) => ({ tz, valid: isValidTimezone(tz) }));
-  return { parse, next, validTz };
+  const tzdbDifferences = ["Africa/Casablanca", "Africa/El_Aaiun"].flatMap(tz => [
+    { from: Date.UTC(2026, 8, 19), rustNext: Date.UTC(2026, 8, 19, 8) },
+    { from: Date.UTC(2026, 8, 20), rustNext: Date.UTC(2026, 8, 20, 8) },
+  ].map(({ from, rustNext }) => {
+    const cron = "0 9 * * *";
+    return { cron, tz, from, next: nextAfter(parseCron(cron), tz, from), rustNext,
+      divergence: "K7-D6", nodeTzdb: process.versions.tz, rustTzdb: "2025b" };
+  }));
+  const futureSummer = ["Europe/Berlin", "America/New_York"].flatMap(tz =>
+    [2040, 2099, 2100].map(year => {
+      const from = Date.UTC(year, 6, 1);
+      const cron = "0 9 * * *";
+      const next = nextAfter(parseCron(cron), tz, from);
+      const rustHour = tz === "Europe/Berlin" ? 8 : 14;
+      return { tz, from, cron, next,
+        ...(year === 2100 ? { divergence: "K7-D4", rustNext: Date.UTC(year, 6, 1, rustHour) } : {}) };
+    }));
+  return { parse, next, validTz, tzdbDifferences, futureSummer };
 }
 
 // --- user jobs ------------------------------------------------------------------------------------------------------------
@@ -138,12 +154,12 @@ const uworld = (over: Record<string, unknown> = {}) => ({ now: T0, principals: P
 const who = (id: string, over: Record<string, unknown> = {}) => (PRINCIPALS[id] === undefined && !over.role ? { userId: id } : { userId: id, ...PRINCIPALS[id], ...over });
 const job = (over: Record<string, unknown> = {}) => ({ name: "Daily", agentId: "main", prompt: "Summarize", schedule: { cron: "0 9 * * *", timezone: "Europe/Berlin" }, enabled: true, ...over });
 
-async function userRun(name: string, w0: any, ops: any[]) {
+async function userRun(name: string, w0: any, ops: any[], keepRunAs = false) {
   const dir = mkdtempSync(join(tmpdir(), "p4k-jobs-"));
   const path = join(dir, "state", "user-jobs.sqlite");
   const w = structuredClone(w0);
   const audit: any[] = [], events: any[] = [], calls: any[] = [], ids: string[] = [];
-  const steps: unknown[] = [];
+  const steps: { op: any; out: unknown; audit?: any[]; events?: unknown; calls?: unknown }[] = [];
   const submits: any[] = [];
   random.reset();
   const options = () => ({
@@ -175,7 +191,24 @@ async function userRun(name: string, w0: any, ops: any[]) {
     try {
       switch (op.op) {
         case "create": return { ok: note(d.create(op.input, op.caller)) };
-        case "update": return { ok: d.update(withId(op.patch, op), op.caller) };
+        case "update": {
+          const patch = withId(op.patch, op);
+          const previous = keepRunAs && typeof patch.id === "string" && d.has(patch.id) ? d.get(patch.id) : undefined;
+          const updated = d.update(patch, op.caller);
+          if (previous && previous.runAs !== updated.runAs) {
+            // Use the real TypeScript update for every validation and then project the Rust identity
+            // rule. Later operations and reopened stores observe the projected identity.
+            if (updated.deliveryTarget && w.validate) calls.push([updated.deliveryTarget, previous.runAs, updated.agentId]);
+            updated.runAs = previous.runAs;
+            const db = new DatabaseSync(path);
+            try { db.prepare("UPDATE user_jobs SET definition=? WHERE id=?").run(JSON.stringify(updated), updated.id); }
+            finally { db.close(); }
+            const event = audit.at(-1)!;
+            event.action = "jobs.updated";
+            event.detail.runAs = updated.runAs;
+          }
+          return { ok: updated };
+        }
         case "delete": return { ok: d.delete(idOf(op), op.confirm, op.caller) };
         case "list": return { ok: d.list(op.caller) };
         case "targets": return { ok: d.targets(op.caller) };
@@ -213,7 +246,16 @@ async function userRun(name: string, w0: any, ops: any[]) {
       steps.push({ op, out, ...(audit.length ? { audit: audit.map((a) => ({ at: a.at, user: a.actor.user, host: a.actor.host, action: a.action, target: a.target, detail: a.detail })) } : {}), ...(events.length ? { events: structuredClone(events) } : {}), ...(calls.length ? { calls: structuredClone(calls) } : {}) });
     }
     d.close();
-    return { name, world: w0, ops: steps, final: { tables: dumpTables(path, { user_jobs: ["definition"], user_job_runs: ["record"] }), schema: schemaOf(path), ids } };
+    const recorded = { name, world: w0, ops: steps, final: { tables: dumpTables(path, { user_jobs: ["definition"], user_job_runs: ["record"] }), schema: schemaOf(path), ids } };
+    if (keepRunAs || !steps.some(step => step.audit?.some(event => event.action === "jobs.runAs.changed"))) return recorded;
+    const projection: typeof recorded = await userRun(name, w0, ops, true);
+    const different = (a: unknown, b: unknown) => JSON.stringify(a) !== JSON.stringify(b);
+    const rust = {
+      ops: projection.ops.flatMap(({ op, ...answer }, index) =>
+        different(steps[index], { op, ...answer }) ? [{ index, answer }] : []),
+      ...(different(recorded.final, projection.final) ? { final: projection.final } : {}),
+    };
+    return { ...recorded, divergence: "K7-D2", rust };
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 

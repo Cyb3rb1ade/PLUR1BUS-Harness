@@ -10,7 +10,7 @@
 use super::capacity::{writer_capacity, CapacityFacts};
 use super::errors::{CollabError, CollabErrorCode as C, GuardrailReason};
 use super::guardrails::{evaluate_guardrails, GuardrailInput};
-use super::ids::{pair_key, repeat_key, CollabIds};
+use super::ids::{pair_key, project_repeat_key, CollabIds};
 use super::limits::CallClass;
 use super::ports::{
     ActiveDirectory, AgentDirectoryPort, AuthorizePort, BudgetCheck, BudgetPort, EventEmitter,
@@ -96,6 +96,7 @@ struct Reservation {
     to_agent: String,
     user_id: String,
     principal_kind: Option<PrincipalKind>,
+    _lease: Option<std::fs::File>,
 }
 
 /// A held writer slot; release it once, a second release does nothing.
@@ -881,7 +882,8 @@ impl CollabService {
             pair_count: chain.pair_counts.get(&pk).copied().unwrap_or(0),
             now: self.store.now(),
             chain_started_at: chain.started_at,
-            last_repeat_at: self.store.last_repeat(&repeat_key(
+            last_repeat_at: self.store.last_repeat(&project_repeat_key(
+                &project.id,
                 i.from_agent,
                 i.to_agent,
                 i.text,
@@ -933,7 +935,7 @@ impl CollabService {
             })
             .unwrap_or(false);
         self.store.remember_repeat(
-            &repeat_key(i.from_agent, i.to_agent, i.text),
+            &project_repeat_key(&project.id, i.from_agent, i.to_agent, i.text),
             self.store.now(),
         )?;
         let span_id = if first {
@@ -1049,7 +1051,7 @@ impl CollabService {
 
     // ---- writer slots --------------------------------------------------------------------------------------------
 
-    /// `reserveWriter`: synchronous trusted admission of one writer, shared across all turns using this service.
+    /// `reserveWriter`: synchronous admission shared by services using the same on-disk collaboration store.
     pub fn reserve_writer(&self, w: &WriterIdentity<'_>) -> R<WriterReservation> {
         self.check_accepting()?;
         self.require_a2a_owner(w.principal, w.to_agent)?;
@@ -1073,15 +1075,21 @@ impl CollabService {
         } else {
             None
         };
-        let (held, local_reserved) = {
-            let s = self.st();
-            (
-                s.writers.get(&project.id).copied().unwrap_or(0),
-                s.local_reserved,
-            )
+        let (full, lease) = if self.store.has_shared_writer_slots() {
+            let lease = self.store.reserve_writer_slot(
+                &project.id,
+                local,
+                limits.writers_per_project,
+                capacity.map(|c| c.slots),
+            )?;
+            (lease.is_none(), lease)
+        } else {
+            let state = self.st();
+            let held = state.writers.get(&project.id).copied().unwrap_or(0);
+            let full = held >= limits.writers_per_project
+                || capacity.is_some_and(|c| state.local_reserved as f64 >= c.slots);
+            (full, None)
         };
-        let full = held >= limits.writers_per_project
-            || capacity.is_some_and(|c| (local_reserved as f64) >= c.slots);
         if full {
             let chain = self.get_chain(w.trace_id, &project, w.from_agent)?;
             return Err(self.refuse(
@@ -1106,6 +1114,7 @@ impl CollabService {
                 to_agent: w.to_agent.to_owned(),
                 user_id: w.principal.user_id.clone(),
                 principal_kind: w.principal.kind,
+                _lease: lease,
             },
         );
         *s.writers.entry(project.id).or_insert(0) += 1;

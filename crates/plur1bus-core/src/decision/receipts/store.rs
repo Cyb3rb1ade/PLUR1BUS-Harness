@@ -1,4 +1,4 @@
-//! The receipt store: `decision-receipts.sqlite`, created and owned by Rust (TypeScript never reads it), `user_version` 1, one
+//! The receipt store: `decision-receipts.sqlite`, created and owned by Rust (TypeScript never reads it), one
 //! writer, every write one `BEGIN IMMEDIATE` transaction. A file from a newer schema is refused and left as it was.
 use super::format::{Outcome, Receipt, ReceiptDraft, ReceiptError, ReceiptUseCase};
 use super::rights;
@@ -45,7 +45,13 @@ CREATE TABLE adoptions (
   adopted_at INTEGER NOT NULL
 ) STRICT;
 "#;
-static STEPS: [&str; 1] = [V1];
+const V2: &str = r#"
+ALTER TABLE adoptions ADD COLUMN prompt_version TEXT;
+ALTER TABLE adoptions ADD COLUMN backend TEXT;
+ALTER TABLE adoptions ADD COLUMN pending INTEGER NOT NULL DEFAULT 0 CHECK(pending IN (0,1));
+CREATE UNIQUE INDEX adoption_pending ON adoptions(pending) WHERE pending=1;
+"#;
+static STEPS: [&str; 2] = [V1, V2];
 
 /// How long receipts are kept and how many.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -147,6 +153,19 @@ fn parse_row(body: &str, outcome: Option<String>) -> Result<Receipt, ReceiptErro
 impl ReceiptStore {
     /// Opens (and creates) the file.
     pub fn open(o: ReceiptStoreOptions) -> Result<Self, ReceiptError> {
+        let store = Self::open_unreconciled(o)?;
+        let pending: bool = store.db.conn().query_row(
+            "SELECT EXISTS(SELECT 1 FROM adoptions WHERE pending=1)",
+            [],
+            |row| row.get(0),
+        )?;
+        if pending {
+            return Err(ReceiptError::Port("calibration recovery"));
+        }
+        Ok(store)
+    }
+
+    pub(super) fn open_unreconciled(o: ReceiptStoreOptions) -> Result<Self, ReceiptError> {
         Retention::new(o.retention.max_age_ms, o.retention.max_count)?;
         // A file from a newer schema must stay as it is: prepare() only creates what is missing, and the version check
         // of the store runs before any pragma.
@@ -164,7 +183,7 @@ impl ReceiptStore {
         let owner = OwnerSpec {
             store: StoreSpec {
                 synchronous: Synchronous::Full,
-                ..StoreSpec::new("decision-receipts", 1)
+                ..StoreSpec::new("decision-receipts", STEPS.len() as u32)
             },
             journal: Journal::Wal,
             schema: Schema::Steps(&STEPS),
@@ -349,6 +368,8 @@ impl ReceiptStore {
         Ok(self
             .db
             .conn()
-            .query_row("SELECT COUNT(*) FROM adoptions", [], |r| r.get(0))?)
+            .query_row("SELECT COUNT(*) FROM adoptions WHERE pending=0", [], |r| {
+                r.get(0)
+            })?)
     }
 }

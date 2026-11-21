@@ -338,7 +338,7 @@ async function roleVectors() {
     };
     const backend = createRoleBackend(create as Any, options, () => ({ modelRoles: { decision: roleName } }) as Any);
     const { context: { signal: _s, ...context }, ...request } = k.request;
-    const base = { name: k.name, role: roleName, request: t.enc(ordered({ ...request, context })), events: t.enc(k.events), ...(k.use !== undefined ? { use: k.use } : {}), ...(k.chunks ? { chunks: k.chunks } : {}), windows: k.windows ?? {}, local: backend.local(k.request.context) ?? null, ...(k.divergence ? { divergence: k.divergence } : {}) };
+    const base = { name: k.name, role: roleName, request: t.enc(ordered({ ...request, context })), events: t.enc(k.events), ...(k.use !== undefined ? { use: k.use } : {}), ...(k.chunks ? { chunks: k.chunks } : {}), windows: k.windows ?? {}, ...(k.localOnlyOption ? { configuredLocalOnly: true } : {}), local: backend.local(k.request.context) ?? null, ...(k.divergence ? { divergence: k.divergence } : {}) };
     try { const value = await backend.run(k.request, new AbortController().signal); runs.push({ ...base, created, requests: t.enc(requests), value: t.enc(value), json: JSON.stringify(value) }); }
     catch (e) { runs.push({ ...base, created, requests: t.enc(requests), error: reasonOf(e) }); }
   }

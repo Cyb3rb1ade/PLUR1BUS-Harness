@@ -5581,6 +5581,10 @@
         }
       ],
       "name": "flood-of-unknown-methods",
+      "pendingLimit": {
+        "divergence": "K8-D6",
+        "rust": 128
+      },
       "transcript": [
         "EVENT 0",
         "LOG {\"e\":\"request\",\"method\":\"other\"}",

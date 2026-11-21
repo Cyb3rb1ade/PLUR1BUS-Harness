@@ -469,6 +469,37 @@ fn the_same_question_inside_the_repeat_window_is_refused() {
 }
 
 #[test]
+fn repeat_windows_are_independent_for_two_projects_using_the_same_agents() {
+    let h = open();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../../fixtures/parity/collab/repeat-scope.json"
+    ))
+    .unwrap();
+    let agents = fixture["agents"].as_array().unwrap();
+    let pair = [agents[0].as_str().unwrap(), agents[1].as_str().unwrap()];
+    let projects = [setup(&h, &pair), setup(&h, &pair)];
+    let o = owner();
+    let question = fixture["question"].as_str().unwrap();
+    for step in fixture["steps"].as_array().unwrap() {
+        let project = &projects[step["project"].as_u64().unwrap() as usize];
+        let admission = input(&o, project, pair[0], pair[1], question);
+        let expected = match step.get("divergence") {
+            Some(id) => {
+                assert_eq!(id, "K6-D21");
+                &step["rust"]
+            }
+            None => &step["typescript"],
+        };
+        if expected == "accepted" {
+            h.svc.start_consult(&admission).unwrap();
+        } else {
+            assert_eq!(expected, "repeat");
+            refused(&h, &admission, GuardrailReason::Repeat);
+        }
+    }
+}
+
+#[test]
 fn a_project_boundary_and_an_inactive_agent_are_refused() {
     let mut dir = TableDirectory::default();
     for (id, state) in [
@@ -670,6 +701,155 @@ fn writer_slots_are_bounded_per_project_and_released_once() {
         "a second release of one slot frees nothing more"
     );
     h.svc.release_writer(again);
+}
+
+#[test]
+fn writer_slots_are_shared_by_connections_and_release_on_drop() {
+    let first = open();
+    use super::capacity::{CapacityFacts, CapacitySettings};
+
+    let project = setup(&first, &["a", "b"]);
+    let separate_project = setup(&first, &["a", "b"]);
+    let ids = Arc::new(Seq::default());
+    let second_store = CollabStore::open(
+        &first.dir.path().join("collab.sqlite"),
+        StoreOptions::new(Arc::new(Clk(Arc::new(AtomicI64::new(1000)))), ids.clone()),
+    )
+    .unwrap();
+    let capacity = Arc::new(AtomicI64::new(8));
+    let limit = Arc::clone(&capacity);
+    let ports = Ports {
+        capacity: Some(Box::new(move || CapacityFacts {
+            cores: 8.0,
+            available_memory: 8.0,
+            total_memory: Some(8.0),
+            settings: CapacitySettings {
+                cores_per_writer: 1.0,
+                memory_per_writer: 1.0,
+                max_writers: Some(limit.load(Ordering::SeqCst) as f64),
+            },
+        })),
+        ..Ports::default()
+    };
+    let second = CollabService::new(second_store, ports, ids);
+    let principal = owner();
+    let request = WriterIdentity {
+        principal: &principal,
+        project_id: &project,
+        from_agent: "a",
+        to_agent: "b",
+        trace_id: None,
+        parent_span_id: None,
+    };
+    let slots: Vec<_> = (0..4)
+        .map(|_| first.svc.reserve_writer(&request).unwrap())
+        .collect();
+    assert_eq!(
+        second.reserve_writer(&request).unwrap_err().message,
+        "project writer slots full"
+    );
+    first.svc.release_writer(slots[0]);
+    let replaced = second.reserve_writer(&request).unwrap();
+    let other_request = WriterIdentity {
+        project_id: &separate_project,
+        ..request
+    };
+    capacity.store(2, Ordering::SeqCst);
+    assert!(second.reserve_writer(&other_request).is_err());
+    capacity.store(8, Ordering::SeqCst);
+    assert!(first.svc.reserve_writer(&request).is_err());
+    drop(first.svc);
+    for _ in 0..3 {
+        second.reserve_writer(&request).unwrap();
+    }
+    assert!(second.reserve_writer(&request).is_err());
+    second.release_writer(replaced);
+}
+
+#[test]
+fn batch_cancellation_ends_grants_before_publishing_terminal_status() {
+    use super::store::TaskGrantEnd;
+    use plur1bus_store::rusqlite::Connection;
+    use std::path::PathBuf;
+    use std::sync::atomic::AtomicBool;
+
+    struct GrantFixture {
+        path: PathBuf,
+        fail: AtomicBool,
+        calls: Mutex<Vec<String>>,
+    }
+    impl TaskGrantEnd for GrantFixture {
+        fn end_task(&self, task_id: &str) -> Result<(), String> {
+            let conn = Connection::open(&self.path).unwrap();
+            let status: String = conn
+                .query_row("SELECT status FROM tasks WHERE id=?", [task_id], |r| {
+                    r.get(0)
+                })
+                .unwrap();
+            assert!(matches!(status.as_str(), "queued" | "running"));
+            self.calls.lock().unwrap().push(task_id.to_owned());
+            if task_id == "task-b" && self.fail.load(Ordering::SeqCst) {
+                return Err("fixture grant store unavailable".to_owned());
+            }
+            Ok(())
+        }
+    }
+
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("collab.sqlite");
+    let grants = Arc::new(GrantFixture {
+        path: path.clone(),
+        fail: AtomicBool::new(true),
+        calls: Mutex::new(Vec::new()),
+    });
+    let mut options = StoreOptions::new(
+        Arc::new(Clk(Arc::new(AtomicI64::new(1000)))),
+        Arc::new(Seq::default()),
+    );
+    options.grants = Some(grants.clone());
+    let store = CollabStore::open(&path, options).unwrap();
+    store
+        .create_project("fixture", "owner", None, Some("p"))
+        .unwrap();
+    store.insert_trace("trace", "p", "a", "span", None).unwrap();
+    store
+        .insert_span("span", "trace", None, "a", "delegate", None, None)
+        .unwrap();
+    for (id, status) in [
+        ("task-a", "queued"),
+        ("task-b", "running"),
+        ("done", "succeeded"),
+    ] {
+        store
+            .insert_task(&NewTask {
+                id: id.into(),
+                project_id: "p".into(),
+                trace_id: "trace".into(),
+                span_id: "span".into(),
+                from_agent: "a".into(),
+                to_agent: "b".into(),
+                kind: "delegate".into(),
+                status: status.into(),
+                ..Default::default()
+            })
+            .unwrap();
+    }
+    let status = |id: &str| store.get_task(id).unwrap().unwrap().status;
+    assert!(store.cancel_open_tasks("trace").is_err());
+    assert_eq!(status("task-a"), "queued");
+    assert_eq!(status("task-b"), "running");
+    grants.fail.store(false, Ordering::SeqCst);
+    assert_eq!(
+        store.cancel_open_tasks("trace").unwrap(),
+        ["task-a", "task-b"]
+    );
+    assert_eq!(status("task-a"), "cancelled");
+    assert_eq!(status("task-b"), "cancelled");
+    assert_eq!(status("done"), "succeeded");
+    assert_eq!(
+        *grants.calls.lock().unwrap(),
+        ["task-a", "task-b", "task-a", "task-b"]
+    );
 }
 
 // ---- redaction port and the marker test ----------------------------------------------------------------------------

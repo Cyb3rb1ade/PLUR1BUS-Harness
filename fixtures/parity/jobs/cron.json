@@ -1,4 +1,46 @@
 {
+  "futureSummer": [
+    {
+      "cron": "0 9 * * *",
+      "from": 2224713600000,
+      "next": 2224738800000,
+      "tz": "Europe/Berlin"
+    },
+    {
+      "cron": "0 9 * * *",
+      "from": 4086547200000,
+      "next": 4086572400000,
+      "tz": "Europe/Berlin"
+    },
+    {
+      "cron": "0 9 * * *",
+      "divergence": "K7-D4",
+      "from": 4118083200000,
+      "next": 4118108400000,
+      "rustNext": 4118112000000,
+      "tz": "Europe/Berlin"
+    },
+    {
+      "cron": "0 9 * * *",
+      "from": 2224713600000,
+      "next": 2224760400000,
+      "tz": "America/New_York"
+    },
+    {
+      "cron": "0 9 * * *",
+      "from": 4086547200000,
+      "next": 4086594000000,
+      "tz": "America/New_York"
+    },
+    {
+      "cron": "0 9 * * *",
+      "divergence": "K7-D4",
+      "from": 4118083200000,
+      "next": 4118130000000,
+      "rustNext": 4118133600000,
+      "tz": "America/New_York"
+    }
+  ],
   "next": [
     {
       "cron": "30 2 * * *",
@@ -25495,6 +25537,48 @@
           12
         ]
       }
+    }
+  ],
+  "tzdbDifferences": [
+    {
+      "cron": "0 9 * * *",
+      "divergence": "K7-D6",
+      "from": 1789776000000,
+      "next": 1789804800000,
+      "nodeTzdb": "2026c",
+      "rustNext": 1789804800000,
+      "rustTzdb": "2025b",
+      "tz": "Africa/Casablanca"
+    },
+    {
+      "cron": "0 9 * * *",
+      "divergence": "K7-D6",
+      "from": 1789862400000,
+      "next": 1789894800000,
+      "nodeTzdb": "2026c",
+      "rustNext": 1789891200000,
+      "rustTzdb": "2025b",
+      "tz": "Africa/Casablanca"
+    },
+    {
+      "cron": "0 9 * * *",
+      "divergence": "K7-D6",
+      "from": 1789776000000,
+      "next": 1789804800000,
+      "nodeTzdb": "2026c",
+      "rustNext": 1789804800000,
+      "rustTzdb": "2025b",
+      "tz": "Africa/El_Aaiun"
+    },
+    {
+      "cron": "0 9 * * *",
+      "divergence": "K7-D6",
+      "from": 1789862400000,
+      "next": 1789894800000,
+      "nodeTzdb": "2026c",
+      "rustNext": 1789891200000,
+      "rustTzdb": "2025b",
+      "tz": "Africa/El_Aaiun"
     }
   ],
   "validTz": [

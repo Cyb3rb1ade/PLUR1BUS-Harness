@@ -177,13 +177,11 @@ fn rewind_idle_in(
     if session.archived_at.is_some() {
         return Err(SessionError::conflict("session is archived", "archived"));
     }
-    if let Some(held) = env.reservations.get(session_id) {
-        if Some(*held) != reservation {
-            return Err(SessionError::conflict(
-                "file rewind is awaiting or applying approval",
-                "rewind-in-progress",
-            ));
-        }
+    if env.rewind_blocked(session_id, reservation) {
+        return Err(SessionError::conflict(
+            "file rewind is awaiting or applying approval",
+            "rewind-in-progress",
+        ));
     }
     if let Some(running) = running_turn_in(c, session_id)? {
         if Some(running.id.as_str()) != command_turn_id {
@@ -916,22 +914,32 @@ impl SessionStore {
         session_id: &str,
         command_turn_id: Option<&str>,
     ) -> Result<RewindToken, SessionError> {
-        rewind_idle_in(&self.env, self.conn(), session_id, command_turn_id, None)?;
+        let file = self.tx(|env, conn| {
+            rewind_idle_in(env, conn, session_id, command_turn_id, None)?;
+            env.lock_rewind(session_id, true)
+        })?;
         let token = self.next_token();
-        self.env.reservations.insert(session_id.to_owned(), token);
+        self.env
+            .reservations
+            .insert(session_id.to_owned(), (token, file));
         Ok(token)
     }
 
     /// The `release` of `reserveRewind`: only the holder's own token releases.
     pub fn release_rewind(&mut self, session_id: &str, token: RewindToken) {
-        if self.env.reservations.get(session_id) == Some(&token) {
+        if self
+            .env
+            .reservations
+            .get(session_id)
+            .is_some_and(|(owner, _)| *owner == token)
+        {
             self.env.reservations.remove(session_id);
         }
     }
 
     /// `rewindReserved`: background model work must not change the path while approved file restoration is pending.
     pub fn rewind_reserved(&self, session_id: &str) -> bool {
-        self.env.reservations.contains_key(session_id)
+        self.env.rewind_blocked(session_id, None)
     }
 
     /// `tokenCalibration`: the model's factor, if one was observed.

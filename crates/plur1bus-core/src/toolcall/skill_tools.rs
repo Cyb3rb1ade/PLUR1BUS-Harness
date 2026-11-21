@@ -302,8 +302,8 @@ fn open_regular(path: &Path) -> std::io::Result<fs::File> {
 }
 
 #[cfg(not(unix))]
-fn open_regular(path: &Path) -> std::io::Result<fs::File> {
-    fs::OpenOptions::new().read(true).open(path)
+fn open_regular(_path: &Path) -> std::io::Result<fs::File> {
+    Err(std::io::ErrorKind::Unsupported.into())
 }
 
 #[cfg(unix)]
@@ -312,13 +312,10 @@ fn same_file(named: &fs::Metadata, opened: &fs::Metadata) -> bool {
     named.dev() == opened.dev() && named.ino() == opened.ino()
 }
 
-/// Windows: the standard library does not give a file's volume and index on stable Rust, so the identity of the opened
-/// handle and the named path is not compared there (TypeScript compares `dev`/`ino`). The path is still re-checked for
-/// symlinks and canonical spelling before and after the read; what remains open is a swap of one regular file for
-/// another regular file inside the skill folder during the read.
+// Reads on this platform must remain disabled until the path and handle can be compared.
 #[cfg(not(unix))]
 fn same_file(_named: &fs::Metadata, _opened: &fs::Metadata) -> bool {
-    true
+    false
 }
 
 fn verify_handle(root: &Path, parts: &[JsStr], handle: &fs::File) -> Result<(), SkillAccessCode> {
@@ -338,8 +335,12 @@ fn read_skill_file(
     root: &Path,
     parts: &[JsStr],
     signal: &dyn Cancelled,
+    identity_supported: bool,
 ) -> Result<JsStr, SkillError> {
     check(signal)?;
+    if !identity_supported {
+        return Err(SkillAccessCode::UnsafePath.into());
+    }
     let path = checked_path(root, parts)?;
     if !fs::symlink_metadata(&path)
         .map_err(|_| SkillAccessCode::UnsafePath)?
@@ -494,7 +495,7 @@ impl SkillTools {
             return Err(SkillAccessCode::SecretFile.into());
         }
         let root = skill_root(&self.home, name)?;
-        let text = read_skill_file(&root, &parts, signal)?;
+        let text = read_skill_file(&root, &parts, signal, cfg!(unix))?;
         let mut out = Obj::new();
         out.set("name", V::s(name));
         if mode == SkillMode::Read {
@@ -622,4 +623,23 @@ pub fn tool_definitions() -> V {
             })
             .collect(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_skill_file_requires_supported_handle_identity() {
+        let home = tempfile::tempdir().unwrap();
+        let name = "guide.txt";
+        fs::write(home.path().join(name), "Fixture").unwrap();
+        let root = home.path().canonicalize().unwrap();
+        #[cfg(unix)]
+        assert!(read_skill_file(&root, &[JsStr::from(name)], &NeverCancelled, true).is_ok());
+        assert_eq!(
+            read_skill_file(&root, &[JsStr::from(name)], &NeverCancelled, false),
+            Err(SkillError::Access(SkillAccessCode::UnsafePath)),
+        );
+    }
 }

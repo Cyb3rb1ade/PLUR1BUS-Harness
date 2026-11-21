@@ -25,6 +25,7 @@ pub mod scope;
 pub mod service;
 pub mod store;
 pub mod types;
+mod writer_slots;
 
 pub use errors::{CollabError, CollabErrorCode, GuardrailReason};
 pub use store::{CollabStore, StoreOptions};

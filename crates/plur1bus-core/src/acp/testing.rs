@@ -99,6 +99,8 @@ pub enum Ev {
     Error,
     /// The output is closed.
     OutputClosed,
+    /// The next write fails before the input reports a closed output.
+    BreakWriter,
 }
 
 struct ScriptedInput {
@@ -135,6 +137,10 @@ impl InputPort for ScriptedInput {
             Ev::OutputClosed => {
                 self.out_fail.set(true);
                 InputEvent::OutputClosed
+            }
+            Ev::BreakWriter => {
+                self.out_fail.set(true);
+                InputEvent::Wake
             }
         }
     }
@@ -537,6 +543,8 @@ fn events_of(script: &V) -> VecDeque<Ev> {
                 Ev::Error
             } else if e.has("outputClosed") {
                 Ev::OutputClosed
+            } else if e.has("breakWriter") {
+                Ev::BreakWriter
             } else {
                 Ev::End
             }
@@ -600,6 +608,10 @@ pub fn run_scenario(scenario: &serde_json::Value) -> Vec<String> {
         .and_then(|s| s.get("maxLineBytes"))
         .and_then(V::as_f64)
         .map(|n| n as usize);
+    let max_pending = server_opts
+        .and_then(|s| s.get("maxPending"))
+        .and_then(V::as_f64)
+        .map(|n| n as usize);
     let timeout = server_opts
         .and_then(|s| s.get("permissionTimeoutMs"))
         .and_then(V::as_f64)
@@ -647,6 +659,7 @@ pub fn run_scenario(scenario: &serde_json::Value) -> Vec<String> {
             log,
             agent_info,
             max_line,
+            max_pending,
             language,
             clock,
             ids,
@@ -668,6 +681,7 @@ pub fn run_scenario(scenario: &serde_json::Value) -> Vec<String> {
             log,
             agent_info,
             max_line,
+            max_pending,
             language,
             clock,
             ids,
@@ -690,6 +704,7 @@ fn serve<B: AcpBackend + 'static>(
     log: Rc<LogFn>,
     agent_info: Option<(String, String, String)>,
     max_line_bytes: Option<usize>,
+    max_pending: Option<usize>,
     language: AcpLanguage,
     clock: Rc<TestClock>,
     ids: Rc<ListIds>,
@@ -703,6 +718,7 @@ fn serve<B: AcpBackend + 'static>(
         log: Some(log),
         agent_info,
         max_line_bytes,
+        max_pending,
         language,
         clock,
         ids,

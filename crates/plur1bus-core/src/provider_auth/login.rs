@@ -693,6 +693,7 @@ pub(crate) struct LoopbackWaitDiagnostics {
     pub(crate) accept_errors: usize,
     pub(crate) last_accept_error: Option<(std::io::ErrorKind, Option<i32>)>,
     pub(crate) accepted: usize,
+    pub(crate) first_read_after_accepts: Option<usize>,
     pub(crate) evicted: usize,
     pub(crate) evicted_unread: usize,
     pub(crate) omitted_events: usize,
@@ -724,7 +725,7 @@ pub struct TcpLoopback {
     listener: Option<std::net::TcpListener>,
     pending: Option<std::net::TcpStream>,
     open: Vec<OpenConnection>,
-    request_timeout: std::time::Duration,
+    pub(super) request_timeout: std::time::Duration,
     deadline: Option<std::time::Instant>,
     /// Errors the next `accept` calls report instead of asking the socket (tests only: a peer that resets its connection
     /// before it is accepted is reported this way on Windows, and cannot be produced reliably on Unix).
@@ -809,8 +810,12 @@ impl TcpLoopback {
                 Ok(0) => return Read::Closed,
                 Ok(n) => {
                     c.head.extend_from_slice(&chunk[..n]);
-                    if c.head.windows(4).any(|w| w == b"\r\n\r\n") {
-                        return Read::Head(Self::parse_head(&c.head));
+                    if let Some(end) = c.head.windows(4).position(|w| w == b"\r\n\r\n") {
+                        let bytes = end + 4;
+                        if bytes > MAX_HEAD {
+                            return Read::Closed;
+                        }
+                        return Read::Head(Self::parse_head(&c.head[..bytes]));
                     }
                     if c.head.len() > MAX_HEAD {
                         return Read::Closed;
@@ -955,6 +960,9 @@ impl LoopbackListener for TcpLoopback {
                 #[cfg(test)]
                 {
                     self.open[i].read_started = true;
+                    if let Some(trace) = trace.as_mut() {
+                        trace.first_read_after_accepts.get_or_insert(trace.accepted);
+                    }
                 }
                 match Self::read(&mut self.open[i], now) {
                     Read::Waiting => i += 1,

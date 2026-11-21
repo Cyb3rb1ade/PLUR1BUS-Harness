@@ -416,7 +416,18 @@ function buildValidation() {
     const vt = text(valueFor(JSON.parse(st), rnd));
     generated.push([st, vt, attempt(() => validateArguments(JSON.parse(st), JSON.parse(vt)), i % 6 === 0)]);
   }
-  return { assert, validate, generated, seed: "0x5c4e0a11" };
+  const patternBounds = [
+    { name: "pattern at the bound", pattern: "a".repeat(256), value: "a".repeat(256), rust: "accept" },
+    { name: "pattern above the bound", pattern: "a".repeat(257), value: "a".repeat(257), rust: "schema-refusal" },
+    { name: "input at the bound", pattern: "^a+$", value: "a".repeat(1024), rust: "accept" },
+    { name: "input above the bound", pattern: "^a+$", value: "a".repeat(1025), rust: "value-refusal" },
+  ].map(({ name, pattern, value, rust }) => {
+    const schema = { pattern };
+    assertSchema(schema);
+    return { name, schema: text(schema), value: text(value), typescript: validateArguments(schema, value).length,
+      rust, ...(rust === "accept" ? {} : { divergence: "K9b-D2" }) };
+  });
+  return { assert, validate, generated, seed: "0x5c4e0a11", patternBounds };
 }
 
 // ---- dialects ------------------------------------------------------------------------------------------------------

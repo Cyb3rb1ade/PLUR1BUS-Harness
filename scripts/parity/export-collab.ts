@@ -276,6 +276,7 @@ function storeScenarios() {
     { op: "grants", mode: "throw" }, { op: "updateTask", id: "k3", patch: { status: "cancelled" } }, { op: "warned" },
     { op: "insertTask", input: { id: "k5", projectId: P, traceId: "t1", spanId: "s2", parentTaskId: null, fromAgent: "a", toAgent: "b", kind: "delegate", status: "queued", task: "q", acceptance: "", path: [] } },
     { op: "insertTask", input: { id: "k6", projectId: P, traceId: "t1", spanId: "s2", parentTaskId: null, fromAgent: "a", toAgent: "b", kind: "delegate", status: "running", task: "r", acceptance: "", path: [] } },
+    { op: "grants", mode: "ok" }, // K6-D22: compare the shared success path; the Rust batch refuses grant port errors.
     { op: "cancelOpen", trace: "t1" }, { op: "cancelOpen", trace: "t1" }, { op: "cancelOpen", trace: "nope" }, { op: "ended" }, { op: "warned" },
     { op: "listTasks", trace: "t1" },
     { op: "sql", sql: "SELECT id, status, error, started_at, ended_at, truncated, result_artifact_id, target_kind, origin, input_tokens, output_tokens, path FROM tasks ORDER BY id" },

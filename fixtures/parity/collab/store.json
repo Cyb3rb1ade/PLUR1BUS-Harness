@@ -4137,6 +4137,15 @@
         },
         {
           "op": {
+            "mode": "ok",
+            "op": "grants"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
             "op": "cancelOpen",
             "trace": "t1"
           },
@@ -4187,8 +4196,6 @@
           },
           "out": {
             "ok": [
-              "grant task end failed",
-              "grant task end failed",
               "grant task end failed"
             ]
           }

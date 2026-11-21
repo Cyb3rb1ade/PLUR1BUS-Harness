@@ -89,6 +89,8 @@ pub struct AcpServerOptions<B: AcpBackend + 'static> {
     pub agent_info: Option<(String, String, String)>,
     /// The line bound (default 1 MiB).
     pub max_line_bytes: Option<usize>,
+    /// Concurrent client requests awaiting completion (default 128, minimum 1).
+    pub max_pending: Option<usize>,
     /// The language of the texts.
     pub language: AcpLanguage,
     /// The clock behind the permission timeout.
@@ -158,6 +160,7 @@ struct Inner<B: AcpBackend + 'static> {
     sessions: RefCell<HashSet<String>>,
     running: RefCell<HashMap<String, Rc<Running>>>,
     pending: Cell<usize>,
+    max_pending: usize,
     perms: Rc<AcpPermissions>,
     initialized: Cell<bool>,
     closed: Cell<bool>,
@@ -190,6 +193,7 @@ impl<B: AcpBackend + 'static> AcpServer<B> {
                 sessions: RefCell::new(HashSet::new()),
                 running: RefCell::new(HashMap::new()),
                 pending: Cell::new(0),
+                max_pending: o.max_pending.unwrap_or(128).max(1),
                 perms: AcpPermissions::new(
                     move |message| weak.upgrade().is_some_and(|i| i.send(message)),
                     o.clock,
@@ -226,8 +230,9 @@ impl<B: AcpBackend + 'static> AcpServer<B> {
             match event {
                 InputEvent::Data(chunk) => {
                     // TS keeps its input listeners after a finish caused by a lost reader, so input still gets handled.
-                    let items = self.reader.borrow_mut().push(&chunk);
-                    self.handle(items);
+                    self.reader
+                        .borrow_mut()
+                        .push_each(&chunk, |item| self.handle(item));
                 }
                 InputEvent::Wake => {}
                 InputEvent::Error => inner.log("input-error", &[]),
@@ -243,12 +248,17 @@ impl<B: AcpBackend + 'static> AcpServer<B> {
                     // A reader that went away (EPIPE, closed pipe): stop writing, stop the work nobody can receive.
                     if !inner.out_gone.replace(true) {
                         inner.log("output-error", &[]);
-                        self.finish(false, &mut finished);
                     }
+                    self.finish(false, &mut finished);
                 }
             }
             inner.perms().expire();
             inner.exec.run_until_stalled();
+            if inner.out_gone.get() && !finished {
+                self.finish(false, &mut finished);
+                inner.exec.run_until_stalled();
+                return inner.pending.get();
+            }
             if end {
                 break;
             }
@@ -273,27 +283,24 @@ impl<B: AcpBackend + 'static> AcpServer<B> {
         self.inner.perms().next_deadline()
     }
 
-    fn handle(&self, items: Vec<LineItem>) {
+    fn handle(&self, item: LineItem) {
         let inner = &self.inner;
-        for item in items {
-            match item {
-                LineItem::Overflow => {
-                    inner.log("line-too-long", &[]);
-                    inner.send(&error_message(
-                        V::Null,
-                        ERR_INVALID_REQUEST,
-                        "line too long",
-                        Some(V::obj([("reason", V::s("line-too-long"))])),
-                    ));
-                }
-                LineItem::Line(line) => {
-                    inner.pending.set(inner.pending.get() + 1);
-                    let me = inner.clone();
-                    inner.exec.spawn(async move {
-                        me.message(&line).await;
-                        me.pending.set(me.pending.get() - 1);
-                    });
-                }
+        if inner.out_gone.get() && !inner.closed.get() {
+            return;
+        }
+        match item {
+            LineItem::Overflow => {
+                inner.log("line-too-long", &[]);
+                inner.send(&error_message(
+                    V::Null,
+                    ERR_INVALID_REQUEST,
+                    "line too long",
+                    Some(V::obj([("reason", V::s("line-too-long"))])),
+                ));
+            }
+            LineItem::Line(line) => {
+                let me = inner.clone();
+                inner.exec.spawn(async move { me.message(&line).await });
             }
         }
     }
@@ -305,7 +312,9 @@ impl<B: AcpBackend + 'static> AcpServer<B> {
         *finished = true;
         if flush {
             let items = self.reader.borrow_mut().end();
-            self.handle(items);
+            for item in items {
+                self.handle(item);
+            }
         }
         let inner = &self.inner;
         inner.closed.set(true);
@@ -596,6 +605,16 @@ impl<B: AcpBackend + 'static> Inner<B> {
             return;
         }
         let id = id.cloned().unwrap_or(V::Null);
+        if self.pending.get() >= self.max_pending {
+            self.send(&error_message(
+                id,
+                ERR_BUSY,
+                "too many pending requests",
+                Some(V::obj([("reason", V::s("pending-limit"))])),
+            ));
+            return;
+        }
+        self.pending.set(self.pending.get() + 1);
         self.log(
             "request",
             &[("method", LogVal::S(log_name(method).to_owned()))],
@@ -607,6 +626,7 @@ impl<B: AcpBackend + 'static> Inner<B> {
             Ok(result) => self.reply(id, result),
             Err(e) => self.fail(id, e),
         }
+        self.pending.set(self.pending.get() - 1);
     }
 
     fn notification(self: &Rc<Self>, method: &str, params: Option<&V>) {

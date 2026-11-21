@@ -117,12 +117,11 @@ impl MessageTriage {
             let shape = decision.shape();
             // The shape and the number of tasks must agree, and a decision without tasks is a chat or a follow-up
             // of a task this scope really has.
-            let consistent = count <= 32
-                && match shape {
-                    Shape::Chat | Shape::Followup => count == 0,
-                    Shape::Single => count == 1,
-                    Shape::Multi => count >= 2,
-                };
+            let consistent = match shape {
+                Shape::Chat | Shape::Followup => count == 0,
+                Shape::Single => count == 1,
+                Shape::Multi => count >= 2,
+            };
             let missing = count == 0
                 && shape != Shape::Chat
                 && !(shape == Shape::Followup && self.active.contains_key(scope));

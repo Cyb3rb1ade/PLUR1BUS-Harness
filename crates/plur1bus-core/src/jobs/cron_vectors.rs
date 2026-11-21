@@ -47,7 +47,7 @@ fn next_after_gives_typescripts_instants_over_zones_edges_and_calendar() {
             Some(e) => json!({"err": e}),
             None => json!({"next": c["next"]}),
         };
-        // K7-D4: chrono-tz holds no DST rules after 2037, so a zone that observes DST gives the standard offset there.
+        // K7-D4: older broad calendar coverage has a bounded distant-date waiver. The summer cases below are exact.
         let fixed = tz == "UTC" || tz == "utc" || tz.starts_with(['+', '-']);
         if got != want && c["later"] == true && !fixed {
             later += 1;
@@ -81,5 +81,54 @@ fn timezone_validity_is_typescripts() {
             c["valid"].as_bool().unwrap(),
             "{tz:?}"
         );
+    }
+}
+
+#[test]
+fn morocco_transition_records_the_tzdb_difference() {
+    let f = fixture();
+    let cases = f["tzdbDifferences"].as_array().unwrap();
+    assert_eq!(cases.len(), 4);
+    for c in cases {
+        assert_eq!(c["divergence"], "K7-D6");
+        assert_eq!(c["nodeTzdb"], "2026c");
+        assert_eq!(c["rustTzdb"], chrono_tz::IANA_TZDB_VERSION);
+        let cron = parse_cron(c["cron"].as_str().unwrap()).unwrap();
+        let from = c["from"].as_i64().unwrap();
+        let tz = c["tz"].as_str().unwrap();
+        let rust = c["rustNext"].as_i64().unwrap();
+        let typescript = c["next"].as_i64().unwrap();
+        assert_eq!(
+            next_after(&cron, tz, from).unwrap(),
+            Some(rust),
+            "{tz} {from}"
+        );
+        let offset_difference = if from >= 1_789_862_400_000 {
+            3_600_000
+        } else {
+            0
+        };
+        assert_eq!(typescript - rust, offset_difference, "{tz} {from}");
+    }
+}
+
+#[test]
+fn new_york_and_berlin_pin_distant_summer_offsets() {
+    let f = fixture();
+    let cases = f["futureSummer"].as_array().unwrap();
+    assert_eq!(cases.len(), 6);
+    for case in cases {
+        let cron = parse_cron(case["cron"].as_str().unwrap()).unwrap();
+        let zone = case["tz"].as_str().unwrap();
+        let from = case["from"].as_i64().unwrap();
+        let selected = next_after(&cron, zone, from).unwrap();
+        let expected = if case["divergence"] == "K7-D4" {
+            let rust = case["rustNext"].as_i64().unwrap();
+            assert_eq!(rust - case["next"].as_i64().unwrap(), 3_600_000);
+            Some(rust)
+        } else {
+            case["next"].as_i64()
+        };
+        assert_eq!(selected, expected, "{zone}, {from}");
     }
 }
