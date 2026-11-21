@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    rbac::types::{Principal, PrincipalKind, Role},
+    rbac::types::{AgentRight, Principal, PrincipalKind, Role},
     sessions::{
         Clock, CreateSessionInput, IdSource, ListFilter, RewindInput, RewindTarget, RewindTrigger,
         SessionKind, SessionOrigin,
@@ -524,6 +524,40 @@ fn no_provider_attachments_internal_sessions_memory_scope_and_timeout_are_refuse
         .is_err());
     assert!(work.signal.is_aborted());
     assert!(rig.effects.borrow().is_empty());
+}
+
+#[test]
+fn the_local_cancel_exception_requires_the_owner_role() {
+    let rig = Rig::default();
+    let mut store = store(&rig);
+    let mut service = Service::new(&mut store);
+    let ports = Ports {
+        runtime: &rig,
+        memory: &rig,
+    };
+    let token = subject(Audience::Mcp);
+    let started = service.start(&begin(), &token, &ports).unwrap();
+    let target = Target {
+        session_id: Some(&started.session_id),
+        ..begin().target
+    };
+    let mut member = subject(Audience::Mcp);
+    member.local_human = true;
+    member.audience = None;
+    member.exposure.token_id = None;
+    member.exposure.principal.role = Role::Member;
+    member.exposure.principal.agent_rights = Some(vec![("a".into(), AgentRight::Use)]);
+    assert_eq!(
+        service.cancel(&target, &member, &ports).unwrap_err().code,
+        "E_NOT_FOUND"
+    );
+
+    let mut owner = member;
+    owner.exposure.principal.role = Role::Owner;
+    assert_eq!(
+        service.cancel(&target, &owner, &ports).unwrap()["cancelled"],
+        true
+    );
 }
 
 #[test]
