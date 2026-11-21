@@ -1372,3 +1372,12 @@ describe("external turn library (P4-K K6c, plan P4-50)", () => {
     assert.ok(Buffer.byteLength(actual) < 1_048_576);
   });
 });
+
+describe("Hostctl contract (P4-K K10b)", () => {
+  it("keeps the catalog, configuration and literal vectors current", async () => {
+    const { buildHostctl } = await import("./export-hostctl.ts");
+    const actual = readFileSync(fixturePath("host", "hostctl"), "utf8");
+    assert.equal(actual, fixtureText(await buildHostctl()), "host/hostctl.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});

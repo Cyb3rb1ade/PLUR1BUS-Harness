@@ -946,7 +946,7 @@ Stores: none. Ports: process spawner, file system, clock, audit sink, host notif
 
 **K10a as built** (`crates/plur1bus-tools/src/{gate,exec,fs}/`, three `pub mod` lines in `lib.rs`; `crates/plur1bus-core/src/policy/fs_paths.rs`
 and `fs_windows.rs` for the rulings R-K-11 and R-K-12; no RPC method, nothing wired: `server.rs` and `main.rs` of the tools service are
-unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no change for it.
+unchanged). K10b uses this gate and the same path and process layers.
 
 - *Ported, the gate (D120 §11.2, T1-b):* `UnverifiedAction` → `Gate::verify` → `ApprovedAction`. An `Executor` takes an `ApprovedAction` by
   value. The type has no public field, no constructor outside `gate` and no `Clone`, `Default`, `Deserialize` or `From`; it is bound to
@@ -1053,6 +1053,33 @@ unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no chan
   `openVerified` has the gap K10-D10 closes on the Rust side and passes `O_TRUNC` to `open` before its checks (TS-1), and on
   Windows Node may find a bare program name in the child's working directory first (TS-2, presumed, only Windows can show it).
   The grant store's home comparison on Windows (RD-3) and the Windows adapter are proven by the CI only.
+
+
+**K10b as built** (`crates/plur1bus-tools/src/host/`, a library; no supervisor, tools-service or RPC wiring).
+
+- The 24 Hostctl names map to the recorded D109 capability, effect, risk and argument contract. The classifier binds
+  the canonical targets and their identities to the action. The executor checks the live caller and path fingerprint,
+  records a begin event before any effect, checks the paths again after audit, and returns only a bounded, audited result.
+- The file adapter reuses verified reads, sorted listings and atomic publication. Literal searches stay in process.
+  Append and edit preserve an initial BOM. Copy is exclusive. Directory creation and movement use held parent descriptors,
+  and move uses an atomic no-replace primitive on Apple platforms and Linux. Native trash and document opening require
+  ports that can act on the verified handle. A configured root and a directory containing one are protected.
+- The process adapter uses K10a's spawn port for synchronous commands. Process sessions have a 32 active and 128 retained
+  bound, scoped to person, agent and harness session. The native session port receives only approved opaque IDs and must
+  enforce lifetime, tree teardown and stdin queue admission. A foreign signal requires its own approval and a native
+  process handle. Clipboard, notification, URL opening and system information use typed native ports.
+- **K10-D14:** Inputs are checked against their declared string and array limits before the platform call. The branch
+  returns safe failure codes and a short hint; some hints differ from TypeScript. The audit records identities and outcome,
+  without clipboard, notification, command, URL or file contents.
+- **K10-D15:** Shell execution is disabled by default. With explicit configuration and approval it accepts one literal
+  command. Wrapper-mediated and ambiguous commands are refused. The environment inherits only the approved names,
+  and callers cannot replace the program lookup path.
+- **K10-D16:** Rust requires exclusive publication for copy and move. There is no path-based fallback for native trash,
+  directory creation or no-replace movement. A move is limited to a singly linked file on one filesystem. Local application
+  opening is limited to verified document types and directories; an adapter must preserve the held identity.
+- *Proof:* `export-hostctl.ts` records the real TypeScript catalog, configuration, literal matching and file results.
+  Rust replays the fixtures and tests gate expiry and bindings, audited effects, scoped session access and limits,
+  no-clobber publication, and desktop effects with test ports. Native platform adapters and live workflow wiring are the flip's.
 
 
 ## 12. K11: decision receipts (P4-45, D0 to D4 as a library)

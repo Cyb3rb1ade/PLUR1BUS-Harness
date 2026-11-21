@@ -6,6 +6,7 @@ pub mod exec;
 mod files;
 pub mod fs;
 pub mod gate;
+pub mod host;
 mod server;
 pub mod team;
 pub use server::{CoreContext, Service, ToolError, ToolsModule};
