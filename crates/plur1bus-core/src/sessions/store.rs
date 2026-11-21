@@ -14,6 +14,7 @@ use super::types::*;
 use super::{fts::fts_query, Clock, IdSource, SessionError};
 use crate::approvals::js_json::J;
 use crate::js::{utf16, utf16_len};
+use crate::private_store::AdvisoryLease;
 use plur1bus_store::rusqlite::types::Value;
 use plur1bus_store::rusqlite::{Connection, Params, Row};
 use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreSpec, Synchronous};
@@ -42,7 +43,7 @@ pub struct RewindToken(pub(crate) u64);
 pub(crate) struct Env {
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) ids: Arc<dyn IdSource>,
-    pub(crate) reservations: HashMap<String, (RewindToken, Option<File>)>,
+    pub(crate) reservations: HashMap<String, (RewindToken, Option<AdvisoryLease>)>,
     rewind_lock_dir: Option<PathBuf>,
 }
 
@@ -68,7 +69,7 @@ impl Env {
         &self,
         session_id: &str,
         create: bool,
-    ) -> Result<Option<File>, SessionError> {
+    ) -> Result<Option<AdvisoryLease>, SessionError> {
         use sha2::{Digest, Sha256};
         let Some(dir) = &self.rewind_lock_dir else {
             return Ok(None);
@@ -129,7 +130,7 @@ impl Env {
             return Err(storage());
         }
         match file.try_lock() {
-            Ok(()) => Ok(Some(file)),
+            Ok(()) => Ok(Some(AdvisoryLease(file))),
             Err(TryLockError::WouldBlock) => Err(SessionError::conflict(
                 "file rewind is awaiting or applying approval",
                 "rewind-in-progress",

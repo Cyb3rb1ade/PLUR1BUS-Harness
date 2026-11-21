@@ -3,6 +3,7 @@
 
 use super::errors::{CollabError, CollabErrorCode};
 use super::store::R;
+use crate::private_store::AdvisoryLease;
 use sha2::{Digest, Sha256};
 use std::fs::{self, File, OpenOptions, TryLockError};
 use std::path::Path;
@@ -13,7 +14,7 @@ pub(super) fn reserve(
     local: bool,
     project_limit: i64,
     local_limit: Option<f64>,
-) -> R<Option<File>> {
+) -> R<Option<AdvisoryLease>> {
     let mut builder = fs::DirBuilder::new();
     builder.recursive(true);
     #[cfg(unix)]
@@ -48,7 +49,7 @@ pub(super) fn reserve(
         match lease.try_lock() {
             Ok(()) => {
                 // No contender opens this path outside the admission transaction.
-                drop(lease);
+                drop(AdvisoryLease(lease));
                 fs::remove_file(entry.path()).map_err(unavailable)?;
             }
             Err(TryLockError::WouldBlock) => {
@@ -67,7 +68,7 @@ pub(super) fn reserve(
     let path = dir.join(format!("{project}.{target}.{}", uuid::Uuid::new_v4()));
     let lease = open_lease(&path, true)?;
     lease.try_lock().map_err(unavailable)?;
-    Ok(Some(lease))
+    Ok(Some(AdvisoryLease(lease)))
 }
 
 fn open_lease(path: &Path, create: bool) -> R<File> {

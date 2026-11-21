@@ -96,7 +96,7 @@ struct Reservation {
     to_agent: String,
     user_id: String,
     principal_kind: Option<PrincipalKind>,
-    _lease: Option<std::fs::File>,
+    _lease: Option<crate::private_store::AdvisoryLease>,
 }
 
 /// A held writer slot; release it once, a second release does nothing.
