@@ -307,9 +307,20 @@ struct ToolCall {
     id: Option<String>,
     name: Option<String>,
     args: String,
+    argument_units: usize,
 }
 
 impl ToolCall {
+    fn append_arguments(&mut self, fragment: &str, limit: usize) -> bool {
+        let total = self.argument_units + fragment.encode_utf16().count();
+        if total > limit {
+            return false;
+        }
+        self.args.push_str(fragment);
+        self.argument_units = total;
+        true
+    }
+
     fn snapshot(&self, index: u32, event: bool) -> Value {
         let mut out = if event {
             json!({"type": "tool_call_start", "index": index})
@@ -554,7 +565,7 @@ impl<'a> Accumulator<'a> {
         let call = ToolCall {
             id: Some(id.into()),
             name: Some(name.into()),
-            args: String::new(),
+            ..ToolCall::default()
         };
         let event = call.snapshot(index, true);
         self.calls.insert(index, call);
@@ -597,13 +608,12 @@ impl<'a> Accumulator<'a> {
                 "function_call arguments.done disagrees with the streamed deltas",
             ));
         }
-        if call.args.encode_utf16().count() + fragment.encode_utf16().count() > self.max_args {
+        if !call.append_arguments(fragment, self.max_args) {
             return Err(malformed(
                 wire,
                 format!("tool call arguments exceed {} bytes", self.max_args),
             ));
         }
-        call.args.push_str(fragment);
         Ok(Some(tool_delta(index, fragment)))
     }
 
@@ -749,13 +759,12 @@ impl<'a> Accumulator<'a> {
                 return Err(malformed(wire, "tool call arguments are not a string"));
             }
             let args = args.text();
-            if state.args.encode_utf16().count() + args.encode_utf16().count() > self.max_args {
+            if !state.append_arguments(args, self.max_args) {
                 return Err(malformed(
                     wire,
                     format!("tool call {index} arguments exceed {} bytes", self.max_args),
                 ));
             }
-            state.args.push_str(args);
             if is_new {
                 events.push(state.snapshot(index, true));
             }
@@ -819,8 +828,10 @@ impl<'a> Accumulator<'a> {
             }
             let id = call["id"].text();
             let name = call["function"]["name"].text();
-            let args = call["function"]["arguments"].string();
-            if id.is_empty() || name.is_empty() || args.is_none() {
+            let Some(args) = call["function"]["arguments"].string() else {
+                return Err(self.malformed("tool call lacks id, name or string arguments"));
+            };
+            if id.is_empty() || name.is_empty() {
                 return Err(self.malformed("tool call lacks id, name or string arguments"));
             }
             self.calls.insert(
@@ -828,7 +839,8 @@ impl<'a> Accumulator<'a> {
                 ToolCall {
                     id: Some(id.into()),
                     name: Some(name.into()),
-                    args: args.unwrap_or_default().into(),
+                    args: args.into(),
+                    argument_units: args.encode_utf16().count(),
                 },
             );
         }
@@ -932,4 +944,50 @@ fn usage(wire: Wire, from: &Json) -> Result<Option<Value>> {
         }
     }
     Ok((!out.is_empty()).then_some(Value::Object(out)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    const FRAGMENTS: usize = 128 * 1024;
+
+    fn many_fragments(mut append: impl FnMut()) {
+        let start = Instant::now();
+        for _ in 0..FRAGMENTS / 1024 {
+            for _ in 0..1024 {
+                append();
+            }
+            assert!(
+                start.elapsed() < Duration::from_secs(2),
+                "tool argument accumulation exceeded two seconds"
+            );
+        }
+    }
+
+    #[test]
+    fn event_tool_arguments_scale_with_the_new_fragment() {
+        let redact = Redactor::new(std::iter::empty());
+        let mut state = Accumulator::new(Wire::CodexResponses, FRAGMENTS, &redact);
+        let (index, _) = state.add_tool("fixture", "inspect").unwrap();
+        many_fragments(|| {
+            state.append_arguments(index, "x", false).unwrap();
+        });
+        assert_eq!(state.calls[&index].args, "x".repeat(FRAGMENTS));
+    }
+
+    #[test]
+    fn chat_tool_arguments_scale_with_the_new_fragment() {
+        let redact = Redactor::new(std::iter::empty());
+        let mut state = Accumulator::new(Wire::ChatCompletions, FRAGMENTS, &redact);
+        let delta =
+            Json::parse(r#"{"tool_calls":[{"index":0,"function":{"arguments":"x"}}]}"#).unwrap();
+        let mut events = Vec::new();
+        many_fragments(|| {
+            state.chat_delta(&delta, &mut events).unwrap();
+            events.clear();
+        });
+        assert_eq!(state.calls[&0].args, "x".repeat(FRAGMENTS));
+    }
 }
