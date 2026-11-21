@@ -6,7 +6,7 @@ use crate::coding::verifier::{CheckKind, Verifier, VerifierCommand, VerifierResu
 use crate::collab::repo::RepoGit;
 use crate::identity::principals::derive_user_principal;
 use crate::policy::fs_paths::FileKind;
-use crate::policy::fs_paths::{PathFs, PathRoot, RealFs};
+use crate::policy::fs_paths::{normalise_native, PathFs, PathRoot, RealFs};
 use crate::rbac::{
     audit::AuditEvent,
     types::{PrincipalKind, Role},
@@ -114,6 +114,13 @@ fn open_request<'a>(root: &'a str, session: Option<&'a str>, interactive: bool) 
     }
 }
 
+fn fixture_directory(parent: &std::path::Path, leaf: &str) -> String {
+    let path = parent.join(leaf);
+    std::fs::create_dir(&path).unwrap();
+    let native = RealFs.realpath(path.to_str().unwrap()).unwrap();
+    normalise_native(native, cfg!(windows))
+}
+
 #[test]
 fn coding_session_vectors() {
     let cases: Vec<Value> = serde_json::from_str(include_str!(
@@ -121,13 +128,8 @@ fn coding_session_vectors() {
     ))
     .unwrap();
     let dir = tempfile::tempdir().unwrap();
-    let path = |leaf: &str| {
-        let p = dir.path().join(leaf);
-        std::fs::create_dir(&p).unwrap();
-        RealFs.realpath(p.to_str().unwrap()).unwrap()
-    };
-    let root = path("repo");
-    let home = path("home");
+    let root = fixture_directory(dir.path(), "repo");
+    let home = fixture_directory(dir.path(), "home");
     for case in cases {
         let name = case["name"].as_str().unwrap();
         let ids = Arc::new(Ids::default());
@@ -420,14 +422,9 @@ fn coding_advisory_vectors() {
     ))
     .unwrap();
     let dir = tempfile::tempdir().unwrap();
-    let path = |leaf: &str| {
-        let p = dir.path().join(leaf);
-        std::fs::create_dir(&p).unwrap();
-        RealFs.realpath(p.to_str().unwrap()).unwrap()
-    };
     let roots = Roots {
-        root: path("advisory-repo"),
-        home: path("core-home"),
+        root: fixture_directory(dir.path(), "advisory-repo"),
+        home: fixture_directory(dir.path(), "core-home"),
         grant: Cell::new(true),
     };
     for c in cases {
