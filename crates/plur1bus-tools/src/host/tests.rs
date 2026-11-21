@@ -1061,6 +1061,144 @@ impl<'a> HostReviewFixture<'a> {
 }
 
 #[test]
+fn an_approval_for_another_capability_never_reaches_the_effect() {
+    let fixture = HostReviewFixture::new(&[]);
+    let action = fixture.approval(
+        "hostctl.sys.info",
+        json!({}),
+        &mut Permits::approving(),
+        Some("clipboard.read"),
+    );
+    assert_eq!(action.capability(), "clipboard.read");
+    let mut audit = MemoryAudit::default();
+    let mut effects = EffectsFixture::default();
+    let error = fixture
+        .execute(action, &mut audit, &mut effects)
+        .unwrap_err();
+    assert_eq!(error.code, "DENIED");
+    assert!(audit.of("hostctl.begin").is_empty());
+    assert!(effects.called.is_empty());
+}
+
+#[test]
+fn a_grant_is_not_the_separate_approval_for_a_foreign_process() {
+    let fixture = HostReviewFixture::new(&[]);
+    let name = "hostctl.proc.kill_foreign";
+    let input = json!({"pid":11});
+    let action = fixture.approval(name, input.clone(), &mut Permits::approving(), None);
+    assert!(matches!(action.allowed(), Allowed::Approval(_)));
+    let grant = json!({
+        "id":"fixture-once", "capability":name, "person":fixture.who.principal,
+        "agent":fixture.who.agent_id,"scope":"once","match":{"kind":"action"},
+        "actionHash":action.action_hash(), "createdAt":1, "surface":3
+    });
+    let mut permits = Permits {
+        grants: vec![grant],
+        ..Default::default()
+    };
+    let granted = fixture.approval(name, input, &mut permits, None);
+    assert!(matches!(granted.allowed(), Allowed::Grant(_)));
+    let mut audit = MemoryAudit::default();
+    let mut effects = EffectsFixture::default();
+    assert_eq!(
+        fixture
+            .execute(granted, &mut audit, &mut effects)
+            .unwrap_err()
+            .code,
+        "DENIED"
+    );
+    assert!(effects.called.is_empty());
+    assert!(fixture.execute(action, &mut audit, &mut effects).is_ok());
+    assert_eq!(effects.called, [name]);
+}
+
+#[test]
+fn a_foreign_process_admission_protects_three_distinct_harness_ids() {
+    let fixture = HostReviewFixture::new(&[]);
+    let identity = ProcessIdentity {
+        pid: 10,
+        parent: 9,
+        group: Some(8),
+    };
+    let admit = |pid| {
+        let input = json!({"pid":pid});
+        eligibility::validate_runtime(
+            catalog::Operation::KillForeign,
+            input.as_object().unwrap(),
+            &fixture.config,
+            &fixture.who,
+            identity,
+        )
+    };
+    assert!(admit(11).is_ok());
+    for pid in [10, 9, 8] {
+        assert_eq!(
+            admit(pid).unwrap_err().code,
+            "DENIED",
+            "protected fixture id {pid}"
+        );
+    }
+}
+
+#[test]
+fn an_audit_callback_can_invalidate_the_approved_file_before_effect() {
+    struct RotateTarget<'a>(&'a std::path::Path);
+    impl AuditPort for RotateTarget<'_> {
+        fn record(&mut self, action: &str, _: &Value) -> Result<(), String> {
+            if action == "hostctl.begin" {
+                std::fs::rename(self.0.join("note.txt"), self.0.join("previous.txt")).unwrap();
+                std::fs::write(self.0.join("note.txt"), "new fixture").unwrap();
+            }
+            Ok(())
+        }
+    }
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("note.txt"), "old fixture").unwrap();
+    let roots = [review_root(dir.path())];
+    let fixture = HostReviewFixture::new(&roots);
+    let action = fixture.approval(
+        "hostctl.fs.stat",
+        json!({"path":"note.txt"}),
+        &mut Permits::approving(),
+        None,
+    );
+    let mut effects = EffectsFixture::default();
+    let error = fixture
+        .execute(action, &mut RotateTarget(dir.path()), &mut effects)
+        .unwrap_err();
+    assert_eq!(error.code, "CHANGED");
+    assert!(effects.called.is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn namespace_preparation_rejects_a_symbolic_link_name() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("note.txt"), "document").unwrap();
+    std::os::unix::fs::symlink("note.txt", dir.path().join("alias.txt")).unwrap();
+    let roots = [review_root(dir.path())];
+    let fixture = HostReviewFixture::new(&roots);
+    for (op, input) in [
+        (catalog::Operation::Trash, json!({"path":"alias.txt"})),
+        (
+            catalog::Operation::Move,
+            json!({"path":"alias.txt","destination":"elsewhere.txt"}),
+        ),
+    ] {
+        let error = fixture
+            .policy
+            .prepare(op, input.as_object().unwrap())
+            .err()
+            .unwrap();
+        assert_eq!(error.code, "DENIED");
+        assert_eq!(
+            error.hint,
+            "Namespace operations need a stable, non-link entry."
+        );
+    }
+}
+
+#[test]
 fn app_open_enforces_document_types_for_files_and_directories() {
     #[derive(Default)]
     struct OpenRecorder(usize);

@@ -1115,7 +1115,7 @@ unchanged). K10b uses this gate and the same path and process layers.
   TypeScript guard classifies as non-launchable (TS-E1). The vectors record both sides.
 - *Proof:* `export-hostctl.ts` records the real TypeScript catalog, configuration, literal matching and file results.
   Rust replays the fixtures and tests gate expiry and bindings, audited effects, scoped session access and limits,
-  no-clobber publication, and desktop effects with test ports. Native platform adapters and live workflow wiring are the flip's.
+  no-clobber publication, and desktop effects with test ports. Each of the six RE-4 guard removals fails a targeted test. Native platform adapters and live workflow wiring are the flip's.
 
 
 ## 12. K11: decision receipts (P4-45, D0 to D4 as a library)
