@@ -36,7 +36,7 @@ use std::sync::Arc;
 pub type R<T> = Result<T, CollabError>;
 
 /// `TaskGrantEnd`: ends task-scoped grants when a collab task reaches a terminal status (D109 section 9.9). The return
-/// value is the number of grants ended, which nothing reads; an `Err` is logged and never fails the update.
+/// operation is idempotent. Batch cancellation refuses to publish terminal task rows until every call succeeds.
 pub trait TaskGrantEnd: Send + Sync {
     /// `endTask(taskId)`.
     fn end_task(&self, task_id: &str) -> Result<(), String>;
@@ -1240,25 +1240,31 @@ impl CollabStore {
         Ok(out)
     }
 
-    /// `cancelOpenTasks(traceId)`: every queued or running task becomes cancelled with error `aborted`.
+    /// Cancel queued or running tasks together, after every task grant has ended.
     pub fn cancel_open_tasks(&self, trace_id: &str) -> R<Vec<String>> {
-        let c = self.conn()?;
-        let open: Vec<String> = {
-            let mut st = c.prepare(
-                "SELECT id FROM tasks WHERE trace_id = ? AND status IN ('queued','running')",
-            )?;
-            let rows = st.query_map([trace_id], |r| r.get::<_, String>(0))?;
-            rows.collect::<Result<_, _>>()?
-        };
-        let now = self.clock.now();
-        for id in &open {
+        self.tx(|c| {
+            let open: Vec<String> = {
+                let mut st = c.prepare(
+                    "SELECT id FROM tasks WHERE trace_id=? AND status IN ('queued','running') ORDER BY id",
+                )?;
+                let rows = st.query_map([trace_id], |r| r.get::<_, String>(0))?;
+                rows.collect::<Result<_, _>>()?
+            };
+            let now = self.clock.now();
+            if let Some(grants) = &self.grants {
+                for id in &open {
+                    grants.end_task(id).map_err(|_| {
+                        CollabError::new(C::Storage, "grant task end failed before cancellation")
+                    })?;
+                }
+            }
             c.execute(
-                "UPDATE tasks SET status='cancelled', error='aborted', ended_at=? WHERE id=?",
-                rusqlite::params![now, id],
+                "UPDATE tasks SET status='cancelled', error='aborted', ended_at=?
+                 WHERE trace_id=? AND status IN ('queued','running')",
+                rusqlite::params![now, trace_id],
             )?;
-            self.end_task_grants(id);
-        }
-        Ok(open)
+            Ok(open)
+        })
     }
 
     pub(super) fn end_task_grants(&self, task_id: &str) {

@@ -611,6 +611,10 @@ Ports: clock, ids, git, process runner, session store (K5), budget (K1).
 
 **K6a-Rest as built** (collaboration execution and transcript library, with no live adapters registered).
 
+- **K6-D22 (K6a-R3):** Rust cancels the open tasks under one store transaction and calls the grant port before
+  committing any terminal task rows. A failed call rolls back the task changes. The grant port must allow retries:
+  grants ended before a later failure stay ended, and the queued or running task rows can be retried. The vectors
+  compare the success path, and the store test observes pending states and a failed grant through a second connection.
 - *Ported:* sender contract validation and bounded repair, chain-backed authority checks before ack and again before execution,
   single-start receiver tickets, return validation, byte-safe excerpts, and turn-local ownership and delivery receipts.
   The delegate admits and reserves writers, selects exactly one target, persists tasks and spans, records progress and usage, and

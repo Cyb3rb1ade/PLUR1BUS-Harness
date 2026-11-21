@@ -703,6 +703,92 @@ fn writer_slots_are_bounded_per_project_and_released_once() {
     h.svc.release_writer(again);
 }
 
+#[test]
+fn batch_cancellation_ends_grants_before_publishing_terminal_status() {
+    use super::store::TaskGrantEnd;
+    use plur1bus_store::rusqlite::Connection;
+    use std::path::PathBuf;
+    use std::sync::atomic::AtomicBool;
+
+    struct GrantFixture {
+        path: PathBuf,
+        fail: AtomicBool,
+        calls: Mutex<Vec<String>>,
+    }
+    impl TaskGrantEnd for GrantFixture {
+        fn end_task(&self, task_id: &str) -> Result<(), String> {
+            let conn = Connection::open(&self.path).unwrap();
+            let status: String = conn
+                .query_row("SELECT status FROM tasks WHERE id=?", [task_id], |r| {
+                    r.get(0)
+                })
+                .unwrap();
+            assert!(matches!(status.as_str(), "queued" | "running"));
+            self.calls.lock().unwrap().push(task_id.to_owned());
+            if task_id == "task-b" && self.fail.load(Ordering::SeqCst) {
+                return Err("fixture grant store unavailable".to_owned());
+            }
+            Ok(())
+        }
+    }
+
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("collab.sqlite");
+    let grants = Arc::new(GrantFixture {
+        path: path.clone(),
+        fail: AtomicBool::new(true),
+        calls: Mutex::new(Vec::new()),
+    });
+    let mut options = StoreOptions::new(
+        Arc::new(Clk(Arc::new(AtomicI64::new(1000)))),
+        Arc::new(Seq::default()),
+    );
+    options.grants = Some(grants.clone());
+    let store = CollabStore::open(&path, options).unwrap();
+    store
+        .create_project("fixture", "owner", None, Some("p"))
+        .unwrap();
+    store.insert_trace("trace", "p", "a", "span", None).unwrap();
+    store
+        .insert_span("span", "trace", None, "a", "delegate", None, None)
+        .unwrap();
+    for (id, status) in [
+        ("task-a", "queued"),
+        ("task-b", "running"),
+        ("done", "succeeded"),
+    ] {
+        store
+            .insert_task(&NewTask {
+                id: id.into(),
+                project_id: "p".into(),
+                trace_id: "trace".into(),
+                span_id: "span".into(),
+                from_agent: "a".into(),
+                to_agent: "b".into(),
+                kind: "delegate".into(),
+                status: status.into(),
+                ..Default::default()
+            })
+            .unwrap();
+    }
+    let status = |id: &str| store.get_task(id).unwrap().unwrap().status;
+    assert!(store.cancel_open_tasks("trace").is_err());
+    assert_eq!(status("task-a"), "queued");
+    assert_eq!(status("task-b"), "running");
+    grants.fail.store(false, Ordering::SeqCst);
+    assert_eq!(
+        store.cancel_open_tasks("trace").unwrap(),
+        ["task-a", "task-b"]
+    );
+    assert_eq!(status("task-a"), "cancelled");
+    assert_eq!(status("task-b"), "cancelled");
+    assert_eq!(status("done"), "succeeded");
+    assert_eq!(
+        *grants.calls.lock().unwrap(),
+        ["task-a", "task-b", "task-a", "task-b"]
+    );
+}
+
 // ---- redaction port and the marker test ----------------------------------------------------------------------------
 
 fn seed_marker(h: &H, id: &str) -> (String, String) {
