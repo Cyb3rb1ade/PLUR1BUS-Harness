@@ -12,10 +12,11 @@ import { exporterMain } from "./lib.mjs";
 const wires = ["chat_completions", "anthropic_messages", "codex_responses", "gemini"] as const;
 type Wire = typeof wires[number];
 type Mode = "stream" | "complete";
-type Options = { allowMissingDone: boolean; repair?: boolean };
+type Options = { allowMissingDone: boolean; repair?: boolean; fixtureHeaders?: "plain" | "padded" };
 type Reply = { status: number; headers: Record<string, string>; chunks: Buffer[] };
 
 const credential = "fixture-credential";
+const fixtureHeaderValue = "fixture-header-marker";
 const creds = { apiKey: () => credential, authorization: () => `Bearer ${credential}` };
 const input: ChatRequest = {
   model: "fixture-model",
@@ -30,7 +31,16 @@ function make(wire: Wire, baseUrl: string, options: Options, fetch?: typeof glob
   } : undefined;
   const config = { baseUrl, credentials: creds, repair, ...(fetch ? { fetch } : {}) };
   switch (wire) {
-    case "chat_completions": return createChatCompletionsAdapter({ ...config, allowMissingDone: options.allowMissingDone });
+    case "chat_completions": {
+      const padding = options.fixtureHeaders === "padded" ? " " : "";
+      return createChatCompletionsAdapter({
+        ...config, allowMissingDone: options.allowMissingDone,
+        ...(options.fixtureHeaders ? {
+          credentials: { ...creds, authorization: () => `Bearer ${credential}${padding}` },
+          headers: { "x-fixture-scope": `${padding}${fixtureHeaderValue}${padding}` },
+        } : {}),
+      });
+    }
     case "anthropic_messages": return createAnthropicAdapter(config);
     case "codex_responses": return createResponsesAdapter(config);
     case "gemini": return createGeminiAdapter(config);
@@ -78,11 +88,11 @@ async function record(
     if (stub.requests.length !== 1 || !request || request.body.includes(credential)) {
       throw new Error(`${name}: expected one credential-free request body`);
     }
-    const names = ["accept", "content-type", "anthropic-version", "authorization", "x-api-key", "x-goog-api-key"];
+    const names = ["accept", "content-type", "anthropic-version", "authorization", "x-api-key", "x-goog-api-key", "x-fixture-scope"];
     const headers = Object.fromEntries(names.flatMap((key) => {
       const value = request.headers[key];
       if (typeof value !== "string") return [];
-      return [[key, value.replace(credential, "[REDACTED:secret]")]];
+      return [[key, value.replace(credential, "[REDACTED:secret]").replace(fixtureHeaderValue, "[REDACTED:header]")]];
     }));
     return {
       name, mode, requestJson: JSON.stringify(requestInput), options,
@@ -236,6 +246,28 @@ async function protocol(wire: Wire) {
   const vendorError = await record(wire, "stream-vendor-error", "stream", sse([streamFailure], false));
   const cases = [complete, stream, truncated, throttled, vendorError];
   if (wire === "chat_completions") {
+    const errorReply = {
+      status: 401,
+      headers: { "content-type": "application/json" },
+      chunks: [Buffer.from(JSON.stringify({ error: { message: `fixture rejected ${credential} and ${fixtureHeaderValue}` } }))],
+    };
+    const plain = await record(wire, "vendor-error-with-plain-headers", "complete", errorReply,
+      { allowMissingDone: false, fixtureHeaders: "plain" });
+    const padded = await record(wire, "vendor-error-with-padded-headers", "complete", errorReply,
+      { allowMissingDone: false, fixtureHeaders: "padded" });
+    const plainError = JSON.stringify(plain.expected.error);
+    const paddedError = JSON.stringify(padded.expected.error);
+    if (!plainError?.includes("[redacted]") || plainError.includes(credential) || plainError.includes(fixtureHeaderValue)
+      || !paddedError?.includes(credential) || !paddedError.includes(fixtureHeaderValue)) {
+      throw new Error("fixture header normalization/redaction no longer matches P4D-195");
+    }
+    const paddedEvidence = {
+      ...padded,
+      "expected-divergence": "P4D-195",
+      typescriptOutcome: padded.expected,
+      expected: plain.expected,
+    };
+    cases.push(plain, paddedEvidence);
     cases.push(await record(wire, "stream-missing-done-strict", "stream", sse(frames, false)));
     cases.push(await record(wire, "stream-missing-done-allowed", "stream", sse(frames, false), { allowMissingDone: true }));
     const damaged = [

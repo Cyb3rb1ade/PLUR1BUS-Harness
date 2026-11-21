@@ -295,6 +295,98 @@
     {
       "expected": {
         "error": {
+          "contentFiltered": false,
+          "kind": "auth",
+          "message": "authentication or permission failure (HTTP 401): fixture rejected [redacted] and [redacted]",
+          "providerMessage": "fixture rejected [redacted] and [redacted]",
+          "retryable": false,
+          "status": 401
+        },
+        "events": []
+      },
+      "mode": "complete",
+      "name": "vendor-error-with-plain-headers",
+      "options": {
+        "allowMissingDone": false,
+        "fixtureHeaders": "plain"
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"max_tokens\":64,\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "authorization": "Bearer [REDACTED:secret]",
+          "content-type": "application/json",
+          "x-fixture-scope": "[REDACTED:header]"
+        },
+        "method": "POST",
+        "path": "/v1/chat/completions"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [
+          "eyJlcnJvciI6eyJtZXNzYWdlIjoiZml4dHVyZSByZWplY3RlZCBmaXh0dXJlLWNyZWRlbnRpYWwgYW5kIGZpeHR1cmUtaGVhZGVyLW1hcmtlciJ9fQ=="
+        ],
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 401
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "contentFiltered": false,
+          "kind": "auth",
+          "message": "authentication or permission failure (HTTP 401): fixture rejected [redacted] and [redacted]",
+          "providerMessage": "fixture rejected [redacted] and [redacted]",
+          "retryable": false,
+          "status": 401
+        },
+        "events": []
+      },
+      "expected-divergence": "P4D-195",
+      "mode": "complete",
+      "name": "vendor-error-with-padded-headers",
+      "options": {
+        "allowMissingDone": false,
+        "fixtureHeaders": "padded"
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"max_tokens\":64,\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "authorization": "Bearer [REDACTED:secret]",
+          "content-type": "application/json",
+          "x-fixture-scope": "[REDACTED:header]"
+        },
+        "method": "POST",
+        "path": "/v1/chat/completions"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [
+          "eyJlcnJvciI6eyJtZXNzYWdlIjoiZml4dHVyZSByZWplY3RlZCBmaXh0dXJlLWNyZWRlbnRpYWwgYW5kIGZpeHR1cmUtaGVhZGVyLW1hcmtlciJ9fQ=="
+        ],
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 401
+      },
+      "typescriptOutcome": {
+        "error": {
+          "contentFiltered": false,
+          "kind": "auth",
+          "message": "authentication or permission failure (HTTP 401): fixture rejected fixture-credential and fixture-header-marker",
+          "providerMessage": "fixture rejected fixture-credential and fixture-header-marker",
+          "retryable": false,
+          "status": 401
+        },
+        "events": []
+      }
+    },
+    {
+      "expected": {
+        "error": {
           "code": "protocol",
           "contentFiltered": false,
           "kind": "unknown",

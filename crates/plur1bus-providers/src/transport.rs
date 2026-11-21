@@ -555,6 +555,7 @@ impl Adapter {
                 .map_err(|_| ProviderError::invalid("anthropic-version header is invalid"))?;
             headers.insert("anthropic-version", version);
         }
+        let mut sent_secret = None;
         if let Some(credential) = credential.as_deref() {
             if credential.is_empty()
                 || credential
@@ -589,29 +590,30 @@ impl Adapter {
                 Wire::Gemini => "x-goog-api-key",
                 _ => "authorization",
             };
-            let value =
-                ureq::http::HeaderValue::from_str(credential.trim_matches(' ')).map_err(|_| {
-                    ProviderError::new(
-                        ErrorKind::Auth,
-                        "credentials provider returned an unusable Authorization value",
-                    )
-                })?;
+            let sent = credential.trim_matches(' ');
+            let value = ureq::http::HeaderValue::from_str(sent).map_err(|_| {
+                ProviderError::new(
+                    ErrorKind::Auth,
+                    "credentials provider returned an unusable Authorization value",
+                )
+            })?;
             headers.insert(key, value);
-        }
-        let secret = credential.as_deref().map(|value| {
-            if key_wire {
-                value
+            sent_secret = Some(if key_wire {
+                sent
             } else {
-                value.rsplit(' ').next().unwrap_or(value)
-            }
-        });
+                sent.rsplit(' ').next().unwrap_or(sent)
+            });
+        }
+        let additional_header_secrets = self
+            .config
+            .extra_headers
+            .iter()
+            .flat_map(|(_, value)| [value.trim_matches([' ', '\t']), value.as_str()]);
         let redact = Redactor::new(
-            secret.into_iter().chain(
-                self.config
-                    .extra_headers
-                    .iter()
-                    .map(|(_, value)| value.as_str()),
-            ),
+            sent_secret
+                .into_iter()
+                .chain(credential.as_deref())
+                .chain(additional_header_secrets),
         );
         if let Some(context) = ports.cache_input().filter(|_| self.managed.is_none()) {
             cache::emit(self.wire, &mut body, &mut headers, context);

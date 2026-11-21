@@ -59,6 +59,14 @@ Test scheitern. Der unveränderte Code besteht die Tests.
 | M12–M13 | 0700 für das AF1-Verzeichnis und ignorierter Body bei 205 |
 | M14–M15 | Fehlerbody mit genau 64 KiB und darüber, Abbruch nach fehlgeschlagenem Router-Versuch |
 
+
+**RW-4 / [P4D-195](defects.md#p4d-195).**
+Die Redaktion verwendet in Rust sowohl die gesendete normalisierte Schreibweise als auch die
+Originalwerte. Die TypeScript-Aufzeichnung erfasst den Unterschied bei nachgestellten
+Leerzeichen in Authorization und bei OWS um Zusatzheader (TS-2). Beide Fälle nutzen
+synthetische Marker. Die Rust-Fehlerform folgt der aufgezeichneten Redaktion bei bereits
+normalisierten Headern.
+
 <a id="p4d-40-http-wrapper"></a>
 
 ### P4D-40 · Verwandte HTTP-Wrapper
