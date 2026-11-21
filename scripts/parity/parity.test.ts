@@ -1345,3 +1345,30 @@ describe("media model configuration (P4-K K7c, plan P4-51)", () => {
     assert.ok(Buffer.byteLength(actual) < 1_048_576);
   });
 });
+
+describe("federation loan model (P4-K K6c, plan P4-50)", () => {
+  it("the recorded deadline and lease state vectors are current and under 1 MiB", async () => {
+    const { buildFederationLoanVectors } = await import("./export-federation-loan.ts");
+    const actual = readFileSync(fixturePath("federation", "loan"), "utf8");
+    assert.equal(actual, fixtureText(buildFederationLoanVectors().loan), "federation/loan.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("federation memory descriptors (P4-K K6c, plan P4-50)", () => {
+  it("the recorded descriptors and replay receipts are current and under 1 MiB", async () => {
+    const { buildFederationMemoryVectors } = await import("./export-federation-memory.ts");
+    const actual = readFileSync(fixturePath("federation", "memory"), "utf8");
+    assert.equal(actual, fixtureText(buildFederationMemoryVectors().memory), "federation/memory.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("external turn library (P4-K K6c, plan P4-50)", () => {
+  it("the recorded scoped turns are current and under 1 MiB", async () => {
+    const { buildExternalTurnVectors } = await import("./export-external-turn.ts");
+    const actual = readFileSync(fixturePath("external-turn", "turn"), "utf8");
+    assert.equal(actual, fixtureText((await buildExternalTurnVectors()).turn), "external-turn/turn.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});

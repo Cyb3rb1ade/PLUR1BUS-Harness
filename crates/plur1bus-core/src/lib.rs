@@ -80,6 +80,8 @@ pub mod ed25519;
 pub mod egress;
 pub mod events;
 pub mod exposure;
+pub mod external_turn;
+pub mod federation;
 pub mod frame;
 pub mod front_log;
 pub mod grants;
