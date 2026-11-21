@@ -56,7 +56,8 @@ pub enum Decision {
 pub trait Backend {
     /// Whether the real additive proposal contract is available.
     fn ready(&self) -> bool;
-    /// Get an idempotency hit for this scope and workflow hash.
+    /// Get an idempotency hit for this scope and workflow hash, including a rejected proposal.
+    /// A rejection is durable for the same candidate and must prevent proposing it again.
     fn find(&mut self, scope: &Scope, hash: &str) -> R<Option<Proposal>>;
     /// Propose an inactive candidate once for this scope and stable hash.
     fn propose(&mut self, scope: &Scope, candidate: &Candidate) -> R<Proposal>;
