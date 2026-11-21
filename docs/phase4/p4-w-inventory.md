@@ -43,6 +43,11 @@ Bibliotheksumfang zu. Bei den folgenden Meilensteinen beschreiben die Modi und o
   beträgt höchstens das vom Port über `socket_timeout` gelieferte Zeitbudget, begrenzt auf
   600 Sekunden. Eine kürzere Gesamtfrist verkürzt die Obergrenze. Die Frist gilt auch bei
   deaktivierten Phasenfristen und deckt TCP, TLS und Unix-Sockets ab.
+- **RW-6, Frist der Rückfallkette.** Rust und TypeScript beziehen die Socket-Frist auf den
+  einzelnen Adapterversuch. Der Router erlaubt standardmäßig bis zu sechs Versuche mit jeweils
+  bis zu 600 Sekunden und den anfallenden Retry-Pausen. Beim Flip hält der Host die gemeinsame
+  Turn-Frist und liefert über `Ports::socket_timeout` die verbleibende Zeit für jeden Versuch.
+  Timer, Abbruchsignal und Warteport müssen dieselbe Turn-Frist berücksichtigen.
 
 
 **Mutationsnachweis für W1 (RW-3).** Alle folgenden Einzeländerungen ließen ihren gezielten
