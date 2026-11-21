@@ -61,7 +61,7 @@ async function cloud(name: string) {
     outcome = { error: "error" in error ? error.error : error.message,
       reason: "data" in error && error.data && typeof error.data === "object" && "reason" in error.data ? error.data.reason : null };
   }
-  return { name, outcome, events, ...(name === "failed while sent" ? {
+  return { name, outcome, events, ...(["failed while sent", "aborted while sent"].includes(name) ? {
     divergence: "charge-uncertain-provider-usage",
   } : {}) };
 }

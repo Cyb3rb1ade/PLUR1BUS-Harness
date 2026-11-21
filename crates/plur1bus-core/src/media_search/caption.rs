@@ -465,7 +465,7 @@ impl Render<'_> {
             return Err(error);
         }
         let reply = provider.cloud_image(call);
-        let usage = charge(call, reply.as_ref().ok(), self.ports.input.cancelled());
+        let usage = charge(call, reply.as_ref().ok());
         hold.settle(&usage)?;
         let reply = reply?;
         if reply.provider != self.route.provider || reply.model != self.route.model {
@@ -475,19 +475,15 @@ impl Render<'_> {
     }
 }
 
-fn charge(call: &ImageCall<'_>, reply: Option<&Reply>, cancelled: bool) -> ActualCallUsage {
+fn charge(call: &ImageCall<'_>, reply: Option<&Reply>) -> ActualCallUsage {
     let tokens = |n: Option<i64>, estimate| {
         n.filter(|n| (0..=crate::budget::MAX_SAFE).contains(n))
             .unwrap_or(estimate)
     };
-    let max_out = if cancelled && reply.is_none() {
-        0
-    } else {
-        call.max_output_tokens
-    };
     ActualCallUsage {
         input_tokens: tokens(reply.and_then(|r| r.input_tokens), ESTIMATED_INPUT),
-        output_tokens: tokens(reply.and_then(|r| r.output_tokens), max_out),
+        // Once dispatched, cancellation cannot establish how many tokens the provider generated.
+        output_tokens: tokens(reply.and_then(|r| r.output_tokens), call.max_output_tokens),
         ..Default::default()
     }
 }
