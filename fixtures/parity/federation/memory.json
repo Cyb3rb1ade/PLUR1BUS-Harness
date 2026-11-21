@@ -1,0 +1,1134 @@
+{
+  "acks": [
+    {
+      "ack": {
+        "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+        "loanId": "loan-one"
+      },
+      "result": [
+        {
+          "acknowledged": true,
+          "batch": {
+            "agentId": "agent",
+            "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+            "borrowerFingerprint": "away",
+            "items": [
+              {
+                "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "id": "m1"
+              }
+            ],
+            "level": "shareable",
+            "loanId": "loan-one",
+            "relationshipKey": "rel:agent:peer:away:eva"
+          }
+        },
+        {
+          "acknowledged": false,
+          "batch": {
+            "agentId": "agent",
+            "batchId": "066b53fc9aee7954574162cc3f11d25c51c7af50ce8d090785c87182d787d653",
+            "borrowerFingerprint": "away",
+            "items": [
+              {
+                "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "id": "m2"
+              }
+            ],
+            "level": "shareable",
+            "loanId": "loan-one",
+            "relationshipKey": "rel:agent:peer:away:eva"
+          }
+        }
+      ]
+    },
+    {
+      "ack": {
+        "batchId": "066b53fc9aee7954574162cc3f11d25c51c7af50ce8d090785c87182d787d653",
+        "loanId": "loan-one"
+      },
+      "result": [
+        {
+          "acknowledged": false,
+          "batch": {
+            "agentId": "agent",
+            "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+            "borrowerFingerprint": "away",
+            "items": [
+              {
+                "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "id": "m1"
+              }
+            ],
+            "level": "shareable",
+            "loanId": "loan-one",
+            "relationshipKey": "rel:agent:peer:away:eva"
+          }
+        },
+        {
+          "acknowledged": true,
+          "batch": {
+            "agentId": "agent",
+            "batchId": "066b53fc9aee7954574162cc3f11d25c51c7af50ce8d090785c87182d787d653",
+            "borrowerFingerprint": "away",
+            "items": [
+              {
+                "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "id": "m2"
+              }
+            ],
+            "level": "shareable",
+            "loanId": "loan-one",
+            "relationshipKey": "rel:agent:peer:away:eva"
+          }
+        }
+      ]
+    },
+    {
+      "ack": {
+        "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+        "loanId": "other"
+      },
+      "result": {
+        "error": "loan-memory-model: unknown ack"
+      }
+    },
+    {
+      "ack": {
+        "batchId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "loanId": "loan-one"
+      },
+      "result": {
+        "error": "loan-memory-model: unknown ack"
+      }
+    }
+  ],
+  "disposition": [
+    {
+      "acknowledged": false,
+      "ended": false,
+      "keepMissionCopies": false,
+      "result": "mission-store"
+    },
+    {
+      "acknowledged": false,
+      "ended": true,
+      "keepMissionCopies": false,
+      "result": "outbox"
+    },
+    {
+      "acknowledged": true,
+      "ended": false,
+      "keepMissionCopies": false,
+      "result": "mission-store"
+    },
+    {
+      "acknowledged": true,
+      "ended": true,
+      "keepMissionCopies": false,
+      "result": "remove"
+    },
+    {
+      "acknowledged": false,
+      "ended": false,
+      "keepMissionCopies": true,
+      "result": "mission-store"
+    },
+    {
+      "acknowledged": false,
+      "ended": true,
+      "keepMissionCopies": true,
+      "result": "outbox"
+    },
+    {
+      "acknowledged": true,
+      "ended": false,
+      "keepMissionCopies": true,
+      "result": "mission-store"
+    },
+    {
+      "acknowledged": true,
+      "ended": true,
+      "keepMissionCopies": true,
+      "result": "retained-copy"
+    }
+  ],
+  "generation": [
+    {
+      "input": [
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "s3",
+          "level": "shareable",
+          "personKey": "eva"
+        },
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "p1",
+          "level": "private",
+          "personKey": "eva"
+        },
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "c1",
+          "level": "confidential",
+          "personKey": "eva"
+        },
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "s2",
+          "level": "shareable",
+          "personKey": "chris"
+        },
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "s1",
+          "level": "shareable",
+          "personKey": "eva"
+        }
+      ],
+      "result": [
+        {
+          "agentId": "agent",
+          "batchId": "9becbc873a02e76a6a981f1105ce34d01d6cb2c2571c3db4a7e83b9dfcb90c39",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "s2"
+            }
+          ],
+          "level": "shareable",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:chris"
+        },
+        {
+          "agentId": "agent",
+          "batchId": "052c882da64a9d91b25d124fa7ea8ef271cfa16b47788082e731f9fb764b94bc",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "c1"
+            }
+          ],
+          "level": "confidential",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        },
+        {
+          "agentId": "agent",
+          "batchId": "799eaed2bc9fe0171d9eb9cceea9f49c42be996b22465d57291fbb93647965d4",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "p1"
+            }
+          ],
+          "level": "private",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        },
+        {
+          "agentId": "agent",
+          "batchId": "7cd65293e8fd723f4e49874247bea4827ee2794ac980807505283a1169cc0811",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "s1"
+            },
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "s3"
+            }
+          ],
+          "level": "shareable",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        }
+      ]
+    },
+    {
+      "input": [
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "s1",
+          "level": "shareable",
+          "personKey": "eva"
+        },
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "s2",
+          "level": "shareable",
+          "personKey": "chris"
+        },
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "c1",
+          "level": "confidential",
+          "personKey": "eva"
+        },
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "p1",
+          "level": "private",
+          "personKey": "eva"
+        },
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "s3",
+          "level": "shareable",
+          "personKey": "eva"
+        }
+      ],
+      "result": [
+        {
+          "agentId": "agent",
+          "batchId": "9becbc873a02e76a6a981f1105ce34d01d6cb2c2571c3db4a7e83b9dfcb90c39",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "s2"
+            }
+          ],
+          "level": "shareable",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:chris"
+        },
+        {
+          "agentId": "agent",
+          "batchId": "052c882da64a9d91b25d124fa7ea8ef271cfa16b47788082e731f9fb764b94bc",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "c1"
+            }
+          ],
+          "level": "confidential",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        },
+        {
+          "agentId": "agent",
+          "batchId": "799eaed2bc9fe0171d9eb9cceea9f49c42be996b22465d57291fbb93647965d4",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "p1"
+            }
+          ],
+          "level": "private",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        },
+        {
+          "agentId": "agent",
+          "batchId": "7cd65293e8fd723f4e49874247bea4827ee2794ac980807505283a1169cc0811",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "s1"
+            },
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "s3"
+            }
+          ],
+          "level": "shareable",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        }
+      ]
+    },
+    {
+      "input": [],
+      "result": []
+    },
+    {
+      "input": [
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "a",
+          "level": "shareable",
+          "personKey": "eva"
+        },
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "a",
+          "level": "shareable",
+          "personKey": "other"
+        }
+      ],
+      "result": {
+        "error": "loan-memory-model: duplicate memory"
+      }
+    },
+    {
+      "input": [
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "id",
+          "level": "shareable",
+          "personKey": "not a key"
+        }
+      ],
+      "result": {
+        "error": "loan-memory-model: invalid memory id"
+      }
+    },
+    {
+      "input": [
+        {
+          "contentHash": "bad",
+          "id": "id",
+          "level": "shareable",
+          "personKey": "eva"
+        }
+      ],
+      "result": {
+        "error": "loan-memory-model: invalid memory hash"
+      }
+    }
+  ],
+  "inbound": [
+    {
+      "batch": {
+        "agentId": "agent",
+        "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m1"
+          }
+        ],
+        "level": "shareable",
+        "loanId": "loan-one",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      },
+      "name": "initial",
+      "received": [],
+      "result": {
+        "ack": {
+          "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+          "loanId": "loan-one"
+        },
+        "imports": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "context": {
+              "kind": "mission",
+              "missionId": "loan-one"
+            },
+            "id": "m1",
+            "level": "shareable",
+            "origin": {
+              "system": "peer:away"
+            },
+            "relationshipKey": "rel:agent:peer:away:eva",
+            "sourceRef": "mission:loan-one@away#019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4:m1",
+            "tainted": true
+          }
+        ],
+        "received": [
+          {
+            "agentId": "agent",
+            "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+            "borrowerFingerprint": "away",
+            "items": [
+              {
+                "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "id": "m1"
+              }
+            ],
+            "level": "shareable",
+            "loanId": "loan-one",
+            "relationshipKey": "rel:agent:peer:away:eva"
+          }
+        ]
+      }
+    },
+    {
+      "batch": {
+        "agentId": "agent",
+        "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m1"
+          }
+        ],
+        "level": "shareable",
+        "loanId": "loan-one",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      },
+      "name": "replay",
+      "received": [
+        {
+          "agentId": "agent",
+          "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "m1"
+            }
+          ],
+          "level": "shareable",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        }
+      ],
+      "result": {
+        "ack": {
+          "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+          "loanId": "loan-one"
+        },
+        "imports": [],
+        "received": [
+          {
+            "agentId": "agent",
+            "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+            "borrowerFingerprint": "away",
+            "items": [
+              {
+                "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "id": "m1"
+              }
+            ],
+            "level": "shareable",
+            "loanId": "loan-one",
+            "relationshipKey": "rel:agent:peer:away:eva"
+          }
+        ]
+      }
+    },
+    {
+      "batch": {
+        "agentId": "agent",
+        "batchId": "4d77d1fc908920026558e5c514df731de2e70b65f884416e650b5a20fd0fd262",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m1"
+          },
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m2"
+          }
+        ],
+        "level": "shareable",
+        "loanId": "loan-one",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      },
+      "name": "overlap",
+      "received": [
+        {
+          "agentId": "agent",
+          "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "m1"
+            }
+          ],
+          "level": "shareable",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        }
+      ],
+      "result": {
+        "ack": {
+          "batchId": "4d77d1fc908920026558e5c514df731de2e70b65f884416e650b5a20fd0fd262",
+          "loanId": "loan-one"
+        },
+        "imports": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "context": {
+              "kind": "mission",
+              "missionId": "loan-one"
+            },
+            "id": "m2",
+            "level": "shareable",
+            "origin": {
+              "system": "peer:away"
+            },
+            "relationshipKey": "rel:agent:peer:away:eva",
+            "sourceRef": "mission:loan-one@away#4d77d1fc908920026558e5c514df731de2e70b65f884416e650b5a20fd0fd262:m2",
+            "tainted": true
+          }
+        ],
+        "received": [
+          {
+            "agentId": "agent",
+            "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+            "borrowerFingerprint": "away",
+            "items": [
+              {
+                "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "id": "m1"
+              }
+            ],
+            "level": "shareable",
+            "loanId": "loan-one",
+            "relationshipKey": "rel:agent:peer:away:eva"
+          },
+          {
+            "agentId": "agent",
+            "batchId": "4d77d1fc908920026558e5c514df731de2e70b65f884416e650b5a20fd0fd262",
+            "borrowerFingerprint": "away",
+            "items": [
+              {
+                "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "id": "m1"
+              },
+              {
+                "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "id": "m2"
+              }
+            ],
+            "level": "shareable",
+            "loanId": "loan-one",
+            "relationshipKey": "rel:agent:peer:away:eva"
+          }
+        ]
+      }
+    },
+    {
+      "batch": {
+        "agentId": "agent",
+        "batchId": "066b53fc9aee7954574162cc3f11d25c51c7af50ce8d090785c87182d787d653",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m2"
+          }
+        ],
+        "level": "shareable",
+        "loanId": "loan-one",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      },
+      "name": "different batch same ref",
+      "received": [
+        {
+          "agentId": "agent",
+          "batchId": "4d77d1fc908920026558e5c514df731de2e70b65f884416e650b5a20fd0fd262",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "m1"
+            },
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "m2"
+            }
+          ],
+          "level": "shareable",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        }
+      ],
+      "result": {
+        "ack": {
+          "batchId": "066b53fc9aee7954574162cc3f11d25c51c7af50ce8d090785c87182d787d653",
+          "loanId": "loan-one"
+        },
+        "imports": [],
+        "received": [
+          {
+            "agentId": "agent",
+            "batchId": "4d77d1fc908920026558e5c514df731de2e70b65f884416e650b5a20fd0fd262",
+            "borrowerFingerprint": "away",
+            "items": [
+              {
+                "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "id": "m1"
+              },
+              {
+                "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "id": "m2"
+              }
+            ],
+            "level": "shareable",
+            "loanId": "loan-one",
+            "relationshipKey": "rel:agent:peer:away:eva"
+          },
+          {
+            "agentId": "agent",
+            "batchId": "066b53fc9aee7954574162cc3f11d25c51c7af50ce8d090785c87182d787d653",
+            "borrowerFingerprint": "away",
+            "items": [
+              {
+                "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "id": "m2"
+              }
+            ],
+            "level": "shareable",
+            "loanId": "loan-one",
+            "relationshipKey": "rel:agent:peer:away:eva"
+          }
+        ]
+      }
+    },
+    {
+      "batch": {
+        "agentId": "agent",
+        "batchId": "72fcf12d112db0a89be7a0f26dbb173fda5287d009e437beed8a00a10b64c4f5",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "id": "m1"
+          }
+        ],
+        "level": "shareable",
+        "loanId": "loan-one",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      },
+      "name": "content conflict",
+      "received": [
+        {
+          "agentId": "agent",
+          "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "m1"
+            }
+          ],
+          "level": "shareable",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        }
+      ],
+      "result": {
+        "error": "loan-memory-model: conflicting memory id"
+      }
+    },
+    {
+      "batch": {
+        "agentId": "agent",
+        "batchId": "5f58906bd029598ba4d5ae0b5be3a4fcc486045eae2a3de41cb01a1f064c2938",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m1"
+          }
+        ],
+        "level": "private",
+        "loanId": "loan-one",
+        "relationshipKey": "rel:agent:peer:away:other"
+      },
+      "name": "relationship conflict",
+      "received": [
+        {
+          "agentId": "agent",
+          "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "m1"
+            }
+          ],
+          "level": "shareable",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        }
+      ],
+      "result": {
+        "error": "loan-memory-model: conflicting memory id"
+      }
+    },
+    {
+      "batch": {
+        "agentId": "agent",
+        "batchId": "066b53fc9aee7954574162cc3f11d25c51c7af50ce8d090785c87182d787d653",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m2"
+          }
+        ],
+        "level": "shareable",
+        "loanId": "loan-one",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      },
+      "name": "prior conflict",
+      "received": [
+        {
+          "agentId": "agent",
+          "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "m1"
+            }
+          ],
+          "level": "shareable",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        },
+        {
+          "agentId": "agent",
+          "batchId": "72fcf12d112db0a89be7a0f26dbb173fda5287d009e437beed8a00a10b64c4f5",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "id": "m1"
+            }
+          ],
+          "level": "shareable",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        }
+      ],
+      "result": {
+        "error": "loan-memory-model: conflicting memory id"
+      }
+    },
+    {
+      "batch": {
+        "agentId": "agent",
+        "batchId": "799eaed2bc9fe0171d9eb9cceea9f49c42be996b22465d57291fbb93647965d4",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "p1"
+          }
+        ],
+        "level": "private",
+        "loanId": "loan-one",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      },
+      "name": "private labeled descriptor",
+      "received": [],
+      "result": {
+        "ack": {
+          "batchId": "799eaed2bc9fe0171d9eb9cceea9f49c42be996b22465d57291fbb93647965d4",
+          "loanId": "loan-one"
+        },
+        "imports": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "context": {
+              "kind": "mission",
+              "missionId": "loan-one"
+            },
+            "id": "p1",
+            "level": "private",
+            "origin": {
+              "system": "peer:away"
+            },
+            "relationshipKey": "rel:agent:peer:away:eva",
+            "sourceRef": "mission:loan-one@away#799eaed2bc9fe0171d9eb9cceea9f49c42be996b22465d57291fbb93647965d4:p1",
+            "tainted": true
+          }
+        ],
+        "received": [
+          {
+            "agentId": "agent",
+            "batchId": "799eaed2bc9fe0171d9eb9cceea9f49c42be996b22465d57291fbb93647965d4",
+            "borrowerFingerprint": "away",
+            "items": [
+              {
+                "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "id": "p1"
+              }
+            ],
+            "level": "private",
+            "loanId": "loan-one",
+            "relationshipKey": "rel:agent:peer:away:eva"
+          }
+        ]
+      }
+    },
+    {
+      "batch": {
+        "agentId": "agent",
+        "batchId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m1"
+          }
+        ],
+        "level": "shareable",
+        "loanId": "loan-one",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      },
+      "name": "bad batch digest",
+      "received": [],
+      "result": {
+        "error": "loan-memory-model: invalid batch hash"
+      }
+    },
+    {
+      "batch": {
+        "agentId": "agent",
+        "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m1"
+          }
+        ],
+        "level": "shareable",
+        "loanId": "other",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      },
+      "name": "wrong mission",
+      "received": [],
+      "result": {
+        "error": "loan-memory-model: invalid batch hash"
+      }
+    },
+    {
+      "batch": {
+        "agentId": "agent",
+        "batchId": "066b53fc9aee7954574162cc3f11d25c51c7af50ce8d090785c87182d787d653",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m2"
+          }
+        ],
+        "level": "shareable",
+        "loanId": "loan-one",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      },
+      "name": "invalid previous hash",
+      "received": [
+        {
+          "agentId": "agent",
+          "batchId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "m1"
+            }
+          ],
+          "level": "shareable",
+          "loanId": "loan-one",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        }
+      ],
+      "result": {
+        "error": "loan-memory-model: invalid batch hash"
+      }
+    },
+    {
+      "batch": {
+        "agentId": "agent",
+        "batchId": "0467b448c90ad099750fe30a5704e7bccee796eee1065388cbc0d9847227f94d",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m1"
+          }
+        ],
+        "level": "shareable",
+        "loanId": "foreign-loan",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      },
+      "name": "valid foreign receipt",
+      "received": [],
+      "result": {
+        "error": "loan-memory-model: foreign batch"
+      }
+    },
+    {
+      "batch": {
+        "agentId": "agent",
+        "batchId": "066b53fc9aee7954574162cc3f11d25c51c7af50ce8d090785c87182d787d653",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m2"
+          }
+        ],
+        "level": "shareable",
+        "loanId": "loan-one",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      },
+      "name": "foreign prior",
+      "received": [
+        {
+          "agentId": "agent",
+          "batchId": "0467b448c90ad099750fe30a5704e7bccee796eee1065388cbc0d9847227f94d",
+          "borrowerFingerprint": "away",
+          "items": [
+            {
+              "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "id": "m1"
+            }
+          ],
+          "level": "shareable",
+          "loanId": "foreign-loan",
+          "relationshipKey": "rel:agent:peer:away:eva"
+        }
+      ],
+      "result": {
+        "error": "loan-memory-model: foreign batch"
+      }
+    },
+    {
+      "batch": {
+        "agentId": "agent",
+        "batchId": "4d77d1fc908920026558e5c514df731de2e70b65f884416e650b5a20fd0fd262",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m2"
+          },
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m1"
+          }
+        ],
+        "level": "shareable",
+        "loanId": "loan-one",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      },
+      "name": "bad order",
+      "received": [],
+      "result": {
+        "error": "loan-memory-model: invalid batch order or duplicate"
+      }
+    }
+  ],
+  "offer": {
+    "agentId": "agent",
+    "borrowerFingerprint": "away",
+    "createdAt": 1000,
+    "expiresAt": 2592001000,
+    "keepMissionCopies": false,
+    "lenderFingerprint": "home",
+    "loanId": "loan-one",
+    "secretNames": []
+  },
+  "outbox": [
+    {
+      "acknowledged": false,
+      "batch": {
+        "agentId": "agent",
+        "batchId": "019ecc47f2b1cb6c564e7906dfdf9f28f38be800047023ca02be08e9d4d252b4",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m1"
+          }
+        ],
+        "level": "shareable",
+        "loanId": "loan-one",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      }
+    },
+    {
+      "acknowledged": false,
+      "batch": {
+        "agentId": "agent",
+        "batchId": "066b53fc9aee7954574162cc3f11d25c51c7af50ce8d090785c87182d787d653",
+        "borrowerFingerprint": "away",
+        "items": [
+          {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "m2"
+          }
+        ],
+        "level": "shareable",
+        "loanId": "loan-one",
+        "relationshipKey": "rel:agent:peer:away:eva"
+      }
+    }
+  ],
+  "selected": [
+    {
+      "input": [],
+      "result": []
+    },
+    {
+      "input": [
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "s",
+          "level": "shareable",
+          "personKey": "eva"
+        },
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "c",
+          "level": "confidential",
+          "personKey": "chris"
+        }
+      ],
+      "result": [
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "s",
+          "level": "shareable",
+          "personKey": "eva"
+        },
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "c",
+          "level": "confidential",
+          "personKey": "chris"
+        }
+      ]
+    },
+    {
+      "input": [
+        {
+          "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "id": "p",
+          "level": "private",
+          "personKey": "chris"
+        }
+      ],
+      "result": {
+        "error": "loan-memory-model: private home memory"
+      }
+    }
+  ],
+  "use": [
+    {
+      "level": "shareable",
+      "result": "show-with-origin"
+    },
+    {
+      "level": "confidential",
+      "result": "use-without-disclosure"
+    },
+    {
+      "level": "private",
+      "result": "exclude"
+    }
+  ]
+}
