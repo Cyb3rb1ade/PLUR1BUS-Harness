@@ -72,9 +72,19 @@ const WIRES: [(Wire, &str); 4] = [
 
 fn replay(wire: Wire, recording: &Value, exchange: &Value) {
     let mut isolated = recording.clone();
-    isolated["exchanges"] = json!([exchange]);
-    let server = FakeServer::start(&isolated);
     let fixture_header = exchange["options"]["fixtureHeaders"].as_str();
+    let mut scripted = exchange.clone();
+    if fixture_header.is_some() {
+        let message = &mut scripted["response"]["body"]["error"]["message"];
+        let restored = message
+            .as_str()
+            .unwrap()
+            .replace("[FIXTURE:AUTH]", "fixture-credential")
+            .replace("[FIXTURE:EXTRA_HEADER]", "fixture-header-marker");
+        *message = json!(restored);
+    }
+    isolated["exchanges"] = json!([scripted]);
+    let server = FakeServer::start(&isolated);
     let padded = fixture_header == Some("padded");
     let extra_headers = fixture_header
         .map(|_| {
@@ -109,7 +119,7 @@ fn replay(wire: Wire, recording: &Value, exchange: &Value) {
     if padded {
         assert_eq!(exchange["expected-divergence"], "P4D-195");
         let raw = exchange["typescriptOutcome"]["error"].to_string();
-        assert!(raw.contains("fixture-credential") && raw.contains("fixture-header-marker"));
+        assert!(raw.contains("[FIXTURE:AUTH]") && raw.contains("[FIXTURE:EXTRA_HEADER]"));
     }
     let mut events = Vec::new();
     let outcome = if exchange["mode"] == "stream" {

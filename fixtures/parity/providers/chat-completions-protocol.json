@@ -323,9 +323,11 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
-        "chunksBase64": [
-          "eyJlcnJvciI6eyJtZXNzYWdlIjoiZml4dHVyZSByZWplY3RlZCBmaXh0dXJlLWNyZWRlbnRpYWwgYW5kIGZpeHR1cmUtaGVhZGVyLW1hcmtlciJ9fQ=="
-        ],
+        "body": {
+          "error": {
+            "message": "fixture rejected [FIXTURE:AUTH] and [FIXTURE:EXTRA_HEADER]"
+          }
+        },
         "headers": {
           "content-type": "application/json"
         },
@@ -364,9 +366,11 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
-        "chunksBase64": [
-          "eyJlcnJvciI6eyJtZXNzYWdlIjoiZml4dHVyZSByZWplY3RlZCBmaXh0dXJlLWNyZWRlbnRpYWwgYW5kIGZpeHR1cmUtaGVhZGVyLW1hcmtlciJ9fQ=="
-        ],
+        "body": {
+          "error": {
+            "message": "fixture rejected [FIXTURE:AUTH] and [FIXTURE:EXTRA_HEADER]"
+          }
+        },
         "headers": {
           "content-type": "application/json"
         },
@@ -376,8 +380,8 @@
         "error": {
           "contentFiltered": false,
           "kind": "auth",
-          "message": "authentication or permission failure (HTTP 401): fixture rejected fixture-credential and fixture-header-marker",
-          "providerMessage": "fixture rejected fixture-credential and fixture-header-marker",
+          "message": "authentication or permission failure (HTTP 401): fixture rejected [FIXTURE:AUTH] and [FIXTURE:EXTRA_HEADER]",
+          "providerMessage": "fixture rejected [FIXTURE:AUTH] and [FIXTURE:EXTRA_HEADER]",
           "retryable": false,
           "status": 401
         },

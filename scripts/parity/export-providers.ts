@@ -14,6 +14,7 @@ type Wire = typeof wires[number];
 type Mode = "stream" | "complete";
 type Options = { allowMissingDone: boolean; repair?: boolean; fixtureHeaders?: "plain" | "padded" };
 type Reply = { status: number; headers: Record<string, string>; chunks: Buffer[] };
+type RecordedReply = Omit<Reply, "chunks"> & { chunksBase64?: string[]; body?: unknown };
 
 const credential = "fixture-credential";
 const fixtureHeaderValue = "fixture-header-marker";
@@ -94,10 +95,13 @@ async function record(
       if (typeof value !== "string") return [];
       return [[key, value.replace(credential, "[REDACTED:secret]").replace(fixtureHeaderValue, "[REDACTED:header]")]];
     }));
+    const recordedReply: RecordedReply = {
+      status: response.status, headers: response.headers, chunksBase64: response.chunks.map(c => c.toString("base64")),
+    };
     return {
       name, mode, requestJson: JSON.stringify(requestInput), options,
       request: { method: request.method, path: request.url, headers, bodyText: request.body },
-      response: { status: response.status, headers: response.headers, chunksBase64: response.chunks.map(c => c.toString("base64")) },
+      response: recordedReply,
       expected: { events, result, error },
     };
   } finally {
@@ -261,13 +265,21 @@ async function protocol(wire: Wire) {
       || !paddedError?.includes(credential) || !paddedError.includes(fixtureHeaderValue)) {
       throw new Error("fixture header normalization/redaction no longer matches P4D-195");
     }
+    const markers = (text: string) => text.replaceAll(credential, "[FIXTURE:AUTH]")
+      .replaceAll(fixtureHeaderValue, "[FIXTURE:EXTRA_HEADER]");
+    const responseWithMarkers = {
+      status: errorReply.status,
+      headers: errorReply.headers,
+      body: JSON.parse(markers(errorReply.chunks[0]!.toString("utf8"))),
+    };
     const paddedEvidence = {
       ...padded,
+      response: responseWithMarkers,
       "expected-divergence": "P4D-195",
-      typescriptOutcome: padded.expected,
+      typescriptOutcome: JSON.parse(markers(JSON.stringify(padded.expected))),
       expected: plain.expected,
     };
-    cases.push(plain, paddedEvidence);
+    cases.push({ ...plain, response: responseWithMarkers }, paddedEvidence);
     cases.push(await record(wire, "stream-missing-done-strict", "stream", sse(frames, false)));
     cases.push(await record(wire, "stream-missing-done-allowed", "stream", sse(frames, false), { allowMissingDone: true }));
     const damaged = [
