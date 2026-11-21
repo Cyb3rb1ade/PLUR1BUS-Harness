@@ -75,6 +75,7 @@ pub mod control;
 pub mod decision;
 pub mod delivery;
 pub mod doctor;
+pub mod dreams;
 pub mod ed25519;
 pub mod egress;
 pub mod events;

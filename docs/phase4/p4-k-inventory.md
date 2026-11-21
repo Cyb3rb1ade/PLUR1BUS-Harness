@@ -692,6 +692,27 @@ knowledge file, media search and the engine forwards are K7b onward).
 - *Proof:* `fixtures/parity/jobs/{cron,user,rpc,system}.json` from `scripts/parity/export-jobs.ts` (the real TypeScript over real files,
   scripted clock, ids and ports) replayed by `jobs::{cron_vectors,user::vectors,system::vectors}`; 31 mutants, 29 killed and two explained.
 
+**K7b as built** (`crates/plur1bus-core/src/dreams/`, exposed as a library).
+
+- *Ported:* The dreaming ledger, the registered phase schedule, local-time windows, cron and importance triggers, catch-up,
+  crash reconciliation, capture consumption, bounded candidate observation, and promotion receipts. The learning pass covers
+  session selection, installation diagnostics, extraction, evidence verification, shadow scoring, resumable model calls,
+  finding revisions, prediction coverage, erasure, and explicit review and procedural handoff.
+- *Stores:* Dreaming and learning open each other's TypeScript and Rust files in the parity drivers. The learning driver also starts
+  from v2 and compares the legacy-decision and prediction backfills through v7. Learning payload resides separately from ledger
+  projections.
+- *Rights:* A job uses current person and agent rights. Candidate promotion requires the checked private scope and a receipt for
+  the requested agent and source ID. Learning rechecks target and evidence access around port calls. Effective tier C remains
+  in place. Explicit accepted effects have a prepared journal entry and require a scoped receipt.
+- *Known deviations:* The Rust scheduler returns work and deadlines to the host. Work survives as durable claims and conservative
+  model reservations. Read verification accepts canonical project-relative paths through the host. A retained historical finding
+  requires current evidence to reach review. The fixture scenarios and run ledger record the other guard differences.
+- *Ports for the flip:* Registry and principal resolution, caller timer and cancellation, model and job execution, scoped reads
+  and writes, audit, count-only notices, secure paths, and the idempotent skill bridge. CLI and RPC registrations, runtime
+  adapter composition, engine forwards, and log and diary presentation remain outside the library.
+- *Proof:* Vector replay from `fixtures/parity/dreams/` and `fixtures/parity/learn/`, plus the Mode B drivers below
+  `tests/core-parity/`. The final run ledger records native acceptance and mutation results.
+
 ## 9. K8: ACP (P4-71, without external agents)
 
 Sources: `acp/`: backend(197) core-permissions(152) failure(14) file-changes(123) framing(54) index(3) main(42) modes(13) permissions(103) protocol(19) server(277) text(62)

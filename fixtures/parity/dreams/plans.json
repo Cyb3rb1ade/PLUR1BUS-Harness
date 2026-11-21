@@ -1,0 +1,645 @@
+[
+  {
+    "breakerUntil": null,
+    "captures": 2,
+    "jobs": [
+      {
+        "name": "gc-run",
+        "needsLlm": false
+      },
+      {
+        "name": "rem-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "discover-semantic-links",
+        "needsLlm": false
+      },
+      {
+        "name": "light-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "consolidate-daily",
+        "needsLlm": true
+      },
+      {
+        "name": "other-job",
+        "needsLlm": true
+      }
+    ],
+    "name": "minimum corpus",
+    "now": 1762304400000,
+    "phase": "rem",
+    "result": {
+      "counts": {
+        "corpus": 2,
+        "minCorpus": 3
+      },
+      "idempotencyKey": "dfc95930f47bd0fb0b0f8781549d55c202f219468dc60740f4340d6a76c955f9",
+      "jobs": [
+        "rem-dream",
+        "discover-semantic-links"
+      ],
+      "reason": "min_corpus",
+      "wouldRun": false
+    },
+    "settings": {
+      "staggerWindowS": 1800,
+      "timezone": "UTC"
+    },
+    "times": [
+      {
+        "nextRunAt": 1762315581000,
+        "phase": "light",
+        "staggerOffsetS": 381,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762305733000,
+        "phase": "rem",
+        "staggerOffsetS": 433,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762316267000,
+        "phase": "deep",
+        "staggerOffsetS": 1067,
+        "timezone": "UTC"
+      }
+    ]
+  },
+  {
+    "breakerUntil": null,
+    "captures": 3,
+    "jobs": [
+      {
+        "name": "gc-run",
+        "needsLlm": false
+      },
+      {
+        "name": "rem-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "discover-semantic-links",
+        "needsLlm": false
+      },
+      {
+        "name": "light-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "consolidate-daily",
+        "needsLlm": true
+      },
+      {
+        "name": "other-job",
+        "needsLlm": true
+      }
+    ],
+    "name": "ready",
+    "now": 1762304400000,
+    "phase": "rem",
+    "result": {
+      "counts": {},
+      "idempotencyKey": "a8aa6c64f5a9caece57f89f6381a488aedc8d04c29afe33a16db82702b4f780c",
+      "jobs": [
+        "rem-dream",
+        "discover-semantic-links"
+      ],
+      "reason": null,
+      "wouldRun": true
+    },
+    "settings": {
+      "staggerWindowS": 1800,
+      "timezone": "UTC"
+    },
+    "times": [
+      {
+        "nextRunAt": 1762315581000,
+        "phase": "light",
+        "staggerOffsetS": 381,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762305733000,
+        "phase": "rem",
+        "staggerOffsetS": 433,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762316267000,
+        "phase": "deep",
+        "staggerOffsetS": 1067,
+        "timezone": "UTC"
+      }
+    ]
+  },
+  {
+    "breakerUntil": null,
+    "captures": 3,
+    "jobs": [],
+    "name": "no jobs",
+    "now": 1762304400000,
+    "phase": "deep",
+    "result": {
+      "counts": {},
+      "idempotencyKey": "93a223da3f1757a349c194e14225b377a6d35b9d42b20580da52d5e7afd2ec8f",
+      "jobs": [],
+      "reason": "no_jobs",
+      "wouldRun": false
+    },
+    "settings": {
+      "staggerWindowS": 1800,
+      "timezone": "UTC"
+    },
+    "times": [
+      {
+        "nextRunAt": 1762315581000,
+        "phase": "light",
+        "staggerOffsetS": 381,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762305733000,
+        "phase": "rem",
+        "staggerOffsetS": 433,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762316267000,
+        "phase": "deep",
+        "staggerOffsetS": 1067,
+        "timezone": "UTC"
+      }
+    ]
+  },
+  {
+    "breakerUntil": null,
+    "captures": 3,
+    "jobs": [
+      {
+        "name": "gc-run",
+        "needsLlm": false
+      },
+      {
+        "name": "rem-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "discover-semantic-links",
+        "needsLlm": false
+      },
+      {
+        "name": "light-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "consolidate-daily",
+        "needsLlm": true
+      },
+      {
+        "name": "other-job",
+        "needsLlm": true
+      }
+    ],
+    "name": "already claimed",
+    "now": 1762304400000,
+    "phase": "rem",
+    "result": {
+      "counts": {},
+      "idempotencyKey": "a8aa6c64f5a9caece57f89f6381a488aedc8d04c29afe33a16db82702b4f780c",
+      "jobs": [
+        "rem-dream",
+        "discover-semantic-links"
+      ],
+      "reason": "idempotent",
+      "wouldRun": false
+    },
+    "settings": {
+      "staggerWindowS": 1800,
+      "timezone": "UTC"
+    },
+    "times": [
+      {
+        "nextRunAt": 1762315581000,
+        "phase": "light",
+        "staggerOffsetS": 381,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762305733000,
+        "phase": "rem",
+        "staggerOffsetS": 433,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762316267000,
+        "phase": "deep",
+        "staggerOffsetS": 1067,
+        "timezone": "UTC"
+      }
+    ]
+  },
+  {
+    "breakerUntil": 1762304400001,
+    "captures": 3,
+    "jobs": [
+      {
+        "name": "gc-run",
+        "needsLlm": false
+      },
+      {
+        "name": "rem-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "discover-semantic-links",
+        "needsLlm": false
+      },
+      {
+        "name": "light-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "consolidate-daily",
+        "needsLlm": true
+      },
+      {
+        "name": "other-job",
+        "needsLlm": true
+      }
+    ],
+    "name": "breaker open",
+    "now": 1762304400000,
+    "phase": "deep",
+    "result": {
+      "counts": {},
+      "idempotencyKey": "93a223da3f1757a349c194e14225b377a6d35b9d42b20580da52d5e7afd2ec8f",
+      "jobs": [
+        "consolidate-daily",
+        "gc-run"
+      ],
+      "reason": "breaker_open",
+      "wouldRun": false
+    },
+    "settings": {
+      "staggerWindowS": 1800,
+      "timezone": "UTC"
+    },
+    "times": [
+      {
+        "nextRunAt": 1762315581000,
+        "phase": "light",
+        "staggerOffsetS": 381,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762305733000,
+        "phase": "rem",
+        "staggerOffsetS": 433,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762316267000,
+        "phase": "deep",
+        "staggerOffsetS": 1067,
+        "timezone": "UTC"
+      }
+    ]
+  },
+  {
+    "breakerUntil": 1762304400000,
+    "captures": 3,
+    "jobs": [
+      {
+        "name": "gc-run",
+        "needsLlm": false
+      },
+      {
+        "name": "rem-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "discover-semantic-links",
+        "needsLlm": false
+      },
+      {
+        "name": "light-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "consolidate-daily",
+        "needsLlm": true
+      },
+      {
+        "name": "other-job",
+        "needsLlm": true
+      }
+    ],
+    "name": "breaker expires at the boundary",
+    "now": 1762304400000,
+    "phase": "deep",
+    "result": {
+      "counts": {},
+      "idempotencyKey": "93a223da3f1757a349c194e14225b377a6d35b9d42b20580da52d5e7afd2ec8f",
+      "jobs": [
+        "consolidate-daily",
+        "gc-run"
+      ],
+      "reason": null,
+      "wouldRun": true
+    },
+    "settings": {
+      "staggerWindowS": 1800,
+      "timezone": "UTC"
+    },
+    "times": [
+      {
+        "nextRunAt": 1762315581000,
+        "phase": "light",
+        "staggerOffsetS": 381,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762305733000,
+        "phase": "rem",
+        "staggerOffsetS": 433,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762316267000,
+        "phase": "deep",
+        "staggerOffsetS": 1067,
+        "timezone": "UTC"
+      }
+    ]
+  },
+  {
+    "breakerUntil": 1762304400001,
+    "captures": 1,
+    "jobs": [
+      {
+        "name": "gc-run",
+        "needsLlm": false
+      },
+      {
+        "name": "rem-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "discover-semantic-links",
+        "needsLlm": false
+      },
+      {
+        "name": "light-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "consolidate-daily",
+        "needsLlm": true
+      },
+      {
+        "name": "other-job",
+        "needsLlm": true
+      }
+    ],
+    "name": "light ignores sweep breaker",
+    "now": 1762304400000,
+    "phase": "light",
+    "result": {
+      "counts": {},
+      "idempotencyKey": "45981aa5d39456ab49de9c8058e9875130f897d2fcfba75a89d2401780c951da",
+      "jobs": [
+        "light-dream"
+      ],
+      "reason": null,
+      "wouldRun": true
+    },
+    "settings": {
+      "staggerWindowS": 1800,
+      "timezone": "UTC"
+    },
+    "times": [
+      {
+        "nextRunAt": 1762315581000,
+        "phase": "light",
+        "staggerOffsetS": 381,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762305733000,
+        "phase": "rem",
+        "staggerOffsetS": 433,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762316267000,
+        "phase": "deep",
+        "staggerOffsetS": 1067,
+        "timezone": "UTC"
+      }
+    ]
+  },
+  {
+    "breakerUntil": null,
+    "captures": 1,
+    "jobs": [
+      {
+        "name": "gc-run",
+        "needsLlm": false
+      },
+      {
+        "name": "rem-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "discover-semantic-links",
+        "needsLlm": false
+      },
+      {
+        "name": "light-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "consolidate-daily",
+        "needsLlm": true
+      },
+      {
+        "name": "other-job",
+        "needsLlm": true
+      }
+    ],
+    "name": "local date before UTC midnight",
+    "now": 1762304400000,
+    "phase": "light",
+    "result": {
+      "counts": {},
+      "idempotencyKey": "df8f22e2695ac2491fe2400a4ac699cd479118186b5a44075e2aefe2b03d3ba6",
+      "jobs": [
+        "light-dream"
+      ],
+      "reason": null,
+      "wouldRun": true
+    },
+    "settings": {
+      "staggerWindowS": 1800,
+      "timezone": "America/Los_Angeles"
+    },
+    "times": [
+      {
+        "nextRunAt": 1762315581000,
+        "phase": "light",
+        "staggerOffsetS": 381,
+        "timezone": "America/Los_Angeles"
+      },
+      {
+        "nextRunAt": 1762334533000,
+        "phase": "rem",
+        "staggerOffsetS": 433,
+        "timezone": "America/Los_Angeles"
+      },
+      {
+        "nextRunAt": 1762345067000,
+        "phase": "deep",
+        "staggerOffsetS": 1067,
+        "timezone": "America/Los_Angeles"
+      }
+    ]
+  },
+  {
+    "breakerUntil": null,
+    "captures": 3,
+    "jobs": [
+      {
+        "name": "gc-run",
+        "needsLlm": false
+      },
+      {
+        "name": "rem-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "discover-semantic-links",
+        "needsLlm": false
+      },
+      {
+        "name": "light-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "consolidate-daily",
+        "needsLlm": true
+      },
+      {
+        "name": "other-job",
+        "needsLlm": true
+      }
+    ],
+    "name": "daylight saving schedules",
+    "now": 1741503300000,
+    "phase": "deep",
+    "result": {
+      "counts": {},
+      "idempotencyKey": "1fd127516a4aee8050403f7ac28181510c68606ee6572764bf050210e6f1fc28",
+      "jobs": [
+        "consolidate-daily",
+        "gc-run"
+      ],
+      "reason": null,
+      "wouldRun": true
+    },
+    "settings": {
+      "staggerWindowS": 1800,
+      "timezone": "America/New_York"
+    },
+    "times": [
+      {
+        "nextRunAt": 1741507581000,
+        "phase": "light",
+        "staggerOffsetS": 381,
+        "timezone": "America/New_York"
+      },
+      {
+        "nextRunAt": 1741584133000,
+        "phase": "rem",
+        "staggerOffsetS": 433,
+        "timezone": "America/New_York"
+      },
+      {
+        "nextRunAt": 1741508267000,
+        "phase": "deep",
+        "staggerOffsetS": 1067,
+        "timezone": "America/New_York"
+      }
+    ]
+  },
+  {
+    "breakerUntil": null,
+    "captures": 3,
+    "jobs": [
+      {
+        "name": "gc-run",
+        "needsLlm": false
+      },
+      {
+        "name": "rem-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "discover-semantic-links",
+        "needsLlm": false
+      },
+      {
+        "name": "light-dream",
+        "needsLlm": true
+      },
+      {
+        "name": "consolidate-daily",
+        "needsLlm": true
+      },
+      {
+        "name": "other-job",
+        "needsLlm": true
+      }
+    ],
+    "name": "unsupported default timezone",
+    "now": 1762304400000,
+    "phase": "rem",
+    "result": {
+      "counts": {},
+      "idempotencyKey": "a8aa6c64f5a9caece57f89f6381a488aedc8d04c29afe33a16db82702b4f780c",
+      "jobs": [
+        "rem-dream",
+        "discover-semantic-links"
+      ],
+      "reason": null,
+      "wouldRun": true
+    },
+    "settings": {
+      "staggerWindowS": 0,
+      "timezone": "invalid-zone"
+    },
+    "times": [
+      {
+        "nextRunAt": 1762315200000,
+        "phase": "light",
+        "staggerOffsetS": 0,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762305300000,
+        "phase": "rem",
+        "staggerOffsetS": 0,
+        "timezone": "UTC"
+      },
+      {
+        "nextRunAt": 1762315200000,
+        "phase": "deep",
+        "staggerOffsetS": 0,
+        "timezone": "UTC"
+      }
+    ]
+  }
+]

@@ -1064,3 +1064,158 @@ describe("coding parity vectors (P4-K K6b, plan P4-50)", () => {
     });
   }
 });
+
+describe("dreaming candidate vectors (P4-K K7b, plan P4-51)", () => {
+  it("the recorded candidate guards are current and under 1 MiB", async () => {
+    const { buildDreamCandidateVectors } = await import("./export-dream-candidates.ts");
+    const { candidates } = buildDreamCandidateVectors();
+    const actual = readFileSync(fixturePath("dreams", "candidates"), "utf8");
+    assert.equal(actual, fixtureText(candidates), "dreams/candidates.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("dreaming store vectors (P4-K K7b, plan P4-51)", () => {
+  it("the recorded SQLite transitions are current and under 1 MiB", async () => {
+    const { buildDreamStoreVectors } = await import("./export-dream-store.ts");
+    const { store } = buildDreamStoreVectors();
+    const actual = readFileSync(fixturePath("dreams", "store"), "utf8");
+    assert.equal(actual, fixtureText(store), "dreams/store.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("dreaming schedule plans (P4-K K7b, plan P4-51)", () => {
+  it("the recorded plans are current and under 1 MiB", async () => {
+    const { buildDreamPlanVectors } = await import("./export-dream-plans.ts");
+    const actual = readFileSync(fixturePath("dreams", "plans"), "utf8");
+    assert.equal(actual, fixtureText(buildDreamPlanVectors().plans), "dreams/plans.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("dreaming run outcomes (P4-K K7b, plan P4-51)", () => {
+  it("the recorded run outcomes are current and under 1 MiB", async () => {
+    const { buildDreamRunVectors } = await import("./export-dream-runs.ts");
+    const actual = readFileSync(fixturePath("dreams", "runs"), "utf8");
+    assert.equal(actual, fixtureText((await buildDreamRunVectors()).runs), "dreams/runs.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("learning transcript selection (P4-K K7b, plan P4-51)", () => {
+  it("the recorded selections are current and under 1 MiB", async () => {
+    const { buildLearnSelectionVectors } = await import("./export-learn-selection.ts");
+    const actual = readFileSync(fixturePath("learn", "selection"), "utf8");
+    assert.equal(actual, fixtureText(buildLearnSelectionVectors().selection), "learn/selection.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("dreaming lifecycle (P4-K K7b, plan P4-51)", () => {
+  it("the recorded lifecycle is current and under 1 MiB", async () => {
+    const { buildDreamLifecycleVectors } = await import("./export-dream-lifecycle.ts");
+    const actual = readFileSync(fixturePath("dreams", "lifecycle"), "utf8");
+    assert.equal(actual, fixtureText((await buildDreamLifecycleVectors()).lifecycle), "dreams/lifecycle.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("learning run store (P4-K K7b, plan P4-51)", () => {
+  it("the recorded learn store transitions are current and under 1 MiB", async () => {
+    const { buildLearnStoreVectors } = await import("./export-learn-store.ts");
+    const actual = readFileSync(fixturePath("learn", "store"), "utf8");
+    assert.equal(actual, fixtureText(buildLearnStoreVectors().store), "learn/store.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("dreaming promotion receipts (P4-K K7b, plan P4-51)", () => {
+  it("the recorded promotion receipts are current and under 1 MiB", async () => {
+    const { buildDreamPromotionVectors } = await import("./export-dream-promotions.ts");
+    const actual = readFileSync(fixturePath("dreams", "promotions"), "utf8");
+    assert.equal(actual, fixtureText((await buildDreamPromotionVectors()).promotions), "dreams/promotions.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("learning finding extraction and shadow scoring (P4-K K7b, plan P4-51)", () => {
+  it("the recorded learning rules are current and under 1 MiB", async () => {
+    const { buildLearnFindingVectors } = await import("./export-learn-findings.ts");
+    const actual = readFileSync(fixturePath("learn", "findings"), "utf8");
+    assert.equal(actual, fixtureText(buildLearnFindingVectors().findings), "learn/findings.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("learning finding lifecycle (P4-K K7b, plan P4-51)", () => {
+  it("the recorded decisions and predictions are current and under 1 MiB", async () => {
+    const { buildLearnFindingStoreVectors } = await import("./export-learn-finding-store.ts");
+    const actual = readFileSync(fixturePath("learn", "finding-store"), "utf8");
+    assert.equal(actual, fixtureText(buildLearnFindingStoreVectors()["finding-store"]), "learn/finding-store.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("learning evidence review (P4-K K7b, plan P4-51)", () => {
+  it("the recorded review rules are current and under 1 MiB", async () => {
+    const { buildLearnReviewVectors } = await import("./export-learn-review.ts");
+    const actual = readFileSync(fixturePath("learn", "review"), "utf8");
+    assert.equal(actual, fixtureText((await buildLearnReviewVectors()).review), "learn/review.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("learning runs (P4-K K7b, plan P4-51)", () => {
+  it("the recorded run workflow is current and under 1 MiB", async () => {
+    const { buildLearnRunVectors } = await import("./export-learn-runs.ts");
+    const actual = readFileSync(fixturePath("learn", "runs"), "utf8");
+    assert.equal(actual, fixtureText((await buildLearnRunVectors()).runs), "learn/runs.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("content-free installation learning (P4-K K7b, plan P4-51)", () => {
+  it("the recorded installation rules are current and under 1 MiB", async () => {
+    const { buildLearnInstallationVectors } = await import("./export-learn-installation.ts");
+    const actual = readFileSync(fixturePath("learn", "installation"), "utf8");
+    assert.equal(actual, fixtureText(buildLearnInstallationVectors().installation), "learn/installation.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("explicit learning decisions (P4-K K7b, plan P4-51)", () => {
+  it("the recorded review actions are current and under 1 MiB", async () => {
+    const { buildLearnDecisionVectors } = await import("./export-learn-decisions.ts");
+    const actual = readFileSync(fixturePath("learn", "decisions"), "utf8");
+    assert.equal(actual, fixtureText((await buildLearnDecisionVectors()).decisions), "learn/decisions.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("learning settings and UTC schedules (P4-K K7b, plan P4-51)", () => {
+  it("the recorded settings are current and under 1 MiB", async () => {
+    const { buildLearnConfigVectors } = await import("./export-learn-config.ts");
+    const actual = readFileSync(fixturePath("learn", "config"), "utf8");
+    assert.equal(actual, fixtureText(buildLearnConfigVectors().config), "learn/config.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("procedural learning handoff (P4-K K7b, plan P4-51)", () => {
+  it("the recorded handoff is current and under 1 MiB", async () => {
+    const { buildLearnHandoffVectors } = await import("./export-learn-handoff.ts");
+    const actual = readFileSync(fixturePath("learn", "handoff"), "utf8");
+    assert.equal(actual, fixtureText((await buildLearnHandoffVectors()).handoff), "learn/handoff.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("dreaming candidate source (P4-K K7b, plan P4-51)", () => {
+  it("the recorded candidate source is current and under 1 MiB", async () => {
+    const { buildDreamSourceVectors } = await import("./export-dream-source.ts");
+    const actual = readFileSync(fixturePath("dreams", "source"), "utf8");
+    assert.equal(actual, fixtureText((await buildDreamSourceVectors()).source), "dreams/source.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});

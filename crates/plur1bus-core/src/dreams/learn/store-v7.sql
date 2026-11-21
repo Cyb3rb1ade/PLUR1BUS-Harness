@@ -1,0 +1,3 @@
+CREATE TABLE learn_prediction(finding_id TEXT NOT NULL REFERENCES learn_finding(id),revision INTEGER NOT NULL,accepted_at INTEGER NOT NULL,not_before INTEGER NOT NULL,signal_hash TEXT NOT NULL,status TEXT NOT NULL,closed_at INTEGER,PRIMARY KEY(finding_id,revision));
+          CREATE TABLE learn_prediction_session(finding_id TEXT NOT NULL,revision INTEGER NOT NULL,session_id TEXT NOT NULL,at INTEGER NOT NULL,recurred INTEGER NOT NULL,PRIMARY KEY(finding_id,revision,session_id));
+          CREATE TABLE learn_prediction_coverage(finding_id TEXT NOT NULL,revision INTEGER NOT NULL,start INTEGER NOT NULL,end INTEGER NOT NULL,PRIMARY KEY(finding_id,revision,start,end));

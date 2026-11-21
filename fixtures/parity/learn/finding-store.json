@@ -1,0 +1,311 @@
+{
+  "expected": {
+    "action": {
+      "receipt": {
+        "operation": "memory.importText.apply",
+        "runId": "apply-fixture"
+      },
+      "state": "completed"
+    },
+    "actionStarted": {
+      "receipt": {},
+      "state": "started"
+    },
+    "afterPrediction": {
+      "acceptedAt": 24,
+      "direction": "rarer",
+      "notBefore": 1209600024,
+      "recurrences": 0,
+      "retireProposed": false,
+      "sessions": 0,
+      "signalHash": "2b34b3d7162ac398cd2730c7155aa5d3a2da7530120683294eb2c97cc2e0f05d",
+      "status": "insufficient-data"
+    },
+    "confirmed": {
+      "acceptedAt": 24,
+      "direction": "rarer",
+      "notBefore": 1209600024,
+      "recurrences": 0,
+      "retireProposed": false,
+      "sessions": 10,
+      "signalHash": "2b34b3d7162ac398cd2730c7155aa5d3a2da7530120683294eb2c97cc2e0f05d",
+      "status": "confirmed"
+    },
+    "decisions": [
+      {
+        "findingId": "0c504cf7cc923b56517a26943d6af340749a67505063baf39944b01cb1a0fa7e",
+        "outcome": "rejected",
+        "receipt": {}
+      },
+      {
+        "findingId": "ca1a4edb4c608aeaacaf1a4d6ef155ef6a9aafffb1378041c6e1e424c1428efa",
+        "outcome": "accepted",
+        "receipt": {
+          "operation": "memory.importText.apply",
+          "runId": "apply-fixture"
+        }
+      }
+    ],
+    "initial": [
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "reviewed",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "0c504cf7cc923b56517a26943d6af340749a67505063baf39944b01cb1a0fa7e",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "528618d8080e3a474b0e9463a1286aaa97e2c6707c107edb9ce212a17daf75f5",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "text": "reviewed",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "kept",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "ca1a4edb4c608aeaacaf1a4d6ef155ef6a9aafffb1378041c6e1e424c1428efa",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "528618d8080e3a474b0e9463a1286aaa97e2c6707c107edb9ce212a17daf75f5",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "text": "kept",
+        "verify": "not-applicable"
+      }
+    ],
+    "initialPrediction": {
+      "acceptedAt": 24,
+      "direction": "rarer",
+      "notBefore": 1209600024,
+      "recurrences": 0,
+      "retireProposed": false,
+      "sessions": 0,
+      "signalHash": "2b34b3d7162ac398cd2730c7155aa5d3a2da7530120683294eb2c97cc2e0f05d",
+      "status": "insufficient-data"
+    },
+    "reopenedFinding": {
+      "agreement": "unknown",
+      "change": "add",
+      "contentKey": "reviewed",
+      "desiredTier": "C",
+      "effectiveTier": "C",
+      "evidence": [
+        {
+          "agentId": "alpha",
+          "day": "1970-01-01",
+          "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+          "sessionId": "s1",
+          "source": "message",
+          "sourceId": "msg1",
+          "trust": "person",
+          "turnId": "t1"
+        },
+        {
+          "agentId": "alpha",
+          "day": "1970-01-02",
+          "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+          "sessionId": "s2",
+          "source": "message",
+          "sourceId": "msg2",
+          "trust": "person",
+          "turnId": "t1"
+        }
+      ],
+      "id": "0c504cf7cc923b56517a26943d6af340749a67505063baf39944b01cb1a0fa7e",
+      "kind": "knowledge",
+      "models": [],
+      "prevalence": {
+        "agents": 1,
+        "days": 2,
+        "persons": 1,
+        "sessions": 2,
+        "total": 2
+      },
+      "previousDecision": {
+        "at": 25,
+        "hash": "8b0efe57de329f30c0a3858c8f90a8eb94e6b25b9fe65dbcad0a7ec64a51fda5",
+        "outcome": "rejected",
+        "revision": 1
+      },
+      "promptVersion": "learn-2",
+      "revision": 2,
+      "runId": "70869c52ac22747d761098ab5c420331af1733cf347585440f49132f488c026a",
+      "score": 0,
+      "skeptic": "not-required",
+      "status": "pending",
+      "target": {
+        "agentId": "alpha",
+        "owner": "ada",
+        "scope": "agent"
+      },
+      "text": "reviewed",
+      "verify": "not-applicable"
+    },
+    "repeated": 0,
+    "stable": [
+      {
+        "hash": "014f039ee20eceacc08e17849001c83bbfc553fd05c1eb45e8272519c4986c99",
+        "id": "0c504cf7cc923b56517a26943d6af340749a67505063baf39944b01cb1a0fa7e",
+        "status": "pending"
+      },
+      {
+        "hash": "0f1fd10a6c6adad38ea93ae539078ba5007adb52076d83069ecf401ce9379049",
+        "id": "ca1a4edb4c608aeaacaf1a4d6ef155ef6a9aafffb1378041c6e1e424c1428efa",
+        "status": "accepted"
+      }
+    ],
+    "summaries": [],
+    "withdrawn": {
+      "agreement": "unknown",
+      "change": "add",
+      "contentKey": "4cb7a5ce5c08a57513438c0de18bb935ec68aba9f3871778a6471373aee1c301",
+      "desiredTier": "C",
+      "effectiveTier": "C",
+      "evidence": [],
+      "id": "ca1a4edb4c608aeaacaf1a4d6ef155ef6a9aafffb1378041c6e1e424c1428efa",
+      "kind": "knowledge",
+      "models": [],
+      "prevalence": {
+        "agents": 1,
+        "days": 1,
+        "persons": 1,
+        "sessions": 1,
+        "total": 1
+      },
+      "promptVersion": "learn-2",
+      "revision": 1,
+      "runId": "528618d8080e3a474b0e9463a1286aaa97e2c6707c107edb9ce212a17daf75f5",
+      "score": 0,
+      "skeptic": "not-required",
+      "status": "withdrawn",
+      "target": {
+        "agentId": "alpha",
+        "owner": "ada",
+        "scope": "agent"
+      },
+      "text": "",
+      "verify": "not-applicable"
+    }
+  },
+  "keep": {
+    "first": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"contentKey\":\"reviewed\",\"text\":\"reviewed\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"0c504cf7cc923b56517a26943d6af340749a67505063baf39944b01cb1a0fa7e\",\"runId\":\"528618d8080e3a474b0e9463a1286aaa97e2c6707c107edb9ce212a17daf75f5\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"pending\"},{\"kind\":\"knowledge\",\"change\":\"add\",\"contentKey\":\"kept\",\"text\":\"kept\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"ca1a4edb4c608aeaacaf1a4d6ef155ef6a9aafffb1378041c6e1e424c1428efa\",\"runId\":\"528618d8080e3a474b0e9463a1286aaa97e2c6707c107edb9ce212a17daf75f5\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"pending\"}]",
+    "reopened": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"contentKey\":\"reviewed\",\"text\":\"reviewed\",\"evidence\":[{\"sessionId\":\"s2\",\"turnId\":\"t1\",\"sourceId\":\"msg2\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-02\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"0c504cf7cc923b56517a26943d6af340749a67505063baf39944b01cb1a0fa7e\",\"runId\":\"70869c52ac22747d761098ab5c420331af1733cf347585440f49132f488c026a\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"pending\"}]",
+    "repeated": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"contentKey\":\"reviewed\",\"text\":\"reviewed\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"0c504cf7cc923b56517a26943d6af340749a67505063baf39944b01cb1a0fa7e\",\"runId\":\"b057270d740951c2aa648217d8a269d826e3dcf05276c13fed5ec22e3fbb775c\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"pending\"},{\"kind\":\"knowledge\",\"change\":\"add\",\"contentKey\":\"kept\",\"text\":\"kept\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"ca1a4edb4c608aeaacaf1a4d6ef155ef6a9aafffb1378041c6e1e424c1428efa\",\"runId\":\"b057270d740951c2aa648217d8a269d826e3dcf05276c13fed5ec22e3fbb775c\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"pending\"}]"
+  },
+  "observations": [
+    {
+      "at": 100,
+      "sessionId": "observed-0",
+      "signals": []
+    },
+    {
+      "at": 101,
+      "sessionId": "observed-1",
+      "signals": []
+    },
+    {
+      "at": 102,
+      "sessionId": "observed-2",
+      "signals": []
+    },
+    {
+      "at": 103,
+      "sessionId": "observed-3",
+      "signals": []
+    },
+    {
+      "at": 104,
+      "sessionId": "observed-4",
+      "signals": []
+    },
+    {
+      "at": 105,
+      "sessionId": "observed-5",
+      "signals": []
+    },
+    {
+      "at": 106,
+      "sessionId": "observed-6",
+      "signals": []
+    },
+    {
+      "at": 107,
+      "sessionId": "observed-7",
+      "signals": []
+    },
+    {
+      "at": 108,
+      "sessionId": "observed-8",
+      "signals": []
+    },
+    {
+      "at": 109,
+      "sessionId": "observed-9",
+      "signals": []
+    }
+  ],
+  "target": {
+    "agentId": "alpha",
+    "owner": "ada",
+    "scope": "agent"
+  }
+}
