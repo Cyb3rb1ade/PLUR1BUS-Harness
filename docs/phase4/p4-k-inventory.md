@@ -1090,6 +1090,8 @@ new schema version 1; the helper needs no change (the store is created by Rust, 
   through the port `CalibrationRecords`. **K11-R1:** audit and a durable pending adoption precede the calibration append.
   The host opens with that same calibration port so an absent version is discarded and an exact written version is completed.
   A conflicting version is refused. Version 1 adoptions migrate as completed records.
+  **K11-R2:** scoped person tokens need `decision.baseline.adopt` for a baseline change. Replay alone cannot
+  authorize it. There is no RPC method for adoption. The eventual host still needs to wire audit and calibration.
 - *Proof:* no vectors (there is no TypeScript); the marker test (no marker in the store file, its WAL, any error or `Debug` text, the
   report), same receipts same report (repeated, and written and asked in another order), one test per role and kind for each of the
   three actions, both retention limits at their boundaries, the interrupted adoption, and 31 mutations (ledger of K11).
