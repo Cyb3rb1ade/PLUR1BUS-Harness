@@ -275,8 +275,21 @@ pub(crate) fn rounded_retry_ms(seconds: Option<f64>) -> u64 {
     ms.round().clamp(1_000., 300_000.) as u64
 }
 
+#[cfg(any(feature = "telegram", feature = "discord"))]
 pub(crate) fn number(value: &serde_json::Value) -> Option<f64> {
     value
         .as_f64()
         .or_else(|| value.as_str().and_then(|s| s.trim().parse().ok()))
+}
+
+#[cfg(any(feature = "telegram", feature = "discord"))]
+pub(crate) fn truncate_utf16(value: &mut String, max: usize) {
+    let mut units = 0;
+    for (idx, ch) in value.char_indices() {
+        units += ch.len_utf16();
+        if units > max {
+            value.truncate(idx);
+            break;
+        }
+    }
 }

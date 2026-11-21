@@ -4,20 +4,13 @@
 use plur1bus_channels::http::{Http, HttpPorts};
 use plur1bus_channels::telegram::Telegram;
 use plur1bus_wire_fixtures::{load_fixture, FakeServer};
-use serde_json::{json, value::RawValue, Value};
+use serde_json::{json, value::RawValue};
 use std::net::SocketAddr;
 use url::Url;
 
 const MARKER: &str = "synthetic-telegram-marker";
 
-struct Loopback(SocketAddr);
-
-impl HttpPorts for Loopback {
-    fn pin(&self, endpoint: &Url) -> Option<SocketAddr> {
-        (endpoint.host_str() == Some("127.0.0.1") && endpoint.port() == Some(self.0.port()))
-            .then_some(self.0)
-    }
-}
+mod support;
 
 #[test]
 fn replays_telegram_api_requests_and_results() {
@@ -26,16 +19,9 @@ fn replays_telegram_api_requests_and_results() {
     assert_eq!(cases.len(), 13);
     for case in cases {
         let name = &case["name"];
-        let exchanges: Value = serde_json::from_str(
-            &case["exchanges"]
-                .to_string()
-                .replace("[FIXTURE:TELEGRAM]", MARKER),
-        )
-        .unwrap();
-        let server = FakeServer::start(&json!({"transport": "http", "exchanges": exchanges}));
-        let ports = Loopback(server.addr);
-        let base = Url::parse(&format!("http://{}/v1", server.addr)).unwrap();
-        let api = Telegram::new(Http::new(&ports, true), base, MARKER, &[]).unwrap();
+        let replay = support::Replay::start(case, &[("[FIXTURE:TELEGRAM]", MARKER)]);
+        let (http, base) = replay.connect();
+        let api = Telegram::new(http, base, MARKER, &[]).unwrap();
         let input = &case["input"];
         let observed = match input["op"].as_str().unwrap() {
             "updates" => api.get_updates(input["offset"].as_u64(), input["wait"].as_u64().unwrap()),
@@ -61,18 +47,7 @@ fn replays_telegram_api_requests_and_results() {
         );
         assert_eq!(observed, case["expected"], "{name}");
 
-        let received = server.received();
-        let expected = exchanges.as_array().unwrap();
-        assert_eq!(received.len(), expected.len(), "{name}");
-        for (request, expected) in received.iter().zip(expected) {
-            let expected = &expected["request"];
-            assert_eq!(request["method"], expected["method"], "{name}");
-            assert_eq!(request["path"], expected["path"], "{name}");
-            assert_eq!(request["body"], expected["bodyText"], "{name}");
-            for (key, value) in expected["headers"].as_object().unwrap() {
-                assert_eq!(&request["headers"][key], value, "{name} {key}");
-            }
-        }
+        replay.verify(name);
     }
 }
 

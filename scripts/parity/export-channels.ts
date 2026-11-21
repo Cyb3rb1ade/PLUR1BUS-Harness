@@ -1,5 +1,7 @@
 // W2. Record the production channel clients against local protocol peers.
 import { fileURLToPath } from "node:url";
+import { DiscordApi, DiscordApiError, type RequestSpec } from "../../packages/channels-discord/src/api.ts";
+import { SlackApi, SlackApiError } from "../../packages/channels-slack/src/api.ts";
 import { TelegramApi, TelegramApiError } from "../../packages/channels-telegram/src/api.ts";
 import { startStub } from "../../packages/providers/test/helpers/stub.ts";
 import { exporterMain } from "./lib.mjs";
@@ -102,8 +104,92 @@ async function telegram() {
   return { schema, exporter, source: "packages/channels-telegram/src/api.ts", transport: "http", scenarios };
 }
 
+async function discord() {
+  const token = "synthetic-discord-marker";
+  const tokenRoute = "synthetic-discord-interaction-marker";
+  const path = "/channels/123456/messages/654321";
+  const sources = [
+    { name: "message", input: { method: "PATCH", path, json: '{"content":"Grüße 👋","flags":4}' },
+      responses: [{ status: 200, body: { id: "654321", content: "Grüße 👋" } }] },
+    { name: "token-route", input: { method: "POST", path: "/interactions/123456/[FIXTURE:INTERACTION]/callback", tokenRoute: true, json: '{"type":5}' },
+      responses: [{ status: 204 }] },
+    { name: "bad-json", input: { method: "GET", path }, responses: [{ status: 200, chunks: ["["] }] },
+    { name: "permission", input: { method: "GET", path }, responses: [{ status: 403,
+      body: { code: 50013, message: `permission denied for Bot ${token}` } }] },
+    { name: "rate-limited", input: { method: "GET", path }, responses: [{ status: 429, headers: { "retry-after": "0" } }] },
+    { name: "retry-limits", input: { method: "GET", path, retries: 2 }, responses: [
+      { status: 429, headers: { "x-ratelimit-global": "true" }, body: { retry_after: 1.2345, global: true } },
+      { status: 503 }, { status: 200, body: { id: "654321" } },
+    ] },
+    { name: "manual-redirect", input: { method: "GET", path },
+      responses: [{ status: 302, headers: { "location": "/unused-location" } }] },
+  ] satisfies Array<Exchange & { input: { method: RequestSpec["method"]; path: string; json?: string; retries?: number; tokenRoute?: boolean } }>;
+  const scenarios = [];
+  for (const { name, input, responses } of sources) {
+    const waits: number[] = [];
+    let now = 100_000;
+    const scrub = (s: string) => s.replaceAll(token, "[FIXTURE:DISCORD]").replaceAll(tokenRoute, "[FIXTURE:INTERACTION]");
+    const recorded = await recordHttp({ name, input, responses }, async (baseUrl) => {
+      const api = new DiscordApi({
+        baseUrl, token, now: () => now, random: () => 0.5, maxRetries: input.retries ?? 0,
+        sleep: async (ms) => { waits.push(ms); now += ms; },
+      });
+      return api.request({
+        method: input.method, path: input.path.replace("[FIXTURE:INTERACTION]", tokenRoute),
+        json: input.json ? JSON.parse(input.json) : undefined, signal, tokenRoute: input.tokenRoute,
+      });
+    }, DiscordApiError, scrub);
+    scenarios.push({ ...recorded, waits });
+  }
+  return { schema, exporter, source: "packages/channels-discord/src/api.ts", transport: "http", scenarios };
+}
+
+async function slack() {
+  const bot = "synthetic-slack-marker";
+  const app = "synthetic-slack-app-marker";
+  const first = "/private/first";
+  const last = "/private/last";
+  const sources = [
+    { name: "open", input: { op: "open" }, responses: [{ status: 200, body: { ok: true, url: "wss://fixture.invalid/socket" } }] },
+    { name: "call", input: { op: "call", method: "chat.postMessage", json: '{"channel":"C123","text":"Grüße 👋","unfurl_links":false}' },
+      responses: [{ status: 200, body: { ok: true, ts: "1.23" } }] },
+    { name: "upload-ticket", input: { op: "form", method: "files.getUploadURLExternal", json: '{"filename":"a b+ü.txt","length":12}' },
+      responses: [{ status: 200, body: { ok: true, file_id: "F123" } }] },
+    { name: "invalid-auth", input: { op: "call", method: "auth.test" }, responses: [{ status: 200, body: { ok: false, error: "invalid_auth" } }] },
+    { name: "invalid-scope", input: { op: "call", method: "auth.test" }, responses: [{ status: 200, body: { ok: false, error: "missing_scope" } }] },
+    { name: "bad-code", input: { op: "call", method: "auth.test" }, responses: [{ status: 400, body: { ok: false, error: "untrusted mixed case" } }] },
+    { name: "limit", input: { op: "call", method: "auth.test" }, responses: [{ status: 200, headers: { "retry-after": "1.2349" }, body: { ok: false, error: "ratelimited" } }] },
+    { name: "download-hop", input: { op: "download", path: first, limit: 6 }, responses: [
+      { status: 302, headers: { location: last } },
+      { status: 200, headers: { "content-type": "TEXT/PLAIN; charset=utf-8" }, chunks: ["ab", "cdef"] },
+    ] },
+    { name: "download-foreign", input: { op: "download", path: first, limit: 6 },
+      responses: [{ status: 302, headers: { location: "https://fixture.invalid/file" } }] },
+    { name: "download-sign-in", input: { op: "download", path: first, limit: 6 },
+      responses: [{ status: 200, headers: { "content-type": "text/html" }, chunks: ["<form>"] }] },
+    { name: "download-cap", input: { op: "download", path: first, limit: 5 },
+      responses: [{ status: 200, headers: { "content-type": "text/plain" }, chunks: ["ab", "cdef"] }] },
+    { name: "upload-bytes", input: { op: "bytes", path: last, text: "file content 👋" }, responses: [{ status: 200 }] },
+  ];
+  const scenarios = [];
+  for (const { name, input, responses } of sources) {
+    scenarios.push(await recordHttp({ name, input, responses }, async (baseUrl) => {
+      const api = new SlackApi({ baseUrl, botToken: bot, appToken: app });
+      if (input.op === "open") return api.openSocketUrl(signal);
+      if (input.op === "call" || input.op === "form") return api.call(
+        input.method!, JSON.parse(input.json ?? "{}"), signal, { form: input.op === "form" },
+      );
+      const target = new URL(input.path!, baseUrl).href;
+      if (input.op === "bytes") return api.uploadBytes(target, Buffer.from(input.text!), signal);
+      const file = await api.download(target, input.limit!, signal);
+      return { mimeType: file.mimeType, data: Array.from(file.data) };
+    }, SlackApiError, (s) => s.replaceAll(app, "[FIXTURE:SLACK_APP]").replaceAll(bot, "[FIXTURE:SLACK_BOT]")));
+  }
+  return { schema, exporter, source: "packages/channels-slack/src/api.ts", transport: "http", scenarios };
+}
+
 export async function buildChannelFixtures(): Promise<Record<string, unknown>> {
-  return { "telegram-api": await telegram() };
+  return { "telegram-api": await telegram(), "discord-api": await discord(), "slack-api": await slack() };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

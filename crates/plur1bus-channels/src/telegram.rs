@@ -270,7 +270,7 @@ impl<'a> Telegram<'a> {
         if let Some(regex) = &*TOKEN_SHAPE {
             value = regex.replace_all(&value, "[redacted]").into_owned();
         }
-        truncate_utf16(&mut value, 200);
+        http::truncate_utf16(&mut value, 200);
         value
     }
 }
@@ -304,15 +304,4 @@ fn lowercase_hex(value: &str) -> String {
         }
     }
     output
-}
-
-fn truncate_utf16(value: &mut String, max: usize) {
-    let mut units = 0;
-    for (idx, ch) in value.char_indices() {
-        units += ch.len_utf16();
-        if units > max {
-            value.truncate(idx);
-            break;
-        }
-    }
 }
