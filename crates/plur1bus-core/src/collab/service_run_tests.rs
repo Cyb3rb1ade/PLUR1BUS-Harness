@@ -3,13 +3,13 @@ use crate::collab::handoff::HandoffContext;
 use crate::collab::limits::{CollaborationLimitsConfig, TaskClass, TaskLimits};
 use crate::collab::ports::RunOutput;
 use crate::collab::run::{DelegateRequest, DelegationTarget, TargetContext, TargetRequest};
-use crate::collab::store::R;
+use crate::collab::store::{TaskGrantEnd, R};
 use crate::collab::types::TargetKind;
 use crate::logs::methods::AbortSignal;
 use crate::rbac::audit::AuditEvent;
 use crate::toolcall::json::{parse, V};
 use serde_json::json;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 impl crate::budget::IdSource for Seq {
     fn next_id(&self) -> String {
@@ -89,6 +89,16 @@ fn output() -> RunOutput {
     }
 }
 
+#[derive(Default)]
+struct EndedGrants(Mutex<Vec<String>>);
+
+impl TaskGrantEnd for EndedGrants {
+    fn end_task(&self, task: &str) -> Result<(), String> {
+        self.0.lock().unwrap().push(task.to_owned());
+        Ok(())
+    }
+}
+
 #[test]
 fn run_vectors() {
     let vectors: Vec<Value> =
@@ -102,6 +112,8 @@ fn run_vectors() {
         let ids = Arc::new(Seq::default());
         let events = Arc::new(MemoryEmitter::default());
         let mut options = StoreOptions::new(clock.clone(), ids.clone());
+        let grants = Arc::new(EndedGrants::default());
+        options.grants = Some(grants.clone());
         options.limits = Some(Box::new(|| {
             let mut limits = CollaborationLimitsConfig::default();
             limits.task_classes[3] = TaskLimits {
@@ -270,6 +282,16 @@ fn run_vectors() {
             None
         };
         assert_eq!(json!(transcript), case["transcript"], "{name}");
+        if matches!(
+            name,
+            "done" | "deadline" | "shutdown abandons" | "shutdown cooperative"
+        ) {
+            assert_eq!(
+                *grants.0.lock().unwrap(),
+                [handle.queued.id.clone()],
+                "{name}"
+            );
+        }
         let finish = task.map(|t| {
             let trace = svc.get_trace(&lead, &t.trace_id).unwrap();
             let span = trace.spans.iter().find(|s| s.span_id == t.span_id).unwrap();
@@ -284,6 +306,145 @@ fn run_vectors() {
         assert_eq!(json!(target.calls.take()), case["calls"], "{name}");
         assert_eq!(json!(events), case["events"], "{name}");
     }
+}
+
+struct DispatchProbe {
+    kind: TargetKind,
+    called: Cell<bool>,
+}
+
+impl DelegationTarget for DispatchProbe {
+    fn kind(&self) -> TargetKind {
+        self.kind
+    }
+
+    fn accepts(&self, agent: &str) -> bool {
+        agent == "receiver"
+    }
+
+    fn acknowledge(&self, _: &TargetRequest<'_>) -> R<V> {
+        self.called.set(true);
+        Err(CollabError::new(C::Invalid, "unexpected acknowledgement"))
+    }
+
+    fn start(&self, _: &TargetRequest<'_>) -> R<Option<RunOutput>> {
+        self.called.set(true);
+        Ok(None)
+    }
+}
+
+#[test]
+fn discovering_an_a2a_target_rechecks_the_authenticated_owner_person() {
+    let h = open();
+    let project = setup(&h, &["sender", "receiver"]);
+    let member = member(&project, ProjectRight::Lead, &["sender", "receiver"]);
+    let worker = Principal {
+        kind: Some(PrincipalKind::Agent),
+        ..owner()
+    };
+    for (index, caller) in [member, worker].iter().enumerate() {
+        let text = format!("Read report {index}");
+        let mut admission = input(caller, &project, "sender", "receiver", &text);
+        admission.call_class = CallClass::Read;
+        let handle = h
+            .svc
+            .delegate(DelegateRequest {
+                admission,
+                parent_task: None,
+                task_class: TaskClass::Research,
+                contract: None,
+                allowed_tools: &[],
+                writer: None,
+                cancel: None,
+                audit: &mut |_: &AuditEvent| Ok(()),
+            })
+            .unwrap();
+        let target = DispatchProbe {
+            kind: TargetKind::A2a,
+            called: Cell::new(false),
+        };
+        let settled = h
+            .svc
+            .run_target(
+                &handle,
+                &[&target],
+                TargetContext {
+                    handoff: None,
+                    independent_review: false,
+                    local_checkout: false,
+                    on_accepted: None,
+                },
+            )
+            .unwrap()
+            .unwrap();
+        assert!(!target.called.get());
+        assert_eq!(
+            settled.error.as_deref(),
+            Some("A2A assignment and execution require an Owner person")
+        );
+    }
+}
+
+#[test]
+fn handoff_context_must_belong_to_the_queued_person() {
+    let h = open();
+    let owner = owner();
+    let project = setup(&h, &["sender", "receiver"]);
+    let mut admission = input(&owner, &project, "sender", "receiver", "Verify report");
+    admission.call_class = CallClass::Write;
+    admission.task_id = Some("sender-task");
+    let vectors: Vec<Value> =
+        serde_json::from_str(include_str!("../../../../fixtures/parity/collab/run.json")).unwrap();
+    let case = vectors.iter().find(|row| row["name"] == "done").unwrap();
+    let contract = parse(case["handoff"].as_str().unwrap()).unwrap();
+    let mut audit = |_: &AuditEvent| Ok(());
+    let handle = h
+        .svc
+        .delegate(DelegateRequest {
+            admission,
+            parent_task: None,
+            task_class: TaskClass::CodeSmall,
+            contract: Some(contract.clone()),
+            allowed_tools: &[],
+            writer: None,
+            cancel: None,
+            audit: &mut audit,
+        })
+        .unwrap();
+    let target = DispatchProbe {
+        kind: TargetKind::Local,
+        called: Cell::new(false),
+    };
+    let clock = FixedClock(Arc::new(AtomicI64::new(case["start"].as_i64().unwrap())));
+    let mut binding = HandoffContext {
+        person: "different-person",
+        task_id: "sender-task",
+        session_id: "sender-session",
+        from_agent: "sender",
+        project_id: &project,
+        expected: Some(&contract),
+        has_history: false,
+        clock: &clock,
+        approval: &|_: &str| Ok(None),
+        grant: &|_: &str| Ok(None),
+        audit: &mut audit,
+    };
+    let settled = h
+        .svc
+        .run_target(
+            &handle,
+            &[&target],
+            TargetContext {
+                handoff: Some(&mut binding),
+                independent_review: false,
+                local_checkout: false,
+                on_accepted: None,
+            },
+        )
+        .unwrap()
+        .unwrap();
+    assert!(!target.called.get());
+    assert_eq!(settled.error.as_deref(), Some("handoff target mismatch"));
 }
 
 fn transcript_shape(replay: &crate::collab::replay::ReplayTranscript) -> Value {
