@@ -1,0 +1,27 @@
+{
+  "agents": [
+    "sender",
+    "receiver"
+  ],
+  "question": "Summarize this fixture",
+  "steps": [
+    {
+      "project": 0,
+      "typescript": "accepted"
+    },
+    {
+      "divergence": "K6-D21",
+      "project": 1,
+      "rust": "accepted",
+      "typescript": "repeat"
+    },
+    {
+      "project": 0,
+      "typescript": "repeat"
+    },
+    {
+      "project": 1,
+      "typescript": "repeat"
+    }
+  ]
+}

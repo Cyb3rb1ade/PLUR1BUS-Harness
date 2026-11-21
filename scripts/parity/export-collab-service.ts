@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { CollabError } from "../../packages/core/src/collab/errors.ts";
 import { createCollab } from "../../packages/core/src/collab/service.ts";
+import { open, owner, projectWithAgents } from "../../packages/core/test/collab/helpers.ts";
 import { exporterMain } from "./lib.mjs";
 
 const lead = { userId: "lead", kind: "person", role: "owner" } as const;
@@ -116,8 +117,31 @@ function replayVectors() {
   } finally { service.close(); }
 }
 
-export function buildCollabServiceVectors() {
-  return { "repo-binding": repoVectors(), replay: replayVectors() };
+async function repeatScopeVectors() {
+  const fixture = open();
+  try {
+    const agents = ["sender", "receiver"];
+    const projects = [await projectWithAgents(fixture, agents), await projectWithAgents(fixture, agents)];
+    const question = "Summarize this fixture";
+    const steps = [];
+    for (const [at, project] of [0, 1, 0, 1].entries()) {
+      let typescript = "accepted";
+      try {
+        await fixture.collab.consult({ principal: owner(), projectId: projects[project]!.id, fromAgent: agents[0]!, toAgent: agents[1]!, question, context: "" });
+      } catch (error) {
+        if (!(error instanceof CollabError) || error.guardrail !== "repeat") throw error;
+        typescript = "repeat";
+      }
+      steps.push({ project, typescript, ...(at === 1 ? { divergence: "K6-D21", rust: "accepted" } : {}) });
+    }
+    return { agents, question, steps };
+  } finally {
+    await fixture.collab.shutdown();
+  }
+}
+
+export async function buildCollabServiceVectors() {
+  return { "repo-binding": repoVectors(), replay: replayVectors(), "repeat-scope": await repeatScopeVectors() };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -586,6 +586,8 @@ Ports: clock, ids, engine memory port, git process (checkpoints), summariser.
 - **K6-D4** Stored project settings that are not a JSON object (a string or a non-empty array spread into `{...}`) are not reproduced; `null` and unparseable settings give a raw error as TypeScript does.
 - **K6-D5** The grant store's error is not logged with the warning (TypeScript passes it as structured data); the message text is the same.
 - **K6-D6** TypeScript throws a plain `Error` for what SQLite refuses (a foreign key, a missing project row on insert); Rust marks these `raw` and the vectors record only that it failed, not the text.
+- **K6-D21 (K6a-R2)**: Rust scopes the service repeat window to the project. Legacy global repeat entries are
+  ignored by the Rust service. The shared key function and store schema remain available for TypeScript round trips.
 
 ## 7. K6: collaboration, coding surface, federation (P4-50 without team shell)
 

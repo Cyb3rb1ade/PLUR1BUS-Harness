@@ -1011,8 +1011,8 @@ describe("collab handoff vectors (P4-K K6a, plan P4-50)", () => {
 });
 
 describe("collab service vectors (P4-K K6a, plan P4-50)", () => {
-  it("the fixtures are current and under 1 MiB", () => {
-    for (const [name, fixture] of Object.entries(buildCollabServiceVectors())) {
+  it("the fixtures are current and under 1 MiB", async () => {
+    for (const [name, fixture] of Object.entries(await buildCollabServiceVectors())) {
       const committed = readFileSync(fixturePath("collab", name), "utf8");
       assert.equal(committed, fixtureText(fixture), "collab/" + name + ".json is stale: run scripts/parity/export-collab-service.ts");
       assert.ok(Buffer.byteLength(committed) < 1_048_576, name);

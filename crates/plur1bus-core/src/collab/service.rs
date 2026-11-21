@@ -10,7 +10,7 @@
 use super::capacity::{writer_capacity, CapacityFacts};
 use super::errors::{CollabError, CollabErrorCode as C, GuardrailReason};
 use super::guardrails::{evaluate_guardrails, GuardrailInput};
-use super::ids::{pair_key, repeat_key, CollabIds};
+use super::ids::{pair_key, project_repeat_key, CollabIds};
 use super::limits::CallClass;
 use super::ports::{
     ActiveDirectory, AgentDirectoryPort, AuthorizePort, BudgetCheck, BudgetPort, EventEmitter,
@@ -881,7 +881,8 @@ impl CollabService {
             pair_count: chain.pair_counts.get(&pk).copied().unwrap_or(0),
             now: self.store.now(),
             chain_started_at: chain.started_at,
-            last_repeat_at: self.store.last_repeat(&repeat_key(
+            last_repeat_at: self.store.last_repeat(&project_repeat_key(
+                &project.id,
                 i.from_agent,
                 i.to_agent,
                 i.text,
@@ -933,7 +934,7 @@ impl CollabService {
             })
             .unwrap_or(false);
         self.store.remember_repeat(
-            &repeat_key(i.from_agent, i.to_agent, i.text),
+            &project_repeat_key(&project.id, i.from_agent, i.to_agent, i.text),
             self.store.now(),
         )?;
         let span_id = if first {

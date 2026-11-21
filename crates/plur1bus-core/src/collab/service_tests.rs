@@ -469,6 +469,37 @@ fn the_same_question_inside_the_repeat_window_is_refused() {
 }
 
 #[test]
+fn repeat_windows_are_independent_for_two_projects_using_the_same_agents() {
+    let h = open();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../../fixtures/parity/collab/repeat-scope.json"
+    ))
+    .unwrap();
+    let agents = fixture["agents"].as_array().unwrap();
+    let pair = [agents[0].as_str().unwrap(), agents[1].as_str().unwrap()];
+    let projects = [setup(&h, &pair), setup(&h, &pair)];
+    let o = owner();
+    let question = fixture["question"].as_str().unwrap();
+    for step in fixture["steps"].as_array().unwrap() {
+        let project = &projects[step["project"].as_u64().unwrap() as usize];
+        let admission = input(&o, project, pair[0], pair[1], question);
+        let expected = match step.get("divergence") {
+            Some(id) => {
+                assert_eq!(id, "K6-D21");
+                &step["rust"]
+            }
+            None => &step["typescript"],
+        };
+        if expected == "accepted" {
+            h.svc.start_consult(&admission).unwrap();
+        } else {
+            assert_eq!(expected, "repeat");
+            refused(&h, &admission, GuardrailReason::Repeat);
+        }
+    }
+}
+
+#[test]
 fn a_project_boundary_and_an_inactive_agent_are_refused() {
     let mut dir = TableDirectory::default();
     for (id, state) in [
