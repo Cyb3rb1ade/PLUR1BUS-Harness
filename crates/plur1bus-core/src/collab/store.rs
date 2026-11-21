@@ -29,7 +29,6 @@ use plur1bus_store::rusqlite::{
     self, params_from_iter, types::Value as Sql, Connection, OptionalExtension, Row,
 };
 use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreSpec, Synchronous};
-use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -608,7 +607,7 @@ impl CollabStore {
         local: bool,
         project_limit: i64,
         local_limit: Option<f64>,
-    ) -> R<Option<File>> {
+    ) -> R<Option<private_store::AdvisoryLease>> {
         let directory = self.writer_slot_dir.as_deref().ok_or_else(|| {
             CollabError::new(C::Storage, "shared writer slot storage is unavailable")
         })?;
