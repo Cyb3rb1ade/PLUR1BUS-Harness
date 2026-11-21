@@ -203,6 +203,16 @@ fn index_scenarios() {
                         &filters_of(op.get("filters")),
                     )
                     .map(|hits| V::Arr(hits.iter().map(|h| h.to_v()).collect()).stringify()),
+                "rank" => index
+                    .search(op["query"].as_str().unwrap(), &SearchFilters::default())
+                    .map(|hits| {
+                        V::Arr(
+                            hits.into_iter()
+                                .map(|hit| V::Str(hit.entry.id().into()))
+                                .collect(),
+                        )
+                        .stringify()
+                    }),
                 "route" => {
                     let distribution: Vec<(String, f64)> = op["distribution"]
                         .as_array()

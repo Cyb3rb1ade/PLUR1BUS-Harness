@@ -123,6 +123,7 @@ function runIndex(name: string, world: { embedding?: Record<string, number>; lex
       case "upsert": return attempt(() => { index.upsert(JSON.parse(op.entry)); return null; });
       case "remove": return attempt(() => { index.remove(op.id); return null; });
       case "search": return attempt(() => capabilitiesSearch(index, op.query, op.filters), op.full !== false);
+      case "rank": return attempt(() => capabilitiesSearch(index, op.query).map(hit => hit.entry.id));
       case "route": return attempt(() => index.route(op.query, Object.fromEntries(op.distribution), ...(op.topK !== undefined ? [op.topK, ...(op.confidence !== undefined ? [op.confidence] : [])] : [])), op.full !== false);
       case "prefix": return attempt(() => index.categoriesPrefix(), false);
       default: throw new Error(op.op);
@@ -168,6 +169,16 @@ function buildIndex() {
     up("t00", { description: "changed", category: "docs.create" }), route("alpha", [["docs.create", 0.6], ["web.search", 0.3], ["files.read", 0.1]]), { op: "remove", id: "nope" }, route("alpha", [["docs.create", 0.6], ["web.search", 0.3], ["files.read", 0.1]]),
     // The remembered answer is for one revision: a new entry that ranks first changes it.
     up("a00", { name: "alpha", description: "alpha alpha alpha", category: "docs.create" }), route("alpha", [["docs.create", 0.6], ["web.search", 0.3], ["files.read", 0.1]]),
+  ]));
+  // N=7, df=6 for "report". Its Math.log rounds differently on arm64 V8. Keep the
+  // near candidates six ULPs apart with one equal pair, and pin the resulting order.
+  scenarios.push(runIndex("K9b-R3 rank at a platform-sensitive IDF", {
+    prior: { "z-near": 6 * 2 ** -55 },
+  }, [
+    ...["x-tie", "z-near", "a-tie", "m-tie", "t-tie", "b-tie"].map(id =>
+      up(id, { name: "sample", description: "report input" })),
+    up("unrelated", { name: "sample", description: "folder input" }),
+    { op: "rank", query: "report" },
   ]));
   const rnd = mulberry32(0x1d3_c0de);
   const WORDS = ["report", "file", "web", "mail", "alpha", "beta", "gamma", "delta", "read", "write", "search", "ÉCOLE", "naïve", "x1", "_", "東京", "tokyo"];

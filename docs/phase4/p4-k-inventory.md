@@ -938,7 +938,8 @@ builder, the decision service and triage are K9a.
   port until the importer is ported.
 - *Known differences:* **K9b-D1** (TypeScript `Math.log` on arm64 Node is fdlibm compiled with fused multiply-add and differs in the last
   place for a few arguments in a hundred; Rust computes the unfused routine everywhere, so the last digit of a score can differ from
-  TypeScript on Apple Silicon; the vectors' scenarios are chosen so that it does not). `regress` folds U+017F and U+212A into `s` and `k`
+  TypeScript on Apple Silicon; the full-score vectors use platform-stable scores. A separate K9b-R3 case pins the
+  rank at a platform-sensitive IDF, including a near pair and equal candidates). `regress` folds U+017F and U+212A into `s` and `k`
   under `i` without `u`, which JavaScript does not: the runtime's patterns without `u` spell their case out instead of using the engine's
   `i` (and `\b` of the `/iu` patterns is spelled out over JavaScript's word characters).
   **K9b-D3 (K9b-R1):** Rust refuses a Windows skill read or load with `unsafe-path` before opening the resource.
