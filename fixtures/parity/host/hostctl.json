@@ -1,4 +1,96 @@
 {
+  "appExtensions": [
+    {
+      "extension": "txt",
+      "launchable": false
+    },
+    {
+      "extension": "workflow",
+      "launchable": true
+    },
+    {
+      "extension": "action",
+      "launchable": true
+    },
+    {
+      "extension": "mpkg",
+      "launchable": true
+    },
+    {
+      "extension": "app",
+      "launchable": true
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "lnk",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "url",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "scf",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "appref-ms",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "settingcontent-ms",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "library-ms",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "chm",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "terminal",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "fileloc",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "webloc",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "inetloc",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "mobileconfig",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "prefPane",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "saver",
+      "launchable": false
+    }
+  ],
   "commandPolicy": [
     {
       "input": {

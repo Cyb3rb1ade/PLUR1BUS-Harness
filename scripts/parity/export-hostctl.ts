@@ -10,6 +10,7 @@ import { configure, type ConfigInput } from "../../packages/hostctl/src/config.t
 import { matchMany } from "../../packages/hostctl/src/search.ts";
 import { processes } from "../../packages/hostctl/src/processes.ts";
 import { HostctlError } from "../../packages/hostctl/src/errors.ts";
+import { launchesProgram } from "../../packages/hostctl/src/command.ts";
 
 export async function buildHostctl() {
   const host = createHostctl({ roots: [{ id: "fixture", path: tmpdir() }], audit() {} });
@@ -36,7 +37,7 @@ export async function buildHostctl() {
   await host.close();
   return {
     tools, config: config.map(input => ({ input, result: configure(input) })), literal,
-    files: await fileCases(), commandPolicy: await commandCases(),
+    files: await fileCases(), commandPolicy: await commandCases(), appExtensions: await appExtensions(),
   };
 }
 
@@ -93,6 +94,19 @@ async function commandCases() {
       return { ...row, refusal, ...(rustStricter ? { divergence: "K10-D15" } : {}) };
     }));
   } finally { await adapter.close(); }
+}
+
+async function appExtensions() {
+  const root = await mkdtemp(join(tmpdir(), "hostctl-launch-vectors-"));
+  try {
+    const extensions = ["txt", "workflow", "action", "mpkg", "app", "lnk", "url", "scf",
+      "appref-ms", "settingcontent-ms", "library-ms", "chm", "terminal", "fileloc", "webloc",
+      "inetloc", "mobileconfig", "prefPane", "saver"];
+    return await Promise.all(extensions.map(async extension => {
+      const launchable = await launchesProgram(join(root, "fixture." + extension));
+      return { extension, launchable, ...(!launchable && extension !== "txt" ? { divergence: "K10-D22" } : {}) };
+    }));
+  } finally { await rm(root, { force: true, recursive: true }); }
 }
 
 async function fileCases() {

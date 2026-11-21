@@ -966,3 +966,167 @@ fn hostctl_limits_native_directory_enumeration() {
     assert_eq!(RealFs.read_dir_at_bounded(&directory, 1).unwrap().len(), 1);
     assert_eq!(RealFs.read_dir_at(&directory).unwrap().len(), 2);
 }
+
+struct HostReviewFixture<'a> {
+    policy: Policy<'a, RealFs>,
+    config: Config,
+    clock: SetClock,
+    who: Caller,
+}
+
+fn review_root(path: &std::path::Path) -> PathRoot {
+    let canonical = path.canonicalize().unwrap();
+    let native = canonical.to_str().unwrap();
+    let path = native
+        .strip_prefix(r"\\?\UNC\")
+        .map(|rest| format!(r"\\{rest}"))
+        .unwrap_or_else(|| native.strip_prefix(r"\\?\").unwrap_or(native).to_owned());
+    PathRoot {
+        id: "fixture".into(),
+        path,
+        identity: None,
+    }
+}
+
+impl<'a> HostReviewFixture<'a> {
+    fn new(roots: &'a [PathRoot]) -> Self {
+        Self {
+            policy: Policy {
+                roots,
+                deny: &[],
+                home: None,
+                fs: &RealFs,
+                nfc: &IcuNfc,
+            },
+            config: Config::default(),
+            clock: SetClock::at(60_000.0),
+            who: Caller {
+                principal: "fixture-person".into(),
+                agent_id: "fixture-agent".into(),
+                session_id: Some("fixture-session".into()),
+                surface: 3,
+                ..Caller::default()
+            },
+        }
+    }
+
+    fn approval(
+        &self,
+        name: &str,
+        input: Value,
+        permits: &mut Permits,
+        capability: Option<&str>,
+    ) -> ApprovedAction {
+        let classifier = HostClassifier::new(name, &self.config, &self.policy).unwrap();
+        let mut definition = classifier.definition();
+        if let Some(capability) = capability {
+            definition.capability = capability;
+        }
+        Gate::new(
+            &[definition],
+            &self.clock,
+            &mut MemoryAudit::default(),
+            permits,
+        )
+        .verify(
+            UnverifiedAction {
+                tool: name.to_owned(),
+                call_id: "fixture-call".into(),
+                args: input,
+                ..Default::default()
+            },
+            &self.who,
+        )
+        .unwrap()
+    }
+
+    fn execute(
+        &self,
+        action: ApprovedAction,
+        audit: &mut dyn AuditPort,
+        effects: &mut dyn Effects,
+    ) -> Result<Value, Failure> {
+        Hostctl {
+            config: &self.config,
+            policy: &self.policy,
+            clock: &self.clock,
+            random: &plur1bus_core::approvals::OsRandom,
+            audit,
+            effects,
+            processes: &mut ProcessSessions::default(),
+            aborted: &|| false,
+        }
+        .execute(action, &self.who)
+    }
+}
+
+#[test]
+fn app_open_enforces_document_types_for_files_and_directories() {
+    #[derive(Default)]
+    struct OpenRecorder(usize);
+    impl native::PathPort<std::fs::File> for OpenRecorder {
+        fn open_document(&mut self, _: &std::fs::File, _: &Invocation<'_>) -> Result<(), Failure> {
+            self.0 += 1;
+            Ok(())
+        }
+        fn trash(&mut self, _: &std::fs::File, _: &Invocation<'_>) -> Result<(), Failure> {
+            panic!("a document request never reaches trash")
+        }
+    }
+    impl Effects for OpenRecorder {
+        fn process_identity(&self) -> ProcessIdentity {
+            ProcessIdentity::default()
+        }
+        fn apply(&mut self, call: Invocation<'_>) -> Result<Value, Failure> {
+            native::apply_path(&RealFs, self, &call).unwrap()
+        }
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let roots = [review_root(dir.path())];
+    let fixture = HostReviewFixture::new(&roots);
+    let vectors: Value = serde_json::from_str(include_str!(
+        "../../../../fixtures/parity/host/hostctl.json"
+    ))
+    .unwrap();
+    for row in vectors["appExtensions"].as_array().unwrap() {
+        let extension = row["extension"].as_str().unwrap();
+        let name = format!("item.{extension}");
+        std::fs::create_dir(dir.path().join(&name)).unwrap();
+        let input = json!({"target":name});
+        let mut effects = OpenRecorder::default();
+        let action = fixture.approval("hostctl.app.open", input, &mut Permits::approving(), None);
+        let got = fixture.execute(action, &mut MemoryAudit::default(), &mut effects);
+        if row["launchable"] == true || row["divergence"] == "K10-D22" {
+            assert_eq!(got.unwrap_err().code, "DENIED", "{extension}");
+            assert_eq!(effects.0, 0);
+        } else {
+            assert!(got.is_ok(), "{extension}");
+            assert_eq!(effects.0, 1);
+        }
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let filename = dir.path().join("document.txt");
+        std::fs::write(&filename, "plain document").unwrap();
+        for (mode, allow) in [(0o644, true), (0o755, false)] {
+            std::fs::set_permissions(&filename, std::fs::Permissions::from_mode(mode)).unwrap();
+            let action = fixture.approval(
+                "hostctl.app.open",
+                json!({"target":"document.txt"}),
+                &mut Permits::approving(),
+                None,
+            );
+            let mut effects = OpenRecorder::default();
+            assert_eq!(
+                fixture
+                    .execute(action, &mut MemoryAudit::default(), &mut effects)
+                    .is_ok(),
+                allow
+            );
+            assert_eq!(effects.0, usize::from(allow));
+        }
+    }
+}

@@ -1110,6 +1110,9 @@ unchanged). K10b uses this gate and the same path and process layers.
 - **K10-D16:** Rust requires exclusive publication for copy and move. There is no path-based fallback for native trash,
   directory creation or no-replace movement. A move is limited to a singly linked file on one filesystem. Local application
   opening is limited to verified document types and directories; an adapter must preserve the held identity.
+- **K10-D22 (RE-3):** Rust refuses every extension TypeScript identifies as launchable, including on directories.
+  The document and directory checks additionally refuse platform launchers and configuration profiles that the
+  TypeScript guard classifies as non-launchable (TS-E1). The vectors record both sides.
 - *Proof:* `export-hostctl.ts` records the real TypeScript catalog, configuration, literal matching and file results.
   Rust replays the fixtures and tests gate expiry and bindings, audited effects, scoped session access and limits,
   no-clobber publication, and desktop effects with test ports. Native platform adapters and live workflow wiring are the flip's.

@@ -235,13 +235,64 @@ fn path_effect<F: plur1bus_core::policy::fs_paths::PathFs>(
         let ext = name
             .rsplit_once('.')
             .map(|(_, tail)| tail.to_ascii_lowercase());
-        let bundle = matches!(ext.as_deref(), Some("app" | "bundle" | "pkg" | "framework"));
+        // Some directories are handled as launchable packages by the default viewer.
+        let launchable = matches!(
+            ext.as_deref(),
+            Some(
+                "exe"
+                    | "com"
+                    | "bat"
+                    | "cmd"
+                    | "ps1"
+                    | "psm1"
+                    | "vbs"
+                    | "vbe"
+                    | "js"
+                    | "jse"
+                    | "wsf"
+                    | "wsh"
+                    | "hta"
+                    | "msi"
+                    | "msp"
+                    | "scr"
+                    | "pif"
+                    | "cpl"
+                    | "reg"
+                    | "jar"
+                    | "command"
+                    | "tool"
+                    | "app"
+                    | "workflow"
+                    | "action"
+                    | "pkg"
+                    | "mpkg"
+                    | "desktop"
+                    | "appimage"
+                    | "bundle"
+                    | "framework"
+                    | "appex"
+                    | "prefpane"
+                    | "saver"
+                    | "lnk"
+                    | "url"
+                    | "scf"
+                    | "appref-ms"
+                    | "settingcontent-ms"
+                    | "library-ms"
+                    | "chm"
+                    | "terminal"
+                    | "fileloc"
+                    | "webloc"
+                    | "inetloc"
+                    | "mobileconfig"
+            )
+        );
         let document = matches!(
             ext.as_deref(),
             Some("txt" | "md" | "pdf" | "png" | "jpeg" | "jpg" | "webp" | "gif")
         );
         let allowed = match observed.kind {
-            FileKind::Dir => !bundle,
+            FileKind::Dir => !launchable,
             FileKind::File => document && observed.mode & 0o111 == 0,
             _ => false,
         };
