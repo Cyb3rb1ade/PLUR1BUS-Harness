@@ -16,6 +16,7 @@ struct Script {
     calls: RefCell<Vec<Value>>,
     settled: RefCell<Vec<Value>>,
     denied: Vec<Value>,
+    cancelled: Cell<bool>,
 }
 
 struct Ticket<'a> {
@@ -42,6 +43,10 @@ impl Runtime for Script {
     }
     fn random(&self) -> f64 {
         0.5
+    }
+
+    fn cancelled(&self) -> bool {
+        self.cancelled.get()
     }
 
     fn authorize(
@@ -83,6 +88,9 @@ impl StreamAdapter for Probe<'_> {
         }));
         for event in step["events"].as_array().into_iter().flatten() {
             emit(event.clone());
+        }
+        if step["cancel"] == true {
+            self.script.cancelled.set(true);
         }
         let Some(kind) = step["error"].as_str() else {
             return Ok(());
@@ -182,6 +190,46 @@ fn replay_fallback_retry_budget_and_commit_boundary() {
 }
 
 #[test]
+fn a_cancelled_failed_attempt_does_not_repeat_or_charge_the_breaker() {
+    let script = Script::default();
+    let steps = [json!({"error": "network", "cancel": true})];
+    let adapter = Probe {
+        provider: "fixture",
+        model: "test-model".into(),
+        next: Cell::new(0),
+        steps: &steps,
+        script: &script,
+    };
+    let target = Target {
+        provider: adapter.provider,
+        model: &adapter.model,
+    };
+    let candidates = [Candidate {
+        target,
+        adapter: &adapter,
+    }];
+    let request = Json::parse(r#"{"maxTokens":64,"messages":[]}"#).unwrap();
+    let profile = Profile {
+        name: "test",
+        candidates: &candidates,
+        defaults: &Json::parse("{}").unwrap(),
+        unsupported: None,
+    };
+    let router = Router::new(Policy {
+        failure_threshold: 1,
+        ..Policy::default()
+    });
+    let result = router.stream(&profile, &request, &script, &mut |_| {});
+    assert!(matches!(result, Err(RouteError::Provider(error)) if error.kind == ErrorKind::Aborted));
+    assert!(script.delays.borrow().is_empty());
+    assert_eq!(script.calls.borrow().len(), 1);
+    assert_eq!(
+        router.breaker_state(target, &script),
+        plur1bus_providers::router::Health::Closed
+    );
+}
+
+#[test]
 fn replay_reasoning_levels_and_directives() {
     let recording: Value = serde_json::from_str(include_str!(
         "../../../fixtures/parity/provider-router/reasoning.json"
@@ -201,10 +249,50 @@ fn replay_reasoning_levels_and_directives() {
             |(level, adjusted)| json!({"level":level,"adjusted":adjusted}),
         );
         assert_eq!(json, case["expected"]["nearest"]);
-        let directive = nearest.and_then(|(level, _)| {
-            reasoning::directive(level, &Json::parse(&descriptor.to_string()).unwrap()).unwrap()
-        });
-        let json = directive.map_or(Value::Null, |v| serde_json::from_str(&v.encode()).unwrap());
-        assert_eq!(json, case["expected"]["directive"]);
+        let descriptor = Json::parse(&descriptor.to_string()).unwrap();
+        let directive = nearest
+            .map(|(level, _)| reasoning::directive(level, &descriptor))
+            .transpose();
+        if case["expected-divergence"] == "P4D-196" {
+            let actual = directive
+                .map(|v| {
+                    v.flatten()
+                        .map_or(Value::Null, |v| serde_json::from_str(&v.encode()).unwrap())
+                })
+                .map_err(|error| (error.kind, error.message));
+            match case["name"].as_str().unwrap() {
+                "toggle-with-string-override" => {
+                    assert_eq!(case["expected"]["directive"]["value"], "none");
+                    assert_eq!(actual.unwrap()["value"], false);
+                }
+                "effort-with-numeric-adaptive" | "unknown-kind-with-adaptive" => {
+                    assert_eq!(case["expected"]["directive"]["adaptiveThinking"], true);
+                    assert_eq!(
+                        actual.unwrap(),
+                        json!({"vendorParam":"output_config.effort","value":"high"})
+                    );
+                }
+                "budget-without-max" | "budget-with-string-bounds" => {
+                    let expected = if case["name"] == "budget-without-max" {
+                        Value::Null
+                    } else {
+                        json!(2048)
+                    };
+                    assert_eq!(case["expected"]["directive"]["value"], expected);
+                    let (kind, message) = actual.unwrap_err();
+                    assert_eq!(kind, ErrorKind::InvalidRequest);
+                    assert_eq!(
+                        message.as_ref(),
+                        "invalid request: budget reasoning needs bounds"
+                    );
+                }
+                other => panic!("unreviewed reasoning divergence {other}"),
+            }
+        } else {
+            let directive = directive.unwrap().flatten();
+            let json =
+                directive.map_or(Value::Null, |v| serde_json::from_str(&v.encode()).unwrap());
+            assert_eq!(json, case["expected"]["directive"], "{}", case["name"]);
+        }
     }
 }

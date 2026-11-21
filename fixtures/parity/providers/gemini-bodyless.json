@@ -114,10 +114,9 @@
     {
       "expected": {
         "error": {
-          "code": "protocol",
           "contentFiltered": false,
-          "kind": "unknown",
-          "message": "response body is not valid JSON",
+          "kind": "invalid_request",
+          "message": "provider redirects refused",
           "retryable": false
         },
         "events": []
@@ -139,6 +138,7 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {
           "content-type": "application/json"
         },
@@ -271,14 +271,9 @@
     {
       "expected": {
         "error": {
-          "code": "protocol",
           "contentFiltered": false,
-          "kind": "unknown",
-          "message": "response body is not valid JSON",
-          "partial": {
-            "text": "",
-            "toolCalls": []
-          },
+          "kind": "invalid_request",
+          "message": "provider redirects refused",
           "retryable": false
         },
         "events": []
@@ -300,6 +295,7 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {
           "content-type": "application/json"
         },
@@ -420,10 +416,9 @@
     {
       "expected": {
         "error": {
-          "code": "protocol",
           "contentFiltered": false,
-          "kind": "unknown",
-          "message": "response body is not valid JSON",
+          "kind": "invalid_request",
+          "message": "provider redirects refused",
           "retryable": false
         },
         "events": []
@@ -445,6 +440,7 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {
           "content-type": "text/event-stream"
         },
@@ -577,14 +573,9 @@
     {
       "expected": {
         "error": {
-          "code": "protocol",
           "contentFiltered": false,
-          "kind": "unknown",
-          "message": "stream ended without a finishReason",
-          "partial": {
-            "text": "",
-            "toolCalls": []
-          },
+          "kind": "invalid_request",
+          "message": "provider redirects refused",
           "retryable": false
         },
         "events": []
@@ -606,6 +597,7 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {
           "content-type": "text/event-stream"
         },
@@ -720,10 +712,9 @@
     {
       "expected": {
         "error": {
-          "code": "protocol",
           "contentFiltered": false,
-          "kind": "unknown",
-          "message": "response body is not valid JSON",
+          "kind": "invalid_request",
+          "message": "provider redirects refused",
           "retryable": false
         },
         "events": []
@@ -745,6 +736,7 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {},
         "status": 304
       }
@@ -869,14 +861,9 @@
     {
       "expected": {
         "error": {
-          "code": "protocol",
           "contentFiltered": false,
-          "kind": "unknown",
-          "message": "expected text/event-stream, got \"\"",
-          "partial": {
-            "text": "",
-            "toolCalls": []
-          },
+          "kind": "invalid_request",
+          "message": "provider redirects refused",
           "retryable": false
         },
         "events": []
@@ -898,6 +885,7 @@
       },
       "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
       "response": {
+        "chunksBase64": [],
         "headers": {},
         "status": 304
       }

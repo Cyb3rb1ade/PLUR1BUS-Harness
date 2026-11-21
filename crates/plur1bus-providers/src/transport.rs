@@ -5,6 +5,7 @@ use crate::response::{self, Delivery, Redactor, ToolRepair, ToolRepairInput};
 use crate::{ErrorKind, Json, ProviderError, RequestOptions, TimeoutPhase, Wire};
 use serde_json::Value;
 use socket2::Socket;
+use std::fmt;
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::sync::{
@@ -79,7 +80,7 @@ impl Default for Timeouts {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Config {
     pub request: RequestOptions,
     pub extra_headers: Vec<(String, String)>,
@@ -90,6 +91,23 @@ pub struct Config {
     pub max_body_bytes: usize,
     pub max_event_bytes: usize,
     pub max_tool_argument_bytes: usize,
+}
+
+impl fmt::Debug for Config {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let header_names: Vec<_> = self.extra_headers.iter().map(|(name, _)| name).collect();
+        f.debug_struct("Config")
+            .field("request", &self.request)
+            .field("extra_header_names", &header_names)
+            .field("allow_insecure_http", &self.allow_insecure_http)
+            .field("allow_missing_done", &self.allow_missing_done)
+            .field("anthropic_version", &self.anthropic_version)
+            .field("timeouts", &self.timeouts)
+            .field("max_body_bytes", &self.max_body_bytes)
+            .field("max_event_bytes", &self.max_event_bytes)
+            .field("max_tool_argument_bytes", &self.max_tool_argument_bytes)
+            .finish()
+    }
 }
 
 impl Default for Config {
@@ -555,6 +573,7 @@ impl Adapter {
                 .map_err(|_| ProviderError::invalid("anthropic-version header is invalid"))?;
             headers.insert("anthropic-version", version);
         }
+        let mut sent_secret = None;
         if let Some(credential) = credential.as_deref() {
             if credential.is_empty()
                 || credential
@@ -589,29 +608,30 @@ impl Adapter {
                 Wire::Gemini => "x-goog-api-key",
                 _ => "authorization",
             };
-            let value =
-                ureq::http::HeaderValue::from_str(credential.trim_matches(' ')).map_err(|_| {
-                    ProviderError::new(
-                        ErrorKind::Auth,
-                        "credentials provider returned an unusable Authorization value",
-                    )
-                })?;
+            let sent = credential.trim_matches(' ');
+            let value = ureq::http::HeaderValue::from_str(sent).map_err(|_| {
+                ProviderError::new(
+                    ErrorKind::Auth,
+                    "credentials provider returned an unusable Authorization value",
+                )
+            })?;
             headers.insert(key, value);
-        }
-        let secret = credential.as_deref().map(|value| {
-            if key_wire {
-                value
+            sent_secret = Some(if key_wire {
+                sent
             } else {
-                value.rsplit(' ').next().unwrap_or(value)
-            }
-        });
+                sent.rsplit(' ').next().unwrap_or(sent)
+            });
+        }
+        let additional_header_secrets = self
+            .config
+            .extra_headers
+            .iter()
+            .flat_map(|(_, value)| [value.trim_matches([' ', '\t']), value.as_str()]);
         let redact = Redactor::new(
-            secret.into_iter().chain(
-                self.config
-                    .extra_headers
-                    .iter()
-                    .map(|(_, value)| value.as_str()),
-            ),
+            sent_secret
+                .into_iter()
+                .chain(credential.as_deref())
+                .chain(additional_header_secrets),
         );
         if let Some(context) = ports.cache_input().filter(|_| self.managed.is_none()) {
             cache::emit(self.wire, &mut body, &mut headers, context);
@@ -638,14 +658,15 @@ impl Adapter {
         abort(ports)?;
         let (parts, body) = reply.into_parts();
         let status = parts.status.as_u16();
-        // R-W-7 / P4D-40: process a bodyless response as an empty successful response.
-        let bodyless = matches!(status, 204 | 205 | 304) || parts.status.is_informational();
-        if !bodyless && (300..400).contains(&status) {
+        // R-W-10: the core bridge refuses redirects before considering the body.
+        if parts.status.is_redirection() {
             return Err(ProviderError::new(
                 ErrorKind::InvalidRequest,
                 "provider redirects refused",
             ));
         }
+        // R-W-7 / P4D-40: process the remaining bodyless statuses like an empty 200.
+        let bodyless = matches!(status, 204 | 205) || parts.status.is_informational();
         let on_stream = use_sse;
         let media = parts
             .headers
@@ -911,5 +932,140 @@ impl<R: Read> Read for CallReader<'_, R> {
             ));
         }
         read
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    struct FixturePort(SocketAddr, Duration);
+
+    impl Ports for FixturePort {
+        fn pin(&self, _: &Url) -> Result<SocketAddr> {
+            Ok(self.0)
+        }
+
+        fn credential(&self, _: Wire) -> Result<Option<String>> {
+            Ok(None)
+        }
+
+        fn socket_timeout(&self) -> Duration {
+            self.1
+        }
+    }
+
+    const NO_PHASE_TIMEOUTS: Timeouts = Timeouts {
+        headers: None,
+        idle: None,
+        total: None,
+    };
+
+    fn fixture_agent(
+        base: &str,
+        pin: SocketAddr,
+        budget: Duration,
+        keyless: bool,
+    ) -> Result<ureq::Agent> {
+        let adapter = if keyless {
+            Adapter::keyless_loopback(base, Config::default())?
+        } else {
+            Adapter::new(Wire::ChatCompletions, base, Config::default())?
+        };
+        adapter
+            .agent(
+                &Url::parse(base).unwrap(),
+                &FixturePort(pin, budget),
+                Instant::now(),
+                NO_PHASE_TIMEOUTS,
+            )
+            .map(|(agent, _)| agent)
+    }
+
+    #[test]
+    fn provider_config_debug_retains_header_names_and_hides_values() {
+        let config = Config {
+            extra_headers: vec![("x-fixture-scope".into(), "fixture-header-marker".into())],
+            ..Config::default()
+        };
+        let debug = format!("{config:?}");
+        assert!(debug.contains("x-fixture-scope"));
+        assert!(
+            !debug.contains("fixture-header-marker"),
+            "config Debug included a header value"
+        );
+    }
+
+    #[test]
+    fn a_long_port_budget_is_actually_capped_in_the_client() {
+        let agent = fixture_agent(
+            "http://127.0.0.1:8080/v1",
+            ([127, 0, 0, 1], 8080).into(),
+            Duration::from_secs(10_000),
+            false,
+        )
+        .unwrap();
+        let limit = agent.config().timeouts().global.unwrap();
+        assert!(limit <= Duration::from_secs(600), "{limit:?}");
+        assert!(limit > Duration::from_secs(590), "{limit:?}");
+    }
+
+    #[test]
+    fn a_pin_has_to_match_both_the_requested_port_and_literal_address() {
+        for address in [
+            SocketAddr::from(([127, 0, 0, 1], 8081)),
+            SocketAddr::from(([127, 0, 0, 2], 8080)),
+        ] {
+            let error = fixture_agent(
+                "http://127.0.0.1:8080/v1",
+                address,
+                Duration::from_secs(10),
+                false,
+            )
+            .err()
+            .unwrap();
+            assert_eq!(error.kind, ErrorKind::InvalidRequest);
+            assert!(error.message.contains("pin for a different endpoint"));
+        }
+    }
+
+    #[test]
+    fn a_keyless_local_provider_requires_a_loopback_pin() {
+        let error = fixture_agent(
+            "http://localhost:8080/v1",
+            ([192, 0, 2, 1], 8080).into(),
+            Duration::from_secs(10),
+            true,
+        )
+        .err()
+        .unwrap();
+        assert_eq!(error.kind, ErrorKind::InvalidRequest);
+        assert!(error.message.contains("pin for a different endpoint"));
+    }
+
+    #[test]
+    fn the_raw_transport_rechecks_the_absolute_deadline_under_tls() {
+        // The TLS connector delegates to these raw methods. No connection is
+        // needed: an expired call must return Global before touching the socket.
+        let socket = Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None).unwrap();
+        let mut transport = SocketTransport {
+            socket,
+            buffers: LazyBuffers::new(32, 32),
+            deadline: SocketDeadline(Instant::now() - Duration::from_secs(1)),
+        };
+        let phase = NextTimeout {
+            after: Duration::from_secs(10).into(),
+            reason: ureq::Timeout::RecvBody,
+        };
+        assert!(matches!(
+            transport.await_input(phase),
+            Err(ureq::Error::Timeout(ureq::Timeout::Global)),
+        ));
+        transport.buffers().output()[0] = b'x';
+        assert!(matches!(
+            transport.transmit_output(1, phase),
+            Err(ureq::Error::Timeout(ureq::Timeout::Global)),
+        ));
     }
 }

@@ -313,7 +313,9 @@ fn send_http(stream: &mut impl Write, response: &Value) -> io::Result<()> {
         );
         writeln_header(stream, name, value.as_str().unwrap())?;
     }
-    if matches!(status, 204 | 205 | 304) {
+    // A synthetic response may supply a JSON body explicitly to test that
+    // the client ignores content for a bodyless status.
+    if matches!(status, 204 | 205 | 304) && response.get("body").is_none() {
         return stream.write_all(b"\r\n");
     }
     if let Some(chunks) = response["chunksBase64"].as_array() {

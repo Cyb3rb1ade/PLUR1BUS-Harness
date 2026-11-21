@@ -43,13 +43,69 @@ Bibliotheksumfang zu. Bei den folgenden Meilensteinen beschreiben die Modi und o
   beträgt höchstens das vom Port über `socket_timeout` gelieferte Zeitbudget, begrenzt auf
   600 Sekunden. Eine kürzere Gesamtfrist verkürzt die Obergrenze. Die Frist gilt auch bei
   deaktivierten Phasenfristen und deckt TCP, TLS und Unix-Sockets ab.
+- **RW-6, Frist der Rückfallkette.** Rust und TypeScript beziehen die Socket-Frist auf den
+  einzelnen Adapterversuch. Der Router erlaubt standardmäßig bis zu sechs Versuche mit jeweils
+  bis zu 600 Sekunden und den anfallenden Retry-Pausen. Beim Flip hält der Host die gemeinsame
+  Turn-Frist und liefert über `Ports::socket_timeout` die verbleibende Zeit für jeden Versuch.
+  Timer, Abbruchsignal und Warteport müssen dieselbe Turn-Frist berücksichtigen.
+
+
+**Mutationsnachweis für W1 (RW-3).** Alle folgenden Einzeländerungen ließen ihren gezielten
+Test scheitern. Der unveränderte Code besteht die Tests.
+
+| Mutation | Geprüfte Stelle |
+|---|---|
+| M1–M3 | Offene SSE-Zeile, CR am Chunk-Ende, akkumulierte Event-Daten |
+| M4–M5 | Gesamtgröße des SSE-Stroms und UTF-16-Grenze für Tool-Argumente |
+| M6–M7 | Redirect-Ablehnung und wirksamer Deckel von 600 s im HTTP-Client |
+| M8a, M8b, M9 | Abweichender Pin-Port, abweichende Literal-IP und fehlender Loopback-Pin |
+| M10 | Redaktion synthetischer Credential-Marker in Meldung, Debug und JSON |
+| M11a, M11b | Absolute Frist bei Raw-Socket-Lesen und -Schreiben unter der TLS-Schicht |
+| M12–M13 | 0700 für das AF1-Verzeichnis und ignorierter Body bei 205 |
+| M14–M15 | Fehlerbody mit genau 64 KiB und darüber, Abbruch nach fehlgeschlagenem Router-Versuch |
+
+
+**RW-4 / [P4D-195](defects.md#p4d-195).**
+Die Redaktion verwendet in Rust sowohl die gesendete normalisierte Schreibweise als auch die
+Originalwerte. Die TypeScript-Aufzeichnung erfasst den Unterschied bei nachgestellten
+Leerzeichen in Authorization und bei OWS um Zusatzheader (TS-2). Beide Fälle nutzen
+synthetische Marker. Die Rust-Fehlerform folgt der aufgezeichneten Redaktion bei bereits
+normalisierten Headern. Seit RW-5 enthält die Debug-Ansicht der Provider-Konfiguration
+die Namen der Zusatzheader. Ihre Werte sind dort ausgeblendet.
+
+
+**RW-7 / [P4D-196](defects.md#p4d-196).** Das Reasoning-Replay enthält sechs Fälle mit
+Katalogwerten außerhalb der Typdeklaration. `null` bei einer Effort-Stufe fällt wie in
+TypeScript auf den Stufennamen zurück. Für String-Toggle, nichtboolesches oder unbekanntes
+Adaptive-Thinking und fehlende oder als Text gelieferte Budgetgrenzen speichert der Exporter
+die TypeScript-Ergebnisse. Die Rust-Tests prüfen die engeren Ergebnisse einzeln (TS-4).
+
+
+**RW-8, inkrementelle SSE- und Thinking-Puffer.** Der SSE-Parser validiert pro Read nur den
+neuen UTF-8-Bereich und führt die UTF-16-Länge der offenen Zeile mit. Unvollständige Skalare
+und CR am Chunk-Ende bleiben bis zum nächsten Read offen. Der Anthropic-Akkumulator ergänzt
+Thinking- und Signatur-Deltas im vorhandenen String. Die Proben prüfen eine offene Zeile aus
+2.048 Chunks, ein geteiltes Vier-Byte-Zeichen und die Wiederverwendung reservierten Speichers.
+
+**Weitere Beobachtungen in TypeScript.**
+
+- **TS-1** ist die unterschiedliche 304-Klassifikation von Core-Bridge und nativem Fetch.
+  Der R-W-10-Nachweis verwendet die Core-Bridge. TS-2 und TS-4 sind bei RW-4 und RW-7 erfasst.
+- **TS-3** betrifft aufeinanderfolgende UTF-8-BOMs und eine Chunk-Grenze im ersten BOM.
+  Der Rust-Parser konsumiert einmal den führenden BOM.
+- **TS-5** betrifft ungültige Breakpoint-Indizes, Scalar-Content im Responses-Emitter und
+  ein fehlendes Input-Array beim Cache-Umbau. Der Rust-Emitter überspringt diese Formen
+  oder behält den ursprünglichen Anfragetext.
 
 <a id="p4d-40-http-wrapper"></a>
 
 ### P4D-40 · Verwandte HTTP-Wrapper
 
-304 trägt gemäß R-W-8 kein `expected-divergence`, weil die TypeScript-Bridge die Antwort
-regulär als Redirect ablehnt, bevor sie den `Response`-Konstruktor erreicht.
+Unter R-W-10 meldet HTTP 304 in Rust und in der TypeScript-Core-Bridge `invalid_request` mit
+„provider redirects refused“. Der Exporter zeichnet die Core-Bridge für alle vier Anbieterformate,
+beide Aufrufarten und drei Content-Type-Fälle auf. Für 204 und 205 bleibt die Abweichung P4D-40
+bis zum Merge von #937 bestehen. Der Exporter isoliert dort den TypeScript-Konstruktorfehler und
+verwendet für Rust die aufgezeichnete leere 200 als Referenz.
 
 | Stelle | Befund zur Behandlung körperloser Antworten |
 |---|---|

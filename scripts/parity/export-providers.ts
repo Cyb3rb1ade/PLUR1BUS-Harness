@@ -5,16 +5,19 @@ import {
   ProviderError,
   type ChatRequest, type ToolArgumentRepair,
 } from "../../packages/providers/src/index.ts";
+import { providerFetch } from "../../packages/core/src/composition/http.ts";
 import { startStub, writeAll } from "../../packages/providers/test/helpers/stub.ts";
 import { exporterMain } from "./lib.mjs";
 
 const wires = ["chat_completions", "anthropic_messages", "codex_responses", "gemini"] as const;
 type Wire = typeof wires[number];
 type Mode = "stream" | "complete";
-type Options = { allowMissingDone: boolean; repair?: boolean };
+type Options = { allowMissingDone: boolean; repair?: boolean; fixtureHeaders?: "plain" | "padded" };
 type Reply = { status: number; headers: Record<string, string>; chunks: Buffer[] };
+type RecordedReply = Omit<Reply, "chunks"> & { chunksBase64?: string[]; body?: unknown };
 
 const credential = "fixture-credential";
+const fixtureHeaderValue = "fixture-header-marker";
 const creds = { apiKey: () => credential, authorization: () => `Bearer ${credential}` };
 const input: ChatRequest = {
   model: "fixture-model",
@@ -23,13 +26,22 @@ const input: ChatRequest = {
   temperature: 0,
 };
 
-function make(wire: Wire, baseUrl: string, options: Options) {
+function make(wire: Wire, baseUrl: string, options: Options, fetch?: typeof globalThis.fetch) {
   const repair: ToolArgumentRepair | undefined = options.repair ? {
     repair: ({ tool }) => tool?.name === "inspect" ? { arguments: { fixed: true } } : undefined,
   } : undefined;
-  const config = { baseUrl, credentials: creds, repair };
+  const config = { baseUrl, credentials: creds, repair, ...(fetch ? { fetch } : {}) };
   switch (wire) {
-    case "chat_completions": return createChatCompletionsAdapter({ ...config, allowMissingDone: options.allowMissingDone });
+    case "chat_completions": {
+      const padding = options.fixtureHeaders === "padded" ? " " : "";
+      return createChatCompletionsAdapter({
+        ...config, allowMissingDone: options.allowMissingDone,
+        ...(options.fixtureHeaders ? {
+          credentials: { ...creds, authorization: () => `Bearer ${credential}${padding}` },
+          headers: { "x-fixture-scope": `${padding}${fixtureHeaderValue}${padding}` },
+        } : {}),
+      });
+    }
     case "anthropic_messages": return createAnthropicAdapter(config);
     case "codex_responses": return createResponsesAdapter(config);
     case "gemini": return createGeminiAdapter(config);
@@ -46,14 +58,25 @@ function errorShape(error: unknown) {
   };
 }
 
-async function record(wire: Wire, name: string, mode: Mode, response: Reply, options: Options = { allowMissingDone: false }, requestInput = input) {
+async function record(
+  wire: Wire, name: string, mode: Mode, response: Reply,
+  options: Options = { allowMissingDone: false }, requestInput = input, useCoreBridge = false,
+) {
   const stub = await startStub(async (_request, reply) => {
     reply.writeHead(response.status, response.headers);
     await writeAll(reply, response.chunks);
     reply.end();
   });
   try {
-    const adapter = make(wire, stub.baseUrl, options);
+    const fixtureOrigin = new URL(stub.baseUrl).origin;
+    const fetch = useCoreBridge ? providerFetch({
+      async decide(raw) {
+        const url = new URL(raw);
+        if (url.origin !== fixtureOrigin) throw new Error("wire fixture left the loopback stub");
+        return { allowed: true, host: url.hostname, port: Number(url.port), address: "127.0.0.1", family: 4 };
+      },
+    }, wire) : undefined;
+    const adapter = make(wire, stub.baseUrl, options, fetch);
     const events = [];
     let result;
     let error;
@@ -66,16 +89,19 @@ async function record(wire: Wire, name: string, mode: Mode, response: Reply, opt
     if (stub.requests.length !== 1 || !request || request.body.includes(credential)) {
       throw new Error(`${name}: expected one credential-free request body`);
     }
-    const names = ["accept", "content-type", "anthropic-version", "authorization", "x-api-key", "x-goog-api-key"];
+    const names = ["accept", "content-type", "anthropic-version", "authorization", "x-api-key", "x-goog-api-key", "x-fixture-scope"];
     const headers = Object.fromEntries(names.flatMap((key) => {
       const value = request.headers[key];
       if (typeof value !== "string") return [];
-      return [[key, value.replace(credential, "[REDACTED:secret]")]];
+      return [[key, value.replace(credential, "[REDACTED:secret]").replace(fixtureHeaderValue, "[REDACTED:header]")]];
     }));
+    const recordedReply: RecordedReply = {
+      status: response.status, headers: response.headers, chunksBase64: response.chunks.map(c => c.toString("base64")),
+    };
     return {
       name, mode, requestJson: JSON.stringify(requestInput), options,
       request: { method: request.method, path: request.url, headers, bodyText: request.body },
-      response: { status: response.status, headers: response.headers, chunksBase64: response.chunks.map(c => c.toString("base64")) },
+      response: recordedReply,
       expected: { events, result, error },
     };
   } finally {
@@ -106,17 +132,20 @@ async function bodyless(wire: Wire) {
       const reference = await record(wire, `${mode}-${name}-empty-200`, mode, { status: 200, headers, chunks: [] });
       if (!reference.expected.error) throw new Error("the empty reference response must fail");
       exchanges.push(reference);
-      for (const status of [204, 205, 304] as const) {
+      for (const status of [204, 205] as const) {
         exchanges.push({
           ...reference,
           name: `${mode}-${name}-empty-${status}`,
           response: { status, headers },
-          ...(status === 304 ? {} : {
-            "expected-divergence": "P4D-40",
-            typescriptConstructor: checkBodylessConstructor(status),
-          }),
+          "expected-divergence": "P4D-40",
+          typescriptConstructor: checkBodylessConstructor(status),
         });
       }
+      // R-W-10: use the production bridge's redirect path, including its error envelope.
+      exchanges.push(await record(
+        wire, `${mode}-${name}-empty-304`, mode,
+        { status: 304, headers, chunks: [] }, undefined, input, true,
+      ));
     }
   }
   return exchanges;
@@ -221,6 +250,36 @@ async function protocol(wire: Wire) {
   const vendorError = await record(wire, "stream-vendor-error", "stream", sse([streamFailure], false));
   const cases = [complete, stream, truncated, throttled, vendorError];
   if (wire === "chat_completions") {
+    const errorReply = {
+      status: 401,
+      headers: { "content-type": "application/json" },
+      chunks: [Buffer.from(JSON.stringify({ error: { message: `fixture rejected ${credential} and ${fixtureHeaderValue}` } }))],
+    };
+    const plain = await record(wire, "vendor-error-with-plain-headers", "complete", errorReply,
+      { allowMissingDone: false, fixtureHeaders: "plain" });
+    const padded = await record(wire, "vendor-error-with-padded-headers", "complete", errorReply,
+      { allowMissingDone: false, fixtureHeaders: "padded" });
+    const plainError = JSON.stringify(plain.expected.error);
+    const paddedError = JSON.stringify(padded.expected.error);
+    if (!plainError?.includes("[redacted]") || plainError.includes(credential) || plainError.includes(fixtureHeaderValue)
+      || !paddedError?.includes(credential) || !paddedError.includes(fixtureHeaderValue)) {
+      throw new Error("fixture header normalization/redaction no longer matches P4D-195");
+    }
+    const markers = (text: string) => text.replaceAll(credential, "[FIXTURE:AUTH]")
+      .replaceAll(fixtureHeaderValue, "[FIXTURE:EXTRA_HEADER]");
+    const responseWithMarkers = {
+      status: errorReply.status,
+      headers: errorReply.headers,
+      body: JSON.parse(markers(errorReply.chunks[0]!.toString("utf8"))),
+    };
+    const paddedEvidence = {
+      ...padded,
+      response: responseWithMarkers,
+      "expected-divergence": "P4D-195",
+      typescriptOutcome: JSON.parse(markers(JSON.stringify(padded.expected))),
+      expected: plain.expected,
+    };
+    cases.push({ ...plain, response: responseWithMarkers }, paddedEvidence);
     cases.push(await record(wire, "stream-missing-done-strict", "stream", sse(frames, false)));
     cases.push(await record(wire, "stream-missing-done-allowed", "stream", sse(frames, false), { allowMissingDone: true }));
     const damaged = [

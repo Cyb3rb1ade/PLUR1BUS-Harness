@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Phase 4 freeze guard (D129, ADR-019). The TypeScript core is frozen while it moves to Rust: a commit that changes
-// `src/` of a non-UI TypeScript package must say why with a `Phase4: <kind> <arg>` trailer. Fixes go to Rust.
+// `src/` of a non-UI TypeScript package must say why with a `Phase4: <kind> <arg>` trailer. The PR base records approved TypeScript fixes.
 //
-//   Phase4: seam <WP> | cut <WP> | vectors <WP> | running-work <TK|LP|RX|RY> | generated
+//   Phase4: seam <WP> | cut <WP> | vectors <WP> | running-work <TK|LP|RX|RY> | generated | defect <P4D-NN>
 //
 // <WP> is `P4-\d\d[a-z]?` or `RE-\d\d(/T\d+[a-z]?)?`. The range is BASE_SHA..HEAD_SHA (env, as `changes.mjs` gets it) or
 // `--base X --head Y`; without a range (push, schedule) there is nothing to judge and the script exits 0.
@@ -31,7 +31,10 @@ export const GENERATED = [
 
 const WP = String.raw`(?:P4-\d\d[a-z]?|RE-\d\d(?:/T\d+[a-z]?)?)`;
 const TRAILER = new RegExp(String.raw`^(?:(?:seam|cut|vectors) ${WP}|running-work (?:TK|LP|RX|RY)|generated)$`);
-export const EXPECTED = 'Phase4: seam <WP> | cut <WP> | vectors <WP> | running-work <TK|LP|RX|RY> | generated   (<WP> = P4-NN[a], RE-NN or RE-NN/TN[a])';
+const DEFECT_TRAILER = /^defect (P4D-\d{2})$/;
+const EXCEPTION_FILE = 'scripts/ci/phase4-freeze-exceptions.json';
+const NO_APPROVED_DEFECTS = new Map();
+export const EXPECTED = 'Phase4: seam <WP> | cut <WP> | vectors <WP> | running-work <TK|LP|RX|RY> | generated | defect <P4D-NN>   (<WP> = P4-NN[a], RE-NN or RE-NN/TN[a]; defects must be approved in phase4-freeze-exceptions.json on the PR base)';
 
 export function frozenPackages(entries) {
   return entries.filter(e => e.isDirectory() && !UI_PACKAGES.includes(e.name)).map(e => e.name).sort();
@@ -39,38 +42,79 @@ export function frozenPackages(entries) {
 
 export const isFrozen = (path, packages) => {
   const m = /^packages\/([^/]+)\/src\//.exec(path);
-  return m !== null && packages.includes(m[1]) && !UI_PACKAGES.includes(m[1]);
+  return m !== null && (packages === undefined || packages.includes(m[1])) && !UI_PACKAGES.includes(m[1]);
 };
 
 export const isGenerated = (path, list = GENERATED) => list.some(g => (g.endsWith('/') ? path.startsWith(g) : path === g));
 
+const trailerLines = message => message.split(/\r?\n/).filter(line => line.startsWith('Phase4:'));
+const trailerValue = line => line.slice('Phase4:'.length).replace(/^ /, '');
+
 // Values of every `Phase4:` line (key matched exactly) in the message.
 export function parseTrailers(message) {
-  return message.split(/\r?\n/).flatMap(line => (line.startsWith('Phase4:') ? [line.slice('Phase4:'.length).replace(/^ /, '')] : []));
+  return trailerLines(message).map(trailerValue);
 }
 
-export const validateTrailer = value => TRAILER.test(value);
+const defectId = value => DEFECT_TRAILER.exec(value)?.[1];
 
-export function checkCommits(commits, { packages, generated = GENERATED, activation = ACTIVATION } = {}) {
+export const validateTrailer = (value, approvedDefects = NO_APPROVED_DEFECTS) => TRAILER.test(value) || approvedDefects.has(defectId(value));
+
+export function checkCommits(commits, { packages, generated = GENERATED, activation = ACTIVATION, approvedDefects = NO_APPROVED_DEFECTS } = {}) {
   const findings = [];
   for (const c of commits) {
     const time = Date.parse(c.authorDate);
     if (Number.isFinite(time) && time < activation.getTime()) continue; // unparsable dates fail closed, they are judged
-    const files = c.files.filter(f => isFrozen(f, packages) && !isGenerated(f, generated)).sort();
-    if (!files.length) continue;
-    const values = parseTrailers(c.message);
-    if (!values.length) findings.push({ sha: c.sha, files, reason: 'missing Phase4 trailer', expected: EXPECTED });
-    else {
-      const bad = values.filter(v => !validateTrailer(v));
-      if (bad.length) findings.push({ sha: c.sha, files, reason: `malformed Phase4 trailer: ${bad.map(v => JSON.stringify(v)).join(', ')}`, expected: EXPECTED });
-      // `generated` alone is no bypass: the generated files are already filtered out, so any frozen file left is hand-written.
-      else if (values.every(v => v === 'generated')) findings.push({ sha: c.sha, files, reason: 'generated trailer, but these frozen files are not generator outputs', expected: EXPECTED });
+    const lines = trailerLines(c.message);
+    const values = lines.map(trailerValue);
+    const declaresDefect = values.some(value => /^\s*defect\b/.test(value));
+    // Judge the paths in a defect commit even when the package was removed from the head tree.
+    const files = c.files.filter(f => isFrozen(f, declaresDefect ? undefined : packages) && !isGenerated(f, generated)).sort();
+    if (!files.length && !declaresDefect) continue;
+    if (!values.length) {
+      findings.push({ sha: c.sha, files, reason: 'missing Phase4 trailer', expected: EXPECTED });
+      continue;
     }
+    const bad = values.filter(v => !validateTrailer(v, approvedDefects));
+    if (bad.length) {
+      const unapproved = bad.map(defectId).filter(id => id !== undefined);
+      const reason = unapproved.length
+        ? `defect not approved: ${unapproved.join(', ')} (see phase4-freeze-exceptions.json on the PR base)`
+        : `malformed Phase4 trailer: ${bad.map(v => JSON.stringify(v)).join(', ')}`;
+      findings.push({ sha: c.sha, files, reason, expected: EXPECTED });
+      continue;
+    }
+
+    const defect = values.map(defectId).find(id => id !== undefined);
+    if (defect !== undefined) {
+      const exact = `Phase4: defect ${defect}`;
+      if (lines.length !== 1 || lines[0] !== exact) {
+        findings.push({ sha: c.sha, files, reason: `expected exactly one ${exact} trailer`, expected: EXPECTED });
+        continue;
+      }
+      if (!files.length) {
+        findings.push({ sha: c.sha, files, reason: `defect ${defect} requires a frozen source path`, expected: EXPECTED });
+        continue;
+      }
+      const approved = approvedDefects.get(defect);
+      const outside = files.filter(f => !approved.has(f));
+      if (outside.length) findings.push({ sha: c.sha, files: outside, reason: `defect ${defect} changes frozen files outside its approved paths`, expected: EXPECTED });
+      continue;
+    }
+
+    // `generated` alone is no bypass: the generated files are already filtered out, so any frozen file left is hand-written.
+    if (values.every(v => v === 'generated')) findings.push({ sha: c.sha, files, reason: 'generated trailer, but these frozen files are not generator outputs', expected: EXPECTED });
   }
   return findings;
 }
 
 const git = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+
+function readApprovedDefects(cwd, baseCommit) {
+  // An absent path yields empty output. Git and JSON errors fail the check.
+  if (!git(cwd, ['ls-tree', '--full-tree', baseCommit, '--', EXCEPTION_FILE])) return NO_APPROVED_DEFECTS;
+  const entries = JSON.parse(git(cwd, ['show', `${baseCommit}:${EXCEPTION_FILE}`]));
+  return new Map(entries.map(({ id, paths }) => [id, new Set(paths)]));
+}
 
 // Non-merge commits reachable from head and not from base, oldest first. Renames count on both sides (`--no-renames`).
 export function collectCommits({ base, head, cwd = process.cwd() }) {
@@ -90,7 +134,7 @@ function range(argv, env) {
 
 export function report(findings) {
   return [
-    `phase4-freeze: ${findings.length} commit(s) change the frozen TypeScript core without a valid trailer (D129, ADR-019: fixes go to Rust).`,
+    `phase4-freeze: ${findings.length} commit(s) violate the TypeScript freeze rules (D129, ADR-019).`,
     ...findings.flatMap(f => [`  commit ${f.sha}: ${f.reason}`, ...f.files.map(file => `    ${file}`), `    expected trailer: ${f.expected}`]),
   ].join('\n');
 }
@@ -100,9 +144,12 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
     const { base, head } = range(process.argv.slice(2), process.env);
     if (!base || !head) console.log('phase4-freeze: no commit range (BASE_SHA/HEAD_SHA or --base/--head), nothing to check');
     else {
+      const cwd = process.cwd();
+      const baseCommit = git(cwd, ['rev-parse', '--verify', '--end-of-options', `${base}^{commit}`]).trim();
+      const approvedDefects = readApprovedDefects(cwd, baseCommit);
       const packages = frozenPackages(readdirSync('packages', { withFileTypes: true }));
-      const commits = collectCommits({ base, head });
-      const findings = checkCommits(commits, { packages });
+      const commits = collectCommits({ base: baseCommit, head, cwd });
+      const findings = checkCommits(commits, { packages, approvedDefects });
       if (findings.length) { console.error(report(findings)); process.exitCode = 1; }
       else console.log(`phase4-freeze: ${commits.length} commit(s) checked, ${packages.length} frozen packages, ok`);
     }
