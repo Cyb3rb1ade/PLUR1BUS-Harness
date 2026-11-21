@@ -243,12 +243,17 @@ impl<B: AcpBackend + 'static> AcpServer<B> {
                     // A reader that went away (EPIPE, closed pipe): stop writing, stop the work nobody can receive.
                     if !inner.out_gone.replace(true) {
                         inner.log("output-error", &[]);
-                        self.finish(false, &mut finished);
                     }
+                    self.finish(false, &mut finished);
                 }
             }
             inner.perms().expire();
             inner.exec.run_until_stalled();
+            if inner.out_gone.get() && !finished {
+                self.finish(false, &mut finished);
+                inner.exec.run_until_stalled();
+                return inner.pending.get();
+            }
             if end {
                 break;
             }
@@ -276,6 +281,9 @@ impl<B: AcpBackend + 'static> AcpServer<B> {
     fn handle(&self, items: Vec<LineItem>) {
         let inner = &self.inner;
         for item in items {
+            if inner.out_gone.get() && !inner.closed.get() {
+                break;
+            }
             match item {
                 LineItem::Overflow => {
                     inner.log("line-too-long", &[]);

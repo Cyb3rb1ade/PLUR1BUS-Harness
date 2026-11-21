@@ -99,6 +99,8 @@ pub enum Ev {
     Error,
     /// The output is closed.
     OutputClosed,
+    /// The next write fails before the input reports a closed output.
+    BreakWriter,
 }
 
 struct ScriptedInput {
@@ -135,6 +137,10 @@ impl InputPort for ScriptedInput {
             Ev::OutputClosed => {
                 self.out_fail.set(true);
                 InputEvent::OutputClosed
+            }
+            Ev::BreakWriter => {
+                self.out_fail.set(true);
+                InputEvent::Wake
             }
         }
     }
@@ -537,6 +543,8 @@ fn events_of(script: &V) -> VecDeque<Ev> {
                 Ev::Error
             } else if e.has("outputClosed") {
                 Ev::OutputClosed
+            } else if e.has("breakWriter") {
+                Ev::BreakWriter
             } else {
                 Ev::End
             }
