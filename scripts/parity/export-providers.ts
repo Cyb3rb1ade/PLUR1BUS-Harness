@@ -5,6 +5,7 @@ import {
   ProviderError,
   type ChatRequest, type ToolArgumentRepair,
 } from "../../packages/providers/src/index.ts";
+import { providerFetch } from "../../packages/core/src/composition/http.ts";
 import { startStub, writeAll } from "../../packages/providers/test/helpers/stub.ts";
 import { exporterMain } from "./lib.mjs";
 
@@ -23,11 +24,11 @@ const input: ChatRequest = {
   temperature: 0,
 };
 
-function make(wire: Wire, baseUrl: string, options: Options) {
+function make(wire: Wire, baseUrl: string, options: Options, fetch?: typeof globalThis.fetch) {
   const repair: ToolArgumentRepair | undefined = options.repair ? {
     repair: ({ tool }) => tool?.name === "inspect" ? { arguments: { fixed: true } } : undefined,
   } : undefined;
-  const config = { baseUrl, credentials: creds, repair };
+  const config = { baseUrl, credentials: creds, repair, ...(fetch ? { fetch } : {}) };
   switch (wire) {
     case "chat_completions": return createChatCompletionsAdapter({ ...config, allowMissingDone: options.allowMissingDone });
     case "anthropic_messages": return createAnthropicAdapter(config);
@@ -46,14 +47,25 @@ function errorShape(error: unknown) {
   };
 }
 
-async function record(wire: Wire, name: string, mode: Mode, response: Reply, options: Options = { allowMissingDone: false }, requestInput = input) {
+async function record(
+  wire: Wire, name: string, mode: Mode, response: Reply,
+  options: Options = { allowMissingDone: false }, requestInput = input, useCoreBridge = false,
+) {
   const stub = await startStub(async (_request, reply) => {
     reply.writeHead(response.status, response.headers);
     await writeAll(reply, response.chunks);
     reply.end();
   });
   try {
-    const adapter = make(wire, stub.baseUrl, options);
+    const fixtureOrigin = new URL(stub.baseUrl).origin;
+    const fetch = useCoreBridge ? providerFetch({
+      async decide(raw) {
+        const url = new URL(raw);
+        if (url.origin !== fixtureOrigin) throw new Error("wire fixture left the loopback stub");
+        return { allowed: true, host: url.hostname, port: Number(url.port), address: "127.0.0.1", family: 4 };
+      },
+    }, wire) : undefined;
+    const adapter = make(wire, stub.baseUrl, options, fetch);
     const events = [];
     let result;
     let error;
@@ -106,17 +118,20 @@ async function bodyless(wire: Wire) {
       const reference = await record(wire, `${mode}-${name}-empty-200`, mode, { status: 200, headers, chunks: [] });
       if (!reference.expected.error) throw new Error("the empty reference response must fail");
       exchanges.push(reference);
-      for (const status of [204, 205, 304] as const) {
+      for (const status of [204, 205] as const) {
         exchanges.push({
           ...reference,
           name: `${mode}-${name}-empty-${status}`,
           response: { status, headers },
-          ...(status === 304 ? {} : {
-            "expected-divergence": "P4D-40",
-            typescriptConstructor: checkBodylessConstructor(status),
-          }),
+          "expected-divergence": "P4D-40",
+          typescriptConstructor: checkBodylessConstructor(status),
         });
       }
+      // R-W-10: use the production bridge's redirect path, including its error envelope.
+      exchanges.push(await record(
+        wire, `${mode}-${name}-empty-304`, mode,
+        { status: 304, headers, chunks: [] }, undefined, input, true,
+      ));
     }
   }
   return exchanges;

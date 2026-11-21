@@ -117,7 +117,7 @@ fn replay(wire: Wire, recording: &Value, exchange: &Value) {
 }
 
 #[test]
-fn recorded_empty_bodies_agree_across_http_statuses() {
+fn recorded_bodyless_and_redirect_responses_match_the_bridge_contract() {
     for (wire, name) in WIRES {
         let recording = load_fixture("providers", &format!("{name}-bodyless"));
         let exchanges = recording["exchanges"].as_array().unwrap();
@@ -132,6 +132,11 @@ fn recorded_empty_bodies_agree_across_http_statuses() {
             } else {
                 assert!(exchange.get("expected-divergence").is_none());
                 assert!(exchange.get("typescriptConstructor").is_none());
+                if exchange["response"]["status"] == 304 {
+                    let error = &exchange["expected"]["error"];
+                    assert_eq!(error["kind"], "invalid_request");
+                    assert_eq!(error["message"], "provider redirects refused");
+                }
             }
             replay(wire, &recording, exchange);
         }

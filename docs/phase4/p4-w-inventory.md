@@ -48,8 +48,11 @@ Bibliotheksumfang zu. Bei den folgenden Meilensteinen beschreiben die Modi und o
 
 ### P4D-40 · Verwandte HTTP-Wrapper
 
-304 trägt gemäß R-W-8 kein `expected-divergence`, weil die TypeScript-Bridge die Antwort
-regulär als Redirect ablehnt, bevor sie den `Response`-Konstruktor erreicht.
+Unter R-W-10 meldet HTTP 304 in Rust und in der TypeScript-Core-Bridge `invalid_request` mit
+„provider redirects refused“. Der Exporter zeichnet die Core-Bridge für alle vier Anbieterformate,
+beide Aufrufarten und drei Content-Type-Fälle auf. Für 204 und 205 bleibt die Abweichung P4D-40
+bis zum Merge von #937 bestehen. Der Exporter isoliert dort den TypeScript-Konstruktorfehler und
+verwendet für Rust die aufgezeichnete leere 200 als Referenz.
 
 | Stelle | Befund zur Behandlung körperloser Antworten |
 |---|---|

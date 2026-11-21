@@ -638,14 +638,15 @@ impl Adapter {
         abort(ports)?;
         let (parts, body) = reply.into_parts();
         let status = parts.status.as_u16();
-        // R-W-7 / P4D-40: process a bodyless response as an empty successful response.
-        let bodyless = matches!(status, 204 | 205 | 304) || parts.status.is_informational();
-        if !bodyless && (300..400).contains(&status) {
+        // R-W-10: the core bridge refuses redirects before considering the body.
+        if parts.status.is_redirection() {
             return Err(ProviderError::new(
                 ErrorKind::InvalidRequest,
                 "provider redirects refused",
             ));
         }
+        // R-W-7 / P4D-40: process the remaining bodyless statuses like an empty 200.
+        let bodyless = matches!(status, 204 | 205) || parts.status.is_informational();
         let on_stream = use_sse;
         let media = parts
             .headers
