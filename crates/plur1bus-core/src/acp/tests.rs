@@ -159,7 +159,7 @@ fn general_responses_enforce_the_utf8_frame_boundary_before_writing() {
         .len();
     let room = MAX_LINE_BYTES - envelope;
     let mut title = "é".repeat(room / 2);
-    if room % 2 != 0 {
+    if !room.is_multiple_of(2) {
         title.push('a');
     }
     assert!(run(&title).iter().any(|l| l

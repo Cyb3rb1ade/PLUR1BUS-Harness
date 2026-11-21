@@ -287,8 +287,8 @@ fn run_vectors() {
             "done" | "deadline" | "shutdown abandons" | "shutdown cooperative"
         ) {
             assert_eq!(
-                *grants.0.lock().unwrap(),
-                [handle.queued.id.clone()],
+                grants.0.lock().unwrap().as_slice(),
+                std::slice::from_ref(&handle.queued.id),
                 "{name}"
             );
         }

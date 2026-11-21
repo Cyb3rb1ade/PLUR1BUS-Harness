@@ -1054,7 +1054,7 @@ unchanged). K10b (host tools, `hostctl`) is the next run; the gate needs no chan
   before returning the open descriptor. Filesystems can report identical metadata for different historical
   objects. For a regular-file stat without an available birth time Rust refuses the result.
   A configured root without a birth time still uses its stored device and inode before the parent is opened.
-  **K10-D14 (S1-R3):** Rust opens log leaves without following links and compares regular-file identity before, at
+  **K10-D21 (S1-R3):** Rust opens log leaves without following links and compares regular-file identity before, at
   and after open. Windows uses the volume and file index of the live file. A scan that exhausts retries returns
   temporary I/O failure instead of returning an unverified snapshot as TypeScript does.
 - *Same as TypeScript, noted:* **K10-D3**: when the `exec.result` line cannot be written after the program ran, the call fails with
