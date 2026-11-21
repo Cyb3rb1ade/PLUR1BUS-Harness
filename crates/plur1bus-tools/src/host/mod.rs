@@ -209,6 +209,7 @@ impl<F: PathFs> Hostctl<'_, F> {
         let classification = prepared.classification();
         let targets = classification.targets.as_deref().unwrap_or_default();
         let expires_at = approved.expires_at();
+        let action_hash = approved.action_hash().to_owned();
         approved
             .redeem(
                 &Live {
@@ -222,8 +223,24 @@ impl<F: PathFs> Hostctl<'_, F> {
             )
             .map_err(|_| Failure::new("CHANGED", "The approved operation changed or expired."))?;
         let audit_fields = |code| {
-            json!({"operation":spec.name, "code":code,
-            "agentId": who.agent_id, "principal": who.principal, "sessionId": who.session_id})
+            let mut fields = json!({
+                "operation": spec.name, "code": code, "actionHash": action_hash,
+                "agentId": who.agent_id, "principal": who.principal, "sessionId": who.session_id
+            });
+            if !targets.is_empty() || prepared.url.is_some() {
+                fields["targetHash"] = json!(classification.hash_extra);
+            }
+            if let Some(pid) = input.get("pid").and_then(Value::as_u64) {
+                fields["pid"] = json!(pid);
+            }
+            if let Some(id) = input
+                .get("id")
+                .and_then(Value::as_str)
+                .and_then(|id| Uuid::parse_str(id).ok())
+            {
+                fields["processId"] = json!(id.to_string());
+            }
+            fields
         };
         let denied = || Failure::denied("Audit is unavailable; no operation was performed.");
         if !self.audit.present() {

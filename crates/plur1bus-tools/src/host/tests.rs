@@ -1268,3 +1268,32 @@ fn app_open_enforces_document_types_for_files_and_directories() {
         }
     }
 }
+
+#[test]
+fn both_audit_lines_identify_the_approved_target_without_its_raw_name() {
+    let dir = tempfile::tempdir().unwrap();
+    let name = "private-fixture-document.txt";
+    std::fs::write(dir.path().join(name), "fixture").unwrap();
+    let roots = [review_root(dir.path())];
+    let fixture = HostReviewFixture::new(&roots);
+    let input = json!({"path":name});
+    let binding = fixture
+        .policy
+        .prepare(catalog::Operation::Stat, input.as_object().unwrap())
+        .unwrap_or_else(|error| panic!("{}", error.code))
+        .classification()
+        .hash_extra
+        .unwrap();
+    let action = fixture.approval("hostctl.fs.stat", input, &mut Permits::approving(), None);
+    let action_hash = action.action_hash().to_owned();
+    let mut audit = MemoryAudit::default();
+    let mut effects = EffectsFixture::default();
+    fixture.execute(action, &mut audit, &mut effects).unwrap();
+    for line in ["hostctl.begin", "hostctl.end"] {
+        let fields = audit.of(line);
+        assert_eq!(fields.len(), 1);
+        assert_eq!(fields[0]["actionHash"], action_hash);
+        assert_eq!(fields[0]["targetHash"], binding);
+        assert!(!fields[0].to_string().contains(name));
+    }
+}

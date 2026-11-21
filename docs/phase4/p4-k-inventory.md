@@ -1099,23 +1099,27 @@ unchanged). K10b uses this gate and the same path and process layers.
   enforce lifetime, tree teardown and stdin queue admission. A foreign signal requires its own approval and a native
   process handle. Clipboard, notification, URL opening and system information use typed native ports.
 - **K10-D14:** Inputs are checked against their declared string and array limits before the platform call. The branch
-  returns safe failure codes and a short hint; some hints differ from TypeScript. The audit records identities and outcome,
-  without clipboard, notification, command, URL or file contents.
+  returns safe failure codes and a short hint; some hints differ from TypeScript. The audit records identities and
+  outcome, the approved action hash, and a target hash for canonical paths or URLs (RE-5). A supplied, validated PID
+  or UUID is included for process operations. Clipboard, notification, command, URL and file contents stay out.
 - **K10-D15:** Shell execution is disabled by default. With explicit configuration and approval it accepts one literal
   command. Under R-K-27 Rust checks the same hard argument forms as TypeScript, including protected registry and device
   forms and recursive root removal. The Rust guard also refuses wrapper executables and direct removal commands that
   TypeScript may accept. The literal shell subset also refuses wrapper builtins and shell removal aliases (RE-2).
-  The environment inherits only the
-  approved names, and callers cannot replace the program lookup path.
+  The environment inherits only the approved names, and callers cannot replace the program lookup path.
 - **K10-D16:** Rust requires exclusive publication for copy and move. There is no path-based fallback for native trash,
   directory creation or no-replace movement. A move is limited to a singly linked file on one filesystem. Local application
   opening is limited to verified document types and directories; an adapter must preserve the held identity.
 - **K10-D22 (RE-3):** Rust refuses every extension TypeScript identifies as launchable, including on directories.
   The document and directory checks additionally refuse platform launchers and configuration profiles that the
   TypeScript guard classifies as non-launchable (TS-E1). The vectors record both sides.
-- *Proof:* `export-hostctl.ts` records the real TypeScript catalog, configuration, literal matching and file results.
-  Rust replays the fixtures and tests gate expiry and bindings, audited effects, scoped session access and limits,
-  no-clobber publication, and desktop effects with test ports. Each of the six RE-4 guard removals fails a targeted test. Native platform adapters and live workflow wiring are the flip's.
+- *Other TypeScript review findings:* `clipboard.write` still uses the `clipboard.read` capability on both sides
+  (TS-E2). Rust filters credential-looking environment names through a broader denylist (TS-E3), and refuses invalid
+  UTF-8 where the TypeScript append/edit path can rewrite it with replacement characters (TS-E4).
+- *Proof:* `export-hostctl.ts` records the real TypeScript catalogue, configuration, command and launch guards,
+  literal matching and file results. Rust replays the fixtures and tests gate expiry and bindings, audited effects,
+  scoped session access and limits, no-clobber publication, and desktop effects with test ports. Each of the six
+  RE-4 guard removals fails a targeted test. Native platform adapters and live workflow wiring are the flip's.
 
 
 ## 12. K11: decision receipts (P4-45, D0 to D4 as a library)
