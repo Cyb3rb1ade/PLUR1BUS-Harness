@@ -9199,6 +9199,7 @@
     }
   },
   {
+    "divergence": "K7-D2",
     "final": {
       "ids": [
         "user:eee389b1-b271-95af-4b34-6104a7232181"
@@ -10523,6 +10524,482 @@
         }
       }
     ],
+    "rust": {
+      "final": {
+        "ids": [
+          "user:eee389b1-b271-95af-4b34-6104a7232181"
+        ],
+        "schema": [
+          {
+            "name": "user_job_runs",
+            "sql": "CREATE TABLE user_job_runs(id TEXT PRIMARY KEY, job_id TEXT NOT NULL, record TEXT NOT NULL)",
+            "tbl_name": "user_job_runs",
+            "type": "table"
+          },
+          {
+            "name": "user_jobs",
+            "sql": "CREATE TABLE user_jobs(id TEXT PRIMARY KEY, definition TEXT NOT NULL)",
+            "tbl_name": "user_jobs",
+            "type": "table"
+          }
+        ],
+        "tables": {
+          "user_job_runs": [],
+          "user_jobs": [
+            [
+              "user:eee389b1-b271-95af-4b34-6104a7232181",
+              {
+                "agentId": "other",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": false,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "agent gone",
+                "needsLlm": true,
+                "nextRunAt": null,
+                "prompt": "New prompt",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ]
+          ]
+        }
+      },
+      "ops": [
+        {
+          "answer": {
+            "audit": [
+              {
+                "action": "jobs.updated",
+                "at": 1780300800000,
+                "detail": {
+                  "agentId": "main",
+                  "oldRunAs": "mel",
+                  "runAs": "mel"
+                },
+                "host": "core",
+                "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "user": "olga"
+              }
+            ],
+            "out": {
+              "ok": {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Renamed",
+                "needsLlm": true,
+                "nextRunAt": 1780383600000,
+                "prompt": "New prompt",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            }
+          },
+          "index": 2
+        },
+        {
+          "answer": {
+            "audit": [
+              {
+                "action": "jobs.updated",
+                "at": 1780300800000,
+                "detail": {
+                  "agentId": "main",
+                  "oldRunAs": "mel",
+                  "runAs": "mel"
+                },
+                "host": "core",
+                "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "user": "adam"
+              }
+            ],
+            "out": {
+              "ok": {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": false,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Renamed",
+                "needsLlm": true,
+                "nextRunAt": null,
+                "prompt": "New prompt",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            }
+          },
+          "index": 3
+        },
+        {
+          "answer": {
+            "audit": [
+              {
+                "action": "jobs.updated",
+                "at": 1780300800000,
+                "detail": {
+                  "agentId": "main",
+                  "oldRunAs": "mel",
+                  "runAs": "mel"
+                },
+                "host": "core",
+                "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "user": "olga"
+              }
+            ],
+            "out": {
+              "ok": {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Renamed",
+                "needsLlm": true,
+                "nextRunAt": 1780383600000,
+                "prompt": "New prompt",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            }
+          },
+          "index": 4
+        },
+        {
+          "answer": {
+            "audit": [
+              {
+                "action": "jobs.updated",
+                "at": 1780300800000,
+                "detail": {
+                  "agentId": "main",
+                  "oldRunAs": "mel",
+                  "runAs": "mel"
+                },
+                "host": "core",
+                "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "user": "mel"
+              }
+            ],
+            "out": {
+              "ok": {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Renamed",
+                "needsLlm": true,
+                "nextRunAt": 1780383600000,
+                "prompt": "New prompt",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            }
+          },
+          "index": 8
+        },
+        {
+          "answer": {
+            "audit": [
+              {
+                "action": "jobs.updated",
+                "at": 1780300800000,
+                "detail": {
+                  "agentId": "other",
+                  "oldRunAs": "mel",
+                  "runAs": "mel"
+                },
+                "host": "core",
+                "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "user": "olga"
+              }
+            ],
+            "out": {
+              "ok": {
+                "agentId": "other",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Renamed",
+                "needsLlm": true,
+                "nextRunAt": 1780383600000,
+                "prompt": "New prompt",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            }
+          },
+          "index": 17
+        },
+        {
+          "answer": {
+            "out": {
+              "ok": {
+                "agentId": "other",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Renamed",
+                "needsLlm": true,
+                "nextRunAt": 1780383600000,
+                "prompt": "New prompt",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            }
+          },
+          "index": 25
+        },
+        {
+          "answer": {
+            "audit": [
+              {
+                "action": "jobs.updated",
+                "at": 1780300800000,
+                "detail": {
+                  "agentId": "other",
+                  "oldRunAs": "mel",
+                  "runAs": "mel"
+                },
+                "host": "core",
+                "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "user": "olga"
+              }
+            ],
+            "out": {
+              "ok": {
+                "agentId": "other",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Renamed",
+                "needsLlm": true,
+                "nextRunAt": 1780383600000,
+                "prompt": "New prompt",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            }
+          },
+          "index": 34
+        },
+        {
+          "answer": {
+            "audit": [
+              {
+                "action": "jobs.updated",
+                "at": 1780300800000,
+                "detail": {
+                  "agentId": "other",
+                  "oldRunAs": "mel",
+                  "runAs": "mel"
+                },
+                "host": "core",
+                "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "user": "adam"
+              }
+            ],
+            "out": {
+              "ok": {
+                "agentId": "other",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": false,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Renamed",
+                "needsLlm": true,
+                "nextRunAt": null,
+                "prompt": "New prompt",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            }
+          },
+          "index": 37
+        },
+        {
+          "answer": {
+            "audit": [
+              {
+                "action": "jobs.updated",
+                "at": 1780300800000,
+                "detail": {
+                  "agentId": "other",
+                  "oldRunAs": "mel",
+                  "runAs": "mel"
+                },
+                "host": "core",
+                "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "user": "olga"
+              }
+            ],
+            "out": {
+              "ok": {
+                "agentId": "other",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": false,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "audit works",
+                "needsLlm": true,
+                "nextRunAt": null,
+                "prompt": "New prompt",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            }
+          },
+          "index": 41
+        },
+        {
+          "answer": {
+            "audit": [
+              {
+                "action": "jobs.updated",
+                "at": 1780300800000,
+                "detail": {
+                  "agentId": "other",
+                  "oldRunAs": "mel",
+                  "runAs": "mel"
+                },
+                "host": "core",
+                "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "user": "olga"
+              }
+            ],
+            "out": {
+              "ok": {
+                "agentId": "other",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": false,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "agent gone",
+                "needsLlm": true,
+                "nextRunAt": null,
+                "prompt": "New prompt",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            }
+          },
+          "index": 43
+        },
+        {
+          "answer": {
+            "audit": [
+              {
+                "action": "jobs.updated",
+                "at": 1780300800000,
+                "detail": {
+                  "agentId": "other",
+                  "oldRunAs": "mel",
+                  "runAs": "mel"
+                },
+                "host": "core",
+                "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "user": "olga"
+              }
+            ],
+            "out": {
+              "ok": {
+                "agentId": "other",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": false,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "agent gone",
+                "needsLlm": true,
+                "nextRunAt": null,
+                "prompt": "New prompt",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            }
+          },
+          "index": 44
+        }
+      ]
+    },
     "world": {
       "agentList": null,
       "agents": [
@@ -13799,6 +14276,7 @@
     }
   },
   {
+    "divergence": "K7-D2",
     "final": {
       "ids": [
         "user:eee389b1-b271-95af-4b34-6104a7232181",
@@ -15462,6 +15940,637 @@
         }
       }
     ],
+    "rust": {
+      "final": {
+        "ids": [
+          "user:eee389b1-b271-95af-4b34-6104a7232181",
+          "user:186ddc6d-c220-1899-712a-965f26cb1204",
+          "user:68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+          "user:2605de90-0e99-fd7e-932c-bb22b096f7c4",
+          "user:e5df153c-f88f-e060-11c0-f01b80c2188f"
+        ],
+        "schema": [
+          {
+            "name": "user_job_runs",
+            "sql": "CREATE TABLE user_job_runs(id TEXT PRIMARY KEY, job_id TEXT NOT NULL, record TEXT NOT NULL)",
+            "tbl_name": "user_job_runs",
+            "type": "table"
+          },
+          {
+            "name": "user_jobs",
+            "sql": "CREATE TABLE user_jobs(id TEXT PRIMARY KEY, definition TEXT NOT NULL)",
+            "tbl_name": "user_jobs",
+            "type": "table"
+          }
+        ],
+        "tables": {
+          "user_job_runs": [
+            [
+              "a932ad74-aee5-204f-76f3-a1b506003428",
+              "user:eee389b1-b271-95af-4b34-6104a7232181",
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "skipped_no_rights",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "a932ad74-aee5-204f-76f3-a1b506003428",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ],
+            [
+              "3b3cc4ed-9736-a28d-461e-af3c66b06ccc",
+              "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "B",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "skipped_no_rights",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "3b3cc4ed-9736-a28d-461e-af3c66b06ccc",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ],
+            [
+              "04647385-5618-7aaa-81c2-578d7d007487",
+              "user:68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "C",
+                "jobId": "user:68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "kind": "user",
+                "outcome": "skipped_no_rights",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "04647385-5618-7aaa-81c2-578d7d007487",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ],
+            [
+              "ce7e0a83-d49d-cefc-549d-2ed98d21e8c4",
+              "user:2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "D",
+                "jobId": "user:2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "kind": "user",
+                "outcome": "skipped_no_rights",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "ce7e0a83-d49d-cefc-549d-2ed98d21e8c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ],
+            [
+              "e9fad936-3530-2aa8-3c7d-e3cf876ed00f",
+              "user:e5df153c-f88f-e060-11c0-f01b80c2188f",
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "E",
+                "jobId": "user:e5df153c-f88f-e060-11c0-f01b80c2188f",
+                "kind": "user",
+                "outcome": "skipped_no_rights",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "e9fad936-3530-2aa8-3c7d-e3cf876ed00f",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ],
+            [
+              "3a30c0cb-bb04-c83a-5569-20aaad050f57",
+              "user:eee389b1-b271-95af-4b34-6104a7232181",
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780473600000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "skipped_owner_inactive",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "3a30c0cb-bb04-c83a-5569-20aaad050f57",
+                "startedAt": 1780473600000,
+                "trigger": "recurring"
+              }
+            ],
+            [
+              "38ff12b5-9427-49cb-2d52-557a6a757d1c",
+              "user:eee389b1-b271-95af-4b34-6104a7232181",
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780560000000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "skipped_owner_inactive",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "38ff12b5-9427-49cb-2d52-557a6a757d1c",
+                "startedAt": 1780560000000,
+                "trigger": "recurring"
+              }
+            ],
+            [
+              "27267c2b-5cd0-f903-1570-84c29b6fe0ea",
+              "user:eee389b1-b271-95af-4b34-6104a7232181",
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780646400000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "skipped_agent_missing",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "27267c2b-5cd0-f903-1570-84c29b6fe0ea",
+                "startedAt": 1780646400000,
+                "trigger": "recurring"
+              }
+            ]
+          ],
+          "user_jobs": [
+            [
+              "user:eee389b1-b271-95af-4b34-6104a7232181",
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "disabledReason": "skipped_agent_missing",
+                "enabled": false,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": null,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780560000000
+              }
+            ],
+            [
+              "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "disabledReason": "skipped_no_rights",
+                "enabled": false,
+                "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "name": "B",
+                "needsLlm": true,
+                "nextRunAt": null,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            [
+              "user:68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "disabledReason": "skipped_no_rights",
+                "enabled": false,
+                "id": "user:68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "kind": "user",
+                "name": "C",
+                "needsLlm": true,
+                "nextRunAt": null,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            [
+              "user:2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "disabledReason": "skipped_no_rights",
+                "enabled": false,
+                "id": "user:2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "kind": "user",
+                "name": "D",
+                "needsLlm": true,
+                "nextRunAt": null,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            [
+              "user:e5df153c-f88f-e060-11c0-f01b80c2188f",
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "disabledReason": "skipped_no_rights",
+                "enabled": false,
+                "id": "user:e5df153c-f88f-e060-11c0-f01b80c2188f",
+                "kind": "user",
+                "name": "E",
+                "needsLlm": true,
+                "nextRunAt": null,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ]
+          ]
+        }
+      },
+      "ops": [
+        {
+          "answer": {
+            "audit": [
+              {
+                "action": "jobs.updated",
+                "at": 1780473600000,
+                "detail": {
+                  "agentId": "main",
+                  "oldRunAs": "mel",
+                  "runAs": "mel"
+                },
+                "host": "core",
+                "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "user": "olga"
+              }
+            ],
+            "out": {
+              "ok": {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780556400000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780473600000
+              }
+            }
+          },
+          "index": 19
+        },
+        {
+          "answer": {
+            "events": [
+              {
+                "notify": {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780560000000,
+                  "job": "Daily",
+                  "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                  "kind": "user",
+                  "outcome": "skipped_owner_inactive",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "38ff12b5-9427-49cb-2d52-557a6a757d1c",
+                  "startedAt": 1780560000000,
+                  "trigger": "recurring"
+                }
+              },
+              {
+                "recorded": {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780560000000,
+                  "job": "Daily",
+                  "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                  "kind": "user",
+                  "outcome": "skipped_owner_inactive",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "38ff12b5-9427-49cb-2d52-557a6a757d1c",
+                  "startedAt": 1780560000000,
+                  "trigger": "recurring"
+                }
+              }
+            ],
+            "out": {
+              "ok": null
+            }
+          },
+          "index": 21
+        },
+        {
+          "answer": {
+            "out": {
+              "ok": {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "disabledReason": "skipped_owner_inactive",
+                "enabled": false,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": null,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780473600000
+              }
+            }
+          },
+          "index": 22
+        },
+        {
+          "answer": {
+            "audit": [
+              {
+                "action": "jobs.updated",
+                "at": 1780560000000,
+                "detail": {
+                  "agentId": "main",
+                  "oldRunAs": "mel",
+                  "runAs": "mel"
+                },
+                "host": "core",
+                "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "user": "olga"
+              }
+            ],
+            "out": {
+              "ok": {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780642800000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780560000000
+              }
+            }
+          },
+          "index": 24
+        },
+        {
+          "answer": {
+            "events": [
+              {
+                "notify": {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780646400000,
+                  "job": "Daily",
+                  "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                  "kind": "user",
+                  "outcome": "skipped_agent_missing",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "27267c2b-5cd0-f903-1570-84c29b6fe0ea",
+                  "startedAt": 1780646400000,
+                  "trigger": "recurring"
+                }
+              },
+              {
+                "recorded": {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780646400000,
+                  "job": "Daily",
+                  "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                  "kind": "user",
+                  "outcome": "skipped_agent_missing",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "27267c2b-5cd0-f903-1570-84c29b6fe0ea",
+                  "startedAt": 1780646400000,
+                  "trigger": "recurring"
+                }
+              }
+            ],
+            "out": {
+              "ok": null
+            }
+          },
+          "index": 27
+        },
+        {
+          "answer": {
+            "out": {
+              "ok": {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "disabledReason": "skipped_agent_missing",
+                "enabled": false,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": null,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780560000000
+              }
+            }
+          },
+          "index": 28
+        },
+        {
+          "answer": {
+            "out": {
+              "ok": [
+                {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780646400000,
+                  "job": "Daily",
+                  "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                  "kind": "user",
+                  "outcome": "skipped_agent_missing",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "27267c2b-5cd0-f903-1570-84c29b6fe0ea",
+                  "startedAt": 1780646400000,
+                  "trigger": "recurring"
+                },
+                {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780560000000,
+                  "job": "Daily",
+                  "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                  "kind": "user",
+                  "outcome": "skipped_owner_inactive",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "38ff12b5-9427-49cb-2d52-557a6a757d1c",
+                  "startedAt": 1780560000000,
+                  "trigger": "recurring"
+                },
+                {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780473600000,
+                  "job": "Daily",
+                  "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                  "kind": "user",
+                  "outcome": "skipped_owner_inactive",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "3a30c0cb-bb04-c83a-5569-20aaad050f57",
+                  "startedAt": 1780473600000,
+                  "trigger": "recurring"
+                },
+                {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780387200000,
+                  "job": "E",
+                  "jobId": "user:e5df153c-f88f-e060-11c0-f01b80c2188f",
+                  "kind": "user",
+                  "outcome": "skipped_no_rights",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "e9fad936-3530-2aa8-3c7d-e3cf876ed00f",
+                  "startedAt": 1780387200000,
+                  "trigger": "recurring"
+                },
+                {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780387200000,
+                  "job": "D",
+                  "jobId": "user:2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                  "kind": "user",
+                  "outcome": "skipped_no_rights",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "ce7e0a83-d49d-cefc-549d-2ed98d21e8c4",
+                  "startedAt": 1780387200000,
+                  "trigger": "recurring"
+                },
+                {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780387200000,
+                  "job": "C",
+                  "jobId": "user:68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                  "kind": "user",
+                  "outcome": "skipped_no_rights",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "04647385-5618-7aaa-81c2-578d7d007487",
+                  "startedAt": 1780387200000,
+                  "trigger": "recurring"
+                },
+                {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780387200000,
+                  "job": "B",
+                  "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                  "kind": "user",
+                  "outcome": "skipped_no_rights",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "3b3cc4ed-9736-a28d-461e-af3c66b06ccc",
+                  "startedAt": 1780387200000,
+                  "trigger": "recurring"
+                },
+                {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780387200000,
+                  "job": "Daily",
+                  "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                  "kind": "user",
+                  "outcome": "skipped_no_rights",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "a932ad74-aee5-204f-76f3-a1b506003428",
+                  "startedAt": 1780387200000,
+                  "trigger": "recurring"
+                }
+              ]
+            }
+          },
+          "index": 29
+        }
+      ]
+    },
     "world": {
       "agentList": null,
       "agents": [
@@ -15536,6 +16645,7 @@
     }
   },
   {
+    "divergence": "K7-D2",
     "final": {
       "ids": [
         "user:eee389b1-b271-95af-4b34-6104a7232181",
@@ -16297,6 +17407,360 @@
         }
       }
     ],
+    "rust": {
+      "final": {
+        "ids": [
+          "user:eee389b1-b271-95af-4b34-6104a7232181",
+          "user:186ddc6d-c220-1899-712a-965f26cb1204"
+        ],
+        "schema": [
+          {
+            "name": "user_job_runs",
+            "sql": "CREATE TABLE user_job_runs(id TEXT PRIMARY KEY, job_id TEXT NOT NULL, record TEXT NOT NULL)",
+            "tbl_name": "user_job_runs",
+            "type": "table"
+          },
+          {
+            "name": "user_jobs",
+            "sql": "CREATE TABLE user_jobs(id TEXT PRIMARY KEY, definition TEXT NOT NULL)",
+            "tbl_name": "user_jobs",
+            "type": "table"
+          }
+        ],
+        "tables": {
+          "user_job_runs": [
+            [
+              "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "user:eee389b1-b271-95af-4b34-6104a7232181",
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ],
+            [
+              "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Second",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ],
+            [
+              "e5df153c-f88f-e060-11c0-f01b80c2188f",
+              "user:eee389b1-b271-95af-4b34-6104a7232181",
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780473600000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "e5df153c-f88f-e060-11c0-f01b80c2188f",
+                "startedAt": 1780473600000,
+                "trigger": "recurring"
+              }
+            ],
+            [
+              "a932ad74-aee5-204f-76f3-a1b506003428",
+              "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780473600000,
+                "job": "Second",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "a932ad74-aee5-204f-76f3-a1b506003428",
+                "startedAt": 1780473600000,
+                "trigger": "recurring"
+              }
+            ],
+            [
+              "3b3cc4ed-9736-a28d-461e-af3c66b06ccc",
+              "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780473600000,
+                "job": "Second",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "completed",
+                "requestedBy": "olga",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "3b3cc4ed-9736-a28d-461e-af3c66b06ccc",
+                "startedAt": 1780473600000,
+                "trigger": "recurring"
+              }
+            ]
+          ],
+          "user_jobs": [
+            [
+              "user:eee389b1-b271-95af-4b34-6104a7232181",
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780556400000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780387200000
+              }
+            ],
+            [
+              "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "name": "Second",
+                "needsLlm": true,
+                "nextRunAt": 1780556400000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ]
+          ]
+        }
+      },
+      "ops": [
+        {
+          "answer": {
+            "audit": [
+              {
+                "action": "jobs.updated",
+                "at": 1780387200000,
+                "detail": {
+                  "agentId": "main",
+                  "oldRunAs": "mel",
+                  "runAs": "mel"
+                },
+                "host": "core",
+                "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "user": "olga"
+              }
+            ],
+            "out": {
+              "ok": {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780387200000
+              }
+            }
+          },
+          "index": 7
+        },
+        {
+          "answer": {
+            "events": [
+              {
+                "turn": {
+                  "job": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                  "person": "mel",
+                  "role": "member",
+                  "runAs": "mel"
+                }
+              },
+              {
+                "recorded": {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780473600000,
+                  "job": "Daily",
+                  "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                  "kind": "user",
+                  "outcome": "completed",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "e5df153c-f88f-e060-11c0-f01b80c2188f",
+                  "startedAt": 1780473600000,
+                  "trigger": "recurring"
+                }
+              },
+              {
+                "turn": {
+                  "job": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                  "person": "mel",
+                  "role": "member",
+                  "runAs": "mel"
+                }
+              },
+              {
+                "recorded": {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780473600000,
+                  "job": "Second",
+                  "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                  "kind": "user",
+                  "outcome": "completed",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "a932ad74-aee5-204f-76f3-a1b506003428",
+                  "startedAt": 1780473600000,
+                  "trigger": "recurring"
+                }
+              }
+            ],
+            "out": {
+              "ok": null
+            }
+          },
+          "index": 10
+        },
+        {
+          "answer": {
+            "out": {
+              "ok": [
+                {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780473600000,
+                  "job": "Second",
+                  "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                  "kind": "user",
+                  "outcome": "completed",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "a932ad74-aee5-204f-76f3-a1b506003428",
+                  "startedAt": 1780473600000,
+                  "trigger": "recurring"
+                },
+                {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780473600000,
+                  "job": "Daily",
+                  "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                  "kind": "user",
+                  "outcome": "completed",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "e5df153c-f88f-e060-11c0-f01b80c2188f",
+                  "startedAt": 1780473600000,
+                  "trigger": "recurring"
+                },
+                {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780387200000,
+                  "job": "Second",
+                  "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                  "kind": "user",
+                  "outcome": "completed",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                  "startedAt": 1780387200000,
+                  "trigger": "recurring"
+                },
+                {
+                  "agentId": "main",
+                  "durationMs": 0,
+                  "finishedAt": 1780387200000,
+                  "job": "Daily",
+                  "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                  "kind": "user",
+                  "outcome": "completed",
+                  "runAs": "mel",
+                  "runAsDisplayName": "Mel",
+                  "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                  "startedAt": 1780387200000,
+                  "trigger": "recurring"
+                }
+              ]
+            }
+          },
+          "index": 11
+        },
+        {
+          "answer": {
+            "out": {
+              "ok": {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780556400000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780387200000
+              }
+            }
+          },
+          "index": 12
+        }
+      ]
+    },
     "world": {
       "agentList": null,
       "agents": [

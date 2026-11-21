@@ -692,8 +692,10 @@ knowledge file, media search and the engine forwards are K7b onward).
   of the fresh Rust file with its own.
 - *Rights:* every check goes through `rbac::authorize` (`agent.list` on the system, `agent.manage`, `agent.use`); a job runs with the
   rights of its `runAs` person, looked up when it runs, and is switched off when they are gone, no longer a person or without `use`.
-  Reported, not changed (ledger K7-D1 to K7-D3): a creator who lost `manage` but kept `use` still runs, `update` hands a job to the updater,
-  a manual run needs only `use`.
+  Reported in K7-D1 and K7-D3: a creator who lost `manage` but kept `use` still runs, and a manual run needs only `use`.
+  **K7-D2 (K7a-R2):** Rust edits preserve `runAs`. The Rust service has a separate `take_over` operation
+  that requires current `manage` and `use` rights and records the handover before the conditional update.
+  The recorded TypeScript trace retains its original behaviour, where the editor takes over on update.
 - *Deliberately not ported:* the method table and call context of `rpc.ts`, `authenticatedPrincipal`, `createApprovalsIntegrityJob` (approvals),
   a real timer (a host calls `tick` and `IntegrityArm::fire`), the engine forward of the job runner.
 - *Known deviations:* no DST rules after 2037 in `chrono-tz` (zones with DST give the standard offset there), a wall year below 100 and the

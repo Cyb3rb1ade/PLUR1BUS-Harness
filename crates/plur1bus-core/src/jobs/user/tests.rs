@@ -74,6 +74,87 @@ fn a_closed_service_refuses_every_read_and_write() {
 }
 
 #[test]
+fn a_different_manager_can_edit_without_changing_the_execution_identity() {
+    use super::testing::caller_of;
+    use crate::approvals::js_json::J;
+
+    let directory = tempfile::tempdir().unwrap();
+    let cx = ctx(directory.path().join("user-jobs.sqlite"));
+    let owner = json!({"userId":"owner", "role":"owner", "kind":"person"});
+    let editor = json!({"userId":"editor", "role":"admin", "kind":"person"});
+    cx.w.lock().unwrap().principals = vec![
+        ("owner".into(), owner.clone()),
+        ("editor".into(), editor.clone()),
+    ];
+    let jobs = open_at(&cx).unwrap();
+    let job = jobs
+        .create(
+            &J::from_value(&json!({
+                "agentId": "main", "name": "Calendar fixture", "prompt": "Summarize",
+                "enabled": true, "schedule": {"cron": "0 9 * * *", "timezone": "UTC"}
+            })),
+            &caller_of(&owner),
+        )
+        .unwrap();
+    let id = job.get("id").unwrap().as_str().unwrap();
+    jobs.update(
+        &J::from_value(&json!({"id":id,"name":"Renamed"})),
+        &caller_of(&editor),
+    )
+    .unwrap();
+    let stored = jobs.get(id).unwrap();
+    assert_eq!(stored.get("name").and_then(J::as_str), Some("Renamed"));
+    assert_eq!(stored.get("runAs").and_then(J::as_str), Some("owner"));
+    assert_eq!(
+        cx.w.lock().unwrap().audit.last().unwrap().action,
+        "jobs.updated"
+    );
+}
+
+#[test]
+fn taking_over_a_job_requires_manage_and_a_successful_audit() {
+    use super::testing::caller_of;
+    use crate::approvals::js_json::J;
+
+    let directory = tempfile::tempdir().unwrap();
+    let cx = ctx(directory.path().join("user-jobs.sqlite"));
+    let owner = json!({"userId":"owner", "role":"owner", "kind":"person"});
+    let editor = json!({"userId":"editor", "role":"admin", "kind":"person"});
+    let user = json!({"userId":"user", "role":"user", "kind":"person"});
+    cx.w.lock().unwrap().principals = vec![
+        ("owner".into(), owner.clone()),
+        ("editor".into(), editor.clone()),
+        ("user".into(), user.clone()),
+    ];
+    let jobs = open_at(&cx).unwrap();
+    let job = jobs
+        .create(
+            &J::from_value(&json!({
+                "agentId": "main", "name": "Calendar fixture", "prompt": "Summarize",
+                "enabled": true, "schedule": {"cron": "0 9 * * *", "timezone": "UTC"}
+            })),
+            &caller_of(&owner),
+        )
+        .unwrap();
+    let id = job.get("id").unwrap().as_str().unwrap();
+    assert!(jobs.take_over(id, &caller_of(&user)).is_err());
+    cx.w.lock().unwrap().audit_fail = true;
+    assert!(jobs.take_over(id, &caller_of(&editor)).is_err());
+    assert_eq!(
+        jobs.get(id).unwrap().get("runAs").and_then(J::as_str),
+        Some("owner")
+    );
+    cx.w.lock().unwrap().audit_fail = false;
+    let changed = jobs.take_over(id, &caller_of(&editor)).unwrap();
+    assert_eq!(changed.get("runAs").and_then(J::as_str), Some("editor"));
+    assert_eq!(changed.get("nextRunAt"), job.get("nextRunAt"));
+    assert_eq!(
+        cx.w.lock().unwrap().audit.last().unwrap().action,
+        "jobs.runAs.changed"
+    );
+}
+
+#[test]
 fn two_connections_dispatch_one_scheduled_slot() {
     use super::testing::{caller_of, options};
     use crate::approvals::js_json::J;

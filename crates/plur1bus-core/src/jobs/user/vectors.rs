@@ -10,6 +10,24 @@ use std::rc::{Rc, Weak};
 use std::sync::{Arc, Mutex};
 
 fn replay(sc: &Value) {
+    let mut projected;
+    let sc = if let Some(divergence) = sc.get("divergence") {
+        assert_eq!(divergence, "K7-D2");
+        projected = sc.clone();
+        for change in sc["rust"]["ops"].as_array().unwrap() {
+            let index = usize::try_from(change["index"].as_u64().unwrap()).unwrap();
+            let step = &mut projected["ops"].as_array_mut().unwrap()[index];
+            let operation = step["op"].clone();
+            *step = change["answer"].clone();
+            step["op"] = operation;
+        }
+        if let Some(final_rows) = sc["rust"].get("final") {
+            projected["final"] = final_rows.clone();
+        }
+        &projected
+    } else {
+        sc
+    };
     let name = sc["name"].as_str().unwrap();
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("state").join("user-jobs.sqlite");

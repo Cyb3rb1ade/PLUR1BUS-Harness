@@ -146,12 +146,12 @@ const uworld = (over: Record<string, unknown> = {}) => ({ now: T0, principals: P
 const who = (id: string, over: Record<string, unknown> = {}) => (PRINCIPALS[id] === undefined && !over.role ? { userId: id } : { userId: id, ...PRINCIPALS[id], ...over });
 const job = (over: Record<string, unknown> = {}) => ({ name: "Daily", agentId: "main", prompt: "Summarize", schedule: { cron: "0 9 * * *", timezone: "Europe/Berlin" }, enabled: true, ...over });
 
-async function userRun(name: string, w0: any, ops: any[]) {
+async function userRun(name: string, w0: any, ops: any[], keepRunAs = false) {
   const dir = mkdtempSync(join(tmpdir(), "p4k-jobs-"));
   const path = join(dir, "state", "user-jobs.sqlite");
   const w = structuredClone(w0);
   const audit: any[] = [], events: any[] = [], calls: any[] = [], ids: string[] = [];
-  const steps: unknown[] = [];
+  const steps: { op: any; out: unknown; audit?: any[]; events?: unknown; calls?: unknown }[] = [];
   const submits: any[] = [];
   random.reset();
   const options = () => ({
@@ -183,7 +183,24 @@ async function userRun(name: string, w0: any, ops: any[]) {
     try {
       switch (op.op) {
         case "create": return { ok: note(d.create(op.input, op.caller)) };
-        case "update": return { ok: d.update(withId(op.patch, op), op.caller) };
+        case "update": {
+          const patch = withId(op.patch, op);
+          const previous = keepRunAs && typeof patch.id === "string" && d.has(patch.id) ? d.get(patch.id) : undefined;
+          const updated = d.update(patch, op.caller);
+          if (previous && previous.runAs !== updated.runAs) {
+            // Use the real TypeScript update for every validation and then project the Rust identity
+            // rule. Later operations and reopened stores observe the projected identity.
+            if (updated.deliveryTarget && w.validate) calls.push([updated.deliveryTarget, previous.runAs, updated.agentId]);
+            updated.runAs = previous.runAs;
+            const db = new DatabaseSync(path);
+            try { db.prepare("UPDATE user_jobs SET definition=? WHERE id=?").run(JSON.stringify(updated), updated.id); }
+            finally { db.close(); }
+            const event = audit.at(-1)!;
+            event.action = "jobs.updated";
+            event.detail.runAs = updated.runAs;
+          }
+          return { ok: updated };
+        }
         case "delete": return { ok: d.delete(idOf(op), op.confirm, op.caller) };
         case "list": return { ok: d.list(op.caller) };
         case "targets": return { ok: d.targets(op.caller) };
@@ -221,7 +238,16 @@ async function userRun(name: string, w0: any, ops: any[]) {
       steps.push({ op, out, ...(audit.length ? { audit: audit.map((a) => ({ at: a.at, user: a.actor.user, host: a.actor.host, action: a.action, target: a.target, detail: a.detail })) } : {}), ...(events.length ? { events: structuredClone(events) } : {}), ...(calls.length ? { calls: structuredClone(calls) } : {}) });
     }
     d.close();
-    return { name, world: w0, ops: steps, final: { tables: dumpTables(path, { user_jobs: ["definition"], user_job_runs: ["record"] }), schema: schemaOf(path), ids } };
+    const recorded = { name, world: w0, ops: steps, final: { tables: dumpTables(path, { user_jobs: ["definition"], user_job_runs: ["record"] }), schema: schemaOf(path), ids } };
+    if (keepRunAs || !steps.some(step => step.audit?.some(event => event.action === "jobs.runAs.changed"))) return recorded;
+    const projection: typeof recorded = await userRun(name, w0, ops, true);
+    const different = (a: unknown, b: unknown) => JSON.stringify(a) !== JSON.stringify(b);
+    const rust = {
+      ops: projection.ops.flatMap(({ op, ...answer }, index) =>
+        different(steps[index], { op, ...answer }) ? [{ index, answer }] : []),
+      ...(different(recorded.final, projection.final) ? { final: projection.final } : {}),
+    };
+    return { ...recorded, divergence: "K7-D2", rust };
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
