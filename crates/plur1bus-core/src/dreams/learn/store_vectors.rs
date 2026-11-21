@@ -37,6 +37,16 @@ fn target(owner: &str, agent: &str) -> Target {
     }
 }
 
+#[test]
+fn reading_learning_runs_requires_the_targets_owner() {
+    let store = LearnStore::open(Path::new(":memory:")).unwrap();
+    let owned = target("ada", "alpha");
+    store.begin(&owned, Window { from: 1, to: 10 }, 11).unwrap();
+    assert_eq!(store.runs("ada", Some(&owned)).unwrap().len(), 1);
+    let refused = store.runs("another", Some(&owned));
+    assert!(matches!(refused, Err(error) if error.code == C::Unauthorized));
+}
+
 struct MissingSession;
 impl Reconcile for MissingSession {
     fn target(&self, _: &Target) -> bool {
