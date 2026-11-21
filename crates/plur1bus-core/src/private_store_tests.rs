@@ -187,6 +187,20 @@ impl Drop for Worker {
 fn assert_two_writers(name: &str) {
     let temp = tempfile::tempdir().unwrap();
     let dir = temp.path();
+    if name != "jobs" || cfg!(windows) {
+        // Unix user jobs retain the legacy best-effort mode hook. Every strict
+        // opener must refuse an explicit denial before SQLite initializes the file.
+        let refused = dir.join("refused.sqlite");
+        assert!(
+            open(name, &refused, Some(false)).is_err(),
+            "{name} opened a denied store"
+        );
+        if let Ok(metadata) = fs::metadata(&refused) {
+            assert_eq!(metadata.len(), 0, "{name} initialized a denied store");
+        }
+        assert!(!dir.join("refused.sqlite-wal").exists());
+        assert!(!dir.join("refused.sqlite-journal").exists());
+    }
     let mut first = Worker::spawn(dir, name, "first");
     await_signal(dir, "first-ready");
     let mut second = Worker::spawn(dir, name, "second");
@@ -194,6 +208,22 @@ fn assert_two_writers(name: &str) {
     signal(dir, "release");
     first.check();
     second.check();
+}
+
+#[cfg(unix)]
+#[test]
+fn the_default_owner_hook_narrows_an_existing_file() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("delivery.sqlite");
+    fs::write(&path, []).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+    let _db = open("delivery", &path, None).unwrap();
+    assert_eq!(
+        fs::metadata(path).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
 }
 
 macro_rules! owners {
