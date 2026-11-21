@@ -25,10 +25,7 @@ fn validates_model_extraction_against_the_frozen_evidence() {
     }
 }
 
-#[test]
-fn aggregation_and_vocabulary_match_typescript() {
-    let vectors = read();
-    let row = &vectors["aggregate"];
+fn replay_collation(row: &Value) -> (Vec<V>, Vec<V>) {
     let batch = row["batch"]
         .as_array()
         .unwrap()
@@ -49,6 +46,14 @@ fn aggregation_and_vocabulary_match_typescript() {
             .collect::<Vec<_>>()),
         row["vocabulary"]
     );
+    (batch, findings)
+}
+
+#[test]
+fn aggregation_and_vocabulary_match_typescript() {
+    let vectors = read();
+    let row = &vectors["aggregate"];
+    let (batch, findings) = replay_collation(row);
     let mut next = findings[0]
         .as_obj()
         .map(|o| Obj::from_pairs(o.entries().to_vec()))
@@ -59,6 +64,11 @@ fn aggregation_and_vocabulary_match_typescript() {
         row["merged"]
     );
     assert!(parse("[]").unwrap().as_arr().unwrap().is_empty());
+}
+
+#[test]
+fn model_text_collation_matches_typescript_with_accents_emoji_and_ties() {
+    let _ = replay_collation(&read()["collation"]);
 }
 
 #[test]
