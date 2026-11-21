@@ -725,7 +725,7 @@ knowledge file, media search and the engine forwards are K7b onward).
   a real timer (a host calls `tick` and `IntegrityArm::fire`), the engine forward of the job runner.
 - *Known deviations:* **K7-D4 (K7a-R4):** In the sampled summer dates for `Europe/Berlin` and `America/New_York`, Rust
   and Node agree in 2040 and 2099. Rust uses standard time in the sampled summer of 2100 and Node still uses daylight
-  saving time. The exact samples are recorded; the supported horizon depends on the zone. A wall year below 100 and the
+  saving time. Six March 2100 cases in the broad calendar vector now pin both UTC outcomes. All other cases compare exactly. A wall year below 100 and the
   instants within a day of the earliest `Date` are errors, a lone surrogate in a definition cannot be held, the user-jobs directory is 0700,
   a newer store schema is refused where TypeScript opens it. **K7-D6 (K7a-R3):** The pinned Rust tzdb 2025b and Node tzdb 2026c
   disagree on the transition to permanent UTC in `Africa/Casablanca` and `Africa/El_Aaiun` on 2026-09-20. The recorded examples on

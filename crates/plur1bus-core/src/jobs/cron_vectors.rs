@@ -31,8 +31,48 @@ fn next_after_gives_typescripts_instants_over_zones_edges_and_calendar() {
     let f = fixture();
     let cases = f["next"].as_array().unwrap();
     assert!(cases.len() > 3000, "{}", cases.len());
+    // K7-D4: exact Rust and TypeScript instants from the locked tzdbs for the six March 2100 cases.
+    const DST_2100_FROM: i64 = 4_107_499_200_000;
+    const DST_2100: [(&str, &str, i64, i64); 6] = [
+        (
+            "Europe/Berlin",
+            "0 0 31 * *",
+            4_110_130_800_000,
+            4_110_127_200_000,
+        ),
+        (
+            "America/New_York",
+            "0 0 31 * *",
+            4_110_152_400_000,
+            4_110_148_800_000,
+        ),
+        (
+            "Europe/Berlin",
+            "0 0 30 * *",
+            4_110_044_400_000,
+            4_110_040_800_000,
+        ),
+        (
+            "America/New_York",
+            "0 0 30 * *",
+            4_110_066_000_000,
+            4_110_062_400_000,
+        ),
+        (
+            "Europe/Berlin",
+            "0 0 29-31 * *",
+            4_109_958_000_000,
+            4_109_954_400_000,
+        ),
+        (
+            "America/New_York",
+            "0 0 29-31 * *",
+            4_109_979_600_000,
+            4_109_976_000_000,
+        ),
+    ];
+    let mut known_differences = std::collections::BTreeSet::new();
     let mut bad: Vec<String> = Vec::new();
-    let mut later = 0;
     for c in cases {
         let (cron, tz, from) = (
             c["cron"].as_str().unwrap(),
@@ -47,17 +87,25 @@ fn next_after_gives_typescripts_instants_over_zones_edges_and_calendar() {
             Some(e) => json!({"err": e}),
             None => json!({"next": c["next"]}),
         };
-        // K7-D4: older broad calendar coverage has a bounded distant-date waiver. The summer cases below are exact.
-        let fixed = tz == "UTC" || tz == "utc" || tz.starts_with(['+', '-']);
-        if got != want && c["later"] == true && !fixed {
-            later += 1;
-            continue;
+        if from == DST_2100_FROM {
+            if let Some(&(_, _, rust, ts)) = DST_2100
+                .iter()
+                .find(|&&(zone, expr, _, _)| (zone, expr) == (tz, cron))
+            {
+                assert_eq!(got, json!({"next": rust}), "{tz} {cron}");
+                assert_eq!(want, json!({"next": ts}), "{tz} {cron}");
+                assert!(
+                    known_differences.insert((tz, cron)),
+                    "duplicate calendar case"
+                );
+                continue;
+            }
         }
         if got != want {
             bad.push(format!("{tz} {cron:?} {from}: got {got} want {want}"));
         }
     }
-    assert!(later < 80, "{later} cases beyond 2037 differ");
+    assert_eq!(known_differences.len(), DST_2100.len());
     let mut seen = std::collections::BTreeSet::new();
     let firsts: Vec<&String> = bad
         .iter()
