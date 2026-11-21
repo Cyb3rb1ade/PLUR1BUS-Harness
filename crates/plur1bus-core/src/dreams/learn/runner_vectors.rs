@@ -221,6 +221,14 @@ fn local_only_learning_never_sends_the_transcript_to_a_remote_route() {
 }
 
 #[test]
+fn a_learning_call_refused_by_the_budget_leaves_no_model_audit() {
+    let (result, calls, audit) = probed_model_attempt(Route::Local, false, 4096);
+    assert_eq!(result.reason.as_deref(), Some("budget"));
+    assert_eq!(calls, 0);
+    assert!(audit.is_empty());
+}
+
+#[test]
 fn learning_runner_replays_roles_budget_resume_and_notices() {
     let fixture: Vec<Value> = serde_json::from_str(include_str!(
         "../../../../../fixtures/parity/learn/runs.json"
