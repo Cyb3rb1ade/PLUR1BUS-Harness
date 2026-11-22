@@ -157,7 +157,8 @@ fn unfinished_input_and_single_delta_have_independent_byte_ceilings() {
     let budget = Duration::from_secs(5);
     let limit = 1024 * 1024;
     let half = " ".repeat(limit / 2);
-    let over = " ".repeat(limit + 1);
+    let over = format!("A sentence. {}", " ".repeat(limit - 11));
+    assert_eq!(over.len(), limit + 1);
     assert_eq!(
         synthesize_stream(&port, [over.as_str()], &options, None, budget, |_| Ok(())),
         Err(Error::InvalidRequest)
