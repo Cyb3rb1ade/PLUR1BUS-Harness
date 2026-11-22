@@ -10,7 +10,6 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+base64 = "=0.22.1"
 regex = "=1.13.1"
-
-[dev-dependencies]
 serde_json.workspace = true

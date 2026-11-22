@@ -1342,3 +1342,14 @@ deadlines. The runtime delivers decoded events on demand.
 The Rust Gemini handshake accepts only the header form of the credential.
 The TypeScript gateway fallback can put credentials in a URL query. The
 Rust host can use a gateway that forwards the credential header.
+
+
+## P4D-212 — retry after publishing a media result
+
+The TypeScript JobRunner can publish a result and then persist a failed job when
+budget settlement fails. Recovery scans queued and running jobs, so it never
+reconciles that failed row with its already published output. The Rust runner
+returns the settlement error with the durable row still running. On recovery it
+finds the output, retries settlement under the same job id, and persists the
+success without calling the provider again. The budget port owns durable,
+idempotent settlement. The focused Rust failure test covers the retry boundary.
