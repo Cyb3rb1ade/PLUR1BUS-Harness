@@ -55,7 +55,7 @@ impl CheckpointStore {
     }
 
     pub(super) fn get(&self) -> Result<Value, EngineError> {
-        let (revision, checkpoint) = self.read().map_err(checkpoint_error)?;
+        let (revision, checkpoint) = self.read().map_err(|error| checkpoint_error(&error))?;
         Ok(json!({"revision": revision, "checkpoint": checkpoint}))
     }
 
@@ -67,26 +67,31 @@ impl CheckpointStore {
         cancel: &Cancel,
     ) -> Result<Value, EngineError> {
         let bytes = serde_json::to_vec(checkpoint)
-            .map_err(|_| checkpoint_error(StoreError::InvalidInput))?;
+            .map_err(|_| checkpoint_error(&StoreError::InvalidInput))?;
         if checkpoint["v"].as_u64() != Some(1) || bytes.len() as u64 > LIMIT {
-            return Err(checkpoint_error(StoreError::InvalidInput));
+            return Err(checkpoint_error(&StoreError::InvalidInput));
         }
         let _writer = self
             .writer
             .lock()
-            .map_err(|_| checkpoint_error(StoreError::Unavailable))?;
-        let (current, _) = self.read().map_err(checkpoint_error)?;
+            .map_err(|_| checkpoint_error(&StoreError::Unavailable))?;
+        let (current, _) = self.read().map_err(|error| checkpoint_error(&error))?;
         if current.as_deref() != expected {
-            return Err(checkpoint_error(StoreError::Busy));
+            return Err(checkpoint_error(&StoreError::Busy));
         }
         grant.check(cancel)?;
-        let anchor = TrustedDirectory::open(&self.state).map_err(checkpoint_error)?;
-        let directory = anchor.create_child(DIRECTORY).map_err(checkpoint_error)?;
+        let anchor =
+            TrustedDirectory::open(&self.state).map_err(|error| checkpoint_error(&error))?;
+        let directory = anchor
+            .create_child(DIRECTORY)
+            .map_err(|error| checkpoint_error(&error))?;
         let path = self.state.join(DIRECTORY).join(FILE);
-        assert_trusted_path(&path).map_err(checkpoint_error)?;
-        directory.assert_unchanged().map_err(checkpoint_error)?;
+        assert_trusted_path(&path).map_err(|error| checkpoint_error(&error))?;
+        directory
+            .assert_unchanged()
+            .map_err(|error| checkpoint_error(&error))?;
         grant.check(cancel)?;
-        atomic_write(&path, &bytes).map_err(|_| checkpoint_error(StoreError::Unavailable))?;
+        atomic_write(&path, &bytes).map_err(|_| checkpoint_error(&StoreError::Unavailable))?;
         Ok(json!({"revision": revision(&bytes)}))
     }
 }
@@ -95,7 +100,7 @@ fn revision(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
-fn checkpoint_error(error: StoreError) -> EngineError {
+fn checkpoint_error(error: &StoreError) -> EngineError {
     let message = match error {
         StoreError::Corrupt => "reembedding checkpoint is invalid",
         StoreError::InvalidInput => "reembedding checkpoint input is invalid",
