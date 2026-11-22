@@ -176,6 +176,20 @@ impl Connector for PinnedTcp {
     }
 }
 
+/// Build an HTTP agent bound to one authorized socket and an absolute wire deadline.
+pub fn pinned_http_agent(
+    config: ureq::config::Config,
+    pin: SocketAddr,
+    deadline: Instant,
+) -> ureq::Agent {
+    let connector = PinnedTcp {
+        address: pin,
+        deadline: SocketDeadline(deadline),
+    }
+    .chain(RustlsConnector::default());
+    ureq::Agent::with_parts(config, connector, Pin(pin))
+}
+
 // TLS can perform several raw reads or writes with the same relative timeout.
 // Recheck the absolute deadline underneath TLS before every raw socket operation.
 #[derive(Clone, Copy, Debug)]

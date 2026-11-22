@@ -82,6 +82,13 @@ pub enum Peer {
     Closed(Option<u16>),
 }
 
+/// Credential headers for the two voice providers without Bearer authentication.
+#[derive(Clone, Copy)]
+pub enum VoiceKey<'a> {
+    ElevenLabs(&'a str),
+    Gemini(&'a str),
+}
+
 pub struct Socket {
     ws: WebSocket<DeadlineStream>,
     limits: Limits,
@@ -96,6 +103,39 @@ impl Socket {
         ports: &dyn SocketPorts,
         limits: Limits,
         insecure_loopback: bool,
+    ) -> Result<Self, Error> {
+        Self::connect_with_headers(url, headers, ports, limits, insecure_loopback, None)
+    }
+
+    /// Allow one of the voice vendors' API-key headers at the TLS handshake.
+    pub fn connect_with_voice_key(
+        url: &Url,
+        key: VoiceKey<'_>,
+        ports: &dyn SocketPorts,
+        limits: Limits,
+        insecure_loopback: bool,
+    ) -> Result<Self, Error> {
+        let (name, value) = match key {
+            VoiceKey::ElevenLabs(value) => ("xi-api-key", value),
+            VoiceKey::Gemini(value) => ("x-goog-api-key", value),
+        };
+        Self::connect_with_headers(
+            url,
+            &[(name, value)],
+            ports,
+            limits,
+            insecure_loopback,
+            Some(name),
+        )
+    }
+
+    fn connect_with_headers(
+        url: &Url,
+        headers: &[(&str, &str)],
+        ports: &dyn SocketPorts,
+        limits: Limits,
+        insecure_loopback: bool,
+        voice_header: Option<&str>,
     ) -> Result<Self, Error> {
         let plaintext = url.scheme() == "ws" && insecure_loopback;
         if (url.scheme() != "wss" && !plaintext)
@@ -135,7 +175,9 @@ impl Socket {
         let mut request = url.as_str().into_client_request().map_err(classify)?;
         for (name, value) in headers {
             let name = HeaderName::from_bytes(name.as_bytes()).map_err(|_| Error::Protocol)?;
-            if name.as_str() != "authorization" && name.as_str() != "sec-websocket-protocol" {
+            if !matches!(name.as_str(), "authorization" | "sec-websocket-protocol")
+                && Some(name.as_str()) != voice_header
+            {
                 return Err(Error::Protocol);
             }
             let mut value = HeaderValue::from_str(value).map_err(|_| Error::Protocol)?;

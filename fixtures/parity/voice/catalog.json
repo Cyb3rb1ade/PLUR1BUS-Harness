@@ -1,0 +1,284 @@
+{
+  "exporter": "scripts/parity/export-voice.ts",
+  "scenarios": [
+    {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
+              "xi-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v2/voices?page_size=100"
+          },
+          "response": {
+            "body": {
+              "has_more": true,
+              "next_page_token": "next + page",
+              "voices": [
+                {
+                  "labels": {
+                    "gender": "neutral",
+                    "language": "en"
+                  },
+                  "name": "A",
+                  "verified_languages": [
+                    {
+                      "language": "en"
+                    },
+                    {
+                      "language": "de"
+                    }
+                  ],
+                  "voice_id": "voice-a"
+                }
+              ]
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "xi-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v2/voices?page_size=100&next_page_token=next+%2B+page"
+          },
+          "response": {
+            "body": {
+              "has_more": false,
+              "voices": [
+                {
+                  "voice_id": "voice-b"
+                }
+              ]
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": [
+          {
+            "gender": "neutral",
+            "id": "voice-a",
+            "languages": [
+              "en",
+              "de"
+            ],
+            "name": "A"
+          },
+          {
+            "id": "voice-b",
+            "name": "voice-b"
+          }
+        ]
+      },
+      "operation": "eleven-voices"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
+              "xi-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v1/models"
+          },
+          "response": {
+            "body": [
+              {
+                "can_do_text_to_speech": true,
+                "languages": [
+                  {
+                    "language_id": "en"
+                  }
+                ],
+                "model_id": "variant",
+                "name": "Model"
+              },
+              {
+                "model_id": "scribe-only"
+              }
+            ],
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": [
+          {
+            "capabilities": [
+              "tts"
+            ],
+            "id": "variant",
+            "languages": [
+              "en"
+            ],
+            "name": "Model"
+          }
+        ]
+      },
+      "operation": "eleven-models"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
+              "x-goog-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v1beta/models?pageSize=100"
+          },
+          "response": {
+            "body": {
+              "models": [
+                {
+                  "name": "models/live",
+                  "supportedGenerationMethods": [
+                    "bidiGenerateContent"
+                  ]
+                }
+              ],
+              "nextPageToken": "two /"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "x-goog-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v1beta/models?pageSize=100&pageToken=two+%2F"
+          },
+          "response": {
+            "body": {
+              "models": [
+                {
+                  "displayName": "Text",
+                  "name": "models/text"
+                }
+              ]
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": [
+          {
+            "capabilities": [
+              "realtime",
+              "native-audio"
+            ],
+            "id": "models/live",
+            "name": "models/live"
+          },
+          {
+            "capabilities": [],
+            "id": "models/text",
+            "name": "Text"
+          }
+        ]
+      },
+      "operation": "gemini-models"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
+              "authorization": "Bearer <credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v1/models"
+          },
+          "response": {
+            "body": {
+              "data": [
+                {
+                  "id": "fixture-voice"
+                },
+                {
+                  "id": "fixture-text"
+                }
+              ]
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": [
+          {
+            "capabilities": [
+              "realtime"
+            ],
+            "id": "fixture-voice",
+            "name": "fixture-voice"
+          },
+          {
+            "capabilities": [],
+            "id": "fixture-text",
+            "name": "fixture-text"
+          }
+        ]
+      },
+      "operation": "xai-models"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
+              "xi-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v2/voices?page_size=100"
+          },
+          "response": {
+            "body": {
+              "error": "<credential>"
+            },
+            "status": 401
+          }
+        }
+      ],
+      "expected": {
+        "code": "auth",
+        "retryable": false
+      },
+      "operation": "eleven-voices"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
+              "authorization": "Bearer <credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v1/models"
+          },
+          "response": {
+            "body": {
+              "error": "<credential>"
+            },
+            "status": 404
+          }
+        }
+      ],
+      "expected": {
+        "code": "invalid_request",
+        "retryable": false
+      },
+      "operation": "xai-models"
+    }
+  ],
+  "schema": "plur1bus.parity-wire/1"
+}

@@ -21,6 +21,7 @@ import { buildDispatcherVectors } from "./export-dispatcher.ts";
 import { buildWireFixtures } from "./export-wire.ts";
 import { buildProviderFixtures } from "./export-providers.ts";
 import { buildChannelFixtures } from "./export-channels.ts";
+import { buildVoiceFixtures } from "./export-voice.ts";
 import { buildLocalProbeFixtures, buildLocalProviderFixtures } from "./export-provider-local.ts";
 import { buildProviderCacheFixtures } from "./export-provider-cache.ts";
 import { buildProviderRouterFixtures } from "./export-provider-router.ts";
@@ -154,6 +155,16 @@ describe("wire fixtures (mode W, P4-03)", () => {
       // The fake's client-id prefix is assembled the way the fake assembles it, so no credential-like literal sits here.
       assert.ok(!text.includes(["oai", "app_"].join("")), `${name}: a minted client id`);
       assert.doesNotMatch(text, /_token":\s*"(?!\[REDACTED)/, `${name}: an unredacted token value`);
+    }
+  });
+});
+
+describe("cloud voice wire fixtures (W3)", () => {
+  it("commits each recording with credential placeholders", async () => {
+    for (const [name, data] of Object.entries(await buildVoiceFixtures())) {
+      const text = readFileSync(fixturePath("voice", name), "utf8");
+      assert.equal(text, fixtureText(data), `voice/${name}: committed recording is stale`);
+      assert.doesNotMatch(text, /synthetic-voice-credential/);
     }
   });
 });

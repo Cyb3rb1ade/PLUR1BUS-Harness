@@ -1,0 +1,66 @@
+{
+  "exchanges": [
+    {
+      "request": {
+        "bodyBase64": "LS12b2ljZS1maXh0dXJlLW11bHRpcGFydA0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJtb2RlbF9pZCINCg0Kc2NyaWJlX3YyDQotLXZvaWNlLWZpeHR1cmUtbXVsdGlwYXJ0DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9Imxhbmd1YWdlX2NvZGUiDQoNCmVuDQotLXZvaWNlLWZpeHR1cmUtbXVsdGlwYXJ0DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9InRpbWVzdGFtcHNfZ3JhbnVsYXJpdHkiDQoNCndvcmQNCi0tdm9pY2UtZml4dHVyZS1tdWx0aXBhcnQNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0iZmlsZSI7IGZpbGVuYW1lPSJhdWRpby53YXYiDQpDb250ZW50LVR5cGU6IGF1ZGlvL3dhdg0KDQpSSUZGKgAAAFdBVkVmbXQgEAAAAAEAAQCAPgAAAH0AAAIAEABkYXRhBgAAAAEAAgADAA0KLS12b2ljZS1maXh0dXJlLW11bHRpcGFydC0tDQo=",
+        "headers": {
+          "content-type": "multipart/form-data; boundary=voice-fixture-multipart",
+          "xi-api-key": "<credential>"
+        },
+        "method": "POST",
+        "path": "/v1/speech-to-text?enable_logging=false"
+      },
+      "response": {
+        "body": {
+          "language_code": "en",
+          "text": "Fixture transcript",
+          "words": [
+            {
+              "end": 0.25,
+              "start": 0.1,
+              "text": "Fixture",
+              "type": "word"
+            },
+            {
+              "text": " ",
+              "type": "spacing"
+            }
+          ]
+        },
+        "status": 200
+      }
+    }
+  ],
+  "expected": {
+    "language": "en",
+    "text": "Fixture transcript",
+    "usage": {
+      "model": "scribe_v2",
+      "operation": "asr",
+      "provider": "elevenlabs",
+      "seconds": 0.0001875
+    },
+    "words": [
+      {
+        "endMs": 250,
+        "startMs": 100,
+        "text": "Fixture"
+      }
+    ]
+  },
+  "exporter": "scripts/parity/export-voice.ts",
+  "input": {
+    "fixtureBoundary": "voice-fixture-multipart",
+    "pcm": [
+      1,
+      0,
+      2,
+      0,
+      3,
+      0
+    ],
+    "sampleRate": 16000
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "http"
+}

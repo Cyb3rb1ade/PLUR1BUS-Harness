@@ -1,0 +1,57 @@
+{
+  "exchanges": [
+    {
+      "receive": [
+        {
+          "message_type": "session_started"
+        }
+      ],
+      "send": []
+    },
+    {
+      "receive": [
+        {
+          "message_type": "committed_transcript",
+          "text": "Fixture transcript"
+        }
+      ],
+      "send": [
+        {
+          "audio_base_64": "AQACAA==",
+          "commit": false,
+          "message_type": "input_audio_chunk",
+          "sample_rate": 16000
+        }
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "type": "ready"
+    },
+    {
+      "text": "Fixture transcript",
+      "type": "final"
+    }
+  ],
+  "exporter": "scripts/parity/export-voice.ts",
+  "input": {
+    "model": "scribe_v2_realtime",
+    "pcm": [
+      1,
+      0,
+      2,
+      0
+    ],
+    "sampleRate": 16000,
+    "vendor": "eleven-asr"
+  },
+  "request": {
+    "headers": {
+      "xi-api-key": "<credential>"
+    },
+    "path": "/v1/speech-to-text/realtime?model_id=scribe_v2_realtime&audio_format=pcm_16000&commit_strategy=manual"
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "websocket"
+}

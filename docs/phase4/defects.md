@@ -1300,6 +1300,8 @@ Rust uses a boolean toggle, enables adaptive thinking only for a declared effort
 numeric budget bounds. The six catalog cases are recorded from the real TypeScript builder. A null
 effort value falls back to the chosen level in both languages.
 
+<a id="p4d-202"></a>
+
 ## P4D-202 — cloud voice JSON responses have no byte limit
 
 Security, W3, reported from static review. The voice HTTP client calls
@@ -1312,6 +1314,31 @@ test was used. See [HTTP parsing](../../packages/voice-providers/src/http.ts),
 [voice transport](../../packages/core/src/voice/transport.ts) and
 [voice listing](../../packages/voice-providers/src/providers/elevenlabs.ts).
 
-W3 awaits the maximum decoded JSON bytes per response and the existing error
-classification to return on overflow. Count bytes as the body arrives and stop
-reading at the limit. Preserve streaming audio as a separate response type.
+R-W-12 requires a 1 MiB decoded byte limit on each successful JSON body and
+one absolute deadline covering both headers and the complete body. The
+Rust reader checks the limit before parsing and reports overflow as an
+unretryable `bad_response`. Provider error bodies are dropped unread.
+
+<a id="p4d-204"></a>
+
+## P4D-204 — buffered cloud voice audio
+
+The Rust buffered audio path reads at most 4 MiB decoded bytes. It shares the
+absolute request deadline across headers and body. Polly uses the same audio
+limit and delegates signed calls to a host port that must honor that deadline.
+
+<a id="p4d-205"></a>
+
+## P4D-205 — structured realtime voice messages
+
+Each assembled structured voice message is limited to 1 MiB, including
+fragmented WebSocket messages. The host supplies finite handshake and I/O
+deadlines. The runtime delivers decoded events on demand.
+
+<a id="p4d-206"></a>
+
+## P4D-206 — Gemini realtime credentials
+
+The Rust Gemini handshake accepts only the header form of the credential.
+The TypeScript gateway fallback can put credentials in a URL query. The
+Rust host can use a gateway that forwards the credential header.

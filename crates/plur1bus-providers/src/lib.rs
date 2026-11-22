@@ -18,4 +18,4 @@ pub use ordered::Json;
 pub use request::{RequestOptions, SignedThinking, Wire};
 pub use response::{ToolRepair, ToolRepairInput};
 pub use sse::{SseEvent, SseParser};
-pub use transport::{Adapter, Config, Ports, Timeouts};
+pub use transport::{pinned_http_agent, Adapter, Config, Ports, Timeouts};
