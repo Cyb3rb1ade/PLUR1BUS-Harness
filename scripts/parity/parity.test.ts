@@ -1446,3 +1446,18 @@ describe("Hostctl contract (P4-K K10b)", () => {
     assert.ok(Buffer.byteLength(actual) < 1_048_576);
   });
 });
+
+describe("discovery reconciliation and transport (P4-W W5)", () => {
+  it("matches the production catalogue and override projections", async () => {
+    const { recordDiscoveryReconcile } = await import("./export-discovery-reconcile.ts");
+    assert.equal(readFileSync(fixturePath("discovery", "reconcile"), "utf8"), fixtureText(recordDiscoveryReconcile().reconcile));
+  });
+  it("matches the production scanner page exchanges", async () => {
+    const { recordDiscoveryScanners } = await import("./export-discovery-scanners.ts");
+    assert.equal(readFileSync(fixturePath("discovery", "scanners"), "utf8"), fixtureText((await recordDiscoveryScanners()).scanners));
+  });
+  it("matches the catalogue signature threshold and expiry decisions", async () => {
+    const { recordCatalogTrust } = await import("./export-discovery-trust.ts");
+    assert.equal(readFileSync(fixturePath("discovery", "trust"), "utf8"), fixtureText(recordCatalogTrust().trust));
+  });
+});

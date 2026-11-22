@@ -1,7 +1,7 @@
 //! D112 model role resolution and unavailable-role warnings.
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Status {
     Available,
@@ -71,9 +71,9 @@ pub fn resolve<'a>(selector: &str, models: &'a [Model]) -> Option<Resolved<'a>> 
 #[derive(Serialize)]
 pub struct Warning<'a> {
     code: &'static str,
-    role: &'a str,
-    provider: &'a str,
-    id: &'a str,
+    pub role: &'a str,
+    pub provider: &'a str,
+    pub id: &'a str,
 }
 
 pub fn warnings<'a>(

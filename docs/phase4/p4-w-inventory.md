@@ -249,10 +249,15 @@ acceptance remain open. Neither crate is installed by the Core.
 - **Lücken.** Alle Provider-Seiten und 429/Retry-After, unvollständige und leere Aufzählungen,
   Entfernung/Übernahme von Metadaten, Rollen-Fallback und Katalog-Rollback/-Ablauf.
 
-**W5 local partial delivery.** Model role and alias resolution replays the
-production TypeScript implementation, including qualified provider prefixes,
-availability ordering and provider-scoped warnings. Scanner HTTP, reconciliation
-and overrides remain future slices. The role library has no network or store port.
+Rust übernimmt Rollenauflösung, Reconcile, Metadatenanreicherung,
+Alias-Priorität, Overrides und manuelle Einträge. Die Scanner spielen die
+aufgezeichneten Modelllisten von OpenAI, Anthropic, Google und Ollama ab.
+Der HTTP-Port verwendet den vorhandenen gepinnten ureq-Connector und prüft
+bei jedem Redirect den Origin. Ein Loopback-Replay belegt einen OpenAI-Scan
+über den konkreten Transport. Empfang und Dekodierung behalten dieselbe
+Absolutfrist. Die Katalogprüfung belegt Schwelle, Ablauf und Schlüsselwiderruf
+für signierte Rohbytes. Native Unix-Verdrahtung, Katalog-Refresh/Rotation,
+Rollback-Checkpoint und Extension-Index samt Download-Abnahme stehen aus.
 
 ### W6 · Web (Bibliothek von P4-30)
 
