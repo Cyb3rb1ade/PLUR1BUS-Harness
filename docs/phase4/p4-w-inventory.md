@@ -194,7 +194,7 @@ folgt in W10.
   Audio-Bytes, Fehler/Abbruch, Credential-Abweisung, Pipeline-Timeouts und ggf. binäre WS-Nachrichten.
 
 **W3 Rust partial delivery.** The cloud library covers the JSON HTTP boundary,
-ElevenLabs catalogs and buffered TTS/ASR, Gemini/XAI catalog discovery, Polly
+ElevenLabs catalogs, buffered TTS/ASR and streaming TTS, Gemini/XAI catalog discovery, Polly
 buffered synthesis and list projection through a signed-request port, and
 blocking Grok, Gemini and ElevenLabs ASR readiness and audio exchange. The
 exporter records actual TypeScript calls and frames for HTTP and WebSocket.
@@ -208,9 +208,10 @@ are recorded in [P4D-202](defects.md#p4d-202), [P4D-204](defects.md#p4d-204),
 have separate ceilings. Host registration uses the R-W-11 logger. A socket
 operation already blocked at cancellation can remain blocked until its deadline.
 
-Open W3 parity includes retry timing and the retry-after contract, ElevenLabs
-stream-input TTS, caller text and tool frames, and complete realtime event
-projection and usage. The cloud library has no production caller.
+The HTTP and WebSocket synthesis streams are recorded from the TypeScript
+provider. Their completion and deadline difference is [P4D-210](defects.md#p4d-210).
+Open W3 parity includes retry timing, caller text and tool frames, and complete
+realtime event projection and usage. The cloud library has no production caller.
 
 ### W4 · Medien und Dokumente (P4-53)
 

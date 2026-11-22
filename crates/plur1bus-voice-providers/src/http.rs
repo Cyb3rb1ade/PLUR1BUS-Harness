@@ -136,22 +136,41 @@ impl<'a> Client<'a> {
         deadline: Instant,
         limit: usize,
     ) -> Result<Vec<u8>, Error> {
+        self.with_body(endpoint, method, headers, request, deadline, |_, reader| {
+            read_bounded(reader, self.ports, deadline, limit)
+        })
+    }
+
+    pub(crate) fn with_body<T>(
+        &self,
+        endpoint: &Url,
+        method: &str,
+        headers: &[(&str, &str)],
+        request: &[u8],
+        deadline: Instant,
+        consume: impl FnOnce(u16, &mut dyn Read) -> Result<T, Error>,
+    ) -> Result<T, Error> {
         let mut response = self.request(endpoint, method, headers, request, deadline)?;
         let gzip = response
             .headers()
             .get("content-encoding")
             .is_some_and(|enc| enc.as_bytes().eq_ignore_ascii_case(b"gzip"));
+        let status = response.status().as_u16();
         let mut reader = response.body_mut().as_reader();
         if gzip {
-            read_bounded(
-                &mut flate2::read::MultiGzDecoder::new(reader),
-                self.ports,
-                deadline,
-                limit,
-            )
+            consume(status, &mut flate2::read::MultiGzDecoder::new(reader))
         } else {
-            read_bounded(&mut reader, self.ports, deadline, limit)
+            consume(status, &mut reader)
         }
+    }
+
+    pub(crate) fn read_chunk(
+        &self,
+        reader: &mut dyn Read,
+        deadline: Instant,
+        buffer: &mut [u8],
+    ) -> Result<usize, Error> {
+        checked_read(reader, self.ports, deadline, buffer)
     }
 
     fn request(
@@ -263,7 +282,7 @@ pub(crate) fn check(ports: &dyn Ports, deadline: Instant) -> Result<(), Error> {
 }
 
 pub(crate) fn read_bounded(
-    reader: &mut impl Read,
+    reader: &mut (impl Read + ?Sized),
     ports: &dyn Ports,
     deadline: Instant,
     limit: usize,
@@ -271,21 +290,9 @@ pub(crate) fn read_bounded(
     let mut collected = Vec::new();
     let mut buf = [0; 8192];
     loop {
-        check(ports, deadline)?;
         let remaining = limit - collected.len();
-        let next = buf.len().min(remaining + 1);
-        let count = match reader.read(&mut buf[..next]) {
-            Ok(count) => count,
-            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
-            Err(error) => {
-                check(ports, deadline)?;
-                return Err(match error.kind() {
-                    io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => Error::Timeout,
-                    _ => Error::BadResponse,
-                });
-            }
-        };
-        check(ports, deadline)?;
+        let next = buf.len().min(remaining.saturating_add(1));
+        let count = checked_read(reader, ports, deadline, &mut buf[..next])?;
         if count == 0 {
             return Ok(collected);
         }
@@ -293,6 +300,30 @@ pub(crate) fn read_bounded(
             return Err(Error::BadResponse);
         }
         collected.extend_from_slice(&buf[..count]);
+    }
+}
+
+fn checked_read(
+    reader: &mut (impl Read + ?Sized),
+    ports: &dyn Ports,
+    deadline: Instant,
+    buffer: &mut [u8],
+) -> Result<usize, Error> {
+    loop {
+        check(ports, deadline)?;
+        let result = reader.read(buffer);
+        check(ports, deadline)?;
+        match result {
+            Ok(count) if count <= buffer.len() => return Ok(count),
+            Ok(_) => return Err(Error::BadResponse),
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(error) => {
+                return Err(match error.kind() {
+                    io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => Error::Timeout,
+                    _ => Error::BadResponse,
+                });
+            }
+        }
     }
 }
 

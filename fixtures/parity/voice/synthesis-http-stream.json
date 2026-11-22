@@ -1,0 +1,44 @@
+{
+  "exchanges": [
+    {
+      "request": {
+        "bodyText": "{\"text\":\"A fixture voice 👋\",\"model_id\":\"eleven_flash_v2_5\"}",
+        "headers": {
+          "accept": "audio/*",
+          "content-type": "application/json",
+          "xi-api-key": "<credential>"
+        },
+        "method": "POST",
+        "path": "/v1/v1/text-to-speech/synthetic%2Fa%20b/stream?output_format=pcm_24000&enable_logging=false"
+      },
+      "response": {
+        "chunksBase64": [
+          "AAEC/w=="
+        ],
+        "headers": {
+          "content-type": "application/octet-stream"
+        },
+        "status": 200
+      }
+    }
+  ],
+  "expected": {
+    "dataBase64": "AAEC/w==",
+    "format": "pcm16",
+    "sampleRate": 24000,
+    "usage": {
+      "chars": 18,
+      "model": "eleven_flash_v2_5",
+      "operation": "tts",
+      "provider": "elevenlabs"
+    }
+  },
+  "exporter": "scripts/parity/export-voice.ts",
+  "input": {
+    "language": "en",
+    "text": "A fixture voice 👋",
+    "voice": "synthetic/a b"
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "http"
+}

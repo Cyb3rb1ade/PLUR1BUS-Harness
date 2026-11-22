@@ -1342,3 +1342,15 @@ deadlines. The runtime delivers decoded events on demand.
 The Rust Gemini handshake accepts only the header form of the credential.
 The TypeScript gateway fallback can put credentials in a URL query. The
 Rust host can use a gateway that forwards the credential header.
+
+<a id="p4d-210"></a>
+
+## P4D-210 — cloud synthesis stream deadline and completion
+
+The Rust HTTP audio stream reads one decoded chunk at a time under the
+request's absolute deadline. WebSocket synthesis uses the same absolute
+deadline for writes and reads, admits structured frames up to the
+P4D-205 ceiling, and exposes usage only after the text input and the provider's
+final frame both complete. The TypeScript HTTP deadline ends at the headers.
+The TypeScript socket consumer queues audio frames asynchronously. The native
+host owns the ordering of calls to the blocking dialogue.

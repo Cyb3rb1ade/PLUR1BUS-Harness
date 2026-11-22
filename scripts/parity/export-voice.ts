@@ -56,21 +56,33 @@ async function capture(operation: Operation, responses: Reply[]) {
   }
 }
 
-async function captureSynthesis() {
+async function captureSynthesis(stream = false) {
   const bytes = Buffer.from([0, 1, 2, 255]);
   const stub = await startStub((_request, reply) => {
     reply.writeHead(200, { "content-type": "application/octet-stream" });
     reply.end(bytes);
   });
   try {
+    const reports: import("../../packages/voice-providers/src/types.ts").UsageReport[] = [];
     const provider = createElevenLabs({
       baseUrl: stub.baseUrl,
       apiKeyRef: "fixture",
       getSecret: async () => fixtureKey,
       zeroRetention: true,
+      usage: (report) => reports.push(report),
     });
     const input = { text: "A fixture voice 👋", voice: "synthetic/a b", language: "en" };
-    const actual = await provider.tts.synthesize(input.text, { voice: input.voice, language: input.language });
+    const options = { voice: input.voice, language: input.language };
+    const buffered = async () => await provider.tts.synthesize(input.text, options);
+    const streamed = async () => {
+      const chunks = [];
+      for await (const chunk of provider.tts.synthesizeStream(input.text, options)) chunks.push(chunk);
+      const first = chunks[0];
+      const usage = reports[0];
+      if (!first || !usage) throw new Error("Expected audio and TTS usage from the HTTP stream");
+      return { ...first, data: Buffer.concat(chunks.map(chunk => chunk.data)), usage };
+    };
+    const actual = await (stream ? streamed() : buffered());
     if (stub.requests.length !== 1) throw new Error("Expected a single buffered synthesis request");
     const request = stub.requests[0]!;
     return {
@@ -94,6 +106,41 @@ async function captureSynthesis() {
     };
   } finally {
     await stub.close();
+  }
+}
+
+async function captureSocketSynthesis() {
+  const input = {
+    text: ["A fixture ", "", "voice 🎙"], voice: "synthetic/a b", language: "en",
+    voiceSettings: { stability: 0.5, similarity_boost: 0.75 },
+  };
+  const frames = [{ audio: "AQIA" }, { audio: "/wA=", isFinal: true }];
+  const server = await startFakeVendor({
+    ws: socket => { void socket.waitFor(5).then(() => frames.forEach(frame => socket.send(frame))); },
+  });
+  const reports: import("../../packages/voice-providers/src/types.ts").UsageReport[] = [];
+  const provider = createElevenLabs({
+    baseUrl: server.httpUrl, apiKeyRef: "fixture", getSecret: async () => fixtureKey,
+    zeroRetention: true, usage: report => reports.push(report),
+  });
+  const signal = AbortSignal.timeout(3000);
+  try {
+    const chunks = [];
+    for await (const chunk of provider.tts.synthesizeStream((async function* () {
+      yield* input.text;
+    })(), { ...input, signal })) {
+      chunks.push({ dataBase64: Buffer.from(chunk.data).toString("base64"), format: chunk.format, sampleRate: chunk.sampleRate });
+    }
+    const peer = server.sockets[0]!;
+    return {
+      schema: "plur1bus.parity-wire/1", exporter: "scripts/parity/export-voice.ts",
+      transport: "websocket", input,
+      request: { path: peer.req.url, headers: { "xi-api-key": String(peer.req.headers["xi-api-key"]).replaceAll(fixtureKey, "<credential>") } },
+      expected: { chunks, usage: reports[0] },
+      exchanges: [{ send: peer.jsonFrames(), receive: frames }],
+    };
+  } finally {
+    await server.close();
   }
 }
 
@@ -216,6 +263,8 @@ async function capturePolly() {
 export async function buildVoiceFixtures() {
   return {
     synthesis: await captureSynthesis(),
+    "synthesis-http-stream": await captureSynthesis(true),
+    "synthesis-ws-stream": await captureSocketSynthesis(),
     polly: await capturePolly(),
     "grok-realtime": await captureRealtime("grok"),
     "gemini-realtime": await captureRealtime("gemini"),

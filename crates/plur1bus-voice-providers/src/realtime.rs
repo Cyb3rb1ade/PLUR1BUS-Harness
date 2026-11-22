@@ -525,12 +525,47 @@ fn usage(value: &Value, input: &str, output: &str) -> Option<Event> {
     })
 }
 
-fn socket_error(error: websocket::Error) -> Error {
+pub(crate) fn socket_error(error: websocket::Error) -> Error {
     match error {
         websocket::Error::Denied => Error::InvalidRequest,
         websocket::Error::Timeout => Error::Timeout,
         websocket::Error::Capacity | websocket::Error::Protocol => Error::UpstreamProtocol,
         websocket::Error::Network => Error::Network,
         websocket::Error::Closed => Error::Closed,
+    }
+}
+
+/// Match provider error categories without carrying response text into diagnostics.
+pub(crate) fn frame_error(frame: &Value) -> Error {
+    let fields: Vec<String> = ["error", "type", "message_type", "code", "message"]
+        .into_iter()
+        .filter_map(|key| frame[key].as_str().map(str::to_ascii_lowercase))
+        .collect();
+    let matches = |tokens: &[&str]| {
+        fields
+            .iter()
+            .any(|field| tokens.iter().any(|token| field.contains(token)))
+    };
+    if matches(&[
+        "unauthor",
+        "auth",
+        "invalid_api_key",
+        "api key",
+        "permission",
+        "forbidden",
+    ]) {
+        Error::Auth
+    } else if matches(&["rate", "quota", "too_many", "resource_exhausted", "limit"]) {
+        Error::RateLimited
+    } else if matches(&[
+        "invalid",
+        "input_error",
+        "bad_request",
+        "not_found",
+        "unsupported",
+    ]) {
+        Error::InvalidRequest
+    } else {
+        Error::BadResponse
     }
 }

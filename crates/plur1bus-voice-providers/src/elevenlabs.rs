@@ -26,7 +26,7 @@ pub enum AudioFormat {
 }
 
 impl AudioFormat {
-    fn rate_and_parameter(self, rate: Option<u32>) -> Result<(u32, String), Error> {
+    pub(crate) fn rate_and_parameter(self, rate: Option<u32>) -> Result<(u32, String), Error> {
         let rate = rate.unwrap_or(if self == Self::Opus { 48_000 } else { 24_000 });
         let parameter = match (self, rate) {
             (Self::Pcm16, 8000 | 16000 | 22050 | 24000 | 44100) => format!("pcm_{rate}"),
@@ -81,22 +81,9 @@ pub fn synthesize(
     if key.trim().is_empty() {
         return Err(Error::Auth);
     }
-    if options.voice.is_empty()
-        || matches!(options.voice, "." | "..")
-        || base.cannot_be_a_base()
-        || base.query().is_some()
-        || base.fragment().is_some()
-    {
-        return Err(Error::InvalidRequest);
-    }
     let (sample_rate, parameter) = options.format.rate_and_parameter(options.sample_rate)?;
     let model = options.model.unwrap_or("eleven_flash_v2_5");
-    let mut endpoint = base.clone();
-    let voice = utf8_percent_encode(options.voice, URI_COMPONENT);
-    endpoint.set_path(&format!(
-        "{}/v1/text-to-speech/{voice}",
-        base.path().trim_end_matches('/')
-    ));
+    let mut endpoint = synthesis_endpoint(base, options.voice, "")?;
     endpoint
         .query_pairs_mut()
         .append_pair("output_format", &parameter);
@@ -132,6 +119,111 @@ pub fn synthesize(
         input_utf16_units: text.encode_utf16().count(),
     })
 }
+
+pub struct AudioChunk<Bytes> {
+    pub bytes: Bytes,
+    pub format: AudioFormat,
+    pub sample_rate: u32,
+}
+
+pub struct StreamUsage {
+    pub model: String,
+    pub input_utf16_units: usize,
+}
+
+fn synthesis_endpoint(base: &Url, voice: &str, suffix: &str) -> Result<Url, Error> {
+    if voice.is_empty()
+        || matches!(voice, "." | "..")
+        || base.cannot_be_a_base()
+        || base.query().is_some()
+        || base.fragment().is_some()
+    {
+        return Err(Error::InvalidRequest);
+    }
+    let mut endpoint = base.clone();
+    let voice = utf8_percent_encode(voice, URI_COMPONENT);
+    endpoint.set_path(&format!(
+        "{}/v1/text-to-speech/{voice}{suffix}",
+        base.path().trim_end_matches('/')
+    ));
+    Ok(endpoint)
+}
+
+pub(crate) fn streaming_endpoint(base: &Url, voice: &str) -> Result<Url, Error> {
+    synthesis_endpoint(base, voice, "/stream-input")
+}
+
+/// Deliver each decoded piece immediately. The callback may stop the stream by
+/// returning an error. Usage is available after the complete body.
+pub fn stream_synthesis(
+    client: &Client<'_>,
+    base: &Url,
+    key: &str,
+    text: &str,
+    options: &SynthesisOptions<'_>,
+    budget: Duration,
+    mut on_chunk: impl FnMut(AudioChunk<&[u8]>) -> Result<(), Error>,
+) -> Result<StreamUsage, Error> {
+    let deadline = deadline(budget);
+    if key.trim().is_empty() {
+        return Err(Error::Auth);
+    }
+    let (sample_rate, parameter) = options.format.rate_and_parameter(options.sample_rate)?;
+    let model = options.model.unwrap_or("eleven_flash_v2_5");
+    let mut endpoint = synthesis_endpoint(base, options.voice, "/stream")?;
+    endpoint
+        .query_pairs_mut()
+        .append_pair("output_format", &parameter);
+    if options.zero_retention {
+        endpoint
+            .query_pairs_mut()
+            .append_pair("enable_logging", "false");
+    }
+    let payload = serde_json::to_vec(&Payload {
+        text,
+        model_id: model,
+        voice_settings: options.voice_settings,
+        // The TypeScript streaming HTTP wire has no language_code field.
+        language_code: None,
+    })
+    .map_err(|_| Error::InvalidRequest)?;
+    client.with_body(
+        &endpoint,
+        "POST",
+        &[
+            ("xi-api-key", key),
+            ("content-type", "application/json"),
+            ("accept", "audio/*"),
+        ],
+        &payload,
+        deadline,
+        |status, reader| {
+            if matches!(status, 204 | 205) {
+                return Err(Error::BadResponse);
+            }
+            let mut buffer = [0; 8192];
+            loop {
+                let count = match client.read_chunk(reader, deadline, &mut buffer) {
+                    Err(Error::BadResponse) => return Err(Error::Network),
+                    other => other?,
+                };
+                if count == 0 {
+                    return Ok(StreamUsage {
+                        model: model.into(),
+                        input_utf16_units: text.encode_utf16().count(),
+                    });
+                }
+                on_chunk(AudioChunk {
+                    bytes: &buffer[..count],
+                    format: options.format,
+                    sample_rate,
+                })?;
+            }
+        },
+    )
+}
+
+pub use crate::tts_socket::TtsSocket;
 
 #[derive(Default)]
 pub struct TranscriptionOptions<'a> {
