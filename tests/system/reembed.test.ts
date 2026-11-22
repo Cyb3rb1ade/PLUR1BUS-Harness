@@ -151,6 +151,41 @@ describe("M2 — memory reembed through the CLI (acceptance 6)", () => {
     }
   });
 
+  it("preserves the selected remote key name in the native checkpoint across a restart", {
+    skip: (REAL || ENGINE_IMPL !== "rust") && "Rust with the flat embedder",
+  }, async () => {
+    const h = home();
+    const { startStub } = await import("../../packages/providers/test/helpers/stub.ts");
+    const provider = await startStub((_req, res) => { res.writeHead(500); res.end(); });
+    const selected = "MIGRATION_TARGET_FIXTURE_KEY";
+    const checkpoint = () => JSON.parse(readFileSync(join(h, "state", "reembed", "migration.json"), "utf8"));
+    let core: RunningCore | undefined;
+    try {
+      cli(h, ["config", "set", "egress.allowHosts", '["127.0.0.1"]', "--yes"]);
+      cli(h, ["config", "set", "egress.allowPorts", JSON.stringify([Number(new URL(provider.baseUrl).port)]), "--yes"]);
+      cli(h, ["config", "set", "egress.allowLoopback", "true", "--yes"]);
+      core = await startCore(h);
+      // Only the flat provider seam runs. There is no key value and no provider request.
+      const result = cli(h, ["memory", "reembed", "--plan", "--provider", "openai",
+        "--model", "synthetic-migration-target", "--dimensions", "3",
+        "--api-key-env", selected, "--base-url", provider.baseUrl, "--acknowledge-privacy"]);
+      assert.ok(result.plan);
+      assert.equal(checkpoint().remote.apiKeyEnv, selected);
+      await stopCore(core);
+      core = await startCore(h);
+      const status = cli(h, ["memory", "reembed", "--status"]);
+      assert.equal(status.checkpoint.id, result.plan.id);
+      assert.equal(status.checkpoint.phase, "planned");
+      assert.equal(checkpoint().remote.apiKeyEnv, selected);
+      assert.equal(cli(h, ["memory", "reembed", "--abort"]).checkpoint.phase, "aborted");
+      assert.equal(provider.requests.length, 0);
+    } finally {
+      if (core) await stopCore(core);
+      await provider.close();
+      rmSync(h, { recursive: true, force: true });
+    }
+  });
+
   it("--status with nothing planned, and --run/--abort without a plan, are plain refusals", { skip: REAL && "flat embedder only" }, async () => {
     const h = home();
     let core: RunningCore | undefined;
