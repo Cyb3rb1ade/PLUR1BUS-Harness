@@ -1005,6 +1005,14 @@ fn hostctl_process_port_receives_only_owned_ids_and_bounded_input() {
         false
     );
     assert_eq!(effects.writes, 1);
+    for event in ["hostctl.begin", "hostctl.end"] {
+        let fields = audit
+            .of(event)
+            .into_iter()
+            .find(|fields| fields["operation"] == "hostctl.proc.write_stdin")
+            .unwrap();
+        assert_eq!(fields["processId"], id);
+    }
 }
 
 #[test]
@@ -1162,6 +1170,10 @@ fn a_grant_is_not_the_separate_approval_for_a_foreign_process() {
     assert!(effects.called.is_empty());
     assert!(fixture.execute(action, &mut audit, &mut effects).is_ok());
     assert_eq!(effects.called, [name]);
+    for event in ["hostctl.begin", "hostctl.end"] {
+        let entries = audit.of(event);
+        assert_eq!(entries.last().unwrap()["pid"], 11);
+    }
 }
 
 #[test]
@@ -1172,7 +1184,7 @@ fn a_foreign_process_admission_protects_three_distinct_harness_ids() {
         parent: 9,
         group: Some(8),
     };
-    let admit = |pid| {
+    let admit = |pid, identity| {
         let input = json!({"pid":pid});
         eligibility::validate_runtime(
             catalog::Operation::KillForeign,
@@ -1182,10 +1194,19 @@ fn a_foreign_process_admission_protects_three_distinct_harness_ids() {
             identity,
         )
     };
-    assert!(admit(11).is_ok());
+    assert!(admit(11, identity).is_ok());
+    for missing in [
+        ProcessIdentity { pid: 0, ..identity },
+        ProcessIdentity {
+            parent: 0,
+            ..identity
+        },
+    ] {
+        assert_eq!(admit(11, missing).unwrap_err().code, "DENIED");
+    }
     for pid in [10, 9, 8] {
         assert_eq!(
-            admit(pid).unwrap_err().code,
+            admit(pid, identity).unwrap_err().code,
             "DENIED",
             "protected fixture id {pid}"
         );
