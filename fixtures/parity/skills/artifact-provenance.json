@@ -1,0 +1,78 @@
+{
+  "afterManual": {
+    "author": "human",
+    "hash": "b1450c96e69208f5f64d6880e5415284eec5d98c81a47a5bda2e96254c447e4b"
+  },
+  "agent": {
+    "author": "agent",
+    "hash": "c1d17705a8aa6ae504624a3755e918d822342483052d0bf9443cf332baa37514"
+  },
+  "agentOptIn": {
+    "kind": "proposal",
+    "proposalId": "proposal"
+  },
+  "agentOptOut": {
+    "kind": "agent-owned-write",
+    "oldHash": "c1d17705a8aa6ae504624a3755e918d822342483052d0bf9443cf332baa37514"
+  },
+  "audit": [
+    {
+      "action": "self-knowledge.propose",
+      "target": "artifact"
+    },
+    {
+      "action": "self-knowledge.write-approval",
+      "enabled": false,
+      "target": "self-knowledge"
+    },
+    {
+      "action": "self-knowledge.propose",
+      "target": "artifact"
+    },
+    {
+      "action": "self-knowledge.agent-write",
+      "target": "artifact"
+    },
+    {
+      "action": "self-knowledge.write-approval",
+      "enabled": true,
+      "target": "self-knowledge"
+    },
+    {
+      "action": "self-knowledge.propose",
+      "target": "artifact"
+    }
+  ],
+  "defaultPolicy": true,
+  "humanDefault": {
+    "kind": "proposal",
+    "proposalId": "proposal"
+  },
+  "humanOptOut": {
+    "kind": "proposal",
+    "proposalId": "proposal"
+  },
+  "initial": {
+    "author": "human",
+    "hash": "c1d17705a8aa6ae504624a3755e918d822342483052d0bf9443cf332baa37514"
+  },
+  "proposals": [
+    {
+      "author": "human",
+      "oldHash": "c1d17705a8aa6ae504624a3755e918d822342483052d0bf9443cf332baa37514",
+      "text": "first proposal"
+    },
+    {
+      "author": "human",
+      "oldHash": "c1d17705a8aa6ae504624a3755e918d822342483052d0bf9443cf332baa37514",
+      "text": "second proposal"
+    },
+    {
+      "author": "agent",
+      "oldHash": "c1d17705a8aa6ae504624a3755e918d822342483052d0bf9443cf332baa37514",
+      "text": "third proposal"
+    }
+  ],
+  "refusedAttribution": "E_DENIED",
+  "refusedPolicy": "E_DENIED"
+}

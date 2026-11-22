@@ -1,0 +1,930 @@
+[
+  {
+    "name": "defaults, attempts per class",
+    "ops": [
+      {
+        "cls": "rate_limit",
+        "op": "consume",
+        "tokens": 10,
+        "turn": "t"
+      },
+      {
+        "cls": "rate_limit",
+        "op": "consume",
+        "tokens": 10,
+        "turn": "t"
+      },
+      {
+        "cls": "rate_limit",
+        "op": "consume",
+        "tokens": 10,
+        "turn": "t"
+      },
+      {
+        "cls": "rate_limit",
+        "op": "consume",
+        "tokens": 10,
+        "turn": "t"
+      },
+      {
+        "cls": "timeout",
+        "op": "consume",
+        "tokens": 10,
+        "turn": "t"
+      },
+      {
+        "cls": "timeout",
+        "op": "consume",
+        "tokens": 10,
+        "turn": "t"
+      },
+      {
+        "cls": "overloaded",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "t"
+      },
+      {
+        "cls": "overloaded",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "t"
+      },
+      {
+        "cls": "overloaded",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "t"
+      }
+    ],
+    "policy": null,
+    "results": [
+      {
+        "ticket": 1
+      },
+      {
+        "ticket": 2
+      },
+      {
+        "ticket": 3
+      },
+      {
+        "class": "rate_limit",
+        "error": "exceeded",
+        "message": "retry rate_limit attempts budget exceeded",
+        "reason": "attempts"
+      },
+      {
+        "ticket": 4
+      },
+      {
+        "class": "timeout",
+        "error": "exceeded",
+        "message": "retry timeout attempts budget exceeded",
+        "reason": "attempts"
+      },
+      {
+        "ticket": 5
+      },
+      {
+        "ticket": 6
+      },
+      {
+        "class": "overloaded",
+        "error": "exceeded",
+        "message": "retry overloaded attempts budget exceeded",
+        "reason": "attempts"
+      }
+    ],
+    "turnTokens": null
+  },
+  {
+    "name": "classes and turns are independent, the ceiling is shared across a turn",
+    "ops": [
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 5,
+        "turn": "t1"
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 5,
+        "turn": "t1"
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 0,
+        "turn": "t1"
+      },
+      {
+        "cls": "timeout",
+        "op": "consume",
+        "tokens": 5,
+        "turn": "t1"
+      },
+      {
+        "cls": "rate_limit",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "t1"
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 5,
+        "turn": "t2"
+      },
+      {
+        "cls": "overloaded",
+        "op": "consume",
+        "tokens": 11,
+        "turn": "t3"
+      }
+    ],
+    "policy": {
+      "network": {
+        "maxAttempts": 2,
+        "maxTokens": 10
+      },
+      "overloaded": {
+        "maxAttempts": 2,
+        "maxTokens": 10
+      },
+      "rate_limit": {
+        "maxAttempts": 2,
+        "maxTokens": 10
+      },
+      "timeout": {
+        "maxAttempts": 2,
+        "maxTokens": 10
+      },
+      "tool_call_invalid": {
+        "maxAttempts": 2,
+        "maxTokens": 10
+      }
+    },
+    "results": [
+      {
+        "ticket": 1
+      },
+      {
+        "ticket": 2
+      },
+      {
+        "class": "network",
+        "error": "exceeded",
+        "message": "retry network attempts budget exceeded",
+        "reason": "attempts"
+      },
+      {
+        "ticket": 3
+      },
+      {
+        "class": "rate_limit",
+        "error": "exceeded",
+        "message": "retry rate_limit tokens budget exceeded",
+        "reason": "tokens"
+      },
+      {
+        "ticket": 4
+      },
+      {
+        "class": "overloaded",
+        "error": "exceeded",
+        "message": "retry overloaded tokens budget exceeded",
+        "reason": "tokens"
+      }
+    ],
+    "turnTokens": 15
+  },
+  {
+    "name": "each class has its own attempt cap and a refusal consumes nothing",
+    "ops": [
+      {
+        "cls": "rate_limit",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "rate_limit",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "overloaded",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "overloaded",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "overloaded",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "timeout",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "timeout",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "timeout",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "timeout",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "timeout",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "tool_call_invalid",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "tool_call_invalid",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "tool_call_invalid",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "tool_call_invalid",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "tool_call_invalid",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      },
+      {
+        "cls": "tool_call_invalid",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "turn"
+      }
+    ],
+    "policy": {
+      "network": {
+        "maxAttempts": 3,
+        "maxTokens": 100
+      },
+      "overloaded": {
+        "maxAttempts": 2,
+        "maxTokens": 100
+      },
+      "rate_limit": {
+        "maxAttempts": 1,
+        "maxTokens": 100
+      },
+      "timeout": {
+        "maxAttempts": 4,
+        "maxTokens": 100
+      },
+      "tool_call_invalid": {
+        "maxAttempts": 5,
+        "maxTokens": 100
+      }
+    },
+    "results": [
+      {
+        "ticket": 1
+      },
+      {
+        "class": "rate_limit",
+        "error": "exceeded",
+        "message": "retry rate_limit attempts budget exceeded",
+        "reason": "attempts"
+      },
+      {
+        "ticket": 2
+      },
+      {
+        "ticket": 3
+      },
+      {
+        "class": "overloaded",
+        "error": "exceeded",
+        "message": "retry overloaded attempts budget exceeded",
+        "reason": "attempts"
+      },
+      {
+        "ticket": 4
+      },
+      {
+        "ticket": 5
+      },
+      {
+        "ticket": 6
+      },
+      {
+        "class": "network",
+        "error": "exceeded",
+        "message": "retry network attempts budget exceeded",
+        "reason": "attempts"
+      },
+      {
+        "ticket": 7
+      },
+      {
+        "ticket": 8
+      },
+      {
+        "ticket": 9
+      },
+      {
+        "ticket": 10
+      },
+      {
+        "class": "timeout",
+        "error": "exceeded",
+        "message": "retry timeout attempts budget exceeded",
+        "reason": "attempts"
+      },
+      {
+        "ticket": 11
+      },
+      {
+        "ticket": 12
+      },
+      {
+        "ticket": 13
+      },
+      {
+        "ticket": 14
+      },
+      {
+        "ticket": 15
+      },
+      {
+        "class": "tool_call_invalid",
+        "error": "exceeded",
+        "message": "retry tool_call_invalid attempts budget exceeded",
+        "reason": "attempts"
+      }
+    ],
+    "turnTokens": 1000
+  },
+  {
+    "name": "a rejected reservation changes nothing",
+    "ops": [
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 3,
+        "turn": "x"
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 2,
+        "turn": "x"
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "x"
+      }
+    ],
+    "policy": {
+      "network": {
+        "maxAttempts": 3,
+        "maxTokens": 100
+      },
+      "overloaded": {
+        "maxAttempts": 2,
+        "maxTokens": 100
+      },
+      "rate_limit": {
+        "maxAttempts": 1,
+        "maxTokens": 100
+      },
+      "timeout": {
+        "maxAttempts": 4,
+        "maxTokens": 100
+      },
+      "tool_call_invalid": {
+        "maxAttempts": 5,
+        "maxTokens": 100
+      }
+    },
+    "results": [
+      {
+        "class": "network",
+        "error": "exceeded",
+        "message": "retry network tokens budget exceeded",
+        "reason": "tokens"
+      },
+      {
+        "ticket": 1
+      },
+      {
+        "class": "network",
+        "error": "exceeded",
+        "message": "retry network tokens budget exceeded",
+        "reason": "tokens"
+      }
+    ],
+    "turnTokens": 2
+  },
+  {
+    "name": "actual tokens reconcile once and block later retries",
+    "ops": [
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 5,
+        "turn": "t"
+      },
+      {
+        "op": "settle",
+        "ticket": 1,
+        "tokens": 11
+      },
+      {
+        "op": "settle",
+        "ticket": 1,
+        "tokens": 11
+      },
+      {
+        "cls": "timeout",
+        "op": "consume",
+        "tokens": 0,
+        "turn": "t"
+      }
+    ],
+    "policy": null,
+    "results": [
+      {
+        "ticket": 1
+      },
+      {
+        "class": "network",
+        "error": "exceeded",
+        "message": "retry network tokens budget exceeded",
+        "reason": "tokens"
+      },
+      {
+        "settled": false
+      },
+      {
+        "class": "timeout",
+        "error": "exceeded",
+        "message": "retry timeout tokens budget exceeded",
+        "reason": "tokens"
+      }
+    ],
+    "turnTokens": 10
+  },
+  {
+    "name": "settling below the estimate frees tokens",
+    "ops": [
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 60,
+        "turn": "t"
+      },
+      {
+        "op": "settle",
+        "ticket": 1,
+        "tokens": 10
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 60,
+        "turn": "t"
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 60,
+        "turn": "t"
+      }
+    ],
+    "policy": {
+      "network": {
+        "maxAttempts": 5,
+        "maxTokens": 100
+      },
+      "overloaded": {
+        "maxAttempts": 5,
+        "maxTokens": 100
+      },
+      "rate_limit": {
+        "maxAttempts": 5,
+        "maxTokens": 100
+      },
+      "timeout": {
+        "maxAttempts": 5,
+        "maxTokens": 100
+      },
+      "tool_call_invalid": {
+        "maxAttempts": 5,
+        "maxTokens": 100
+      }
+    },
+    "results": [
+      {
+        "ticket": 1
+      },
+      {
+        "settled": true
+      },
+      {
+        "ticket": 2
+      },
+      {
+        "class": "network",
+        "error": "exceeded",
+        "message": "retry network tokens budget exceeded",
+        "reason": "tokens"
+      }
+    ],
+    "turnTokens": 100
+  },
+  {
+    "name": "end of a turn forgets it and its tickets",
+    "ops": [
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 10,
+        "turn": "t"
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "t"
+      },
+      {
+        "op": "end",
+        "turn": "t"
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 10,
+        "turn": "t"
+      },
+      {
+        "op": "settle",
+        "ticket": 1,
+        "tokens": 1
+      },
+      {
+        "op": "settle",
+        "ticket": 2,
+        "tokens": 3
+      }
+    ],
+    "policy": {
+      "network": {
+        "maxAttempts": 1,
+        "maxTokens": 10
+      },
+      "overloaded": {
+        "maxAttempts": 1,
+        "maxTokens": 10
+      },
+      "rate_limit": {
+        "maxAttempts": 1,
+        "maxTokens": 10
+      },
+      "timeout": {
+        "maxAttempts": 1,
+        "maxTokens": 10
+      },
+      "tool_call_invalid": {
+        "maxAttempts": 1,
+        "maxTokens": 10
+      }
+    },
+    "results": [
+      {
+        "ticket": 1
+      },
+      {
+        "class": "network",
+        "error": "exceeded",
+        "message": "retry network attempts budget exceeded",
+        "reason": "attempts"
+      },
+      {
+        "ended": true
+      },
+      {
+        "ticket": 2
+      },
+      {
+        "error": "RangeError",
+        "message": "unknown retry ticket"
+      },
+      {
+        "settled": true
+      }
+    ],
+    "turnTokens": 10
+  },
+  {
+    "name": "invalid input",
+    "ops": [
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 1,
+        "turn": ""
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": -1,
+        "turn": "t"
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 9007199254740992,
+        "turn": "t"
+      },
+      {
+        "cls": "toString",
+        "op": "consume",
+        "tokens": 0,
+        "turn": "t"
+      },
+      {
+        "cls": "constructor",
+        "op": "consume",
+        "tokens": 0,
+        "turn": "t"
+      },
+      {
+        "cls": "__proto__",
+        "op": "consume",
+        "tokens": 0,
+        "turn": "t"
+      },
+      {
+        "cls": "hasOwnProperty",
+        "op": "consume",
+        "tokens": 0,
+        "turn": "t"
+      },
+      {
+        "cls": "",
+        "op": "consume",
+        "tokens": 0,
+        "turn": "t"
+      },
+      {
+        "op": "settle",
+        "ticket": 99,
+        "tokens": 1
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 1,
+        "turn": "t"
+      },
+      {
+        "op": "settle",
+        "ticket": 1,
+        "tokens": -1
+      },
+      {
+        "op": "settle",
+        "ticket": 1,
+        "tokens": 9007199254740992
+      }
+    ],
+    "policy": null,
+    "results": [
+      {
+        "error": "RangeError",
+        "message": "invalid retry reservation"
+      },
+      {
+        "error": "RangeError",
+        "message": "invalid retry reservation"
+      },
+      {
+        "error": "RangeError",
+        "message": "invalid retry reservation"
+      },
+      {
+        "error": "RangeError",
+        "message": "unknown failure class"
+      },
+      {
+        "error": "RangeError",
+        "message": "unknown failure class"
+      },
+      {
+        "error": "RangeError",
+        "message": "unknown failure class"
+      },
+      {
+        "error": "RangeError",
+        "message": "unknown failure class"
+      },
+      {
+        "error": "RangeError",
+        "message": "unknown failure class"
+      },
+      {
+        "error": "RangeError",
+        "message": "unknown retry ticket"
+      },
+      {
+        "ticket": 1
+      },
+      {
+        "error": "RangeError",
+        "message": "invalid actual retry tokens"
+      },
+      {
+        "error": "RangeError",
+        "message": "invalid actual retry tokens"
+      }
+    ],
+    "turnTokens": null
+  },
+  {
+    "name": "settle overage on a class, not on the turn",
+    "ops": [
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 5,
+        "turn": "t"
+      },
+      {
+        "op": "settle",
+        "ticket": 1,
+        "tokens": 11
+      },
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 0,
+        "turn": "t"
+      },
+      {
+        "cls": "timeout",
+        "op": "consume",
+        "tokens": 5,
+        "turn": "t"
+      }
+    ],
+    "policy": {
+      "network": {
+        "maxAttempts": 3,
+        "maxTokens": 10
+      },
+      "overloaded": {
+        "maxAttempts": 3,
+        "maxTokens": 10
+      },
+      "rate_limit": {
+        "maxAttempts": 3,
+        "maxTokens": 10
+      },
+      "timeout": {
+        "maxAttempts": 3,
+        "maxTokens": 10
+      },
+      "tool_call_invalid": {
+        "maxAttempts": 3,
+        "maxTokens": 10
+      }
+    },
+    "results": [
+      {
+        "ticket": 1
+      },
+      {
+        "class": "network",
+        "error": "exceeded",
+        "message": "retry network tokens budget exceeded",
+        "reason": "tokens"
+      },
+      {
+        "class": "network",
+        "error": "exceeded",
+        "message": "retry network tokens budget exceeded",
+        "reason": "tokens"
+      },
+      {
+        "ticket": 2
+      }
+    ],
+    "turnTokens": 100
+  },
+  {
+    "name": "zero attempts and zero tokens",
+    "ops": [
+      {
+        "cls": "network",
+        "op": "consume",
+        "tokens": 0,
+        "turn": "t"
+      }
+    ],
+    "policy": {
+      "network": {
+        "maxAttempts": 0,
+        "maxTokens": 0
+      },
+      "overloaded": {
+        "maxAttempts": 0,
+        "maxTokens": 0
+      },
+      "rate_limit": {
+        "maxAttempts": 0,
+        "maxTokens": 0
+      },
+      "timeout": {
+        "maxAttempts": 0,
+        "maxTokens": 0
+      },
+      "tool_call_invalid": {
+        "maxAttempts": 0,
+        "maxTokens": 0
+      }
+    },
+    "results": [
+      {
+        "class": "network",
+        "error": "exceeded",
+        "message": "retry network attempts budget exceeded",
+        "reason": "attempts"
+      }
+    ],
+    "turnTokens": 0
+  }
+]

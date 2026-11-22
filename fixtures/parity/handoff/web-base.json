@@ -1,0 +1,266 @@
+[
+  {
+    "input": "https://web.example",
+    "ok": "https://web.example"
+  },
+  {
+    "input": "https://web.example/",
+    "ok": "https://web.example"
+  },
+  {
+    "input": "https://web.example//",
+    "ok": "https://web.example/"
+  },
+  {
+    "input": "https://web.example/app",
+    "ok": "https://web.example/app"
+  },
+  {
+    "input": "https://web.example/app/",
+    "ok": "https://web.example/app"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is invalid"
+    },
+    "input": "http://web.example"
+  },
+  {
+    "input": "http://localhost",
+    "ok": "http://localhost"
+  },
+  {
+    "input": "http://LOCALHOST:8080/",
+    "ok": "http://localhost:8080"
+  },
+  {
+    "input": "http://127.0.0.1:1234/",
+    "ok": "http://127.0.0.1:1234"
+  },
+  {
+    "input": "http://127.1",
+    "ok": "http://127.0.0.1"
+  },
+  {
+    "input": "http://0x7f.1",
+    "ok": "http://127.0.0.1"
+  },
+  {
+    "input": "http://[::1]",
+    "ok": "http://[::1]"
+  },
+  {
+    "input": "http://[::1]:9/x/",
+    "ok": "http://[::1]:9/x"
+  },
+  {
+    "input": "http://[0:0:0:0:0:0:0:1]",
+    "ok": "http://[::1]"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is invalid"
+    },
+    "input": "http://127.0.0.2"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is invalid"
+    },
+    "input": "http://localhost."
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is invalid"
+    },
+    "input": "http://localhost.example"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is invalid"
+    },
+    "input": "https://u:p@web.example"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is invalid"
+    },
+    "input": "https://u@web.example"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is invalid"
+    },
+    "input": "https://:p@web.example"
+  },
+  {
+    "input": "https://:@web.example",
+    "ok": "https://web.example"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is invalid"
+    },
+    "input": "https://web.example/?a=b"
+  },
+  {
+    "input": "https://web.example/?",
+    "ok": "https://web.example/?"
+  },
+  {
+    "input": "https://web.example?",
+    "ok": "https://web.example/?"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is invalid"
+    },
+    "input": "https://web.example/#x"
+  },
+  {
+    "input": "https://web.example/#",
+    "ok": "https://web.example/#"
+  },
+  {
+    "input": "https://web.example#",
+    "ok": "https://web.example/#"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is invalid"
+    },
+    "input": "https://web.example/a?b#c"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is not configured"
+    },
+    "input": ""
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is not configured"
+    },
+    "input": " "
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is not configured"
+    },
+    "input": "web.example"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is not configured"
+    },
+    "input": "//web.example"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is invalid"
+    },
+    "input": "ftp://web.example"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is invalid"
+    },
+    "input": "wss://web.example"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is invalid"
+    },
+    "input": "javascript:alert(1)"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is not configured"
+    },
+    "input": "https://"
+  },
+  {
+    "input": "https:///x",
+    "ok": "https://x"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is not configured"
+    },
+    "input": "https://web example"
+  },
+  {
+    "input": "https://WEB.EXAMPLE/Path",
+    "ok": "https://web.example/Path"
+  },
+  {
+    "input": "https://web.example:443/",
+    "ok": "https://web.example"
+  },
+  {
+    "input": "https://web.example:8443",
+    "ok": "https://web.example:8443"
+  },
+  {
+    "err": {
+      "code": "E_NOT_AVAILABLE",
+      "message": "Web continuation address is not configured"
+    },
+    "input": "https://web.example:99999"
+  },
+  {
+    "input": " https://web.example",
+    "ok": "https://web.example"
+  },
+  {
+    "input": "https://web.example ",
+    "ok": "https://web.example"
+  },
+  {
+    "input": "https://web.example\n",
+    "ok": "https://web.example"
+  },
+  {
+    "input": "HTTPS://web.example",
+    "ok": "https://web.example"
+  },
+  {
+    "input": "https://xn--bcher-kva.example",
+    "ok": "https://xn--bcher-kva.example"
+  },
+  {
+    "input": "https://bücher.example",
+    "ok": "https://xn--bcher-kva.example"
+  },
+  {
+    "input": "https://web.example/é",
+    "ok": "https://web.example/%C3%A9"
+  },
+  {
+    "input": "https://web.example/%2F/",
+    "ok": "https://web.example/%2F"
+  },
+  {
+    "input": "https://web.example/a b",
+    "ok": "https://web.example/a%20b"
+  }
+]

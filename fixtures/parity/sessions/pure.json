@@ -1,0 +1,2608 @@
+{
+  "activePath": [
+    {
+      "messages": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m4",
+          "seq": 4,
+          "text": "t4"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "result": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m4",
+          "seq": 4,
+          "text": "t4"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "rewinds": []
+    },
+    {
+      "messages": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m4",
+          "seq": 4,
+          "text": "t4"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "result": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 3,
+          "hiddenToSeq": 4,
+          "undoneAt": null
+        }
+      ]
+    },
+    {
+      "messages": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m4",
+          "seq": 4,
+          "text": "t4"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "result": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m4",
+          "seq": 4,
+          "text": "t4"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 3,
+          "hiddenToSeq": 4,
+          "undoneAt": 5
+        }
+      ]
+    },
+    {
+      "messages": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m4",
+          "seq": 4,
+          "text": "t4"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "result": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m4",
+          "seq": 4,
+          "text": "t4"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        }
+      ],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 3,
+          "hiddenToSeq": 4,
+          "lessonMessageId": "m6",
+          "undoneAt": 5
+        }
+      ]
+    },
+    {
+      "messages": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m4",
+          "seq": 4,
+          "text": "t4"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "result": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 3,
+          "hiddenToSeq": 4,
+          "lessonMessageId": "m6",
+          "undoneAt": null
+        }
+      ]
+    },
+    {
+      "messages": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m4",
+          "seq": 4,
+          "text": "t4"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "result": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 2,
+          "hiddenToSeq": 2,
+          "undoneAt": null
+        },
+        {
+          "hiddenFromSeq": 4,
+          "hiddenToSeq": 5,
+          "undoneAt": null
+        }
+      ]
+    },
+    {
+      "messages": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m4",
+          "seq": 4,
+          "text": "t4"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "result": [],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 1,
+          "hiddenToSeq": 6,
+          "undoneAt": null
+        }
+      ]
+    },
+    {
+      "messages": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m4",
+          "seq": 4,
+          "text": "t4"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "result": [
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m4",
+          "seq": 4,
+          "text": "t4"
+        }
+      ],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 2,
+          "hiddenToSeq": 3,
+          "lessonMessageId": "m1",
+          "undoneAt": 9
+        },
+        {
+          "hiddenFromSeq": 5,
+          "hiddenToSeq": 9,
+          "undoneAt": null
+        }
+      ]
+    },
+    {
+      "messages": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m4",
+          "seq": 4,
+          "text": "t4"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "result": [
+        {
+          "id": "m1",
+          "seq": 1,
+          "text": "t1"
+        },
+        {
+          "id": "m2",
+          "seq": 2,
+          "text": "t2"
+        },
+        {
+          "id": "m3",
+          "seq": 3,
+          "text": "t3"
+        },
+        {
+          "id": "m4",
+          "seq": 4,
+          "text": "t4"
+        },
+        {
+          "id": "m5",
+          "seq": 5,
+          "text": "t5"
+        },
+        {
+          "id": "m6",
+          "seq": 6,
+          "text": "t6"
+        }
+      ],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 4,
+          "hiddenToSeq": 3,
+          "undoneAt": null
+        }
+      ]
+    }
+  ],
+  "activeSummaries": [
+    {
+      "result": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 2,
+          "toSeq": 4
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        },
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ],
+      "rewinds": [],
+      "summaries": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 2,
+          "toSeq": 4
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        },
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ]
+    },
+    {
+      "result": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        }
+      ],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 3,
+          "hiddenToSeq": 4,
+          "undoneAt": null
+        }
+      ],
+      "summaries": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 2,
+          "toSeq": 4
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        },
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ]
+    },
+    {
+      "result": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 2,
+          "toSeq": 4
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        },
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 3,
+          "hiddenToSeq": 4,
+          "undoneAt": 5
+        }
+      ],
+      "summaries": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 2,
+          "toSeq": 4
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        },
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ]
+    },
+    {
+      "result": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 2,
+          "toSeq": 4
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        },
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 3,
+          "hiddenToSeq": 4,
+          "lessonMessageId": "m6",
+          "undoneAt": 5
+        }
+      ],
+      "summaries": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 2,
+          "toSeq": 4
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        },
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ]
+    },
+    {
+      "result": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        }
+      ],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 3,
+          "hiddenToSeq": 4,
+          "lessonMessageId": "m6",
+          "undoneAt": null
+        }
+      ],
+      "summaries": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 2,
+          "toSeq": 4
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        },
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ]
+    },
+    {
+      "result": [
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 2,
+          "hiddenToSeq": 2,
+          "undoneAt": null
+        },
+        {
+          "hiddenFromSeq": 4,
+          "hiddenToSeq": 5,
+          "undoneAt": null
+        }
+      ],
+      "summaries": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 2,
+          "toSeq": 4
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        },
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ]
+    },
+    {
+      "result": [],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 1,
+          "hiddenToSeq": 6,
+          "undoneAt": null
+        }
+      ],
+      "summaries": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 2,
+          "toSeq": 4
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        },
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ]
+    },
+    {
+      "result": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 2,
+          "toSeq": 4
+        },
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 2,
+          "hiddenToSeq": 3,
+          "lessonMessageId": "m1",
+          "undoneAt": 9
+        },
+        {
+          "hiddenFromSeq": 5,
+          "hiddenToSeq": 9,
+          "undoneAt": null
+        }
+      ],
+      "summaries": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 2,
+          "toSeq": 4
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        },
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ]
+    },
+    {
+      "result": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        },
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ],
+      "rewinds": [
+        {
+          "hiddenFromSeq": 4,
+          "hiddenToSeq": 3,
+          "undoneAt": null
+        }
+      ],
+      "summaries": [
+        {
+          "fromSeq": 1,
+          "toSeq": 2
+        },
+        {
+          "fromSeq": 2,
+          "toSeq": 4
+        },
+        {
+          "fromSeq": 5,
+          "toSeq": 6
+        },
+        {
+          "fromSeq": 3,
+          "toSeq": 3
+        }
+      ]
+    }
+  ],
+  "failedEditCycles": [
+    {
+      "events": [],
+      "result": {
+        "failedCycles": 0,
+        "fromTurnId": null,
+        "lastCheckSeq": 0,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.edit"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{\"ok\":true},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "pnpm",
+                "test"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"exitCode\":1},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 1,
+        "fromTurnId": "t1",
+        "lastCheckSeq": 4,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "b",
+            "name": "code.check"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "c",
+            "name": "file.edit"
+          },
+          "seq": 5,
+          "sessionId": "s",
+          "turnId": "t2",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "c",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 6,
+          "sessionId": "s",
+          "turnId": "t2",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "d",
+            "name": "coding_complete"
+          },
+          "seq": 7,
+          "sessionId": "s",
+          "turnId": "t2",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "d",
+            "output": "{\"value\":{\"exitCode\":2},\"isError\":false}"
+          },
+          "seq": 8,
+          "sessionId": "s",
+          "turnId": "t2",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "e",
+            "name": "file.edit"
+          },
+          "seq": 9,
+          "sessionId": "s",
+          "turnId": "t3",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "e",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 10,
+          "sessionId": "s",
+          "turnId": "t3",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "vitest"
+              ]
+            },
+            "id": "f",
+            "name": "exec.run"
+          },
+          "seq": 11,
+          "sessionId": "s",
+          "turnId": "t3",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "f",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 12,
+          "sessionId": "s",
+          "turnId": "t3",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 3,
+        "fromTurnId": "t1",
+        "lastCheckSeq": 12,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.edit"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "b",
+            "name": "code.check"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":true},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "c",
+            "name": "code.check"
+          },
+          "seq": 5,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "c",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 6,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 0,
+        "fromTurnId": null,
+        "lastCheckSeq": 6,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.edit"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": true,
+            "output": "{\"value\":{\"ok\":true},\"isError\":true}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "b",
+            "name": "code.check"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "not json"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 0,
+        "fromTurnId": null,
+        "lastCheckSeq": 4,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.edit"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "output": "{\"ok\":true,\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "--test=x"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"exitCode\":3}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 1,
+        "fromTurnId": "t1",
+        "lastCheckSeq": 4,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": 7,
+            "name": "file.edit"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": 7,
+            "isError": false,
+            "output": {
+              "value": {
+                "isError": false
+              }
+            }
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "go-test"
+              ]
+            },
+            "id": [
+              1,
+              2
+            ],
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": [
+              1,
+              2
+            ],
+            "output": "{\"value\":null,\"exitCode\":1}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "test:unit"
+              ]
+            },
+            "id": null,
+            "name": "exec.run"
+          },
+          "seq": 5,
+          "sessionId": "s",
+          "turnId": null,
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": null,
+            "output": "{\"ok\":false}"
+          },
+          "seq": 6,
+          "sessionId": "s",
+          "turnId": null,
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 1,
+        "fromTurnId": "t1",
+        "lastCheckSeq": 6,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "--test"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 1,
+        "fromTurnId": "t1",
+        "lastCheckSeq": 4,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "--test=a b"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 1,
+        "fromTurnId": "t1",
+        "lastCheckSeq": 4,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "--test=a\nb"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 0,
+        "fromTurnId": null,
+        "lastCheckSeq": 0,
+        "pendingEdit": true
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "test"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 1,
+        "fromTurnId": "t1",
+        "lastCheckSeq": 4,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "test:"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 0,
+        "fromTurnId": null,
+        "lastCheckSeq": 0,
+        "pendingEdit": true
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "test:a b"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 0,
+        "fromTurnId": null,
+        "lastCheckSeq": 0,
+        "pendingEdit": true
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "test:ab"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 1,
+        "fromTurnId": "t1",
+        "lastCheckSeq": 4,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "pytest"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 1,
+        "fromTurnId": "t1",
+        "lastCheckSeq": 4,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "jest"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 1,
+        "fromTurnId": "t1",
+        "lastCheckSeq": 4,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "mocha"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 1,
+        "fromTurnId": "t1",
+        "lastCheckSeq": 4,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "ctest"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 1,
+        "fromTurnId": "t1",
+        "lastCheckSeq": 4,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "go-test"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 1,
+        "fromTurnId": "t1",
+        "lastCheckSeq": 4,
+        "pendingEdit": false
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "TEST"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 0,
+        "fromTurnId": null,
+        "lastCheckSeq": 0,
+        "pendingEdit": true
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "testx"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 0,
+        "fromTurnId": null,
+        "lastCheckSeq": 0,
+        "pendingEdit": true
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                "--tests"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 0,
+        "fromTurnId": null,
+        "lastCheckSeq": 0,
+        "pendingEdit": true
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.write"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                " test"
+              ]
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 0,
+        "fromTurnId": null,
+        "lastCheckSeq": 0,
+        "pendingEdit": true
+      }
+    },
+    {
+      "events": [
+        {
+          "at": 1,
+          "data": {
+            "args": {},
+            "id": "a",
+            "name": "file.edit"
+          },
+          "seq": 1,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "a",
+            "isError": false,
+            "output": "{\"value\":{},\"isError\":false}"
+          },
+          "seq": 2,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": "pnpm test"
+            },
+            "id": "b",
+            "name": "exec.run"
+          },
+          "seq": 3,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "b",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 4,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": {
+              "argv": [
+                5,
+                null,
+                "jest"
+              ]
+            },
+            "id": "c",
+            "name": "exec.run"
+          },
+          "seq": 5,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "c",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 6,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        },
+        {
+          "at": 1,
+          "data": {
+            "args": "x",
+            "id": "d",
+            "name": "exec.run"
+          },
+          "seq": 7,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.call"
+        },
+        {
+          "at": 1,
+          "data": {
+            "id": "d",
+            "output": "{\"value\":{\"ok\":false},\"isError\":false}"
+          },
+          "seq": 8,
+          "sessionId": "s",
+          "turnId": "t1",
+          "type": "tool.result"
+        }
+      ],
+      "result": {
+        "failedCycles": 1,
+        "fromTurnId": "t1",
+        "lastCheckSeq": 6,
+        "pendingEdit": false
+      }
+    }
+  ],
+  "hiddenDigest": [
+    {
+      "digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "messages": []
+    },
+    {
+      "digest": "9e1bd1c13caae56178b35b649f038739ca8a945379c0204cd396fe01800128a0",
+      "messages": [
+        {
+          "id": "a",
+          "text": "x"
+        }
+      ]
+    },
+    {
+      "digest": "c3ae39d4989e841ca5291807899d82ef70f792f0bc88f0dacc214b61619d2fc5",
+      "messages": [
+        {
+          "id": "a",
+          "text": "x"
+        },
+        {
+          "id": "b",
+          "text": "y\n\"z\""
+        }
+      ]
+    },
+    {
+      "digest": "21a484d27b8452bcd89aa037339f15525bf195e93f78618ca015f68333e11200",
+      "messages": [
+        {
+          "id": "ä",
+          "text": "😀   \u0000 \u001f"
+        }
+      ]
+    },
+    {
+      "digest": "eea2eae09d8d146bdc47fb22ea299d0136207c2ad33c668e2115d8757e0faed2",
+      "messages": [
+        {
+          "id": "a",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "digest": "bb1b3bc4940b43b9641bdf0945a3cd7d0389f1e66ae19650ec4f24bc40d21a0a",
+      "messages": [
+        {
+          "id": "a",
+          "text": " ﻿"
+        }
+      ]
+    }
+  ]
+}

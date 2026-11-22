@@ -167,8 +167,7 @@ impl JobBody for LightDream {
         context.note_pending_key(&source.key)?;
         check()?;
         let prompt = prompts::conversation_insights(&source.turns);
-        let mut params = Purpose::ConversationInsights.params(&prompt.text, None);
-        params.max_tokens = Some(400.into());
+        let params = Purpose::ConversationInsights.params(&prompt.text, None);
         let answer = insights_route.complete(params, cancel);
         cancel.check()?;
         let Ok(answer) = answer else {
@@ -231,7 +230,6 @@ impl JobBody for LightDream {
             None,
         );
         let mut params = Purpose::LightNarrative.params(&prompt.text, None);
-        params.max_tokens = Some(400.into());
         if let Some(temperature) = settings["temperature"].as_number() {
             params.temperature = Some(temperature.clone());
         }

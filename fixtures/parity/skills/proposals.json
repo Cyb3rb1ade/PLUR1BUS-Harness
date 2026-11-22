@@ -1,0 +1,167 @@
+[
+  {
+    "expected": {
+      "calls": [
+        {
+          "hash": "bcf14c57eddc4f54e19895ffbd6287c418c2f3ffa052141d97c2186dba1c73dc",
+          "operation": "find",
+          "scope": {
+            "agentId": "alpha",
+            "owner": "fixture-owner",
+            "scope": "workspace"
+          }
+        },
+        {
+          "enabled": false,
+          "hash": "bcf14c57eddc4f54e19895ffbd6287c418c2f3ffa052141d97c2186dba1c73dc",
+          "operation": "propose",
+          "scope": {
+            "agentId": "alpha",
+            "owner": "fixture-owner",
+            "scope": "workspace"
+          }
+        }
+      ],
+      "result": [
+        {
+          "duplicates": 0,
+          "ids": [
+            "fixture-proposal"
+          ]
+        }
+      ],
+      "status": {
+        "activeByDefault": false,
+        "available": true,
+        "humanReviewRequired": true,
+        "state": "ready"
+      }
+    },
+    "name": "available"
+  },
+  {
+    "expected": {
+      "calls": [
+        {
+          "hash": "bcf14c57eddc4f54e19895ffbd6287c418c2f3ffa052141d97c2186dba1c73dc",
+          "operation": "find",
+          "scope": {
+            "agentId": "alpha",
+            "owner": "fixture-owner",
+            "scope": "workspace"
+          }
+        },
+        {
+          "enabled": false,
+          "hash": "bcf14c57eddc4f54e19895ffbd6287c418c2f3ffa052141d97c2186dba1c73dc",
+          "operation": "propose",
+          "scope": {
+            "agentId": "alpha",
+            "owner": "fixture-owner",
+            "scope": "workspace"
+          }
+        },
+        {
+          "hash": "bcf14c57eddc4f54e19895ffbd6287c418c2f3ffa052141d97c2186dba1c73dc",
+          "operation": "find",
+          "scope": {
+            "agentId": "alpha",
+            "owner": "fixture-owner",
+            "scope": "workspace"
+          }
+        }
+      ],
+      "result": [
+        {
+          "duplicates": 0,
+          "ids": [
+            "fixture-proposal"
+          ]
+        },
+        {
+          "duplicates": 1,
+          "ids": []
+        }
+      ],
+      "status": {
+        "activeByDefault": false,
+        "available": true,
+        "humanReviewRequired": true,
+        "state": "ready"
+      }
+    },
+    "name": "deduplicated"
+  },
+  {
+    "expected": {
+      "calls": [],
+      "result": [
+        {
+          "error": "E_NOT_AVAILABLE"
+        }
+      ],
+      "status": {
+        "activeByDefault": false,
+        "available": false,
+        "humanReviewRequired": true,
+        "state": "engine-unavailable"
+      }
+    },
+    "name": "unavailable"
+  },
+  {
+    "expected": {
+      "calls": [
+        {
+          "hash": "bcf14c57eddc4f54e19895ffbd6287c418c2f3ffa052141d97c2186dba1c73dc",
+          "operation": "find",
+          "scope": {
+            "agentId": "alpha",
+            "owner": "fixture-owner",
+            "scope": "workspace"
+          }
+        },
+        {
+          "enabled": false,
+          "hash": "bcf14c57eddc4f54e19895ffbd6287c418c2f3ffa052141d97c2186dba1c73dc",
+          "operation": "propose",
+          "scope": {
+            "agentId": "alpha",
+            "owner": "fixture-owner",
+            "scope": "workspace"
+          }
+        }
+      ],
+      "result": [
+        {
+          "error": "E_STORAGE"
+        }
+      ],
+      "status": {
+        "activeByDefault": false,
+        "available": true,
+        "humanReviewRequired": true,
+        "state": "ready"
+      }
+    },
+    "name": "nonpending"
+  },
+  {
+    "expected": {
+      "calls": [],
+      "result": [
+        {
+          "duplicates": 0,
+          "ids": []
+        }
+      ],
+      "status": {
+        "activeByDefault": false,
+        "available": true,
+        "humanReviewRequired": true,
+        "state": "ready"
+      }
+    },
+    "name": "no proof"
+  }
+]

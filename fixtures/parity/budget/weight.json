@@ -1,0 +1,751 @@
+{
+  "absent": 1,
+  "counted": [
+    {
+      "cacheReads": 900,
+      "counted": 100,
+      "inputOutput": 1000,
+      "weight": 0
+    },
+    {
+      "cacheReads": 900,
+      "counted": 190,
+      "inputOutput": 1000,
+      "weight": 0.1
+    },
+    {
+      "cacheReads": 900,
+      "counted": 325,
+      "inputOutput": 1000,
+      "weight": 0.25
+    },
+    {
+      "cacheReads": 900,
+      "counted": 550,
+      "inputOutput": 1000,
+      "weight": 0.5
+    },
+    {
+      "cacheReads": 900,
+      "counted": 400,
+      "inputOutput": 1000,
+      "weight": 0.333333
+    },
+    {
+      "cacheReads": 900,
+      "counted": 101,
+      "inputOutput": 1000,
+      "weight": 0.000001
+    },
+    {
+      "cacheReads": 900,
+      "counted": 1000,
+      "inputOutput": 1000,
+      "weight": 0.999999
+    },
+    {
+      "cacheReads": 900,
+      "counted": 1000,
+      "inputOutput": 1000,
+      "weight": 1
+    },
+    {
+      "cacheReads": 0,
+      "counted": 0,
+      "inputOutput": 0,
+      "weight": 0
+    },
+    {
+      "cacheReads": 0,
+      "counted": 0,
+      "inputOutput": 0,
+      "weight": 0.1
+    },
+    {
+      "cacheReads": 0,
+      "counted": 0,
+      "inputOutput": 0,
+      "weight": 0.25
+    },
+    {
+      "cacheReads": 0,
+      "counted": 0,
+      "inputOutput": 0,
+      "weight": 0.5
+    },
+    {
+      "cacheReads": 0,
+      "counted": 0,
+      "inputOutput": 0,
+      "weight": 0.333333
+    },
+    {
+      "cacheReads": 0,
+      "counted": 0,
+      "inputOutput": 0,
+      "weight": 0.000001
+    },
+    {
+      "cacheReads": 0,
+      "counted": 0,
+      "inputOutput": 0,
+      "weight": 0.999999
+    },
+    {
+      "cacheReads": 0,
+      "counted": 0,
+      "inputOutput": 0,
+      "weight": 1
+    },
+    {
+      "cacheReads": 1,
+      "counted": 0,
+      "inputOutput": 1,
+      "weight": 0
+    },
+    {
+      "cacheReads": 1,
+      "counted": 1,
+      "inputOutput": 1,
+      "weight": 0.1
+    },
+    {
+      "cacheReads": 1,
+      "counted": 1,
+      "inputOutput": 1,
+      "weight": 0.25
+    },
+    {
+      "cacheReads": 1,
+      "counted": 1,
+      "inputOutput": 1,
+      "weight": 0.5
+    },
+    {
+      "cacheReads": 1,
+      "counted": 1,
+      "inputOutput": 1,
+      "weight": 0.333333
+    },
+    {
+      "cacheReads": 1,
+      "counted": 1,
+      "inputOutput": 1,
+      "weight": 0.000001
+    },
+    {
+      "cacheReads": 1,
+      "counted": 1,
+      "inputOutput": 1,
+      "weight": 0.999999
+    },
+    {
+      "cacheReads": 1,
+      "counted": 1,
+      "inputOutput": 1,
+      "weight": 1
+    },
+    {
+      "cacheReads": 3,
+      "counted": 4,
+      "inputOutput": 7,
+      "weight": 0
+    },
+    {
+      "cacheReads": 3,
+      "counted": 5,
+      "inputOutput": 7,
+      "weight": 0.1
+    },
+    {
+      "cacheReads": 3,
+      "counted": 5,
+      "inputOutput": 7,
+      "weight": 0.25
+    },
+    {
+      "cacheReads": 3,
+      "counted": 6,
+      "inputOutput": 7,
+      "weight": 0.5
+    },
+    {
+      "cacheReads": 3,
+      "counted": 5,
+      "inputOutput": 7,
+      "weight": 0.333333
+    },
+    {
+      "cacheReads": 3,
+      "counted": 5,
+      "inputOutput": 7,
+      "weight": 0.000001
+    },
+    {
+      "cacheReads": 3,
+      "counted": 7,
+      "inputOutput": 7,
+      "weight": 0.999999
+    },
+    {
+      "cacheReads": 3,
+      "counted": 7,
+      "inputOutput": 7,
+      "weight": 1
+    },
+    {
+      "cacheReads": 0,
+      "counted": 290,
+      "inputOutput": 290,
+      "weight": 0
+    },
+    {
+      "cacheReads": 0,
+      "counted": 290,
+      "inputOutput": 290,
+      "weight": 0.1
+    },
+    {
+      "cacheReads": 0,
+      "counted": 290,
+      "inputOutput": 290,
+      "weight": 0.25
+    },
+    {
+      "cacheReads": 0,
+      "counted": 290,
+      "inputOutput": 290,
+      "weight": 0.5
+    },
+    {
+      "cacheReads": 0,
+      "counted": 290,
+      "inputOutput": 290,
+      "weight": 0.333333
+    },
+    {
+      "cacheReads": 0,
+      "counted": 290,
+      "inputOutput": 290,
+      "weight": 0.000001
+    },
+    {
+      "cacheReads": 0,
+      "counted": 290,
+      "inputOutput": 290,
+      "weight": 0.999999
+    },
+    {
+      "cacheReads": 0,
+      "counted": 290,
+      "inputOutput": 290,
+      "weight": 1
+    },
+    {
+      "cacheReads": 549755813888,
+      "counted": 549755813888,
+      "inputOutput": 1099511627776,
+      "weight": 0
+    },
+    {
+      "cacheReads": 549755813888,
+      "counted": 604731395277,
+      "inputOutput": 1099511627776,
+      "weight": 0.1
+    },
+    {
+      "cacheReads": 549755813888,
+      "counted": 687194767360,
+      "inputOutput": 1099511627776,
+      "weight": 0.25
+    },
+    {
+      "cacheReads": 549755813888,
+      "counted": 824633720832,
+      "inputOutput": 1099511627776,
+      "weight": 0.5
+    },
+    {
+      "cacheReads": 549755813888,
+      "counted": 733007568599,
+      "inputOutput": 1099511627776,
+      "weight": 0.333333
+    },
+    {
+      "cacheReads": 549755813888,
+      "counted": 549756363644,
+      "inputOutput": 1099511627776,
+      "weight": 0.000001
+    },
+    {
+      "cacheReads": 549755813888,
+      "counted": 1099511078021,
+      "inputOutput": 1099511627776,
+      "weight": 0.999999
+    },
+    {
+      "cacheReads": 549755813888,
+      "counted": 1099511627776,
+      "inputOutput": 1099511627776,
+      "weight": 1
+    },
+    {
+      "cacheReads": 98765432,
+      "counted": 24691357,
+      "inputOutput": 123456789,
+      "weight": 0
+    },
+    {
+      "cacheReads": 98765432,
+      "counted": 34567901,
+      "inputOutput": 123456789,
+      "weight": 0.1
+    },
+    {
+      "cacheReads": 98765432,
+      "counted": 49382715,
+      "inputOutput": 123456789,
+      "weight": 0.25
+    },
+    {
+      "cacheReads": 98765432,
+      "counted": 74074073,
+      "inputOutput": 123456789,
+      "weight": 0.5
+    },
+    {
+      "cacheReads": 98765432,
+      "counted": 57613135,
+      "inputOutput": 123456789,
+      "weight": 0.333333
+    },
+    {
+      "cacheReads": 98765432,
+      "counted": 24691456,
+      "inputOutput": 123456789,
+      "weight": 0.000001
+    },
+    {
+      "cacheReads": 98765432,
+      "counted": 123456691,
+      "inputOutput": 123456789,
+      "weight": 0.999999
+    },
+    {
+      "cacheReads": 98765432,
+      "counted": 123456789,
+      "inputOutput": 123456789,
+      "weight": 1
+    },
+    {
+      "cacheReads": 100,
+      "counted": 0,
+      "inputOutput": 100,
+      "weight": 0
+    },
+    {
+      "cacheReads": 100,
+      "counted": 10,
+      "inputOutput": 100,
+      "weight": 0.1
+    },
+    {
+      "cacheReads": 100,
+      "counted": 25,
+      "inputOutput": 100,
+      "weight": 0.25
+    },
+    {
+      "cacheReads": 100,
+      "counted": 50,
+      "inputOutput": 100,
+      "weight": 0.5
+    },
+    {
+      "cacheReads": 100,
+      "counted": 34,
+      "inputOutput": 100,
+      "weight": 0.333333
+    },
+    {
+      "cacheReads": 100,
+      "counted": 1,
+      "inputOutput": 100,
+      "weight": 0.000001
+    },
+    {
+      "cacheReads": 100,
+      "counted": 100,
+      "inputOutput": 100,
+      "weight": 0.999999
+    },
+    {
+      "cacheReads": 100,
+      "counted": 100,
+      "inputOutput": 100,
+      "weight": 1
+    },
+    {
+      "cacheReads": 5,
+      "counted": 5,
+      "inputOutput": 10,
+      "weight": 0
+    },
+    {
+      "cacheReads": 5,
+      "counted": 6,
+      "inputOutput": 10,
+      "weight": 0.1
+    },
+    {
+      "cacheReads": 5,
+      "counted": 7,
+      "inputOutput": 10,
+      "weight": 0.25
+    },
+    {
+      "cacheReads": 5,
+      "counted": 8,
+      "inputOutput": 10,
+      "weight": 0.5
+    },
+    {
+      "cacheReads": 5,
+      "counted": 7,
+      "inputOutput": 10,
+      "weight": 0.333333
+    },
+    {
+      "cacheReads": 5,
+      "counted": 6,
+      "inputOutput": 10,
+      "weight": 0.000001
+    },
+    {
+      "cacheReads": 5,
+      "counted": 10,
+      "inputOutput": 10,
+      "weight": 0.999999
+    },
+    {
+      "cacheReads": 5,
+      "counted": 10,
+      "inputOutput": 10,
+      "weight": 1
+    },
+    {
+      "cacheReads": 1,
+      "counted": 2,
+      "inputOutput": 3,
+      "weight": 0
+    },
+    {
+      "cacheReads": 1,
+      "counted": 3,
+      "inputOutput": 3,
+      "weight": 0.1
+    },
+    {
+      "cacheReads": 1,
+      "counted": 3,
+      "inputOutput": 3,
+      "weight": 0.25
+    },
+    {
+      "cacheReads": 1,
+      "counted": 3,
+      "inputOutput": 3,
+      "weight": 0.5
+    },
+    {
+      "cacheReads": 1,
+      "counted": 3,
+      "inputOutput": 3,
+      "weight": 0.333333
+    },
+    {
+      "cacheReads": 1,
+      "counted": 3,
+      "inputOutput": 3,
+      "weight": 0.000001
+    },
+    {
+      "cacheReads": 1,
+      "counted": 3,
+      "inputOutput": 3,
+      "weight": 0.999999
+    },
+    {
+      "cacheReads": 1,
+      "counted": 3,
+      "inputOutput": 3,
+      "weight": 1
+    },
+    {
+      "cacheReads": 2,
+      "counted": 1,
+      "inputOutput": 3,
+      "weight": 0
+    },
+    {
+      "cacheReads": 2,
+      "counted": 2,
+      "inputOutput": 3,
+      "weight": 0.1
+    },
+    {
+      "cacheReads": 2,
+      "counted": 2,
+      "inputOutput": 3,
+      "weight": 0.25
+    },
+    {
+      "cacheReads": 2,
+      "counted": 2,
+      "inputOutput": 3,
+      "weight": 0.5
+    },
+    {
+      "cacheReads": 2,
+      "counted": 2,
+      "inputOutput": 3,
+      "weight": 0.333333
+    },
+    {
+      "cacheReads": 2,
+      "counted": 2,
+      "inputOutput": 3,
+      "weight": 0.000001
+    },
+    {
+      "cacheReads": 2,
+      "counted": 3,
+      "inputOutput": 3,
+      "weight": 0.999999
+    },
+    {
+      "cacheReads": 2,
+      "counted": 3,
+      "inputOutput": 3,
+      "weight": 1
+    },
+    {
+      "cacheReads": 999999,
+      "counted": 1,
+      "inputOutput": 1000000,
+      "weight": 0
+    },
+    {
+      "cacheReads": 999999,
+      "counted": 100001,
+      "inputOutput": 1000000,
+      "weight": 0.1
+    },
+    {
+      "cacheReads": 999999,
+      "counted": 250001,
+      "inputOutput": 1000000,
+      "weight": 0.25
+    },
+    {
+      "cacheReads": 999999,
+      "counted": 500001,
+      "inputOutput": 1000000,
+      "weight": 0.5
+    },
+    {
+      "cacheReads": 999999,
+      "counted": 333334,
+      "inputOutput": 1000000,
+      "weight": 0.333333
+    },
+    {
+      "cacheReads": 999999,
+      "counted": 2,
+      "inputOutput": 1000000,
+      "weight": 0.000001
+    },
+    {
+      "cacheReads": 999999,
+      "counted": 1000000,
+      "inputOutput": 1000000,
+      "weight": 0.999999
+    },
+    {
+      "cacheReads": 999999,
+      "counted": 1000000,
+      "inputOutput": 1000000,
+      "weight": 1
+    }
+  ],
+  "stored": [
+    {
+      "value": "0.1",
+      "weight": 0.1
+    },
+    {
+      "value": "1",
+      "weight": 1
+    },
+    {
+      "value": "0",
+      "weight": 0
+    },
+    {
+      "value": "1.0000",
+      "weight": 1
+    },
+    {
+      "value": "0.000001",
+      "weight": 0.000001
+    },
+    {
+      "value": "abc",
+      "weight": 1
+    },
+    {
+      "value": "-0.5",
+      "weight": 1
+    },
+    {
+      "value": "1.5",
+      "weight": 1
+    },
+    {
+      "value": "",
+      "weight": 1
+    },
+    {
+      "value": ".5",
+      "weight": 1
+    },
+    {
+      "value": "1e-1",
+      "weight": 1
+    },
+    {
+      "value": " 0.5",
+      "weight": 1
+    },
+    {
+      "value": "0.5\n",
+      "weight": 1
+    },
+    {
+      "value": "00.5",
+      "weight": 0.5
+    },
+    {
+      "value": "0.50",
+      "weight": 0.5
+    },
+    {
+      "value": "1.",
+      "weight": 1
+    },
+    {
+      "value": "0.0000004",
+      "weight": 0
+    },
+    {
+      "value": "0.9999995",
+      "weight": 1
+    },
+    {
+      "value": "1.0000001",
+      "weight": 1
+    },
+    {
+      "value": "２",
+      "weight": 1
+    }
+  ],
+  "validate": [
+    {
+      "ok": 0,
+      "weight": 0
+    },
+    {
+      "ok": 1,
+      "weight": 1
+    },
+    {
+      "ok": 0.5,
+      "weight": 0.5
+    },
+    {
+      "ok": 0.1,
+      "weight": 0.1
+    },
+    {
+      "ok": 0.25,
+      "weight": 0.25
+    },
+    {
+      "ok": 0.333333,
+      "weight": 0.333333
+    },
+    {
+      "ok": 0,
+      "weight": 4e-7
+    },
+    {
+      "ok": 0.000001,
+      "weight": 5e-7
+    },
+    {
+      "ok": 0.000001,
+      "weight": 6e-7
+    },
+    {
+      "ok": 0.123457,
+      "weight": 0.1234565
+    },
+    {
+      "ok": 0.999999,
+      "weight": 0.999999
+    },
+    {
+      "ok": 1,
+      "weight": 0.9999995
+    },
+    {
+      "ok": 0,
+      "weight": "-0"
+    },
+    {
+      "error": "RangeError",
+      "message": "cache read weight must be a number from 0 to 1",
+      "weight": -0.1
+    },
+    {
+      "error": "RangeError",
+      "message": "cache read weight must be a number from 0 to 1",
+      "weight": 1.0000001
+    },
+    {
+      "error": "RangeError",
+      "message": "cache read weight must be a number from 0 to 1",
+      "weight": "NaN"
+    },
+    {
+      "error": "RangeError",
+      "message": "cache read weight must be a number from 0 to 1",
+      "weight": "Infinity"
+    },
+    {
+      "error": "RangeError",
+      "message": "cache read weight must be a number from 0 to 1",
+      "weight": "-Infinity"
+    },
+    {
+      "error": "RangeError",
+      "message": "cache read weight must be a number from 0 to 1",
+      "weight": 2
+    },
+    {
+      "ok": 0,
+      "weight": 1e-9
+    }
+  ]
+}

@@ -1,0 +1,233 @@
+[
+  {
+    "branch": "main",
+    "calls": [],
+    "name": "member",
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "repository binding requires a project lead",
+        "reason": "lead-required"
+      }
+    },
+    "where": "repo",
+    "who": "member"
+  },
+  {
+    "branch": "main",
+    "calls": [],
+    "name": "agent",
+    "result": {
+      "err": {
+        "code": "unauthorized",
+        "message": "only a person may bind a repository",
+        "reason": "agent-principal"
+      }
+    },
+    "where": "repo",
+    "who": "agent"
+  },
+  {
+    "branch": "",
+    "calls": [],
+    "name": "empty branch",
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "repoPath and baseBranch are required",
+        "reason": "repo-binding"
+      }
+    },
+    "where": "repo",
+    "who": "lead"
+  },
+  {
+    "branch": "feature/-option",
+    "calls": [],
+    "name": "unsafe branch",
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "baseBranch is not a safe branch name",
+        "reason": "base-branch"
+      }
+    },
+    "where": "repo",
+    "who": "lead"
+  },
+  {
+    "branch": "feature/../main",
+    "calls": [],
+    "name": "branch traversal",
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "baseBranch is not a safe branch name",
+        "reason": "base-branch"
+      }
+    },
+    "where": "repo",
+    "who": "lead"
+  },
+  {
+    "branch": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "calls": [],
+    "name": "long branch",
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "baseBranch is not a safe branch name",
+        "reason": "base-branch"
+      }
+    },
+    "where": "repo",
+    "who": "lead"
+  },
+  {
+    "branch": "main",
+    "calls": [],
+    "name": "inside home",
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "a repository under the harness home is refused",
+        "reason": "home-path"
+      }
+    },
+    "where": "inside",
+    "who": "lead"
+  },
+  {
+    "branch": "main",
+    "calls": [],
+    "name": "missing directory",
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "repo path or harness home does not exist",
+        "reason": "repo-path"
+      }
+    },
+    "where": "missing",
+    "who": "lead"
+  },
+  {
+    "branch": "main",
+    "calls": [],
+    "name": "regular file",
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "repo path is not a directory",
+        "reason": "repo-path"
+      }
+    },
+    "where": "file",
+    "who": "lead"
+  },
+  {
+    "branch": "main",
+    "calls": [
+      [
+        "rev-parse",
+        "--is-bare-repository"
+      ]
+    ],
+    "name": "bare repository",
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "a bare repository cannot be bound",
+        "reason": "bare-repo"
+      }
+    },
+    "where": "bare",
+    "who": "lead"
+  },
+  {
+    "branch": "main",
+    "calls": [
+      [
+        "rev-parse",
+        "--is-bare-repository"
+      ],
+      [
+        "rev-parse",
+        "--show-toplevel"
+      ]
+    ],
+    "name": "nested directory",
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "git rev-parse --show-toplevel does not equal repoPath",
+        "reason": "toplevel-mismatch"
+      }
+    },
+    "where": "nested",
+    "who": "lead"
+  },
+  {
+    "branch": "missing",
+    "calls": [
+      [
+        "rev-parse",
+        "--is-bare-repository"
+      ],
+      [
+        "rev-parse",
+        "--show-toplevel"
+      ],
+      [
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        "refs/heads/missing"
+      ]
+    ],
+    "name": "missing branch",
+    "result": {
+      "err": {
+        "code": "invalid",
+        "message": "base branch missing does not exist",
+        "reason": "base-branch"
+      }
+    },
+    "where": "repo",
+    "who": "lead"
+  },
+  {
+    "branch": "main",
+    "calls": [
+      [
+        "rev-parse",
+        "--is-bare-repository"
+      ],
+      [
+        "rev-parse",
+        "--show-toplevel"
+      ],
+      [
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        "refs/heads/main"
+      ]
+    ],
+    "name": "bind",
+    "result": {
+      "ok": {
+        "branch": "main",
+        "canonical": true
+      }
+    },
+    "where": "repo",
+    "who": "lead"
+  },
+  {
+    "name": "unbind",
+    "result": {
+      "ok": null
+    }
+  }
+]

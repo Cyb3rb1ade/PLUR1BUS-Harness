@@ -1,0 +1,5367 @@
+{
+  "allow": [
+    {
+      "found": null,
+      "list": 0,
+      "program": "git",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 0,
+      "program": "git",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 0,
+      "program": "Git",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 0,
+      "program": "Git",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 0,
+      "program": "GIT",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 0,
+      "program": "GIT",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 0,
+      "program": "/usr/bin/git",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 0,
+      "program": "/usr/bin/git",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 0,
+      "program": "/USR/BIN/GIT",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 0,
+      "program": "/USR/BIN/GIT",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 0,
+      "program": "gi",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 0,
+      "program": "gi",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 0,
+      "program": "git ",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 0,
+      "program": "git ",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 1,
+      "program": "git",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 1,
+      "program": "git",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 1,
+      "program": "Git",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 1,
+      "program": "Git",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 1,
+      "program": "GIT",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 1,
+      "program": "GIT",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 1,
+      "program": "/usr/bin/git",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 1,
+      "program": "/usr/bin/git",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 1,
+      "program": "/USR/BIN/GIT",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 1,
+      "program": "/USR/BIN/GIT",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 1,
+      "program": "gi",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 1,
+      "program": "gi",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 1,
+      "program": "git ",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 1,
+      "program": "git ",
+      "windows": true
+    },
+    {
+      "found": 0,
+      "list": 2,
+      "program": "git",
+      "windows": false
+    },
+    {
+      "found": 0,
+      "list": 2,
+      "program": "git",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 2,
+      "program": "Git",
+      "windows": false
+    },
+    {
+      "found": 0,
+      "list": 2,
+      "program": "Git",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 2,
+      "program": "GIT",
+      "windows": false
+    },
+    {
+      "found": 0,
+      "list": 2,
+      "program": "GIT",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 2,
+      "program": "/usr/bin/git",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 2,
+      "program": "/usr/bin/git",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 2,
+      "program": "/USR/BIN/GIT",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 2,
+      "program": "/USR/BIN/GIT",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 2,
+      "program": "gi",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 2,
+      "program": "gi",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 2,
+      "program": "git ",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 2,
+      "program": "git ",
+      "windows": true
+    },
+    {
+      "found": 1,
+      "list": 3,
+      "program": "git",
+      "windows": false
+    },
+    {
+      "found": 1,
+      "list": 3,
+      "program": "git",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 3,
+      "program": "Git",
+      "windows": false
+    },
+    {
+      "found": 1,
+      "list": 3,
+      "program": "Git",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 3,
+      "program": "GIT",
+      "windows": false
+    },
+    {
+      "found": 1,
+      "list": 3,
+      "program": "GIT",
+      "windows": true
+    },
+    {
+      "found": 0,
+      "list": 3,
+      "program": "/usr/bin/git",
+      "windows": false
+    },
+    {
+      "found": 0,
+      "list": 3,
+      "program": "/usr/bin/git",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 3,
+      "program": "/USR/BIN/GIT",
+      "windows": false
+    },
+    {
+      "found": 0,
+      "list": 3,
+      "program": "/USR/BIN/GIT",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 3,
+      "program": "gi",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 3,
+      "program": "gi",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 3,
+      "program": "git ",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 3,
+      "program": "git ",
+      "windows": true
+    },
+    {
+      "found": 1,
+      "list": 4,
+      "program": "git",
+      "windows": false
+    },
+    {
+      "found": 0,
+      "list": 4,
+      "program": "git",
+      "windows": true
+    },
+    {
+      "found": 0,
+      "list": 4,
+      "program": "Git",
+      "windows": false
+    },
+    {
+      "found": 0,
+      "list": 4,
+      "program": "Git",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 4,
+      "program": "GIT",
+      "windows": false
+    },
+    {
+      "found": 0,
+      "list": 4,
+      "program": "GIT",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 4,
+      "program": "/usr/bin/git",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 4,
+      "program": "/usr/bin/git",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 4,
+      "program": "/USR/BIN/GIT",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 4,
+      "program": "/USR/BIN/GIT",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 4,
+      "program": "gi",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 4,
+      "program": "gi",
+      "windows": true
+    },
+    {
+      "found": null,
+      "list": 4,
+      "program": "git ",
+      "windows": false
+    },
+    {
+      "found": null,
+      "list": 4,
+      "program": "git ",
+      "windows": true
+    }
+  ],
+  "allowLists": [
+    null,
+    [],
+    [
+      {
+        "program": "git"
+      }
+    ],
+    [
+      {
+        "program": "/usr/bin/git"
+      },
+      {
+        "argPattern": "^[a-z]+$",
+        "program": "git"
+      }
+    ],
+    [
+      {
+        "program": "Git"
+      },
+      {
+        "program": "git"
+      }
+    ]
+  ],
+  "args": [
+    {
+      "absent": true,
+      "input": null,
+      "result": {
+        "ok": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      }
+    },
+    {
+      "absent": false,
+      "input": null,
+      "result": {
+        "code": "invalid-input",
+        "message": "args must be an array of at most 256 strings"
+      }
+    },
+    {
+      "absent": false,
+      "input": [],
+      "result": {
+        "ok": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      }
+    },
+    {
+      "absent": false,
+      "input": [
+        "status",
+        "-s"
+      ],
+      "result": {
+        "ok": {
+          "count": 2,
+          "sha256": "630f4933060d84ca5fa86f3a7ff9c73378dbe35348cd62b88315f9a169ff94f9"
+        }
+      }
+    },
+    {
+      "absent": false,
+      "input": "status -s",
+      "result": {
+        "code": "invalid-input",
+        "message": "args must be an array of at most 256 strings"
+      }
+    },
+    {
+      "absent": false,
+      "input": {
+        "0": "a"
+      },
+      "result": {
+        "code": "invalid-input",
+        "message": "args must be an array of at most 256 strings"
+      }
+    },
+    {
+      "absent": false,
+      "input": [
+        1
+      ],
+      "result": {
+        "code": "invalid-input",
+        "message": "every argument must be a string"
+      }
+    },
+    {
+      "absent": false,
+      "input": [
+        "a",
+        null
+      ],
+      "result": {
+        "code": "invalid-input",
+        "message": "every argument must be a string"
+      }
+    },
+    {
+      "absent": false,
+      "input": [
+        "a\u0000b"
+      ],
+      "result": {
+        "code": "invalid-input",
+        "message": "an argument contains NUL"
+      }
+    },
+    {
+      "absent": false,
+      "input": [
+        "; rm -rf /",
+        "$(id)",
+        "`id`",
+        "a && b",
+        "x | y",
+        "*",
+        "'q'",
+        "\n"
+      ],
+      "result": {
+        "ok": {
+          "count": 8,
+          "sha256": "56c89dc8110e03b0d83ff6b8cbb765206af96573e7dc562592d3b09f5aa397a0"
+        }
+      }
+    },
+    {
+      "absent": false,
+      "input": {
+        "$fill": [
+          "a",
+          256
+        ]
+      },
+      "result": {
+        "ok": {
+          "count": 256,
+          "sha256": "80f2c8e197eb16ae1a27cbd6c80363b49c00e1147818a06f743fe280b67ac12a"
+        }
+      }
+    },
+    {
+      "absent": false,
+      "input": {
+        "$fill": [
+          "a",
+          257
+        ]
+      },
+      "result": {
+        "code": "invalid-input",
+        "message": "args must be an array of at most 256 strings"
+      }
+    },
+    {
+      "absent": false,
+      "input": [
+        {
+          "$repeat": [
+            "a",
+            32768
+          ]
+        }
+      ],
+      "result": {
+        "ok": {
+          "count": 1,
+          "sha256": "e39c2efddc4cfe97b45f0ee7067b580999a0fbc2b3758df38c1cf93c1c44a25d"
+        }
+      }
+    },
+    {
+      "absent": false,
+      "input": [
+        {
+          "$repeat": [
+            "a",
+            32769
+          ]
+        }
+      ],
+      "result": {
+        "code": "invalid-input",
+        "message": "arguments too large"
+      }
+    },
+    {
+      "absent": false,
+      "input": [
+        {
+          "$repeat": [
+            "é",
+            16384
+          ]
+        }
+      ],
+      "result": {
+        "ok": {
+          "count": 1,
+          "sha256": "ee0073d020cdec77323fcb5c429d726c8673fc3cd38dd6346826ee12ef3957c7"
+        }
+      }
+    },
+    {
+      "absent": false,
+      "input": [
+        {
+          "$repeat": [
+            "é",
+            16385
+          ]
+        }
+      ],
+      "result": {
+        "code": "invalid-input",
+        "message": "arguments too large"
+      }
+    },
+    {
+      "absent": false,
+      "input": {
+        "$fill": [
+          {
+            "$repeat": [
+              "a",
+              1024
+            ]
+          },
+          256
+        ]
+      },
+      "result": {
+        "ok": {
+          "count": 256,
+          "sha256": "af151541f92792814befa2ddf5614cc3c562c6b79ac7c5945733886071a26fb1"
+        }
+      }
+    },
+    {
+      "absent": false,
+      "input": {
+        "$fill": [
+          {
+            "$repeat": [
+              "a",
+              1025
+            ]
+          },
+          256
+        ]
+      },
+      "result": {
+        "code": "invalid-input",
+        "message": "arguments too large"
+      }
+    },
+    {
+      "absent": false,
+      "input": [
+        ""
+      ],
+      "result": {
+        "ok": {
+          "count": 1,
+          "sha256": "055539df4a0b804c58caf46c0cd2941af10d64c1395ddd8e50b5f55d945841e6"
+        }
+      }
+    },
+    {
+      "absent": false,
+      "input": [
+        "",
+        "",
+        ""
+      ],
+      "result": {
+        "ok": {
+          "count": 3,
+          "sha256": "799c55d702efedb7750db18b36386fc3a3f4be7dddcfb649adeb41a3ed0da228"
+        }
+      }
+    }
+  ],
+  "capture": [
+    {
+      "chunks": [],
+      "limit": 10,
+      "text": "",
+      "truncated": false
+    },
+    {
+      "chunks": [
+        "aGVsbG8="
+      ],
+      "limit": 10,
+      "text": "hello",
+      "truncated": false
+    },
+    {
+      "chunks": [
+        "MDEyMzQ1Njc4OQ=="
+      ],
+      "limit": 10,
+      "text": "0123456789",
+      "truncated": false
+    },
+    {
+      "chunks": [
+        "MDEyMzQ1Njc4OWE="
+      ],
+      "limit": 10,
+      "text": "0123456789",
+      "truncated": true
+    },
+    {
+      "chunks": [
+        "MDEyMzQ=",
+        "NTY3ODk=",
+        "YWJj"
+      ],
+      "limit": 10,
+      "text": "0123456789",
+      "truncated": true
+    },
+    {
+      "chunks": [
+        "YcOpw6k="
+      ],
+      "limit": 4,
+      "text": "aé",
+      "truncated": true
+    },
+    {
+      "chunks": [
+        "4oKs4oKs"
+      ],
+      "limit": 3,
+      "text": "€",
+      "truncated": true
+    },
+    {
+      "chunks": [
+        "8J+YgPCfmIA="
+      ],
+      "limit": 5,
+      "text": "😀",
+      "truncated": true
+    },
+    {
+      "chunks": [
+        "//5hgA=="
+      ],
+      "limit": 8,
+      "text": "��a",
+      "truncated": true
+    },
+    {
+      "chunks": [
+        "4oI=",
+        "rA=="
+      ],
+      "limit": 2,
+      "text": "",
+      "truncated": true
+    },
+    {
+      "chunks": [
+        "/w=="
+      ],
+      "limit": 1,
+      "text": "",
+      "truncated": true
+    },
+    {
+      "chunks": [
+        "/w=="
+      ],
+      "limit": 2,
+      "text": "",
+      "truncated": true
+    },
+    {
+      "chunks": [
+        "/w=="
+      ],
+      "limit": 3,
+      "text": "�",
+      "truncated": false
+    },
+    {
+      "chunks": [
+        "YfCfmA=="
+      ],
+      "limit": 5,
+      "text": "a�",
+      "truncated": false
+    },
+    {
+      "chunks": [
+        "YmVmb3JlIHBsYWluLW1hcmtlci12YWx1ZSBhZnRlcg=="
+      ],
+      "limit": 64,
+      "secrets": [
+        {
+          "parts": [
+            "plain",
+            "-marker-",
+            "value"
+          ]
+        }
+      ],
+      "text": "before [REDACTED:secret] after",
+      "truncated": false
+    },
+    {
+      "chunks": [
+        "YmVmb3JlIHBsYWluLW1hcg==",
+        "a2VyLXZhbHVlIGFmdGVy"
+      ],
+      "limit": 64,
+      "secrets": [
+        {
+          "parts": [
+            "plain",
+            "-marker-",
+            "value"
+          ]
+        }
+      ],
+      "text": "before [REDACTED:secret] after",
+      "truncated": false
+    },
+    {
+      "chunks": [
+        "YmVmb3JlIHBsYWluLW1hcmtlci12YWx1ZSBhZnRlcg=="
+      ],
+      "limit": 20,
+      "secrets": [
+        {
+          "parts": [
+            "plain",
+            "-marker-",
+            "value"
+          ]
+        }
+      ],
+      "text": "before [REDACTED:sec",
+      "truncated": true
+    },
+    {
+      "chunks": [
+        "YmVmb3JlIHBsYWluLW1hcmtlci12YWw="
+      ],
+      "complete": false,
+      "limit": 64,
+      "secrets": [
+        {
+          "parts": [
+            "plain",
+            "-marker-",
+            "value"
+          ]
+        }
+      ],
+      "text": "",
+      "truncated": false
+    },
+    {
+      "chunks": [
+        "cGxhaW4tbWFya2VyLXZhbHVl"
+      ],
+      "limit": 12,
+      "secrets": [
+        {
+          "parts": [
+            "plain",
+            "-marker-",
+            "value"
+          ]
+        }
+      ],
+      "text": "[REDACTED:se",
+      "truncated": true
+    },
+    {
+      "chunks": [
+        "bm8gc2VjcmV0IGhlcmU="
+      ],
+      "limit": 64,
+      "secrets": [
+        {
+          "parts": [
+            "plain",
+            "-marker-",
+            "value"
+          ]
+        }
+      ],
+      "text": "no secret here",
+      "truncated": false
+    },
+    {
+      "chunks": [
+        "MDEyMzQ1Njc4OQ==",
+        "cGxhaW4tbWFya2VyLXZhbHVl"
+      ],
+      "limit": 8,
+      "secrets": [
+        {
+          "parts": [
+            "plain",
+            "-marker-",
+            "value"
+          ]
+        }
+      ],
+      "text": "01234567",
+      "truncated": true
+    }
+  ],
+  "constants": {
+    "defaultEnvAllow": [
+      "PATH",
+      "LANG",
+      "LC_ALL",
+      "LC_CTYPE",
+      "TZ",
+      "TERM",
+      "SystemRoot",
+      "SYSTEMROOT",
+      "PATHEXT",
+      "COMSPEC",
+      "TEMP",
+      "TMP"
+    ],
+    "maxMaxOutputBytes": 4194304,
+    "maxOutputBytes": 65536,
+    "maxTimeoutMs": 600000,
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "args": {
+          "description": "Arguments, one array element each, passed as is (no shell, no expansion).",
+          "items": {
+            "maxLength": 32768,
+            "type": "string"
+          },
+          "maxItems": 256,
+          "type": "array"
+        },
+        "cwd": {
+          "description": "Working directory inside a granted root.",
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Extra environment variables; only names on the allowlist are accepted. Nothing else is inherited.",
+          "type": "object"
+        },
+        "maxOutputBytes": {
+          "description": "Per stream; output beyond it is dropped and flagged.",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "program": {
+          "description": "The program to start: a bare name or an absolute path. Never a command line; shells are refused.",
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "timeoutMs": {
+          "description": "Kill the process tree after this long.",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "program",
+        "cwd"
+      ],
+      "type": "object"
+    },
+    "timeoutMs": 30000
+  },
+  "env": [
+    {
+      "allow": null,
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": null,
+      "result": {
+        "fingerprint": "e39c800ebf1b55b4c72cfde0fd2afb54af0d6c5c1a8ca26fe306ee312d5a7c61",
+        "ok": [
+          [
+            "PATH",
+            "/usr/bin"
+          ],
+          [
+            "LANG",
+            "C.UTF-8"
+          ],
+          [
+            "TZ",
+            "UTC"
+          ],
+          [
+            "TERM",
+            "xterm"
+          ]
+        ]
+      },
+      "windows": false
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": [
+        [
+          "LANG",
+          "de_DE.UTF-8"
+        ],
+        [
+          "TZ",
+          "Europe/Berlin"
+        ]
+      ],
+      "result": {
+        "fingerprint": "f291a4f290fbf7beeec0ad70452346b0f1f39fef6e8ae16992a44eac929f4699",
+        "ok": [
+          [
+            "PATH",
+            "/usr/bin"
+          ],
+          [
+            "LANG",
+            "de_DE.UTF-8"
+          ],
+          [
+            "TZ",
+            "Europe/Berlin"
+          ],
+          [
+            "TERM",
+            "xterm"
+          ]
+        ]
+      },
+      "windows": false
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": [
+        [
+          "HOME",
+          "/tmp"
+        ]
+      ],
+      "result": {
+        "code": "env-refused",
+        "message": "environment variable HOME is not on the allowlist"
+      },
+      "windows": false
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": [
+        [
+          "BAD NAME",
+          "x"
+        ]
+      ],
+      "result": {
+        "code": "env-refused",
+        "message": "invalid environment variable name"
+      },
+      "windows": false
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": [
+        [
+          "1X",
+          "x"
+        ]
+      ],
+      "result": {
+        "code": "env-refused",
+        "message": "invalid environment variable name"
+      },
+      "windows": false
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": [
+        [
+          "A=B",
+          "x"
+        ]
+      ],
+      "result": {
+        "code": "env-refused",
+        "message": "invalid environment variable name"
+      },
+      "windows": false
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": [
+        [
+          "",
+          "x"
+        ]
+      ],
+      "result": {
+        "code": "env-refused",
+        "message": "invalid environment variable name"
+      },
+      "windows": false
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": [
+        [
+          "LANG",
+          "a\u0000b"
+        ]
+      ],
+      "result": {
+        "code": "env-refused",
+        "message": "invalid value for LANG"
+      },
+      "windows": false
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": [
+        [
+          "LANG",
+          7
+        ]
+      ],
+      "result": {
+        "code": "env-refused",
+        "message": "invalid value for LANG"
+      },
+      "windows": false
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": [
+        [
+          "LANG",
+          null
+        ]
+      ],
+      "result": {
+        "code": "env-refused",
+        "message": "invalid value for LANG"
+      },
+      "windows": false
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": [
+        [
+          "LANG",
+          ""
+        ]
+      ],
+      "result": {
+        "fingerprint": "fc7daecd6033b513421231100855be60f619ae0a221f51f1cc22ab303968d96b",
+        "ok": [
+          [
+            "PATH",
+            "/usr/bin"
+          ],
+          [
+            "LANG",
+            ""
+          ],
+          [
+            "TZ",
+            "UTC"
+          ],
+          [
+            "TERM",
+            "xterm"
+          ]
+        ]
+      },
+      "windows": false
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": null,
+      "result": {
+        "fingerprint": "e39c800ebf1b55b4c72cfde0fd2afb54af0d6c5c1a8ca26fe306ee312d5a7c61",
+        "ok": [
+          [
+            "PATH",
+            "/usr/bin"
+          ],
+          [
+            "LANG",
+            "C.UTF-8"
+          ],
+          [
+            "TZ",
+            "UTC"
+          ],
+          [
+            "TERM",
+            "xterm"
+          ]
+        ]
+      },
+      "windows": false
+    },
+    {
+      "allow": [
+        "API_TOKEN",
+        "EDITOR",
+        "HOME"
+      ],
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": null,
+      "result": {
+        "fingerprint": "fc14a4806707fa725e01c153ccf3d51f6e63873f1f614aa3f0fbb58c4e0f8983",
+        "ok": [
+          [
+            "HOME",
+            "/home/x"
+          ],
+          [
+            "EDITOR",
+            "vi"
+          ]
+        ]
+      },
+      "windows": false
+    },
+    {
+      "allow": [
+        "API_TOKEN",
+        "EDITOR"
+      ],
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": [
+        [
+          "API_TOKEN",
+          "explicit-value"
+        ]
+      ],
+      "result": {
+        "fingerprint": "5d40135240a87f616c82a22172df825e575c168c5af4693e0714e2ac877638d8",
+        "ok": [
+          [
+            "EDITOR",
+            "vi"
+          ],
+          [
+            "API_TOKEN",
+            "explicit-value"
+          ]
+        ]
+      },
+      "windows": false
+    },
+    {
+      "allow": [],
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": null,
+      "result": {
+        "fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "ok": []
+      },
+      "windows": false
+    },
+    {
+      "allow": [],
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": [
+        [
+          "PATH",
+          "/x"
+        ]
+      ],
+      "result": {
+        "code": "env-refused",
+        "message": "environment variable PATH is not on the allowlist"
+      },
+      "windows": false
+    },
+    {
+      "allow": [
+        "path",
+        "Lang"
+      ],
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": null,
+      "result": {
+        "fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "ok": []
+      },
+      "windows": false
+    },
+    {
+      "allow": [
+        "path",
+        "Lang"
+      ],
+      "base": [
+        [
+          "PATH",
+          "/usr/bin"
+        ],
+        [
+          "HOME",
+          "/home/x"
+        ],
+        [
+          "LANG",
+          "C.UTF-8"
+        ],
+        [
+          "TZ",
+          "UTC"
+        ],
+        [
+          "TERM",
+          "xterm"
+        ],
+        [
+          "API_TOKEN",
+          "t-value"
+        ],
+        [
+          "AWS_SECRET_ACCESS_KEY",
+          "k"
+        ],
+        [
+          "EDITOR",
+          "vi"
+        ],
+        [
+          "UNSET",
+          null
+        ]
+      ],
+      "requested": null,
+      "result": {
+        "fingerprint": "b21f7cd940d8827f6a4af1852228da7df44124b3199af393de636910e010d725",
+        "ok": [
+          [
+            "PATH",
+            "/usr/bin"
+          ],
+          [
+            "LANG",
+            "C.UTF-8"
+          ]
+        ]
+      },
+      "windows": true
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "Path",
+          "C:\\Windows"
+        ],
+        [
+          "SystemRoot",
+          "C:\\Windows"
+        ],
+        [
+          "systemroot",
+          "c:\\other"
+        ],
+        [
+          "ComSpec",
+          "C:\\Windows\\cmd.exe"
+        ],
+        [
+          "Api_Key",
+          "k"
+        ],
+        [
+          "temp",
+          "C:\\T"
+        ]
+      ],
+      "requested": null,
+      "result": {
+        "fingerprint": "f2a02161645930e893025cb8cfa2e320eaaecc6163b313b99692a9f6450e3989",
+        "ok": [
+          [
+            "Path",
+            "C:\\Windows"
+          ],
+          [
+            "systemroot",
+            "c:\\other"
+          ],
+          [
+            "ComSpec",
+            "C:\\Windows\\cmd.exe"
+          ],
+          [
+            "temp",
+            "C:\\T"
+          ]
+        ]
+      },
+      "windows": true
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "Path",
+          "C:\\Windows"
+        ]
+      ],
+      "requested": [
+        [
+          "PATH",
+          "C:\\Tools"
+        ]
+      ],
+      "result": {
+        "fingerprint": "8e9739823d7508556d46271b8b4cba35b7648cf388daa4e714f2d34d2fef28ac",
+        "ok": [
+          [
+            "PATH",
+            "C:\\Tools"
+          ]
+        ]
+      },
+      "windows": true
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "Path",
+          "C:\\Windows"
+        ]
+      ],
+      "requested": [
+        [
+          "path",
+          "C:\\Tools"
+        ],
+        [
+          "Path",
+          "C:\\Last"
+        ]
+      ],
+      "result": {
+        "fingerprint": "3f235596b3ed4f92d8c025269210120288aefbf925d6a06b7a5d67c1590043b7",
+        "ok": [
+          [
+            "Path",
+            "C:\\Last"
+          ]
+        ]
+      },
+      "windows": true
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "Path",
+          "C:\\Windows"
+        ]
+      ],
+      "requested": [
+        [
+          "PATH",
+          "C:\\Tools"
+        ]
+      ],
+      "result": {
+        "fingerprint": "8e9739823d7508556d46271b8b4cba35b7648cf388daa4e714f2d34d2fef28ac",
+        "ok": [
+          [
+            "PATH",
+            "C:\\Tools"
+          ]
+        ]
+      },
+      "windows": false
+    },
+    {
+      "allow": null,
+      "base": [
+        [
+          "PATH",
+          "/a"
+        ],
+        [
+          "LC_ALL",
+          "C"
+        ],
+        [
+          "LC_CTYPE",
+          "C"
+        ],
+        [
+          "TEMP",
+          "/t"
+        ],
+        [
+          "TMP",
+          "/t"
+        ],
+        [
+          "PATHEXT",
+          ".EXE"
+        ],
+        [
+          "COMSPEC",
+          "c"
+        ],
+        [
+          "SYSTEMROOT",
+          "r"
+        ]
+      ],
+      "requested": null,
+      "result": {
+        "fingerprint": "ee7c04be165a947385490a91034eaaf7c71de27ec655b492b6312187c20b2b53",
+        "ok": [
+          [
+            "PATH",
+            "/a"
+          ],
+          [
+            "LC_ALL",
+            "C"
+          ],
+          [
+            "LC_CTYPE",
+            "C"
+          ],
+          [
+            "TEMP",
+            "/t"
+          ],
+          [
+            "TMP",
+            "/t"
+          ],
+          [
+            "PATHEXT",
+            ".EXE"
+          ],
+          [
+            "COMSPEC",
+            "c"
+          ],
+          [
+            "SYSTEMROOT",
+            "r"
+          ]
+        ]
+      },
+      "windows": false
+    }
+  ],
+  "noPattern": true,
+  "patternArgs": [
+    [],
+    [
+      "status"
+    ],
+    [
+      "status",
+      "log"
+    ],
+    [
+      "Status"
+    ],
+    [
+      "12"
+    ],
+    [
+      "١٢"
+    ],
+    [
+      "é"
+    ],
+    [
+      "a_b9"
+    ],
+    [
+      "\r"
+    ],
+    [
+      "\n"
+    ],
+    [
+      " "
+    ],
+    [
+      " "
+    ],
+    [
+      ""
+    ],
+    [
+      "aa"
+    ],
+    [
+      "aaa"
+    ],
+    [
+      "aaaa"
+    ],
+    [
+      "a/b"
+    ],
+    [
+      "--opt=a b"
+    ],
+    [
+      "-x"
+    ],
+    [
+      "a.b"
+    ],
+    [
+      "axb"
+    ],
+    [
+      "ac"
+    ],
+    [
+      "bcc"
+    ],
+    [
+      "git"
+    ],
+    [
+      "a"
+    ],
+    [
+      "A1"
+    ],
+    [
+      "😀"
+    ],
+    [
+      "a-"
+    ],
+    [
+      "x"
+    ],
+    [
+      "a-b"
+    ],
+    [
+      "-"
+    ],
+    [
+      "^$/"
+    ],
+    [
+      "^"
+    ]
+  ],
+  "patterns": [
+    {
+      "matches": [
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "^[a-z]+$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "^(status|log|diff)$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "^--?[a-z-]+(=.*)?$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "^\\d+$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "^\\w+$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "pattern": ".",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true
+      ],
+      "pattern": "^.$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "a{2,3}",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "^a{2}$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "^a{2,}$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true
+      ],
+      "pattern": "^[^/]+$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false
+      ],
+      "pattern": "\\/",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "^(?:a|b)c*?$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false
+      ],
+      "pattern": "^[\\w.-]+$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "^a\\.b$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "^[A-Z\\d]+$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "pattern": "",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "^\\n$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "x|^$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "pattern": "(?=a)a",
+      "subset": false
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "\\bgit\\b",
+      "subset": false
+    },
+    {
+      "matches": [
+        true,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "pattern": "(?<n>a)",
+      "subset": false
+    },
+    {
+      "matches": [
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false
+      ],
+      "pattern": "\\p{L}+",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "[[:alpha:]]",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "(",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "a{",
+      "subset": false
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "\\s",
+      "subset": false
+    },
+    {
+      "matches": [
+        true,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "pattern": "[a&&b]",
+      "subset": false
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "[]",
+      "subset": false
+    },
+    {
+      "matches": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "pattern": "[^]",
+      "subset": false
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "é+",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "\\1",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "(?i)a",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "a**",
+      "subset": false
+    },
+    {
+      "matches": [
+        true,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false
+      ],
+      "pattern": "[a-]",
+      "subset": true
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "^*a",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "*a",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "a|*",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "[\\d-z]",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "[a-\\d]",
+      "subset": false
+    },
+    {
+      "matches": [
+        true,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "pattern": "a+?",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "pattern": "a??b",
+      "subset": true
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "a+??",
+      "subset": false
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false
+      ],
+      "pattern": "^[-a]$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "pattern": "\\D",
+      "subset": false
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "\\u0041",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "^[a--b]$",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "a{2,1}",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "^a\\-b$",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "\\-",
+      "subset": false
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false
+      ],
+      "pattern": "^[a\\-b]+$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false
+      ],
+      "pattern": "^[\\-]$",
+      "subset": true
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "a{,3}",
+      "subset": false
+    },
+    {
+      "matches": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pattern": "x{1}{2}",
+      "subset": false
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true
+      ],
+      "pattern": "^[\\^]$",
+      "subset": true
+    },
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false
+      ],
+      "pattern": "^\\^\\$\\/$",
+      "subset": true
+    }
+  ],
+  "programs": [
+    {
+      "input": "git",
+      "key": "git",
+      "result": {
+        "ok": "git"
+      }
+    },
+    {
+      "input": "/usr/bin/git",
+      "key": "git",
+      "result": {
+        "ok": "/usr/bin/git"
+      }
+    },
+    {
+      "input": "./tool",
+      "key": "tool",
+      "result": {
+        "ok": "./tool"
+      }
+    },
+    {
+      "input": "C:\\Program Files\\Git\\bin\\git.exe",
+      "key": "git",
+      "result": {
+        "ok": "C:\\Program Files\\Git\\bin\\git.exe"
+      }
+    },
+    {
+      "input": "",
+      "key": "",
+      "result": {
+        "code": "invalid-input",
+        "message": "program must be a non-empty string"
+      }
+    },
+    {
+      "input": 7,
+      "result": {
+        "code": "invalid-input",
+        "message": "program must be a non-empty string"
+      }
+    },
+    {
+      "input": null,
+      "result": {
+        "code": "invalid-input",
+        "message": "program must be a non-empty string"
+      }
+    },
+    {
+      "input": [
+        "git"
+      ],
+      "result": {
+        "code": "invalid-input",
+        "message": "program must be a non-empty string"
+      }
+    },
+    {
+      "input": "a\u0000b",
+      "key": "a\u0000b",
+      "result": {
+        "code": "invalid-input",
+        "message": "program contains a control character"
+      }
+    },
+    {
+      "input": "a\nb",
+      "key": "a\nb",
+      "result": {
+        "code": "invalid-input",
+        "message": "program contains a control character"
+      }
+    },
+    {
+      "input": "a\rb",
+      "key": "a\rb",
+      "result": {
+        "code": "invalid-input",
+        "message": "program contains a control character"
+      }
+    },
+    {
+      "input": " git",
+      "key": " git",
+      "result": {
+        "code": "invalid-input",
+        "message": "program has surrounding whitespace"
+      }
+    },
+    {
+      "input": "git ",
+      "key": "git",
+      "result": {
+        "code": "invalid-input",
+        "message": "program has surrounding whitespace"
+      }
+    },
+    {
+      "input": "\tgit",
+      "key": "\tgit",
+      "result": {
+        "code": "invalid-input",
+        "message": "program has surrounding whitespace"
+      }
+    },
+    {
+      "input": " git",
+      "key": " git",
+      "result": {
+        "code": "invalid-input",
+        "message": "program has surrounding whitespace"
+      }
+    },
+    {
+      "input": "git﻿",
+      "key": "git﻿",
+      "result": {
+        "code": "invalid-input",
+        "message": "program has surrounding whitespace"
+      }
+    },
+    {
+      "input": " git",
+      "key": " git",
+      "result": {
+        "code": "invalid-input",
+        "message": "program has surrounding whitespace"
+      }
+    },
+    {
+      "input": "-rf",
+      "key": "-rf",
+      "result": {
+        "code": "program-refused",
+        "message": "program may not start with '-'"
+      }
+    },
+    {
+      "input": "--version",
+      "key": "--version",
+      "result": {
+        "code": "program-refused",
+        "message": "program may not start with '-'"
+      }
+    },
+    {
+      "input": "sh",
+      "key": "sh",
+      "result": {
+        "code": "program-refused",
+        "message": "sh is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "/bin/bash",
+      "key": "bash",
+      "result": {
+        "code": "program-refused",
+        "message": "bash is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "bash",
+      "key": "bash",
+      "result": {
+        "code": "program-refused",
+        "message": "bash is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "BASH",
+      "key": "bash",
+      "result": {
+        "code": "program-refused",
+        "message": "bash is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "zsh",
+      "key": "zsh",
+      "result": {
+        "code": "program-refused",
+        "message": "zsh is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "dash",
+      "key": "dash",
+      "result": {
+        "code": "program-refused",
+        "message": "dash is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "ash",
+      "key": "ash",
+      "result": {
+        "code": "program-refused",
+        "message": "ash is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "ksh",
+      "key": "ksh",
+      "result": {
+        "code": "program-refused",
+        "message": "ksh is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "csh",
+      "key": "csh",
+      "result": {
+        "code": "program-refused",
+        "message": "csh is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "tcsh",
+      "key": "tcsh",
+      "result": {
+        "code": "program-refused",
+        "message": "tcsh is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "fish",
+      "key": "fish",
+      "result": {
+        "code": "program-refused",
+        "message": "fish is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "cmd",
+      "key": "cmd",
+      "result": {
+        "code": "program-refused",
+        "message": "cmd is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "cmd.exe",
+      "key": "cmd",
+      "result": {
+        "code": "program-refused",
+        "message": "cmd is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "CMD.EXE",
+      "key": "cmd",
+      "result": {
+        "code": "program-refused",
+        "message": "cmd is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "powershell",
+      "key": "powershell",
+      "result": {
+        "code": "program-refused",
+        "message": "powershell is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "PowerShell.exe",
+      "key": "powershell",
+      "result": {
+        "code": "program-refused",
+        "message": "powershell is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "pwsh",
+      "key": "pwsh",
+      "result": {
+        "code": "program-refused",
+        "message": "pwsh is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "wsl",
+      "key": "wsl",
+      "result": {
+        "code": "program-refused",
+        "message": "wsl is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "wsl.exe",
+      "key": "wsl",
+      "result": {
+        "code": "program-refused",
+        "message": "wsl is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "busybox",
+      "key": "busybox",
+      "result": {
+        "code": "program-refused",
+        "message": "busybox is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "/bin/busybox",
+      "key": "busybox",
+      "result": {
+        "code": "program-refused",
+        "message": "busybox is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "sudo",
+      "key": "sudo",
+      "result": {
+        "code": "program-refused",
+        "message": "sudo escalates privileges; not available through exec.run"
+      }
+    },
+    {
+      "input": "doas",
+      "key": "doas",
+      "result": {
+        "code": "program-refused",
+        "message": "doas escalates privileges; not available through exec.run"
+      }
+    },
+    {
+      "input": "pkexec",
+      "key": "pkexec",
+      "result": {
+        "code": "program-refused",
+        "message": "pkexec escalates privileges; not available through exec.run"
+      }
+    },
+    {
+      "input": "su",
+      "key": "su",
+      "result": {
+        "code": "program-refused",
+        "message": "su escalates privileges; not available through exec.run"
+      }
+    },
+    {
+      "input": "runas",
+      "key": "runas",
+      "result": {
+        "code": "program-refused",
+        "message": "runas escalates privileges; not available through exec.run"
+      }
+    },
+    {
+      "input": "gsudo",
+      "key": "gsudo",
+      "result": {
+        "code": "program-refused",
+        "message": "gsudo escalates privileges; not available through exec.run"
+      }
+    },
+    {
+      "input": "expect",
+      "key": "expect",
+      "result": {
+        "code": "program-refused",
+        "message": "expect escalates privileges; not available through exec.run"
+      }
+    },
+    {
+      "input": "sshpass",
+      "key": "sshpass",
+      "result": {
+        "code": "program-refused",
+        "message": "sshpass escalates privileges; not available through exec.run"
+      }
+    },
+    {
+      "input": "/usr/bin/sudo",
+      "key": "sudo",
+      "result": {
+        "code": "program-refused",
+        "message": "sudo escalates privileges; not available through exec.run"
+      }
+    },
+    {
+      "input": "C:\\x\\run.bat",
+      "key": "run.bat",
+      "result": {
+        "code": "program-refused",
+        "message": "batch scripts are not started (they re-parse arguments as a command line)"
+      }
+    },
+    {
+      "input": "a.CMD",
+      "key": "a.cmd",
+      "result": {
+        "code": "program-refused",
+        "message": "batch scripts are not started (they re-parse arguments as a command line)"
+      }
+    },
+    {
+      "input": "x.bat.",
+      "key": "x.bat",
+      "result": {
+        "code": "program-refused",
+        "message": "batch scripts are not started (they re-parse arguments as a command line)"
+      }
+    },
+    {
+      "input": "x.bat . .",
+      "key": "x.bat",
+      "result": {
+        "code": "program-refused",
+        "message": "batch scripts are not started (they re-parse arguments as a command line)"
+      }
+    },
+    {
+      "input": "bash.exe.",
+      "key": "bash",
+      "result": {
+        "code": "program-refused",
+        "message": "bash is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "bash.exe . .",
+      "key": "bash",
+      "result": {
+        "code": "program-refused",
+        "message": "bash is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "zsh.com",
+      "key": "zsh",
+      "result": {
+        "code": "program-refused",
+        "message": "zsh is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "sh.exe.exe",
+      "key": "sh.exe",
+      "result": {
+        "ok": "sh.exe.exe"
+      }
+    },
+    {
+      "input": "git.bat.exe",
+      "key": "git.bat",
+      "result": {
+        "ok": "git.bat.exe"
+      }
+    },
+    {
+      "input": "shx",
+      "key": "shx",
+      "result": {
+        "ok": "shx"
+      }
+    },
+    {
+      "input": "xsh",
+      "key": "xsh",
+      "result": {
+        "ok": "xsh"
+      }
+    },
+    {
+      "input": "x/sh",
+      "key": "sh",
+      "result": {
+        "code": "program-refused",
+        "message": "sh is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "x\\sh",
+      "key": "sh",
+      "result": {
+        "code": "program-refused",
+        "message": "sh is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "x\\sh.exe",
+      "key": "sh",
+      "result": {
+        "code": "program-refused",
+        "message": "sh is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "sh/",
+      "key": "sh",
+      "result": {
+        "code": "program-refused",
+        "message": "sh is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "sh\\",
+      "key": "sh",
+      "result": {
+        "code": "program-refused",
+        "message": "sh is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "bash.EXE",
+      "key": "bash",
+      "result": {
+        "code": "program-refused",
+        "message": "bash is a shell interpreter; pass the program and its arguments directly"
+      }
+    },
+    {
+      "input": "baſh",
+      "key": "baſh",
+      "result": {
+        "ok": "baſh"
+      }
+    },
+    {
+      "input": "ſh",
+      "key": "ſh",
+      "result": {
+        "ok": "ſh"
+      }
+    },
+    {
+      "input": "sub/dir/",
+      "key": "dir",
+      "result": {
+        "ok": "sub/dir/"
+      }
+    },
+    {
+      "input": "a.batx",
+      "key": "a.batx",
+      "result": {
+        "ok": "a.batx"
+      }
+    },
+    {
+      "input": "a.cmdlet",
+      "key": "a.cmdlet",
+      "result": {
+        "ok": "a.cmdlet"
+      }
+    },
+    {
+      "input": "su.do",
+      "key": "su.do",
+      "result": {
+        "ok": "su.do"
+      }
+    },
+    {
+      "input": {
+        "$repeat": [
+          "a",
+          4096
+        ]
+      },
+      "key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "result": {
+        "ok": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "input": {
+        "$repeat": [
+          "a",
+          4097
+        ]
+      },
+      "key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "result": {
+        "code": "invalid-input",
+        "message": "program must be a non-empty string"
+      }
+    },
+    {
+      "input": {
+        "$repeat": [
+          "😀",
+          2048
+        ]
+      },
+      "key": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "result": {
+        "ok": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+      }
+    },
+    {
+      "input": {
+        "$repeat": [
+          "😀",
+          2049
+        ]
+      },
+      "key": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "result": {
+        "code": "invalid-input",
+        "message": "program must be a non-empty string"
+      }
+    }
+  ],
+  "secretish": [
+    {
+      "name": "TOKEN",
+      "secretish": true
+    },
+    {
+      "name": "API_TOKEN",
+      "secretish": true
+    },
+    {
+      "name": "token",
+      "secretish": true
+    },
+    {
+      "name": "MY_SECRET",
+      "secretish": true
+    },
+    {
+      "name": "secrets",
+      "secretish": true
+    },
+    {
+      "name": "PASSWORD",
+      "secretish": true
+    },
+    {
+      "name": "DB_PASSWD",
+      "secretish": true
+    },
+    {
+      "name": "CREDENTIALS",
+      "secretish": true
+    },
+    {
+      "name": "credential_file",
+      "secretish": true
+    },
+    {
+      "name": "API_KEY",
+      "secretish": true
+    },
+    {
+      "name": "API-KEY",
+      "secretish": true
+    },
+    {
+      "name": "APIKEY",
+      "secretish": true
+    },
+    {
+      "name": "apikey",
+      "secretish": true
+    },
+    {
+      "name": "PRIVATE_KEY",
+      "secretish": true
+    },
+    {
+      "name": "PRIVATE-KEY",
+      "secretish": true
+    },
+    {
+      "name": "PRIVATEKEY",
+      "secretish": true
+    },
+    {
+      "name": "KEY",
+      "secretish": true
+    },
+    {
+      "name": "SSH_KEY",
+      "secretish": true
+    },
+    {
+      "name": "KEYS",
+      "secretish": false
+    },
+    {
+      "name": "KEYBOARD",
+      "secretish": false
+    },
+    {
+      "name": "MONKEY",
+      "secretish": false
+    },
+    {
+      "name": "MON_KEY",
+      "secretish": true
+    },
+    {
+      "name": "KEY_FILE",
+      "secretish": false
+    },
+    {
+      "name": "AUTH",
+      "secretish": true
+    },
+    {
+      "name": "AUTHOR",
+      "secretish": true
+    },
+    {
+      "name": "OAUTH_URL",
+      "secretish": true
+    },
+    {
+      "name": "COOKIE",
+      "secretish": true
+    },
+    {
+      "name": "COOKIES_DIR",
+      "secretish": true
+    },
+    {
+      "name": "SESSION",
+      "secretish": true
+    },
+    {
+      "name": "SESSION_ID",
+      "secretish": true
+    },
+    {
+      "name": "TMUX_SESSION",
+      "secretish": true
+    },
+    {
+      "name": "PATH",
+      "secretish": false
+    },
+    {
+      "name": "HOME",
+      "secretish": false
+    },
+    {
+      "name": "LANG",
+      "secretish": false
+    },
+    {
+      "name": "EDITOR",
+      "secretish": false
+    },
+    {
+      "name": "KEYX",
+      "secretish": false
+    },
+    {
+      "name": "_KEY",
+      "secretish": true
+    },
+    {
+      "name": "A_KEY_B",
+      "secretish": false
+    },
+    {
+      "name": "PASS",
+      "secretish": false
+    },
+    {
+      "name": "PWD",
+      "secretish": false
+    },
+    {
+      "name": "AUTHORIZATION",
+      "secretish": true
+    },
+    {
+      "name": "API_KEY_FILE",
+      "secretish": true
+    },
+    {
+      "name": "X_API_KEY_2",
+      "secretish": true
+    },
+    {
+      "name": "PRIVATE_KEY_PATH",
+      "secretish": true
+    },
+    {
+      "name": "MY_PRIVATE_KEY_PEM",
+      "secretish": true
+    },
+    {
+      "name": "API-KEY-FILE",
+      "secretish": true
+    },
+    {
+      "name": "PRIVATE-KEY-PATH",
+      "secretish": true
+    },
+    {
+      "name": "APIKEYS",
+      "secretish": true
+    },
+    {
+      "name": "PRIVATEKEYS",
+      "secretish": true
+    },
+    {
+      "name": "API__KEY",
+      "secretish": true
+    },
+    {
+      "name": "API KEY",
+      "secretish": false
+    },
+    {
+      "name": "KEY_",
+      "secretish": false
+    },
+    {
+      "name": "TOKENS",
+      "secretish": true
+    },
+    {
+      "name": "x-token-y",
+      "secretish": true
+    }
+  ]
+}

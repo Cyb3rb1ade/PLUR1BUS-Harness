@@ -1,0 +1,5067 @@
+[
+  {
+    "name": "fts",
+    "ops": [
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "Alpha release notes",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice",
+            "title": "Alpha release notes"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_2",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "über uns",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice",
+            "title": "über uns"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_3",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:bob",
+          "pinned": false,
+          "scope": "user",
+          "title": "alpha bob",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:bob",
+            "title": "alpha bob"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_4",
+          "kind": "card",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "card alpha",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "card",
+            "owner": "user:v1:alice",
+            "title": "card alpha"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_6",
+              "turnId": "trn_5",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_6",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "alpha beta",
+            "tokens": 3,
+            "turnId": "trn_5"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_5",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "alpha beta",
+          "tokens": 3
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_7",
+              "turnId": "trn_5"
+            },
+            "seq": 2,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_7",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "ses_1",
+            "text": "reply alpha beta",
+            "tokens": 4,
+            "turnId": "trn_5"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "reply alpha beta",
+            "tokens": 4
+          },
+          "op": "complete",
+          "turnId": "trn_5"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_9",
+              "turnId": "trn_8",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_2",
+            "turnId": "trn_8",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_9",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_2",
+            "text": "Alpha-Beta gamma",
+            "tokens": 4,
+            "turnId": "trn_8"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_8",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_2",
+          "text": "Alpha-Beta gamma",
+          "tokens": 4
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_10",
+              "turnId": "trn_8"
+            },
+            "seq": 2,
+            "sessionId": "ses_2",
+            "turnId": "trn_8",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_10",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "ses_2",
+            "text": "reply Alpha-Beta gamma",
+            "tokens": 6,
+            "turnId": "trn_8"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "reply Alpha-Beta gamma",
+            "tokens": 6
+          },
+          "op": "complete",
+          "turnId": "trn_8"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_12",
+              "turnId": "trn_11",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_3",
+            "turnId": "trn_11",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_12",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_3",
+            "text": "über Straße naïve",
+            "tokens": 5,
+            "turnId": "trn_11"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_11",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_3",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_3",
+          "text": "über Straße naïve",
+          "tokens": 5
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_13",
+              "turnId": "trn_11"
+            },
+            "seq": 2,
+            "sessionId": "ses_3",
+            "turnId": "trn_11",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_13",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "ses_3",
+            "text": "reply über Straße naïve",
+            "tokens": 6,
+            "turnId": "trn_11"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "reply über Straße naïve",
+            "tokens": 6
+          },
+          "op": "complete",
+          "turnId": "trn_11"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_15",
+              "turnId": "trn_14",
+              "turnSeq": 2
+            },
+            "seq": 3,
+            "sessionId": "ses_1",
+            "turnId": "trn_14",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_15",
+            "role": "user",
+            "seq": 3,
+            "sessionId": "ses_1",
+            "text": "日本語 テキスト",
+            "tokens": 2,
+            "turnId": "trn_14"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_14",
+            "incognito": false,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "日本語 テキスト",
+          "tokens": 2
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_16",
+              "turnId": "trn_14"
+            },
+            "seq": 4,
+            "sessionId": "ses_1",
+            "turnId": "trn_14",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_16",
+            "role": "assistant",
+            "seq": 4,
+            "sessionId": "ses_1",
+            "text": "reply 日本語 テキスト",
+            "tokens": 4,
+            "turnId": "trn_14"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "reply 日本語 テキスト",
+            "tokens": 4
+          },
+          "op": "complete",
+          "turnId": "trn_14"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_18",
+              "turnId": "trn_17",
+              "turnSeq": 2
+            },
+            "seq": 3,
+            "sessionId": "ses_2",
+            "turnId": "trn_17",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_18",
+            "role": "user",
+            "seq": 3,
+            "sessionId": "ses_2",
+            "text": "emoji 😀 party",
+            "tokens": 4,
+            "turnId": "trn_17"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_17",
+            "incognito": false,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_2",
+          "text": "emoji 😀 party",
+          "tokens": 4
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_19",
+              "turnId": "trn_17"
+            },
+            "seq": 4,
+            "sessionId": "ses_2",
+            "turnId": "trn_17",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_19",
+            "role": "assistant",
+            "seq": 4,
+            "sessionId": "ses_2",
+            "text": "reply emoji 😀 party",
+            "tokens": 5,
+            "turnId": "trn_17"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "reply emoji 😀 party",
+            "tokens": 5
+          },
+          "op": "complete",
+          "turnId": "trn_17"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_21",
+              "turnId": "trn_20",
+              "turnSeq": 2
+            },
+            "seq": 3,
+            "sessionId": "ses_3",
+            "turnId": "trn_20",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_21",
+            "role": "user",
+            "seq": 3,
+            "sessionId": "ses_3",
+            "text": "she said \"hi\" there",
+            "tokens": 5,
+            "turnId": "trn_20"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_20",
+            "incognito": false,
+            "seq": 2,
+            "sessionId": "ses_3",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_3",
+          "text": "she said \"hi\" there",
+          "tokens": 5
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_22",
+              "turnId": "trn_20"
+            },
+            "seq": 4,
+            "sessionId": "ses_3",
+            "turnId": "trn_20",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_22",
+            "role": "assistant",
+            "seq": 4,
+            "sessionId": "ses_3",
+            "text": "reply she said \"hi\" there",
+            "tokens": 7,
+            "turnId": "trn_20"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "reply she said \"hi\" there",
+            "tokens": 7
+          },
+          "op": "complete",
+          "turnId": "trn_20"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_24",
+              "turnId": "trn_23",
+              "turnSeq": 3
+            },
+            "seq": 5,
+            "sessionId": "ses_1",
+            "turnId": "trn_23",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_24",
+            "role": "user",
+            "seq": 5,
+            "sessionId": "ses_1",
+            "text": "AND OR NOT NEAR",
+            "tokens": 4,
+            "turnId": "trn_23"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_23",
+            "incognito": false,
+            "seq": 3,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "AND OR NOT NEAR",
+          "tokens": 4
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_25",
+              "turnId": "trn_23"
+            },
+            "seq": 6,
+            "sessionId": "ses_1",
+            "turnId": "trn_23",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_25",
+            "role": "assistant",
+            "seq": 6,
+            "sessionId": "ses_1",
+            "text": "reply AND OR NOT NEAR",
+            "tokens": 6,
+            "turnId": "trn_23"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "reply AND OR NOT NEAR",
+            "tokens": 6
+          },
+          "op": "complete",
+          "turnId": "trn_23"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_27",
+              "turnId": "trn_26",
+              "turnSeq": 3
+            },
+            "seq": 5,
+            "sessionId": "ses_2",
+            "turnId": "trn_26",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_27",
+            "role": "user",
+            "seq": 5,
+            "sessionId": "ses_2",
+            "text": "a*b c:d (e) ^f",
+            "tokens": 4,
+            "turnId": "trn_26"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_26",
+            "incognito": false,
+            "seq": 3,
+            "sessionId": "ses_2",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_2",
+          "text": "a*b c:d (e) ^f",
+          "tokens": 4
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_28",
+              "turnId": "trn_26"
+            },
+            "seq": 6,
+            "sessionId": "ses_2",
+            "turnId": "trn_26",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_28",
+            "role": "assistant",
+            "seq": 6,
+            "sessionId": "ses_2",
+            "text": "reply a*b c:d (e) ^f",
+            "tokens": 5,
+            "turnId": "trn_26"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "reply a*b c:d (e) ^f",
+            "tokens": 5
+          },
+          "op": "complete",
+          "turnId": "trn_26"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_30",
+              "turnId": "trn_29",
+              "turnSeq": 3
+            },
+            "seq": 5,
+            "sessionId": "ses_3",
+            "turnId": "trn_29",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_30",
+            "role": "user",
+            "seq": 5,
+            "sessionId": "ses_3",
+            "text": "foo.bar baz_qux",
+            "tokens": 4,
+            "turnId": "trn_29"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_29",
+            "incognito": false,
+            "seq": 3,
+            "sessionId": "ses_3",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_3",
+          "text": "foo.bar baz_qux",
+          "tokens": 4
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_31",
+              "turnId": "trn_29"
+            },
+            "seq": 6,
+            "sessionId": "ses_3",
+            "turnId": "trn_29",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_31",
+            "role": "assistant",
+            "seq": 6,
+            "sessionId": "ses_3",
+            "text": "reply foo.bar baz_qux",
+            "tokens": 6,
+            "turnId": "trn_29"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "reply foo.bar baz_qux",
+            "tokens": 6
+          },
+          "op": "complete",
+          "turnId": "trn_29"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_33",
+              "turnId": "trn_32",
+              "turnSeq": 4
+            },
+            "seq": 7,
+            "sessionId": "ses_1",
+            "turnId": "trn_32",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_33",
+            "role": "user",
+            "seq": 7,
+            "sessionId": "ses_1",
+            "text": "alpha",
+            "tokens": 2,
+            "turnId": "trn_32"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_32",
+            "incognito": false,
+            "seq": 4,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "alpha",
+          "tokens": 2
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_34",
+              "turnId": "trn_32"
+            },
+            "seq": 8,
+            "sessionId": "ses_1",
+            "turnId": "trn_32",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_34",
+            "role": "assistant",
+            "seq": 8,
+            "sessionId": "ses_1",
+            "text": "reply alpha",
+            "tokens": 3,
+            "turnId": "trn_32"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "reply alpha",
+            "tokens": 3
+          },
+          "op": "complete",
+          "turnId": "trn_32"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_36",
+              "turnId": "trn_35",
+              "turnSeq": 4
+            },
+            "seq": 7,
+            "sessionId": "ses_2",
+            "turnId": "trn_35",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_36",
+            "role": "user",
+            "seq": 7,
+            "sessionId": "ses_2",
+            "text": "BETA beta Beta",
+            "tokens": 4,
+            "turnId": "trn_35"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_35",
+            "incognito": false,
+            "seq": 4,
+            "sessionId": "ses_2",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_2",
+          "text": "BETA beta Beta",
+          "tokens": 4
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_37",
+              "turnId": "trn_35"
+            },
+            "seq": 8,
+            "sessionId": "ses_2",
+            "turnId": "trn_35",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_37",
+            "role": "assistant",
+            "seq": 8,
+            "sessionId": "ses_2",
+            "text": "reply BETA beta Beta",
+            "tokens": 5,
+            "turnId": "trn_35"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "reply BETA beta Beta",
+            "tokens": 5
+          },
+          "op": "complete",
+          "turnId": "trn_35"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_39",
+              "turnId": "trn_38",
+              "turnSeq": 4
+            },
+            "seq": 7,
+            "sessionId": "ses_3",
+            "turnId": "trn_38",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_39",
+            "role": "user",
+            "seq": 7,
+            "sessionId": "ses_3",
+            "text": "x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x alpha",
+            "tokens": 22,
+            "turnId": "trn_38"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_38",
+            "incognito": false,
+            "seq": 4,
+            "sessionId": "ses_3",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_3",
+          "text": "x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x alpha",
+          "tokens": 22
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_40",
+              "turnId": "trn_38"
+            },
+            "seq": 8,
+            "sessionId": "ses_3",
+            "turnId": "trn_38",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_40",
+            "role": "assistant",
+            "seq": 8,
+            "sessionId": "ses_3",
+            "text": "reply x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x alpha",
+            "tokens": 23,
+            "turnId": "trn_38"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "reply x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x alpha",
+            "tokens": 23
+          },
+          "op": "complete",
+          "turnId": "trn_38"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_4",
+              "kind": "card",
+              "lastTurnAt": null,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "card alpha",
+              "turnCount": 0,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alpha"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_33",
+            "rank": -1.018079496490173,
+            "seq": 7,
+            "sessionId": "ses_1",
+            "snippet": "[alpha]"
+          },
+          {
+            "messageId": "msg_6",
+            "rank": -0.9314344329590943,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha] beta"
+          },
+          {
+            "messageId": "msg_34",
+            "rank": -0.9314344329590943,
+            "seq": 8,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -0.8583807519426948,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha] beta"
+          },
+          {
+            "messageId": "msg_9",
+            "rank": -0.8583807519426948,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "[Alpha]-Beta gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -0.7959530608923171,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply [Alpha]-Beta gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alpha"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_4",
+              "kind": "card",
+              "lastTurnAt": null,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "card alpha",
+              "turnCount": 0,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "Alpha"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_33",
+            "rank": -1.018079496490173,
+            "seq": 7,
+            "sessionId": "ses_1",
+            "snippet": "[alpha]"
+          },
+          {
+            "messageId": "msg_6",
+            "rank": -0.9314344329590943,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha] beta"
+          },
+          {
+            "messageId": "msg_34",
+            "rank": -0.9314344329590943,
+            "seq": 8,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -0.8583807519426948,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha] beta"
+          },
+          {
+            "messageId": "msg_9",
+            "rank": -0.8583807519426948,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "[Alpha]-Beta gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -0.7959530608923171,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply [Alpha]-Beta gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "Alpha"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "beta"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_36",
+            "rank": -1.8657817470826326,
+            "seq": 7,
+            "sessionId": "ses_2",
+            "snippet": "[BETA] [beta] [Beta]"
+          },
+          {
+            "messageId": "msg_37",
+            "rank": -1.800884990662367,
+            "seq": 8,
+            "sessionId": "ses_2",
+            "snippet": "reply [BETA] [beta] [Beta]"
+          },
+          {
+            "messageId": "msg_6",
+            "rank": -1.468806907277817,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "alpha [beta]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -1.3536063655305373,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply alpha [beta]"
+          },
+          {
+            "messageId": "msg_9",
+            "rank": -1.3536063655305373,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "Alpha-[Beta] gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -1.2551622662192257,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply Alpha-[Beta] gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "beta"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alpha beta"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_6",
+            "rank": -2.4002413402369114,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha] [beta]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -2.211987117473232,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha] [beta]"
+          },
+          {
+            "messageId": "msg_9",
+            "rank": -2.211987117473232,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "[Alpha]-[Beta] gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -2.0511153271115425,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply [Alpha]-[Beta] gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alpha beta"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "über"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "über"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "uber"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "uber"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "Straße"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "Straße"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "日本語"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_15",
+            "rank": -3.0854643000891593,
+            "seq": 3,
+            "sessionId": "ses_1",
+            "snippet": "[日本語] テキスト"
+          },
+          {
+            "messageId": "msg_16",
+            "rank": -2.8434671000821665,
+            "seq": 4,
+            "sessionId": "ses_1",
+            "snippet": "reply [日本語] テキスト"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "日本語"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "😀"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "😀"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "\"hi\""
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "\"hi\""
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "hi\""
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "hi\""
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "AND"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_24",
+            "rank": -2.6366694928034637,
+            "seq": 5,
+            "sessionId": "ses_1",
+            "snippet": "[AND] OR NOT NEAR"
+          },
+          {
+            "messageId": "msg_25",
+            "rank": -2.4579122390540764,
+            "seq": 6,
+            "sessionId": "ses_1",
+            "snippet": "reply [AND] OR NOT NEAR"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "AND"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "OR"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_24",
+            "rank": -2.6366694928034637,
+            "seq": 5,
+            "sessionId": "ses_1",
+            "snippet": "AND [OR] NOT NEAR"
+          },
+          {
+            "messageId": "msg_25",
+            "rank": -2.4579122390540764,
+            "seq": 6,
+            "sessionId": "ses_1",
+            "snippet": "reply AND [OR] NOT NEAR"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "OR"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "NOT"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_24",
+            "rank": -2.6366694928034637,
+            "seq": 5,
+            "sessionId": "ses_1",
+            "snippet": "AND OR [NOT] NEAR"
+          },
+          {
+            "messageId": "msg_25",
+            "rank": -2.4579122390540764,
+            "seq": 6,
+            "sessionId": "ses_1",
+            "snippet": "reply AND OR [NOT] NEAR"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "NOT"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "NEAR"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_24",
+            "rank": -2.6366694928034637,
+            "seq": 5,
+            "sessionId": "ses_1",
+            "snippet": "AND OR NOT [NEAR]"
+          },
+          {
+            "messageId": "msg_25",
+            "rank": -2.4579122390540764,
+            "seq": 6,
+            "sessionId": "ses_1",
+            "snippet": "reply AND OR NOT [NEAR]"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "NEAR"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "a*b"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_27",
+            "rank": -2.3018543191141347,
+            "seq": 5,
+            "sessionId": "ses_2",
+            "snippet": "[a*b] c:d (e) ^f"
+          },
+          {
+            "messageId": "msg_28",
+            "rank": -2.16443018065956,
+            "seq": 6,
+            "sessionId": "ses_2",
+            "snippet": "reply [a*b] c:d (e) ^f"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "a*b"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "c:d"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_27",
+            "rank": -2.3018543191141347,
+            "seq": 5,
+            "sessionId": "ses_2",
+            "snippet": "a*b [c:d] (e) ^f"
+          },
+          {
+            "messageId": "msg_28",
+            "rank": -2.16443018065956,
+            "seq": 6,
+            "sessionId": "ses_2",
+            "snippet": "reply a*b [c:d] (e) ^f"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "c:d"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "(e)"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_27",
+            "rank": -2.3018543191141347,
+            "seq": 5,
+            "sessionId": "ses_2",
+            "snippet": "a*b c:d ([e]) ^f"
+          },
+          {
+            "messageId": "msg_28",
+            "rank": -2.16443018065956,
+            "seq": 6,
+            "sessionId": "ses_2",
+            "snippet": "reply a*b c:d ([e]) ^f"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "(e)"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "^f"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_27",
+            "rank": -2.3018543191141347,
+            "seq": 5,
+            "sessionId": "ses_2",
+            "snippet": "a*b c:d (e) ^[f]"
+          },
+          {
+            "messageId": "msg_28",
+            "rank": -2.16443018065956,
+            "seq": 6,
+            "sessionId": "ses_2",
+            "snippet": "reply a*b c:d (e) ^[f]"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "^f"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "foo.bar"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "foo.bar"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "foo"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "foo"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "bar"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "bar"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "baz_qux"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "baz_qux"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "reply"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_34",
+            "rank": -0.0000014042553191489362,
+            "seq": 8,
+            "sessionId": "ses_1",
+            "snippet": "[reply] alpha"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -0.0000012941176470588235,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "[reply] alpha beta"
+          },
+          {
+            "messageId": "msg_16",
+            "rank": -0.0000012941176470588235,
+            "seq": 4,
+            "sessionId": "ses_1",
+            "snippet": "[reply] 日本語 テキスト"
+          },
+          {
+            "messageId": "msg_19",
+            "rank": -0.0000012941176470588235,
+            "seq": 4,
+            "sessionId": "ses_2",
+            "snippet": "[reply] emoji 😀 party"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -0.0000012000000000000002,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "[reply] Alpha-Beta gamma"
+          },
+          {
+            "messageId": "msg_37",
+            "rank": -0.0000012000000000000002,
+            "seq": 8,
+            "sessionId": "ses_2",
+            "snippet": "[reply] BETA beta Beta"
+          },
+          {
+            "messageId": "msg_25",
+            "rank": -0.0000011186440677966102,
+            "seq": 6,
+            "sessionId": "ses_1",
+            "snippet": "[reply] AND OR NOT NEAR"
+          },
+          {
+            "messageId": "msg_28",
+            "rank": -9.850746268656719e-7,
+            "seq": 6,
+            "sessionId": "ses_2",
+            "snippet": "[reply] a*b c:d (e) ^f"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "reply"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "x"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "x"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "nope"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "nope"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alpha  beta"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_6",
+            "rank": -2.4002413402369114,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha] [beta]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -2.211987117473232,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha] [beta]"
+          },
+          {
+            "messageId": "msg_9",
+            "rank": -2.211987117473232,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "[Alpha]-[Beta] gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -2.0511153271115425,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply [Alpha]-[Beta] gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alpha  beta"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_4",
+              "kind": "card",
+              "lastTurnAt": null,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "card alpha",
+              "turnCount": 0,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": " alpha "
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_33",
+            "rank": -1.018079496490173,
+            "seq": 7,
+            "sessionId": "ses_1",
+            "snippet": "[alpha]"
+          },
+          {
+            "messageId": "msg_6",
+            "rank": -0.9314344329590943,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha] beta"
+          },
+          {
+            "messageId": "msg_34",
+            "rank": -0.9314344329590943,
+            "seq": 8,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -0.8583807519426948,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha] beta"
+          },
+          {
+            "messageId": "msg_9",
+            "rank": -0.8583807519426948,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "[Alpha]-Beta gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -0.7959530608923171,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply [Alpha]-Beta gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": " alpha "
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alpha beta"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_6",
+            "rank": -2.4002413402369114,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha] [beta]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -2.211987117473232,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha] [beta]"
+          },
+          {
+            "messageId": "msg_9",
+            "rank": -2.211987117473232,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "[Alpha]-[Beta] gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -2.0511153271115425,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply [Alpha]-[Beta] gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alpha beta"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alphabeta"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_6",
+            "rank": -2.1293390276232733,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha beta]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -1.9623320450645851,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha beta]"
+          },
+          {
+            "messageId": "msg_9",
+            "rank": -1.9623320450645851,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "[Alpha-Beta] gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -1.8196169872417063,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply [Alpha-Beta] gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alphabeta"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_4",
+              "kind": "card",
+              "lastTurnAt": null,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "card alpha",
+              "turnCount": 0,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "﻿alpha"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_33",
+            "rank": -1.018079496490173,
+            "seq": 7,
+            "sessionId": "ses_1",
+            "snippet": "[alpha]"
+          },
+          {
+            "messageId": "msg_6",
+            "rank": -0.9314344329590943,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha] beta"
+          },
+          {
+            "messageId": "msg_34",
+            "rank": -0.9314344329590943,
+            "seq": 8,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -0.8583807519426948,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha] beta"
+          },
+          {
+            "messageId": "msg_9",
+            "rank": -0.8583807519426948,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "[Alpha]-Beta gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -0.7959530608923171,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply [Alpha]-Beta gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "﻿alpha"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_4",
+              "kind": "card",
+              "lastTurnAt": null,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "card alpha",
+              "turnCount": 0,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "ALPHA"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_33",
+            "rank": -1.018079496490173,
+            "seq": 7,
+            "sessionId": "ses_1",
+            "snippet": "[alpha]"
+          },
+          {
+            "messageId": "msg_6",
+            "rank": -0.9314344329590943,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha] beta"
+          },
+          {
+            "messageId": "msg_34",
+            "rank": -0.9314344329590943,
+            "seq": 8,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -0.8583807519426948,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha] beta"
+          },
+          {
+            "messageId": "msg_9",
+            "rank": -0.8583807519426948,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "[Alpha]-Beta gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -0.7959530608923171,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply [Alpha]-Beta gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "ALPHA"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "al"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "al"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alpha OR beta"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alpha OR beta"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_4",
+              "kind": "card",
+              "lastTurnAt": null,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "card alpha",
+              "turnCount": 0,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "-alpha"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_33",
+            "rank": -1.018079496490173,
+            "seq": 7,
+            "sessionId": "ses_1",
+            "snippet": "[alpha]"
+          },
+          {
+            "messageId": "msg_6",
+            "rank": -0.9314344329590943,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha] beta"
+          },
+          {
+            "messageId": "msg_34",
+            "rank": -0.9314344329590943,
+            "seq": 8,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -0.8583807519426948,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha] beta"
+          },
+          {
+            "messageId": "msg_9",
+            "rank": -0.8583807519426948,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "[Alpha]-Beta gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -0.7959530608923171,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply [Alpha]-Beta gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "-alpha"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "title:alpha"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "title:alpha"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "\"alpha beta\""
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_6",
+            "rank": -2.4002413402369114,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha] [beta]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -2.211987117473232,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha] [beta]"
+          },
+          {
+            "messageId": "msg_9",
+            "rank": -2.211987117473232,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "[Alpha]-[Beta] gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -2.0511153271115425,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply [Alpha]-[Beta] gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "\"alpha beta\""
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alpha\tbeta\n"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_6",
+            "rank": -2.4002413402369114,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha] [beta]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -2.211987117473232,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha] [beta]"
+          },
+          {
+            "messageId": "msg_9",
+            "rank": -2.211987117473232,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "[Alpha]-[Beta] gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -2.0511153271115425,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply [Alpha]-[Beta] gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alpha\tbeta\n"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_33",
+            "rank": -1.018079496490173,
+            "seq": 7,
+            "sessionId": "ses_1",
+            "snippet": "[alpha]"
+          },
+          {
+            "messageId": "msg_6",
+            "rank": -0.9314344329590943,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha] beta"
+          }
+        ],
+        "op": {
+          "filter": {
+            "limit": 2,
+            "owner": "user:v1:alice",
+            "search": "alpha"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "kind": "card",
+            "owner": "user:v1:alice",
+            "search": "alpha"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "filter": {
+            "agentId": "other",
+            "owner": "user:v1:alice",
+            "search": "alpha"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_39",
+            "rank": -0.21565230713831252,
+            "seq": 7,
+            "sessionId": "ses_3",
+            "snippet": "…x x x x x x x x x x x [alpha]"
+          },
+          {
+            "messageId": "msg_40",
+            "rank": -0.21148511279747556,
+            "seq": 8,
+            "sessionId": "ses_3",
+            "snippet": "…x x x x x x x x x x x [alpha]"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:bob",
+            "search": "alpha"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "search text is empty",
+          "reason": "search-empty"
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": ""
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "search text is empty",
+          "reason": "search-empty"
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": " \t "
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_1",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "model": null,
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "Alpha release notes",
+              "turnCount": 4,
+              "updatedAt": 1000000,
+              "usage": {
+                "inputTokens": 0,
+                "outputTokens": 0
+              }
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "model": null,
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000,
+              "usage": {
+                "inputTokens": 0,
+                "outputTokens": 0
+              }
+            },
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_4",
+              "kind": "card",
+              "lastTurnAt": null,
+              "memoryMode": "remember",
+              "model": null,
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "card alpha",
+              "turnCount": 0,
+              "updatedAt": 1000000,
+              "usage": {
+                "inputTokens": 0,
+                "outputTokens": 0
+              }
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alpha"
+          },
+          "op": "overview"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "über uns",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "allowedAgents": [
+              "bernd"
+            ],
+            "owner": "user:v1:alice",
+            "search": "über"
+          },
+          "op": "chatList"
+        }
+      },
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": 1000000,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": 1000000,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "Alpha release notes",
+          "turnCount": 4,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "id": "ses_1",
+          "op": "archive"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_9",
+            "rank": -0.8583807519426948,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "[Alpha]-Beta gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -0.7959530608923171,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply [Alpha]-Beta gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "alpha"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_33",
+            "rank": -1.018079496490173,
+            "seq": 7,
+            "sessionId": "ses_1",
+            "snippet": "[alpha]"
+          },
+          {
+            "messageId": "msg_6",
+            "rank": -0.9314344329590943,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha] beta"
+          },
+          {
+            "messageId": "msg_34",
+            "rank": -0.9314344329590943,
+            "seq": 8,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -0.8583807519426948,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha] beta"
+          },
+          {
+            "messageId": "msg_9",
+            "rank": -0.8583807519426948,
+            "seq": 1,
+            "sessionId": "ses_2",
+            "snippet": "[Alpha]-Beta gamma"
+          },
+          {
+            "messageId": "msg_10",
+            "rank": -0.7959530608923171,
+            "seq": 2,
+            "sessionId": "ses_2",
+            "snippet": "reply [Alpha]-Beta gamma"
+          }
+        ],
+        "op": {
+          "filter": {
+            "archived": "any",
+            "owner": "user:v1:alice",
+            "search": "alpha"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_33",
+            "rank": -1.018079496490173,
+            "seq": 7,
+            "sessionId": "ses_1",
+            "snippet": "[alpha]"
+          },
+          {
+            "messageId": "msg_6",
+            "rank": -0.9314344329590943,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[alpha] beta"
+          },
+          {
+            "messageId": "msg_34",
+            "rank": -0.9314344329590943,
+            "seq": 8,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha]"
+          },
+          {
+            "messageId": "msg_7",
+            "rank": -0.8583807519426948,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "snippet": "reply [alpha] beta"
+          }
+        ],
+        "op": {
+          "filter": {
+            "archived": "only",
+            "owner": "user:v1:alice",
+            "search": "alpha"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_2",
+          "kind": "direct",
+          "lastTurnAt": 1000000,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "renamed gamma",
+          "turnCount": 4,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "id": "ses_2",
+          "op": "update",
+          "patch": {
+            "title": "renamed gamma"
+          }
+        }
+      },
+      {
+        "ok": {
+          "sessions": [
+            {
+              "agentId": "bernd",
+              "archivedAt": null,
+              "chatKey": null,
+              "createdAt": 1000000,
+              "id": "ses_2",
+              "kind": "direct",
+              "lastTurnAt": 1000000,
+              "memoryMode": "remember",
+              "owner": "user:v1:alice",
+              "pinned": false,
+              "scope": "user",
+              "title": "renamed gamma",
+              "turnCount": 4,
+              "updatedAt": 1000000
+            }
+          ],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "gamma"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": {
+          "sessions": [],
+          "truncated": false
+        },
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "über"
+          },
+          "op": "list"
+        }
+      },
+      {
+        "ok": [
+          {
+            "hl": "<alpha>",
+            "rank": -1.018079496490173,
+            "rowid": 19,
+            "snip": "[alpha]"
+          },
+          {
+            "hl": "<alpha> beta",
+            "rank": -0.9314344329590943,
+            "rowid": 1,
+            "snip": "[alpha] beta"
+          },
+          {
+            "hl": "reply <alpha>",
+            "rank": -0.9314344329590943,
+            "rowid": 20,
+            "snip": "reply [alpha]"
+          },
+          {
+            "hl": "reply <alpha> beta",
+            "rank": -0.8583807519426948,
+            "rowid": 2,
+            "snip": "reply [alpha] beta"
+          },
+          {
+            "hl": "<Alpha>-Beta gamma",
+            "rank": -0.8583807519426948,
+            "rowid": 3,
+            "snip": "[Alpha]-Beta gamma"
+          },
+          {
+            "hl": "reply <Alpha>-Beta gamma",
+            "rank": -0.7959530608923171,
+            "rowid": 4,
+            "snip": "reply [Alpha]-Beta gamma"
+          },
+          {
+            "hl": "x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x <alpha>",
+            "rank": -0.21565230713831252,
+            "rowid": 23,
+            "snip": "…x x x x x x x x x x x [alpha]"
+          },
+          {
+            "hl": "reply x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x <alpha>",
+            "rank": -0.21148511279747556,
+            "rowid": 24,
+            "snip": "…x x x x x x x x x x x [alpha]"
+          }
+        ],
+        "op": {
+          "args": [
+            "alpha"
+          ],
+          "op": "sql",
+          "sql": "SELECT rowid, bm25(messages_fts) AS rank, snippet(messages_fts, 0, '[', ']', '…', 12) AS snip, highlight(messages_fts, 0, '<', '>') AS hl FROM messages_fts WHERE messages_fts MATCH ? ORDER BY rank, rowid"
+        }
+      },
+      {
+        "ok": [
+          {
+            "hl": "<alpha> <beta>",
+            "rank": -2.4002413402369114,
+            "rowid": 1,
+            "snip": "[alpha] [beta]"
+          },
+          {
+            "hl": "reply <alpha> <beta>",
+            "rank": -2.211987117473232,
+            "rowid": 2,
+            "snip": "reply [alpha] [beta]"
+          },
+          {
+            "hl": "<Alpha>-<Beta> gamma",
+            "rank": -2.211987117473232,
+            "rowid": 3,
+            "snip": "[Alpha]-[Beta] gamma"
+          },
+          {
+            "hl": "reply <Alpha>-<Beta> gamma",
+            "rank": -2.0511153271115425,
+            "rowid": 4,
+            "snip": "reply [Alpha]-[Beta] gamma"
+          }
+        ],
+        "op": {
+          "args": [
+            "\"alpha\" \"beta\""
+          ],
+          "op": "sql",
+          "sql": "SELECT rowid, bm25(messages_fts) AS rank, snippet(messages_fts, 0, '[', ']', '…', 12) AS snip, highlight(messages_fts, 0, '<', '>') AS hl FROM messages_fts WHERE messages_fts MATCH ? ORDER BY rank, rowid"
+        }
+      },
+      {
+        "ok": [
+          {
+            "hl": "<alpha>",
+            "rank": -1.018079496490173,
+            "rowid": 19,
+            "snip": "[alpha]"
+          },
+          {
+            "hl": "<alpha> beta",
+            "rank": -0.9314344329590943,
+            "rowid": 1,
+            "snip": "[alpha] beta"
+          },
+          {
+            "hl": "reply <alpha>",
+            "rank": -0.9314344329590943,
+            "rowid": 20,
+            "snip": "reply [alpha]"
+          },
+          {
+            "hl": "reply <alpha> beta",
+            "rank": -0.8583807519426948,
+            "rowid": 2,
+            "snip": "reply [alpha] beta"
+          },
+          {
+            "hl": "<Alpha>-Beta gamma",
+            "rank": -0.8583807519426948,
+            "rowid": 3,
+            "snip": "[Alpha]-Beta gamma"
+          },
+          {
+            "hl": "reply <Alpha>-Beta gamma",
+            "rank": -0.7959530608923171,
+            "rowid": 4,
+            "snip": "reply [Alpha]-Beta gamma"
+          },
+          {
+            "hl": "x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x <alpha>",
+            "rank": -0.21565230713831252,
+            "rowid": 23,
+            "snip": "…x x x x x x x x x x x [alpha]"
+          },
+          {
+            "hl": "reply x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x <alpha>",
+            "rank": -0.21148511279747556,
+            "rowid": 24,
+            "snip": "…x x x x x x x x x x x [alpha]"
+          }
+        ],
+        "op": {
+          "args": [
+            "alpha*"
+          ],
+          "op": "sql",
+          "sql": "SELECT rowid, bm25(messages_fts) AS rank, snippet(messages_fts, 0, '[', ']', '…', 12) AS snip, highlight(messages_fts, 0, '<', '>') AS hl FROM messages_fts WHERE messages_fts MATCH ? ORDER BY rank, rowid"
+        }
+      },
+      {
+        "ok": [
+          {
+            "hl": "<alpha> <beta>",
+            "rank": -2.4002413402369114,
+            "rowid": 1,
+            "snip": "[alpha] [beta]"
+          },
+          {
+            "hl": "reply <alpha> <beta>",
+            "rank": -2.211987117473232,
+            "rowid": 2,
+            "snip": "reply [alpha] [beta]"
+          },
+          {
+            "hl": "<Alpha>-<Beta> gamma",
+            "rank": -2.211987117473232,
+            "rowid": 3,
+            "snip": "[Alpha]-[Beta] gamma"
+          },
+          {
+            "hl": "reply <Alpha>-<Beta> gamma",
+            "rank": -2.0511153271115425,
+            "rowid": 4,
+            "snip": "reply [Alpha]-[Beta] gamma"
+          }
+        ],
+        "op": {
+          "args": [
+            "NEAR(alpha beta)"
+          ],
+          "op": "sql",
+          "sql": "SELECT rowid, bm25(messages_fts) AS rank, snippet(messages_fts, 0, '[', ']', '…', 12) AS snip, highlight(messages_fts, 0, '<', '>') AS hl FROM messages_fts WHERE messages_fts MATCH ? ORDER BY rank, rowid"
+        }
+      },
+      {
+        "ok": [
+          {
+            "hl": "<über> Straße naïve",
+            "rank": -2.8434671000821665,
+            "rowid": 5,
+            "snip": "[über] Straße naïve"
+          },
+          {
+            "hl": "reply <über> Straße naïve",
+            "rank": -2.6366694928034637,
+            "rowid": 6,
+            "snip": "reply [über] Straße naïve"
+          }
+        ],
+        "op": {
+          "args": [
+            "über"
+          ],
+          "op": "sql",
+          "sql": "SELECT rowid, bm25(messages_fts) AS rank, snippet(messages_fts, 0, '[', ']', '…', 12) AS snip, highlight(messages_fts, 0, '<', '>') AS hl FROM messages_fts WHERE messages_fts MATCH ? ORDER BY rank, rowid"
+        }
+      },
+      {
+        "ok": [
+          {
+            "hl": "<über> Straße naïve",
+            "rank": -2.8434671000821665,
+            "rowid": 5,
+            "snip": "[über] Straße naïve"
+          },
+          {
+            "hl": "reply <über> Straße naïve",
+            "rank": -2.6366694928034637,
+            "rowid": 6,
+            "snip": "reply [über] Straße naïve"
+          }
+        ],
+        "op": {
+          "args": [
+            "uber"
+          ],
+          "op": "sql",
+          "sql": "SELECT rowid, bm25(messages_fts) AS rank, snippet(messages_fts, 0, '[', ']', '…', 12) AS snip, highlight(messages_fts, 0, '<', '>') AS hl FROM messages_fts WHERE messages_fts MATCH ? ORDER BY rank, rowid"
+        }
+      },
+      {
+        "ok": [
+          {
+            "hl": "über <Straße> naïve",
+            "rank": -2.8434671000821665,
+            "rowid": 5,
+            "snip": "über [Straße] naïve"
+          },
+          {
+            "hl": "reply über <Straße> naïve",
+            "rank": -2.6366694928034637,
+            "rowid": 6,
+            "snip": "reply über [Straße] naïve"
+          }
+        ],
+        "op": {
+          "args": [
+            "straße"
+          ],
+          "op": "sql",
+          "sql": "SELECT rowid, bm25(messages_fts) AS rank, snippet(messages_fts, 0, '[', ']', '…', 12) AS snip, highlight(messages_fts, 0, '<', '>') AS hl FROM messages_fts WHERE messages_fts MATCH ? ORDER BY rank, rowid"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "args": [
+            "strasse"
+          ],
+          "op": "sql",
+          "sql": "SELECT rowid, bm25(messages_fts) AS rank, snippet(messages_fts, 0, '[', ']', '…', 12) AS snip, highlight(messages_fts, 0, '<', '>') AS hl FROM messages_fts WHERE messages_fts MATCH ? ORDER BY rank, rowid"
+        }
+      },
+      {
+        "ok": [
+          {
+            "hl": "<日本語> テキスト",
+            "rank": -3.0854643000891593,
+            "rowid": 7,
+            "snip": "[日本語] テキスト"
+          },
+          {
+            "hl": "reply <日本語> テキスト",
+            "rank": -2.8434671000821665,
+            "rowid": 8,
+            "snip": "reply [日本語] テキスト"
+          }
+        ],
+        "op": {
+          "args": [
+            "日本語"
+          ],
+          "op": "sql",
+          "sql": "SELECT rowid, bm25(messages_fts) AS rank, snippet(messages_fts, 0, '[', ']', '…', 12) AS snip, highlight(messages_fts, 0, '<', '>') AS hl FROM messages_fts WHERE messages_fts MATCH ? ORDER BY rank, rowid"
+        }
+      },
+      {
+        "ok": [
+          {
+            "rowid": 1,
+            "title": "Alpha release notes"
+          },
+          {
+            "rowid": 3,
+            "title": "alpha bob"
+          },
+          {
+            "rowid": 4,
+            "title": "card alpha"
+          }
+        ],
+        "op": {
+          "args": [],
+          "op": "sql",
+          "sql": "SELECT rowid, title FROM sessions_fts WHERE sessions_fts MATCH '\"alpha\"' ORDER BY rowid"
+        }
+      },
+      {
+        "ok": [
+          {
+            "name": "messages_fts",
+            "sql": "CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='rowid')"
+          },
+          {
+            "name": "messages_fts_config",
+            "sql": "CREATE TABLE 'messages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID"
+          },
+          {
+            "name": "messages_fts_data",
+            "sql": "CREATE TABLE 'messages_fts_data'(id INTEGER PRIMARY KEY, block BLOB)"
+          },
+          {
+            "name": "messages_fts_docsize",
+            "sql": "CREATE TABLE 'messages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)"
+          },
+          {
+            "name": "messages_fts_idx",
+            "sql": "CREATE TABLE 'messages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID"
+          },
+          {
+            "name": "sessions_fts",
+            "sql": "CREATE VIRTUAL TABLE sessions_fts USING fts5(title, content='sessions', content_rowid='rowid')"
+          },
+          {
+            "name": "sessions_fts_config",
+            "sql": "CREATE TABLE 'sessions_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID"
+          },
+          {
+            "name": "sessions_fts_data",
+            "sql": "CREATE TABLE 'sessions_fts_data'(id INTEGER PRIMARY KEY, block BLOB)"
+          },
+          {
+            "name": "sessions_fts_docsize",
+            "sql": "CREATE TABLE 'sessions_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)"
+          },
+          {
+            "name": "sessions_fts_idx",
+            "sql": "CREATE TABLE 'sessions_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID"
+          }
+        ],
+        "op": {
+          "args": [],
+          "op": "sql",
+          "sql": "SELECT name, sql FROM sqlite_master WHERE name LIKE '%fts%' ORDER BY name"
+        }
+      }
+    ]
+  },
+  {
+    "cases": [
+      {
+        "err": {
+          "code": "invalid",
+          "message": "search text is empty",
+          "reason": "search-empty"
+        },
+        "text": ""
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "search text is empty",
+          "reason": "search-empty"
+        },
+        "text": " "
+      },
+      {
+        "ok": "\"a\"",
+        "text": "a"
+      },
+      {
+        "ok": "\"a\" \"b\"",
+        "text": " a b "
+      },
+      {
+        "ok": "\"a\"\"b\"",
+        "text": "a\"b"
+      },
+      {
+        "ok": "\"\"\"\"",
+        "text": "\""
+      },
+      {
+        "ok": "\"\"\"\"\"\"",
+        "text": "\"\""
+      },
+      {
+        "ok": "\"a\" \"b\"",
+        "text": "a b"
+      },
+      {
+        "ok": "\"a\" \"b\"",
+        "text": "a﻿b"
+      },
+      {
+        "ok": "\"ab\"",
+        "text": "ab"
+      },
+      {
+        "ok": "\"a\" \"b\" \"c\"",
+        "text": "a b c"
+      },
+      {
+        "ok": "\"a\" \"b\"",
+        "text": "a　b"
+      },
+      {
+        "ok": "\"a​b\"",
+        "text": "a​b"
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "search text is empty",
+          "reason": "search-empty"
+        },
+        "text": "\t\n"
+      },
+      {
+        "ok": "\"x\" \"y\" \"z\"",
+        "text": "x  y   z"
+      },
+      {
+        "ok": "\"à\" \"é\"",
+        "text": "à é"
+      },
+      {
+        "ok": {
+          "$u16": [
+            34,
+            55357,
+            34
+          ]
+        },
+        "text": {
+          "$u16": [
+            55357
+          ]
+        }
+      }
+    ],
+    "name": "fts-query"
+  },
+  {
+    "name": "tool-offers",
+    "ops": [
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "ok": {
+          "agentId": "other",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_2",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "other",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "other",
+            "kind": "direct",
+            "owner": "other"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "op": "offers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "names": [
+            "file.read",
+            "exec.run",
+            "file.read"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "names": [
+            "web.fetch",
+            "exec.run",
+            "sys.startupItems"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          "file.read",
+          "exec.run",
+          "web.fetch",
+          "sys.startupItems"
+        ],
+        "op": {
+          "op": "offers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "tool offers require canonical registered tool names",
+          "reason": "tool-name"
+        },
+        "op": {
+          "names": [
+            "valid.tool",
+            ""
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "tool offers require canonical registered tool names",
+          "reason": "tool-name"
+        },
+        "op": {
+          "names": [
+            "valid.tool",
+            "Tool.upper"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "tool offers require canonical registered tool names",
+          "reason": "tool-name"
+        },
+        "op": {
+          "names": [
+            "valid.tool",
+            "tool with space"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "tool offers require canonical registered tool names",
+          "reason": "tool-name"
+        },
+        "op": {
+          "names": [
+            "valid.tool",
+            "tool/path"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "tool offers require canonical registered tool names",
+          "reason": "tool-name"
+        },
+        "op": {
+          "names": [
+            "valid.tool",
+            "tool\nname"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "tool offers require canonical registered tool names",
+          "reason": "tool-name"
+        },
+        "op": {
+          "names": [
+            "valid.tool",
+            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "names": [
+            "valid.tool",
+            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "names": [
+            "valid.tool",
+            "sys.startupitems"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "tool offers require canonical registered tool names",
+          "reason": "tool-name"
+        },
+        "op": {
+          "names": [
+            "valid.tool",
+            "1abc"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "names": [
+            "valid.tool",
+            "a"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "names": [
+            "valid.tool",
+            "a-b_c.d"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "tool offers require canonical registered tool names",
+          "reason": "tool-name"
+        },
+        "op": {
+          "names": [
+            "valid.tool",
+            "ünï"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          "file.read",
+          "exec.run",
+          "web.fetch",
+          "sys.startupItems",
+          "valid.tool",
+          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "sys.startupitems",
+          "a",
+          "a-b_c.d"
+        ],
+        "op": {
+          "op": "offers",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "names": [
+            "private.lookup"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_2"
+        }
+      },
+      {
+        "ok": [
+          "private.lookup"
+        ],
+        "op": {
+          "op": "offers",
+          "sessionId": "ses_2"
+        }
+      },
+      {
+        "err": {
+          "code": "not-found",
+          "message": "session not found"
+        },
+        "op": {
+          "op": "offers",
+          "sessionId": "missing"
+        }
+      },
+      {
+        "err": {
+          "code": "not-found",
+          "message": "session not found"
+        },
+        "op": {
+          "names": [
+            "a"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "missing"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "names": [
+            "fixture.tool-0",
+            "fixture.tool-1",
+            "fixture.tool-2",
+            "fixture.tool-3",
+            "fixture.tool-4",
+            "fixture.tool-5",
+            "fixture.tool-6",
+            "fixture.tool-7",
+            "fixture.tool-8",
+            "fixture.tool-9",
+            "fixture.tool-10",
+            "fixture.tool-11",
+            "fixture.tool-12",
+            "fixture.tool-13",
+            "fixture.tool-14",
+            "fixture.tool-15",
+            "fixture.tool-16",
+            "fixture.tool-17",
+            "fixture.tool-18",
+            "fixture.tool-19",
+            "fixture.tool-20",
+            "fixture.tool-21",
+            "fixture.tool-22",
+            "fixture.tool-23",
+            "fixture.tool-24",
+            "fixture.tool-25",
+            "fixture.tool-26",
+            "fixture.tool-27",
+            "fixture.tool-28",
+            "fixture.tool-29",
+            "fixture.tool-30",
+            "fixture.tool-31",
+            "fixture.tool-32",
+            "fixture.tool-33",
+            "fixture.tool-34",
+            "fixture.tool-35",
+            "fixture.tool-36",
+            "fixture.tool-37",
+            "fixture.tool-38",
+            "fixture.tool-39",
+            "fixture.tool-40",
+            "fixture.tool-41",
+            "fixture.tool-42",
+            "fixture.tool-43",
+            "fixture.tool-44",
+            "fixture.tool-45",
+            "fixture.tool-46",
+            "fixture.tool-47",
+            "fixture.tool-48",
+            "fixture.tool-49",
+            "fixture.tool-50",
+            "fixture.tool-51",
+            "fixture.tool-52",
+            "fixture.tool-53",
+            "fixture.tool-54",
+            "fixture.tool-55",
+            "fixture.tool-56",
+            "fixture.tool-57",
+            "fixture.tool-58",
+            "fixture.tool-59",
+            "fixture.tool-60",
+            "fixture.tool-61",
+            "fixture.tool-62",
+            "fixture.tool-63",
+            "fixture.tool-64",
+            "fixture.tool-65",
+            "fixture.tool-66",
+            "fixture.tool-67",
+            "fixture.tool-68",
+            "fixture.tool-69",
+            "fixture.tool-70",
+            "fixture.tool-71",
+            "fixture.tool-72",
+            "fixture.tool-73",
+            "fixture.tool-74",
+            "fixture.tool-75",
+            "fixture.tool-76",
+            "fixture.tool-77",
+            "fixture.tool-78",
+            "fixture.tool-79",
+            "fixture.tool-80",
+            "fixture.tool-81",
+            "fixture.tool-82",
+            "fixture.tool-83",
+            "fixture.tool-84",
+            "fixture.tool-85",
+            "fixture.tool-86",
+            "fixture.tool-87",
+            "fixture.tool-88",
+            "fixture.tool-89",
+            "fixture.tool-90",
+            "fixture.tool-91",
+            "fixture.tool-92",
+            "fixture.tool-93",
+            "fixture.tool-94",
+            "fixture.tool-95",
+            "fixture.tool-96",
+            "fixture.tool-97",
+            "fixture.tool-98",
+            "fixture.tool-99",
+            "fixture.tool-100",
+            "fixture.tool-101",
+            "fixture.tool-102",
+            "fixture.tool-103",
+            "fixture.tool-104",
+            "fixture.tool-105",
+            "fixture.tool-106",
+            "fixture.tool-107",
+            "fixture.tool-108",
+            "fixture.tool-109",
+            "fixture.tool-110",
+            "fixture.tool-111",
+            "fixture.tool-112",
+            "fixture.tool-113",
+            "fixture.tool-114",
+            "fixture.tool-115",
+            "fixture.tool-116",
+            "fixture.tool-117",
+            "fixture.tool-118",
+            "fixture.tool-119",
+            "fixture.tool-120",
+            "fixture.tool-121",
+            "fixture.tool-122",
+            "fixture.tool-123",
+            "fixture.tool-124",
+            "fixture.tool-125",
+            "fixture.tool-126"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_2"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "names": [
+            "fixture.tool-0",
+            "last.accepted",
+            "overflow.rejected"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_2"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "names": [
+            "another.rejected"
+          ],
+          "op": "rememberOffers",
+          "sessionId": "ses_2"
+        }
+      },
+      {
+        "ok": [
+          "private.lookup",
+          "fixture.tool-0",
+          "fixture.tool-1",
+          "fixture.tool-2",
+          "fixture.tool-3",
+          "fixture.tool-4",
+          "fixture.tool-5",
+          "fixture.tool-6",
+          "fixture.tool-7",
+          "fixture.tool-8",
+          "fixture.tool-9",
+          "fixture.tool-10",
+          "fixture.tool-11",
+          "fixture.tool-12",
+          "fixture.tool-13",
+          "fixture.tool-14",
+          "fixture.tool-15",
+          "fixture.tool-16",
+          "fixture.tool-17",
+          "fixture.tool-18",
+          "fixture.tool-19",
+          "fixture.tool-20",
+          "fixture.tool-21",
+          "fixture.tool-22",
+          "fixture.tool-23",
+          "fixture.tool-24",
+          "fixture.tool-25",
+          "fixture.tool-26",
+          "fixture.tool-27",
+          "fixture.tool-28",
+          "fixture.tool-29",
+          "fixture.tool-30",
+          "fixture.tool-31",
+          "fixture.tool-32",
+          "fixture.tool-33",
+          "fixture.tool-34",
+          "fixture.tool-35",
+          "fixture.tool-36",
+          "fixture.tool-37",
+          "fixture.tool-38",
+          "fixture.tool-39",
+          "fixture.tool-40",
+          "fixture.tool-41",
+          "fixture.tool-42",
+          "fixture.tool-43",
+          "fixture.tool-44",
+          "fixture.tool-45",
+          "fixture.tool-46",
+          "fixture.tool-47",
+          "fixture.tool-48",
+          "fixture.tool-49",
+          "fixture.tool-50",
+          "fixture.tool-51",
+          "fixture.tool-52",
+          "fixture.tool-53",
+          "fixture.tool-54",
+          "fixture.tool-55",
+          "fixture.tool-56",
+          "fixture.tool-57",
+          "fixture.tool-58",
+          "fixture.tool-59",
+          "fixture.tool-60",
+          "fixture.tool-61",
+          "fixture.tool-62",
+          "fixture.tool-63",
+          "fixture.tool-64",
+          "fixture.tool-65",
+          "fixture.tool-66",
+          "fixture.tool-67",
+          "fixture.tool-68",
+          "fixture.tool-69",
+          "fixture.tool-70",
+          "fixture.tool-71",
+          "fixture.tool-72",
+          "fixture.tool-73",
+          "fixture.tool-74",
+          "fixture.tool-75",
+          "fixture.tool-76",
+          "fixture.tool-77",
+          "fixture.tool-78",
+          "fixture.tool-79",
+          "fixture.tool-80",
+          "fixture.tool-81",
+          "fixture.tool-82",
+          "fixture.tool-83",
+          "fixture.tool-84",
+          "fixture.tool-85",
+          "fixture.tool-86",
+          "fixture.tool-87",
+          "fixture.tool-88",
+          "fixture.tool-89",
+          "fixture.tool-90",
+          "fixture.tool-91",
+          "fixture.tool-92",
+          "fixture.tool-93",
+          "fixture.tool-94",
+          "fixture.tool-95",
+          "fixture.tool-96",
+          "fixture.tool-97",
+          "fixture.tool-98",
+          "fixture.tool-99",
+          "fixture.tool-100",
+          "fixture.tool-101",
+          "fixture.tool-102",
+          "fixture.tool-103",
+          "fixture.tool-104",
+          "fixture.tool-105",
+          "fixture.tool-106",
+          "fixture.tool-107",
+          "fixture.tool-108",
+          "fixture.tool-109",
+          "fixture.tool-110",
+          "fixture.tool-111",
+          "fixture.tool-112",
+          "fixture.tool-113",
+          "fixture.tool-114",
+          "fixture.tool-115",
+          "fixture.tool-116",
+          "fixture.tool-117",
+          "fixture.tool-118",
+          "fixture.tool-119",
+          "fixture.tool-120",
+          "fixture.tool-121",
+          "fixture.tool-122",
+          "fixture.tool-123",
+          "fixture.tool-124",
+          "fixture.tool-125",
+          "fixture.tool-126"
+        ],
+        "op": {
+          "op": "offers",
+          "sessionId": "ses_2"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "op": "reopen"
+        }
+      },
+      {
+        "ok": [
+          "private.lookup",
+          "fixture.tool-0",
+          "fixture.tool-1",
+          "fixture.tool-2",
+          "fixture.tool-3",
+          "fixture.tool-4",
+          "fixture.tool-5",
+          "fixture.tool-6",
+          "fixture.tool-7",
+          "fixture.tool-8",
+          "fixture.tool-9",
+          "fixture.tool-10",
+          "fixture.tool-11",
+          "fixture.tool-12",
+          "fixture.tool-13",
+          "fixture.tool-14",
+          "fixture.tool-15",
+          "fixture.tool-16",
+          "fixture.tool-17",
+          "fixture.tool-18",
+          "fixture.tool-19",
+          "fixture.tool-20",
+          "fixture.tool-21",
+          "fixture.tool-22",
+          "fixture.tool-23",
+          "fixture.tool-24",
+          "fixture.tool-25",
+          "fixture.tool-26",
+          "fixture.tool-27",
+          "fixture.tool-28",
+          "fixture.tool-29",
+          "fixture.tool-30",
+          "fixture.tool-31",
+          "fixture.tool-32",
+          "fixture.tool-33",
+          "fixture.tool-34",
+          "fixture.tool-35",
+          "fixture.tool-36",
+          "fixture.tool-37",
+          "fixture.tool-38",
+          "fixture.tool-39",
+          "fixture.tool-40",
+          "fixture.tool-41",
+          "fixture.tool-42",
+          "fixture.tool-43",
+          "fixture.tool-44",
+          "fixture.tool-45",
+          "fixture.tool-46",
+          "fixture.tool-47",
+          "fixture.tool-48",
+          "fixture.tool-49",
+          "fixture.tool-50",
+          "fixture.tool-51",
+          "fixture.tool-52",
+          "fixture.tool-53",
+          "fixture.tool-54",
+          "fixture.tool-55",
+          "fixture.tool-56",
+          "fixture.tool-57",
+          "fixture.tool-58",
+          "fixture.tool-59",
+          "fixture.tool-60",
+          "fixture.tool-61",
+          "fixture.tool-62",
+          "fixture.tool-63",
+          "fixture.tool-64",
+          "fixture.tool-65",
+          "fixture.tool-66",
+          "fixture.tool-67",
+          "fixture.tool-68",
+          "fixture.tool-69",
+          "fixture.tool-70",
+          "fixture.tool-71",
+          "fixture.tool-72",
+          "fixture.tool-73",
+          "fixture.tool-74",
+          "fixture.tool-75",
+          "fixture.tool-76",
+          "fixture.tool-77",
+          "fixture.tool-78",
+          "fixture.tool-79",
+          "fixture.tool-80",
+          "fixture.tool-81",
+          "fixture.tool-82",
+          "fixture.tool-83",
+          "fixture.tool-84",
+          "fixture.tool-85",
+          "fixture.tool-86",
+          "fixture.tool-87",
+          "fixture.tool-88",
+          "fixture.tool-89",
+          "fixture.tool-90",
+          "fixture.tool-91",
+          "fixture.tool-92",
+          "fixture.tool-93",
+          "fixture.tool-94",
+          "fixture.tool-95",
+          "fixture.tool-96",
+          "fixture.tool-97",
+          "fixture.tool-98",
+          "fixture.tool-99",
+          "fixture.tool-100",
+          "fixture.tool-101",
+          "fixture.tool-102",
+          "fixture.tool-103",
+          "fixture.tool-104",
+          "fixture.tool-105",
+          "fixture.tool-106",
+          "fixture.tool-107",
+          "fixture.tool-108",
+          "fixture.tool-109",
+          "fixture.tool-110",
+          "fixture.tool-111",
+          "fixture.tool-112",
+          "fixture.tool-113",
+          "fixture.tool-114",
+          "fixture.tool-115",
+          "fixture.tool-116",
+          "fixture.tool-117",
+          "fixture.tool-118",
+          "fixture.tool-119",
+          "fixture.tool-120",
+          "fixture.tool-121",
+          "fixture.tool-122",
+          "fixture.tool-123",
+          "fixture.tool-124",
+          "fixture.tool-125",
+          "fixture.tool-126"
+        ],
+        "op": {
+          "op": "offers",
+          "sessionId": "ses_2"
+        }
+      },
+      {
+        "ok": [
+          {
+            "name": "file.read",
+            "ordinal": 0,
+            "session_id": "ses_1"
+          },
+          {
+            "name": "exec.run",
+            "ordinal": 1,
+            "session_id": "ses_1"
+          },
+          {
+            "name": "web.fetch",
+            "ordinal": 2,
+            "session_id": "ses_1"
+          },
+          {
+            "name": "sys.startupItems",
+            "ordinal": 3,
+            "session_id": "ses_1"
+          },
+          {
+            "name": "valid.tool",
+            "ordinal": 4,
+            "session_id": "ses_1"
+          },
+          {
+            "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "ordinal": 5,
+            "session_id": "ses_1"
+          },
+          {
+            "name": "sys.startupitems",
+            "ordinal": 6,
+            "session_id": "ses_1"
+          },
+          {
+            "name": "a",
+            "ordinal": 7,
+            "session_id": "ses_1"
+          },
+          {
+            "name": "a-b_c.d",
+            "ordinal": 8,
+            "session_id": "ses_1"
+          }
+        ],
+        "op": {
+          "args": [],
+          "op": "sql",
+          "sql": "SELECT session_id, name, ordinal FROM session_tool_offers WHERE session_id='ses_1' ORDER BY ordinal"
+        }
+      },
+      {
+        "err": {
+          "message": "CHECK constraint failed: name='sys.startupItems' OR\n      (length(name) BETWEEN 1 AND 64 AND name GLOB '[a-z]*' AND name NOT GLOB '*[^a-z0-9_.-]*')",
+          "name": "Error"
+        },
+        "op": {
+          "op": "sqlWrite",
+          "sql": "INSERT INTO session_tool_offers(session_id,name,ordinal) VALUES ('ses_1','Bad',50)"
+        }
+      },
+      {
+        "err": {
+          "message": "CHECK constraint failed: ordinal>=0 AND ordinal<128",
+          "name": "Error"
+        },
+        "op": {
+          "op": "sqlWrite",
+          "sql": "INSERT INTO session_tool_offers(session_id,name,ordinal) VALUES ('ses_1','ok.name',128)"
+        }
+      },
+      {
+        "err": {
+          "message": "UNIQUE constraint failed: session_tool_offers.session_id, session_tool_offers.ordinal",
+          "name": "Error"
+        },
+        "op": {
+          "op": "sqlWrite",
+          "sql": "INSERT INTO session_tool_offers(session_id,name,ordinal) VALUES ('ses_1','ok.name',2)"
+        }
+      },
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": 1000000,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "id": "ses_1",
+          "op": "archive"
+        }
+      },
+      {
+        "ok": {
+          "messages": 0,
+          "tombstoneId": "era_3"
+        },
+        "op": {
+          "id": "ses_1",
+          "op": "erase",
+          "options": {
+            "actor": "a",
+            "reason": "r"
+          }
+        }
+      },
+      {
+        "ok": [
+          {
+            "n": 0
+          }
+        ],
+        "op": {
+          "args": [],
+          "op": "sql",
+          "sql": "SELECT count(*) AS n FROM session_tool_offers WHERE session_id='ses_1'"
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,1454 @@
+[
+  {
+    "final": {
+      "tables": {
+        "inbox_cooldowns": [],
+        "inbox_entries": [
+          [
+            1,
+            "e1",
+            "u1",
+            "system:a",
+            "system",
+            "info",
+            "inbox.test",
+            {},
+            null,
+            1000000,
+            null,
+            null
+          ],
+          [
+            2,
+            "e2",
+            "a1",
+            "channel:misconfigured:x",
+            "channel",
+            "warning",
+            "inbox.channel.misconfigured",
+            {
+              "channel": "x"
+            },
+            null,
+            1000000,
+            null,
+            null
+          ],
+          [
+            3,
+            "e3",
+            "a2",
+            "channel:misconfigured:x",
+            "channel",
+            "warning",
+            "inbox.channel.misconfigured",
+            {
+              "channel": "x"
+            },
+            null,
+            1000000,
+            null,
+            null
+          ],
+          [
+            4,
+            "e4",
+            "a3",
+            "channel:misconfigured:x",
+            "channel",
+            "warning",
+            "inbox.channel.misconfigured",
+            {
+              "channel": "x"
+            },
+            null,
+            1000000,
+            null,
+            null
+          ],
+          [
+            5,
+            "e5",
+            "a4",
+            "channel:misconfigured:x",
+            "channel",
+            "warning",
+            "inbox.channel.misconfigured",
+            {},
+            null,
+            1000000,
+            null,
+            null
+          ]
+        ]
+      }
+    },
+    "name": "publish-fan-out",
+    "ops": [
+      {
+        "events": [
+          {
+            "change": "created",
+            "kinds": [
+              "system"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "system:a",
+            "kind": "system",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u1"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        },
+        "ticks": [
+          "system"
+        ]
+      },
+      {
+        "op": {
+          "notice": {
+            "dedupeKey": "system:a",
+            "kind": "system",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u1"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "events": [
+          {
+            "change": "created",
+            "kinds": [
+              "channel"
+            ],
+            "userId": "a1"
+          },
+          {
+            "change": "created",
+            "kinds": [
+              "channel"
+            ],
+            "userId": "a2"
+          },
+          {
+            "change": "created",
+            "kinds": [
+              "channel"
+            ],
+            "userId": "a3"
+          }
+        ],
+        "op": {
+          "notice": {
+            "audience": "admins",
+            "dedupeKey": "channel:misconfigured:x",
+            "kind": "channel",
+            "params": {
+              "channel": "x"
+            },
+            "severity": "warning",
+            "titleKey": "inbox.channel.misconfigured"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        },
+        "ticks": [
+          "channel",
+          "channel",
+          "channel"
+        ]
+      },
+      {
+        "op": {
+          "notice": {
+            "audience": "admins",
+            "dedupeKey": "channel:misconfigured:x",
+            "kind": "channel",
+            "severity": "warning",
+            "titleKey": "inbox.channel.misconfigured"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "admins": [
+            "a1",
+            "a4"
+          ],
+          "op": "admins"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "events": [
+          {
+            "change": "created",
+            "kinds": [
+              "channel"
+            ],
+            "userId": "a4"
+          }
+        ],
+        "op": {
+          "notice": {
+            "audience": "admins",
+            "dedupeKey": "channel:misconfigured:x",
+            "kind": "channel",
+            "severity": "warning",
+            "titleKey": "inbox.channel.misconfigured"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        },
+        "ticks": [
+          "channel"
+        ]
+      },
+      {
+        "op": {
+          "admins": [],
+          "op": "admins"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "notice": {
+            "audience": "admins",
+            "dedupeKey": "system:none",
+            "kind": "system",
+            "severity": "info",
+            "titleKey": "inbox.t"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "op": "count",
+          "user": "a1"
+        },
+        "out": {
+          "ok": {
+            "total": 1,
+            "unread": {
+              "approval": 0,
+              "breakglass": 0,
+              "channel": 1,
+              "job-failed": 0,
+              "media-index": 0,
+              "pairing": 0,
+              "system": 0,
+              "update": 0
+            }
+          }
+        }
+      },
+      {
+        "op": {
+          "op": "list",
+          "q": {},
+          "user": "a4"
+        },
+        "out": {
+          "ok": {
+            "entries": [
+              {
+                "createdAt": 1000000,
+                "dismissedAt": null,
+                "id": "e5",
+                "kind": "channel",
+                "params": {},
+                "readAt": null,
+                "ref": null,
+                "severity": "warning",
+                "titleKey": "inbox.channel.misconfigured"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "world": {
+      "admins": [
+        "a1",
+        "a2",
+        "a1",
+        "a3"
+      ]
+    }
+  },
+  {
+    "final": {
+      "tables": {
+        "inbox_cooldowns": [
+          [
+            "u1",
+            "cause",
+            1001000,
+            "e2"
+          ]
+        ],
+        "inbox_entries": [
+          [
+            1,
+            "e1",
+            "u1",
+            "rate:e1",
+            "system",
+            "info",
+            "inbox.test",
+            {},
+            null,
+            1000000,
+            null,
+            null
+          ],
+          [
+            2,
+            "e2",
+            "u1",
+            "rate:e2",
+            "system",
+            "info",
+            "inbox.test",
+            {},
+            null,
+            1001000,
+            null,
+            null
+          ]
+        ]
+      }
+    },
+    "name": "rate-limited-publish",
+    "ops": [
+      {
+        "events": [
+          {
+            "change": "created",
+            "kinds": [
+              "system"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "cause",
+            "kind": "system",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u1"
+          },
+          "op": "publish",
+          "options": {
+            "cooldownMs": 1000
+          }
+        },
+        "out": {
+          "ok": null
+        },
+        "ticks": [
+          "system"
+        ]
+      },
+      {
+        "op": {
+          "notice": {
+            "dedupeKey": "cause",
+            "kind": "system",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u1"
+          },
+          "op": "publish",
+          "options": {
+            "cooldownMs": 1000
+          }
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "ms": 1000,
+          "op": "advance"
+        },
+        "out": {
+          "ok": 1001000
+        }
+      },
+      {
+        "events": [
+          {
+            "change": "created",
+            "kinds": [
+              "system"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "cause",
+            "kind": "system",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u1"
+          },
+          "op": "publish",
+          "options": {
+            "cooldownMs": 1000
+          }
+        },
+        "out": {
+          "ok": null
+        },
+        "ticks": [
+          "system"
+        ]
+      },
+      {
+        "logs": [
+          {
+            "fields": {
+              "error": "cooldownMs must be a positive safe integer",
+              "kind": "system"
+            },
+            "message": "inbox publish failed"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "c2",
+            "kind": "system",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u1"
+          },
+          "op": "publish",
+          "options": {
+            "cooldownMs": 0
+          }
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "op": "list",
+          "q": {},
+          "user": "u1"
+        },
+        "out": {
+          "ok": {
+            "entries": [
+              {
+                "createdAt": 1001000,
+                "dismissedAt": null,
+                "id": "e2",
+                "kind": "system",
+                "params": {},
+                "readAt": null,
+                "ref": null,
+                "severity": "info",
+                "titleKey": "inbox.test"
+              },
+              {
+                "createdAt": 1000000,
+                "dismissedAt": null,
+                "id": "e1",
+                "kind": "system",
+                "params": {},
+                "readAt": null,
+                "ref": null,
+                "severity": "info",
+                "titleKey": "inbox.test"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "world": {
+      "admins": [
+        "a1"
+      ]
+    }
+  },
+  {
+    "final": {
+      "tables": {
+        "inbox_cooldowns": [],
+        "inbox_entries": [
+          [
+            1,
+            "e1",
+            "u1",
+            "system:a",
+            "system",
+            "info",
+            "inbox.test",
+            {},
+            null,
+            1000000,
+            1000000,
+            null
+          ],
+          [
+            2,
+            "e2",
+            "u1",
+            "system:b",
+            "system",
+            "info",
+            "inbox.test",
+            {},
+            null,
+            1000000,
+            1000000,
+            1000000
+          ],
+          [
+            3,
+            "e3",
+            "u1",
+            "system:c",
+            "system",
+            "info",
+            "inbox.test",
+            {},
+            null,
+            1000000,
+            1000000,
+            1000000
+          ]
+        ]
+      }
+    },
+    "name": "a-store-or-listener-failure-never-reaches-the-source",
+    "ops": [
+      {
+        "logs": [
+          {
+            "fields": {
+              "error": "userId is required",
+              "kind": "system"
+            },
+            "message": "inbox publish failed"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "system:a",
+            "kind": "system",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": ""
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "logs": [
+          {
+            "fields": {
+              "error": "unknown inbox kind",
+              "kind": "nope"
+            },
+            "message": "inbox publish failed"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "system:a",
+            "kind": "nope",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u1"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "logs": [
+          {
+            "fields": {
+              "error": "titleKey must be an i18n key",
+              "kind": "system"
+            },
+            "message": "inbox publish failed"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "system:a",
+            "kind": "system",
+            "severity": "info",
+            "titleKey": "BAD",
+            "userId": "u1"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "logs": [
+          {
+            "fields": {
+              "error": "params hold short scalars only",
+              "kind": "system"
+            },
+            "message": "inbox publish failed"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "system:a",
+            "kind": "system",
+            "params": {
+              "a": [
+                1
+              ]
+            },
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u1"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "on": true,
+          "op": "failListener"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "events": [
+          {
+            "change": "created",
+            "kinds": [
+              "system"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "logs": [
+          {
+            "fields": {
+              "error": "listener boom"
+            },
+            "message": "inbox change listener failed"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "system:a",
+            "kind": "system",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u1"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        },
+        "ticks": [
+          "system"
+        ]
+      },
+      {
+        "events": [
+          {
+            "change": "created",
+            "kinds": [
+              "system"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "logs": [
+          {
+            "fields": {
+              "error": "listener boom"
+            },
+            "message": "inbox change listener failed"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "system:b",
+            "kind": "system",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u1"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        },
+        "ticks": [
+          "system"
+        ]
+      },
+      {
+        "events": [
+          {
+            "change": "settled",
+            "kinds": [
+              "system"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "logs": [
+          {
+            "fields": {
+              "error": "listener boom"
+            },
+            "message": "inbox change listener failed"
+          }
+        ],
+        "op": {
+          "key": "system:b",
+          "op": "settle",
+          "target": {
+            "userId": "u1"
+          }
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "events": [
+          {
+            "change": "read",
+            "kinds": [
+              "system"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "logs": [
+          {
+            "fields": {
+              "error": "listener boom"
+            },
+            "message": "inbox change listener failed"
+          }
+        ],
+        "op": {
+          "ids": [
+            "e1"
+          ],
+          "op": "markRead",
+          "user": "u1"
+        },
+        "out": {
+          "ok": 1
+        }
+      },
+      {
+        "op": {
+          "on": false,
+          "op": "failListener"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "on": true,
+          "op": "failMetric"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "events": [
+          {
+            "change": "created",
+            "kinds": [
+              "system"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "system:c",
+            "kind": "system",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u1"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        },
+        "ticks": [
+          "system"
+        ]
+      },
+      {
+        "op": {
+          "on": false,
+          "op": "failMetric"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "events": [
+          {
+            "change": "settled",
+            "kinds": [
+              "system"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "op": {
+          "key": "system:c",
+          "op": "settle",
+          "target": {
+            "audience": "all"
+          }
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "key": "system:c",
+          "op": "settle",
+          "target": {
+            "audience": "admins"
+          }
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "key": "nokind",
+          "op": "settle",
+          "target": {
+            "userId": "u1"
+          }
+        },
+        "out": {
+          "ok": null
+        }
+      }
+    ],
+    "world": {
+      "admins": [
+        "a1"
+      ]
+    }
+  },
+  {
+    "final": {
+      "tables": {
+        "inbox_cooldowns": [],
+        "inbox_entries": [
+          [
+            1,
+            "e1",
+            "a1",
+            "job-failed:r1",
+            "job-failed",
+            "warning",
+            "inbox.jobFailed",
+            {},
+            null,
+            1000000,
+            1000000,
+            1000000
+          ],
+          [
+            2,
+            "e2",
+            "a2",
+            "job-failed:r1",
+            "job-failed",
+            "warning",
+            "inbox.jobFailed",
+            {},
+            null,
+            1000000,
+            1000000,
+            1000000
+          ],
+          [
+            3,
+            "e3",
+            "u1",
+            "approval:1",
+            "approval",
+            "info",
+            "inbox.test",
+            {},
+            null,
+            1000000,
+            1000000,
+            1000000
+          ],
+          [
+            4,
+            "e4",
+            "u2",
+            "approval:1",
+            "approval",
+            "info",
+            "inbox.test",
+            {},
+            null,
+            1000000,
+            1000000,
+            1000000
+          ],
+          [
+            5,
+            "e5",
+            "u1",
+            "pairing:p1",
+            "pairing",
+            "info",
+            "inbox.test",
+            {},
+            null,
+            1000000,
+            1000000,
+            1000000
+          ],
+          [
+            6,
+            "e6",
+            "u1",
+            "channel:c1",
+            "channel",
+            "info",
+            "inbox.test",
+            {},
+            null,
+            1000000,
+            1000000,
+            1000000
+          ]
+        ]
+      }
+    },
+    "name": "settle-and-state-changes",
+    "ops": [
+      {
+        "events": [
+          {
+            "change": "created",
+            "kinds": [
+              "job-failed"
+            ],
+            "userId": "a1"
+          },
+          {
+            "change": "created",
+            "kinds": [
+              "job-failed"
+            ],
+            "userId": "a2"
+          }
+        ],
+        "op": {
+          "notice": {
+            "audience": "admins",
+            "dedupeKey": "job-failed:r1",
+            "kind": "job-failed",
+            "severity": "warning",
+            "titleKey": "inbox.jobFailed"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        },
+        "ticks": [
+          "job-failed",
+          "job-failed"
+        ]
+      },
+      {
+        "events": [
+          {
+            "change": "created",
+            "kinds": [
+              "approval"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "approval:1",
+            "kind": "approval",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u1"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        },
+        "ticks": [
+          "approval"
+        ]
+      },
+      {
+        "events": [
+          {
+            "change": "created",
+            "kinds": [
+              "approval"
+            ],
+            "userId": "u2"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "approval:1",
+            "kind": "approval",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u2"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        },
+        "ticks": [
+          "approval"
+        ]
+      },
+      {
+        "events": [
+          {
+            "change": "settled",
+            "kinds": [
+              "approval"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "op": {
+          "key": "approval:1",
+          "op": "settle",
+          "target": {
+            "userId": "u1"
+          }
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "key": "approval:1",
+          "op": "settle",
+          "target": {
+            "userId": "u1"
+          }
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "events": [
+          {
+            "change": "settled",
+            "kinds": [
+              "approval"
+            ],
+            "userId": "u2"
+          }
+        ],
+        "op": {
+          "key": "approval:1",
+          "op": "settle",
+          "target": {
+            "audience": "all"
+          }
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "key": "approval:1",
+          "op": "settle",
+          "target": {
+            "audience": "all"
+          }
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "events": [
+          {
+            "change": "settled",
+            "kinds": [
+              "job-failed"
+            ],
+            "userId": "a1"
+          },
+          {
+            "change": "settled",
+            "kinds": [
+              "job-failed"
+            ],
+            "userId": "a2"
+          }
+        ],
+        "op": {
+          "key": "job-failed:r1",
+          "op": "settle",
+          "target": {
+            "audience": "admins"
+          }
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "key": "job-failed:r1",
+          "op": "settle",
+          "target": {
+            "audience": "admins"
+          }
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "events": [
+          {
+            "change": "created",
+            "kinds": [
+              "pairing"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "pairing:p1",
+            "kind": "pairing",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u1"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        },
+        "ticks": [
+          "pairing"
+        ]
+      },
+      {
+        "events": [
+          {
+            "change": "created",
+            "kinds": [
+              "channel"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "op": {
+          "notice": {
+            "dedupeKey": "channel:c1",
+            "kind": "channel",
+            "severity": "info",
+            "titleKey": "inbox.test",
+            "userId": "u1"
+          },
+          "op": "publish"
+        },
+        "out": {
+          "ok": null
+        },
+        "ticks": [
+          "channel"
+        ]
+      },
+      {
+        "events": [
+          {
+            "change": "read",
+            "kinds": [
+              "pairing"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "op": {
+          "ids": [
+            "e5"
+          ],
+          "op": "markRead",
+          "user": "u1"
+        },
+        "out": {
+          "ok": 1
+        }
+      },
+      {
+        "op": {
+          "ids": [
+            "e5"
+          ],
+          "op": "markRead",
+          "user": "u1"
+        },
+        "out": {
+          "ok": 0
+        }
+      },
+      {
+        "events": [
+          {
+            "change": "read",
+            "kinds": [
+              "channel"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "op": {
+          "ids": "all",
+          "op": "markRead",
+          "user": "u1"
+        },
+        "out": {
+          "ok": 1
+        }
+      },
+      {
+        "op": {
+          "ids": "all",
+          "op": "markRead",
+          "user": "u1"
+        },
+        "out": {
+          "ok": 0
+        }
+      },
+      {
+        "events": [
+          {
+            "change": "dismissed",
+            "kinds": [
+              "channel",
+              "pairing"
+            ],
+            "userId": "u1"
+          }
+        ],
+        "op": {
+          "ids": [
+            "e5",
+            "e6",
+            "zz"
+          ],
+          "op": "dismiss",
+          "user": "u1"
+        },
+        "out": {
+          "ok": 2
+        }
+      },
+      {
+        "op": {
+          "ids": [
+            "e5"
+          ],
+          "op": "dismiss",
+          "user": "u1"
+        },
+        "out": {
+          "ok": 0
+        }
+      },
+      {
+        "op": {
+          "ids": [],
+          "op": "dismiss",
+          "user": "u1"
+        },
+        "out": {
+          "err": {
+            "code": "invalid",
+            "message": "ids must be 1-500 entry ids",
+            "name": "InboxError"
+          }
+        }
+      },
+      {
+        "op": {
+          "ids": [
+            ""
+          ],
+          "op": "markRead",
+          "user": "u1"
+        },
+        "out": {
+          "err": {
+            "code": "invalid",
+            "message": "ids must be 1-500 entry ids",
+            "name": "InboxError"
+          }
+        }
+      },
+      {
+        "op": {
+          "op": "count",
+          "user": "u1"
+        },
+        "out": {
+          "ok": {
+            "total": 0,
+            "unread": {
+              "approval": 0,
+              "breakglass": 0,
+              "channel": 0,
+              "job-failed": 0,
+              "media-index": 0,
+              "pairing": 0,
+              "system": 0,
+              "update": 0
+            }
+          }
+        }
+      },
+      {
+        "op": {
+          "op": "list",
+          "q": {
+            "includeDismissed": true
+          },
+          "user": "u1"
+        },
+        "out": {
+          "ok": {
+            "entries": [
+              {
+                "createdAt": 1000000,
+                "dismissedAt": 1000000,
+                "id": "e6",
+                "kind": "channel",
+                "params": {},
+                "readAt": 1000000,
+                "ref": null,
+                "severity": "info",
+                "titleKey": "inbox.test"
+              },
+              {
+                "createdAt": 1000000,
+                "dismissedAt": 1000000,
+                "id": "e5",
+                "kind": "pairing",
+                "params": {},
+                "readAt": 1000000,
+                "ref": null,
+                "severity": "info",
+                "titleKey": "inbox.test"
+              },
+              {
+                "createdAt": 1000000,
+                "dismissedAt": 1000000,
+                "id": "e3",
+                "kind": "approval",
+                "params": {},
+                "readAt": 1000000,
+                "ref": null,
+                "severity": "info",
+                "titleKey": "inbox.test"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "world": {
+      "admins": [
+        "a1",
+        "a2"
+      ]
+    }
+  }
+]

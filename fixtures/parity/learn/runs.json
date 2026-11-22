@@ -1,0 +1,1033 @@
+[
+  {
+    "config": {
+      "enabled": true,
+      "focus": "fixture focus",
+      "maxSessions": 50,
+      "maxTokens": 100000
+    },
+    "expected": {
+      "calls": [
+        {
+          "data": {
+            "data": {
+              "events": [],
+              "focus": "fixture focus",
+              "messages": [
+                {
+                  "createdAt": 50,
+                  "id": "message-one",
+                  "role": "user",
+                  "seq": 1,
+                  "sessionId": "one",
+                  "text": "Example statement",
+                  "tokens": 2,
+                  "turnId": "turn-one"
+                }
+              ],
+              "vocabulary": []
+            },
+            "type": "UNTRUSTED_DATA"
+          },
+          "maxOutputTokens": 4096,
+          "modelClass": "small",
+          "stage": "extract"
+        }
+      ],
+      "findings": [
+        {
+          "agreement": "unknown",
+          "change": "add",
+          "contentKey": "fixture",
+          "desiredTier": "C",
+          "effectiveTier": "C",
+          "evidence": [
+            {
+              "agentId": "alpha",
+              "day": "1970-01-01",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "sessionId": "one",
+              "source": "message",
+              "sourceId": "message-one",
+              "trust": "person",
+              "turnId": "turn-one"
+            }
+          ],
+          "id": "0032f0e9abf004b1de52c80203a41b4e1ce9865462c89548b754190d89554297",
+          "kind": "knowledge",
+          "modelClasses": [
+            "small"
+          ],
+          "models": [
+            "fixture-small"
+          ],
+          "prevalence": {
+            "agents": 1,
+            "days": 1,
+            "persons": 1,
+            "sessions": 1,
+            "total": 1
+          },
+          "promptVersion": "learn-2",
+          "revision": 1,
+          "runId": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+          "score": 0,
+          "skeptic": "not-required",
+          "status": "pending",
+          "target": {
+            "agentId": "alpha",
+            "owner": "ada",
+            "scope": "agent"
+          },
+          "text": "Scoped fixture observation",
+          "verify": "not-applicable"
+        }
+      ],
+      "notices": [
+        {
+          "pending": 1,
+          "waitingH3": 0
+        }
+      ],
+      "run": {
+        "digest": "86df4416280ec5ababb0cd9fb0fa0c765a04c00ba6899e600b0c583497258756",
+        "findings": 1,
+        "finishedAt": 200,
+        "id": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+        "omittedSessions": 0,
+        "outcome": "completed",
+        "reason": null,
+        "sessionIds": [
+          "one"
+        ],
+        "startedAt": 200,
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "tokens": 7,
+        "truncated": false,
+        "window": {
+          "from": 1,
+          "to": 101
+        }
+      }
+    },
+    "name": "completed",
+    "snapshot": "[{\"session\":{\"id\":\"one\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"kind\":\"direct\",\"createdAt\":1,\"lastTurnAt\":60,\"updatedAt\":60,\"archivedAt\":null,\"pinned\":false,\"memoryMode\":\"remember\",\"chatKey\":null,\"title\":\"\",\"turnCount\":1},\"messages\":[{\"id\":\"message-one\",\"sessionId\":\"one\",\"turnId\":\"turn-one\",\"seq\":1,\"role\":\"user\",\"text\":\"Example statement\",\"tokens\":2,\"createdAt\":50}],\"events\":[],\"days\":[\"1970-01-01\"]}]"
+  },
+  {
+    "config": {
+      "enabled": false,
+      "focus": "fixture focus",
+      "maxSessions": 50,
+      "maxTokens": 100000
+    },
+    "expected": {
+      "calls": [],
+      "findings": [],
+      "notices": [
+        {
+          "pending": 0,
+          "waitingH3": 0
+        }
+      ],
+      "run": {
+        "digest": "",
+        "findings": 0,
+        "finishedAt": 200,
+        "id": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+        "outcome": "skipped",
+        "reason": "disabled",
+        "sessionIds": [],
+        "startedAt": 200,
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "tokens": 0,
+        "window": {
+          "from": 1,
+          "to": 101
+        }
+      }
+    },
+    "name": "disabled",
+    "snapshot": "[{\"session\":{\"id\":\"one\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"kind\":\"direct\",\"createdAt\":1,\"lastTurnAt\":60,\"updatedAt\":60,\"archivedAt\":null,\"pinned\":false,\"memoryMode\":\"remember\",\"chatKey\":null,\"title\":\"\",\"turnCount\":1},\"messages\":[{\"id\":\"message-one\",\"sessionId\":\"one\",\"turnId\":\"turn-one\",\"seq\":1,\"role\":\"user\",\"text\":\"Example statement\",\"tokens\":2,\"createdAt\":50}],\"events\":[],\"days\":[\"1970-01-01\"]}]"
+  },
+  {
+    "config": {
+      "enabled": true,
+      "focus": "fixture focus",
+      "maxSessions": 50,
+      "maxTokens": 100000
+    },
+    "expected": {
+      "calls": [],
+      "findings": [],
+      "notices": [
+        {
+          "pending": 0,
+          "waitingH3": 0
+        }
+      ],
+      "run": {
+        "digest": "",
+        "findings": 0,
+        "finishedAt": 200,
+        "id": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+        "outcome": "skipped",
+        "reason": "rights-changed",
+        "sessionIds": [],
+        "startedAt": 200,
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "tokens": 0,
+        "window": {
+          "from": 1,
+          "to": 101
+        }
+      }
+    },
+    "name": "lost identity",
+    "snapshot": "[{\"session\":{\"id\":\"one\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"kind\":\"direct\",\"createdAt\":1,\"lastTurnAt\":60,\"updatedAt\":60,\"archivedAt\":null,\"pinned\":false,\"memoryMode\":\"remember\",\"chatKey\":null,\"title\":\"\",\"turnCount\":1},\"messages\":[{\"id\":\"message-one\",\"sessionId\":\"one\",\"turnId\":\"turn-one\",\"seq\":1,\"role\":\"user\",\"text\":\"Example statement\",\"tokens\":2,\"createdAt\":50}],\"events\":[],\"days\":[\"1970-01-01\"]}]"
+  },
+  {
+    "config": {
+      "enabled": true,
+      "focus": "fixture focus",
+      "maxSessions": 50,
+      "maxTokens": 100000
+    },
+    "expected": {
+      "calls": [],
+      "findings": [],
+      "notices": [
+        {
+          "pending": 0,
+          "waitingH3": 0
+        }
+      ],
+      "run": {
+        "digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "findings": 0,
+        "finishedAt": 200,
+        "id": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+        "omittedSessions": 0,
+        "outcome": "skipped",
+        "reason": "no-sessions",
+        "sessionIds": [],
+        "startedAt": 200,
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "tokens": 0,
+        "truncated": false,
+        "window": {
+          "from": 1,
+          "to": 101
+        }
+      }
+    },
+    "name": "no sessions",
+    "snapshot": "[]"
+  },
+  {
+    "config": {
+      "enabled": true,
+      "focus": "fixture focus",
+      "maxSessions": 50,
+      "maxTokens": 100000
+    },
+    "expected": {
+      "calls": [],
+      "findings": [],
+      "notices": [
+        {
+          "pending": 0,
+          "waitingH3": 0
+        }
+      ],
+      "run": {
+        "digest": "",
+        "findings": 0,
+        "finishedAt": 200,
+        "id": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+        "outcome": "failed",
+        "reason": "source-unavailable",
+        "sessionIds": [],
+        "startedAt": 200,
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "tokens": 0,
+        "window": {
+          "from": 1,
+          "to": 101
+        }
+      }
+    },
+    "name": "source unavailable",
+    "snapshot": "[{\"session\":{\"id\":\"one\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"kind\":\"direct\",\"createdAt\":1,\"lastTurnAt\":60,\"updatedAt\":60,\"archivedAt\":null,\"pinned\":false,\"memoryMode\":\"remember\",\"chatKey\":null,\"title\":\"\",\"turnCount\":1},\"messages\":[{\"id\":\"message-one\",\"sessionId\":\"one\",\"turnId\":\"turn-one\",\"seq\":1,\"role\":\"user\",\"text\":\"Example statement\",\"tokens\":2,\"createdAt\":50}],\"events\":[],\"days\":[\"1970-01-01\"]}]"
+  },
+  {
+    "config": {
+      "enabled": true,
+      "focus": "fixture focus",
+      "maxSessions": 1,
+      "maxTokens": 100000
+    },
+    "expected": {
+      "calls": [
+        {
+          "data": {
+            "data": {
+              "events": [],
+              "focus": "fixture focus",
+              "messages": [
+                {
+                  "createdAt": 50,
+                  "id": "message-one",
+                  "role": "user",
+                  "seq": 1,
+                  "sessionId": "one",
+                  "text": "Example statement",
+                  "tokens": 2,
+                  "turnId": "turn-one"
+                }
+              ],
+              "vocabulary": []
+            },
+            "type": "UNTRUSTED_DATA"
+          },
+          "maxOutputTokens": 4096,
+          "modelClass": "small",
+          "stage": "extract"
+        }
+      ],
+      "findings": [
+        {
+          "agreement": "unknown",
+          "change": "add",
+          "contentKey": "fixture",
+          "desiredTier": "C",
+          "effectiveTier": "C",
+          "evidence": [
+            {
+              "agentId": "alpha",
+              "day": "1970-01-01",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "sessionId": "one",
+              "source": "message",
+              "sourceId": "message-one",
+              "trust": "person",
+              "turnId": "turn-one"
+            }
+          ],
+          "id": "0032f0e9abf004b1de52c80203a41b4e1ce9865462c89548b754190d89554297",
+          "kind": "knowledge",
+          "modelClasses": [
+            "small"
+          ],
+          "models": [
+            "fixture-small"
+          ],
+          "prevalence": {
+            "agents": 1,
+            "days": 1,
+            "persons": 1,
+            "sessions": 1,
+            "total": 1
+          },
+          "promptVersion": "learn-2",
+          "revision": 1,
+          "runId": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+          "score": 0,
+          "skeptic": "not-required",
+          "status": "pending",
+          "target": {
+            "agentId": "alpha",
+            "owner": "ada",
+            "scope": "agent"
+          },
+          "text": "Scoped fixture observation",
+          "verify": "not-applicable"
+        }
+      ],
+      "notices": [
+        {
+          "pending": 1,
+          "waitingH3": 0
+        }
+      ],
+      "run": {
+        "digest": "86df4416280ec5ababb0cd9fb0fa0c765a04c00ba6899e600b0c583497258756",
+        "findings": 1,
+        "finishedAt": 200,
+        "id": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+        "omittedSessions": 1,
+        "outcome": "completed",
+        "reason": null,
+        "sessionIds": [
+          "one"
+        ],
+        "startedAt": 200,
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "tokens": 7,
+        "truncated": true,
+        "window": {
+          "from": 1,
+          "to": 101
+        }
+      }
+    },
+    "name": "capped",
+    "snapshot": "[{\"session\":{\"id\":\"one\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"kind\":\"direct\",\"createdAt\":1,\"lastTurnAt\":60,\"updatedAt\":60,\"archivedAt\":null,\"pinned\":false,\"memoryMode\":\"remember\",\"chatKey\":null,\"title\":\"\",\"turnCount\":1},\"messages\":[{\"id\":\"message-one\",\"sessionId\":\"one\",\"turnId\":\"turn-one\",\"seq\":1,\"role\":\"user\",\"text\":\"Example statement\",\"tokens\":2,\"createdAt\":50}],\"events\":[],\"days\":[\"1970-01-01\"]},{\"session\":{\"id\":\"two\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"kind\":\"direct\",\"createdAt\":1,\"lastTurnAt\":60,\"updatedAt\":60,\"archivedAt\":null,\"pinned\":false,\"memoryMode\":\"remember\",\"chatKey\":null,\"title\":\"\",\"turnCount\":1},\"messages\":[{\"id\":\"message-two\",\"sessionId\":\"two\",\"turnId\":\"turn-two\",\"seq\":1,\"role\":\"user\",\"text\":\"Example statement\",\"tokens\":2,\"createdAt\":50}],\"events\":[],\"days\":[\"1970-01-01\"]}]"
+  },
+  {
+    "config": {
+      "enabled": true,
+      "focus": "fixture focus",
+      "maxSessions": 50,
+      "maxTokens": 100
+    },
+    "expected": {
+      "calls": [],
+      "findings": [],
+      "notices": [
+        {
+          "pending": 0,
+          "waitingH3": 0
+        }
+      ],
+      "run": {
+        "digest": "86df4416280ec5ababb0cd9fb0fa0c765a04c00ba6899e600b0c583497258756",
+        "findings": 0,
+        "finishedAt": 200,
+        "id": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+        "omittedSessions": 0,
+        "outcome": "skipped",
+        "reason": "budget",
+        "sessionIds": [
+          "one"
+        ],
+        "startedAt": 200,
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "tokens": 0,
+        "truncated": false,
+        "window": {
+          "from": 1,
+          "to": 101
+        }
+      }
+    },
+    "name": "budget",
+    "snapshot": "[{\"session\":{\"id\":\"one\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"kind\":\"direct\",\"createdAt\":1,\"lastTurnAt\":60,\"updatedAt\":60,\"archivedAt\":null,\"pinned\":false,\"memoryMode\":\"remember\",\"chatKey\":null,\"title\":\"\",\"turnCount\":1},\"messages\":[{\"id\":\"message-one\",\"sessionId\":\"one\",\"turnId\":\"turn-one\",\"seq\":1,\"role\":\"user\",\"text\":\"Example statement\",\"tokens\":2,\"createdAt\":50}],\"events\":[],\"days\":[\"1970-01-01\"]}]"
+  },
+  {
+    "config": {
+      "enabled": true,
+      "focus": "fixture focus",
+      "maxSessions": 50,
+      "maxTokens": 100000
+    },
+    "expected": {
+      "calls": [
+        {
+          "data": {
+            "data": {
+              "events": [],
+              "focus": "fixture focus",
+              "messages": [
+                {
+                  "createdAt": 50,
+                  "id": "message-one",
+                  "role": "user",
+                  "seq": 1,
+                  "sessionId": "one",
+                  "text": "Example statement",
+                  "tokens": 2,
+                  "turnId": "turn-one"
+                }
+              ],
+              "vocabulary": []
+            },
+            "type": "UNTRUSTED_DATA"
+          },
+          "maxOutputTokens": 4096,
+          "modelClass": "small",
+          "stage": "extract"
+        }
+      ],
+      "findings": [],
+      "notices": [
+        {
+          "pending": 0,
+          "waitingH3": 0
+        }
+      ],
+      "run": {
+        "digest": "86df4416280ec5ababb0cd9fb0fa0c765a04c00ba6899e600b0c583497258756",
+        "findings": 0,
+        "finishedAt": 200,
+        "id": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+        "omittedSessions": 0,
+        "outcome": "failed",
+        "reason": "provider-failed",
+        "sessionIds": [
+          "one"
+        ],
+        "startedAt": 200,
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "tokens": 5843,
+        "truncated": false,
+        "window": {
+          "from": 1,
+          "to": 101
+        }
+      }
+    },
+    "name": "provider failure",
+    "snapshot": "[{\"session\":{\"id\":\"one\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"kind\":\"direct\",\"createdAt\":1,\"lastTurnAt\":60,\"updatedAt\":60,\"archivedAt\":null,\"pinned\":false,\"memoryMode\":\"remember\",\"chatKey\":null,\"title\":\"\",\"turnCount\":1},\"messages\":[{\"id\":\"message-one\",\"sessionId\":\"one\",\"turnId\":\"turn-one\",\"seq\":1,\"role\":\"user\",\"text\":\"Example statement\",\"tokens\":2,\"createdAt\":50}],\"events\":[],\"days\":[\"1970-01-01\"]}]"
+  },
+  {
+    "config": {
+      "enabled": true,
+      "focus": "fixture focus",
+      "maxSessions": 50,
+      "maxTokens": 100000
+    },
+    "expected": {
+      "calls": [
+        {
+          "data": {
+            "data": {
+              "events": [],
+              "focus": "fixture focus",
+              "messages": [
+                {
+                  "createdAt": 50,
+                  "id": "message-one",
+                  "role": "user",
+                  "seq": 1,
+                  "sessionId": "one",
+                  "text": "Example statement",
+                  "tokens": 2,
+                  "turnId": "turn-one"
+                }
+              ],
+              "vocabulary": []
+            },
+            "type": "UNTRUSTED_DATA"
+          },
+          "maxOutputTokens": 4096,
+          "modelClass": "small",
+          "stage": "extract"
+        }
+      ],
+      "findings": [],
+      "notices": [
+        {
+          "pending": 0,
+          "waitingH3": 0
+        }
+      ],
+      "run": {
+        "digest": "86df4416280ec5ababb0cd9fb0fa0c765a04c00ba6899e600b0c583497258756",
+        "findings": 0,
+        "finishedAt": 200,
+        "id": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+        "omittedSessions": 0,
+        "outcome": "failed",
+        "reason": "provider-failed",
+        "sessionIds": [
+          "one"
+        ],
+        "startedAt": 200,
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "tokens": 5843,
+        "truncated": false,
+        "window": {
+          "from": 1,
+          "to": 101
+        }
+      }
+    },
+    "name": "unmeasured response",
+    "snapshot": "[{\"session\":{\"id\":\"one\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"kind\":\"direct\",\"createdAt\":1,\"lastTurnAt\":60,\"updatedAt\":60,\"archivedAt\":null,\"pinned\":false,\"memoryMode\":\"remember\",\"chatKey\":null,\"title\":\"\",\"turnCount\":1},\"messages\":[{\"id\":\"message-one\",\"sessionId\":\"one\",\"turnId\":\"turn-one\",\"seq\":1,\"role\":\"user\",\"text\":\"Example statement\",\"tokens\":2,\"createdAt\":50}],\"events\":[],\"days\":[\"1970-01-01\"]}]"
+  },
+  {
+    "config": {
+      "enabled": true,
+      "focus": "fixture focus",
+      "maxSessions": 50,
+      "maxTokens": 100000
+    },
+    "expected": {
+      "calls": [
+        {
+          "data": {
+            "data": {
+              "events": [],
+              "focus": "fixture focus",
+              "messages": [
+                {
+                  "createdAt": 50,
+                  "id": "message-one",
+                  "role": "user",
+                  "seq": 1,
+                  "sessionId": "one",
+                  "text": "Example statement",
+                  "tokens": 2,
+                  "turnId": "turn-one"
+                }
+              ],
+              "vocabulary": []
+            },
+            "type": "UNTRUSTED_DATA"
+          },
+          "maxOutputTokens": 4096,
+          "modelClass": "small",
+          "stage": "extract"
+        }
+      ],
+      "findings": [],
+      "notices": [
+        {
+          "pending": 0,
+          "waitingH3": 0
+        }
+      ],
+      "run": {
+        "digest": "86df4416280ec5ababb0cd9fb0fa0c765a04c00ba6899e600b0c583497258756",
+        "findings": 0,
+        "finishedAt": 200,
+        "id": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+        "omittedSessions": 0,
+        "outcome": "failed",
+        "reason": "invalid-output",
+        "sessionIds": [
+          "one"
+        ],
+        "startedAt": 200,
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "tokens": 7,
+        "truncated": false,
+        "window": {
+          "from": 1,
+          "to": 101
+        }
+      }
+    },
+    "name": "invalid output",
+    "snapshot": "[{\"session\":{\"id\":\"one\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"kind\":\"direct\",\"createdAt\":1,\"lastTurnAt\":60,\"updatedAt\":60,\"archivedAt\":null,\"pinned\":false,\"memoryMode\":\"remember\",\"chatKey\":null,\"title\":\"\",\"turnCount\":1},\"messages\":[{\"id\":\"message-one\",\"sessionId\":\"one\",\"turnId\":\"turn-one\",\"seq\":1,\"role\":\"user\",\"text\":\"Example statement\",\"tokens\":2,\"createdAt\":50}],\"events\":[],\"days\":[\"1970-01-01\"]}]"
+  },
+  {
+    "config": {
+      "enabled": true,
+      "focus": "fixture focus",
+      "maxSessions": 50,
+      "maxTokens": 100000
+    },
+    "expected": {
+      "calls": [],
+      "findings": [],
+      "notices": [
+        {
+          "pending": 0,
+          "waitingH3": 0
+        }
+      ],
+      "run": {
+        "digest": "",
+        "findings": 0,
+        "finishedAt": 200,
+        "id": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+        "outcome": "skipped",
+        "reason": "interrupted",
+        "sessionIds": [],
+        "startedAt": 200,
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "tokens": 0,
+        "window": {
+          "from": 1,
+          "to": 101
+        }
+      }
+    },
+    "name": "cancelled",
+    "snapshot": "[{\"session\":{\"id\":\"one\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"kind\":\"direct\",\"createdAt\":1,\"lastTurnAt\":60,\"updatedAt\":60,\"archivedAt\":null,\"pinned\":false,\"memoryMode\":\"remember\",\"chatKey\":null,\"title\":\"\",\"turnCount\":1},\"messages\":[{\"id\":\"message-one\",\"sessionId\":\"one\",\"turnId\":\"turn-one\",\"seq\":1,\"role\":\"user\",\"text\":\"Example statement\",\"tokens\":2,\"createdAt\":50}],\"events\":[],\"days\":[\"1970-01-01\"]}]"
+  },
+  {
+    "config": {
+      "enabled": true,
+      "focus": "fixture focus",
+      "maxSessions": 50,
+      "maxTokens": 100000
+    },
+    "expected": {
+      "calls": [
+        {
+          "data": {
+            "data": {
+              "events": [],
+              "focus": "fixture focus",
+              "messages": [
+                {
+                  "createdAt": 50,
+                  "id": "message-one",
+                  "role": "user",
+                  "seq": 1,
+                  "sessionId": "one",
+                  "text": "Example statement",
+                  "tokens": 2,
+                  "turnId": "turn-one"
+                }
+              ],
+              "vocabulary": []
+            },
+            "type": "UNTRUSTED_DATA"
+          },
+          "maxOutputTokens": 4096,
+          "modelClass": "small",
+          "stage": "extract"
+        },
+        {
+          "data": {
+            "data": {
+              "events": [],
+              "focus": "fixture focus",
+              "messages": [
+                {
+                  "createdAt": 50,
+                  "id": "message-one",
+                  "role": "user",
+                  "seq": 1,
+                  "sessionId": "one",
+                  "text": "Example statement",
+                  "tokens": 2,
+                  "turnId": "turn-one"
+                }
+              ],
+              "vocabulary": []
+            },
+            "type": "UNTRUSTED_DATA"
+          },
+          "maxOutputTokens": 4096,
+          "modelClass": "small",
+          "stage": "extract"
+        }
+      ],
+      "findings": [
+        {
+          "agreement": "unknown",
+          "change": "add",
+          "contentKey": "fixture",
+          "desiredTier": "C",
+          "effectiveTier": "C",
+          "evidence": [
+            {
+              "agentId": "alpha",
+              "day": "1970-01-01",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "sessionId": "one",
+              "source": "message",
+              "sourceId": "message-one",
+              "trust": "person",
+              "turnId": "turn-one"
+            }
+          ],
+          "id": "0032f0e9abf004b1de52c80203a41b4e1ce9865462c89548b754190d89554297",
+          "kind": "knowledge",
+          "modelClasses": [
+            "small"
+          ],
+          "models": [
+            "fixture-small"
+          ],
+          "prevalence": {
+            "agents": 1,
+            "days": 1,
+            "persons": 1,
+            "sessions": 1,
+            "total": 1
+          },
+          "promptVersion": "learn-2",
+          "revision": 1,
+          "runId": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+          "score": 0,
+          "skeptic": "not-required",
+          "status": "pending",
+          "target": {
+            "agentId": "alpha",
+            "owner": "ada",
+            "scope": "agent"
+          },
+          "text": "Scoped fixture observation",
+          "verify": "not-applicable"
+        }
+      ],
+      "notices": [
+        {
+          "pending": 0,
+          "waitingH3": 0
+        },
+        {
+          "pending": 1,
+          "waitingH3": 0
+        }
+      ],
+      "run": {
+        "digest": "86df4416280ec5ababb0cd9fb0fa0c765a04c00ba6899e600b0c583497258756",
+        "findings": 1,
+        "finishedAt": 200,
+        "id": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+        "omittedSessions": 0,
+        "outcome": "completed",
+        "reason": null,
+        "sessionIds": [
+          "one"
+        ],
+        "startedAt": 200,
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "tokens": 5850,
+        "truncated": false,
+        "window": {
+          "from": 1,
+          "to": 101
+        }
+      }
+    },
+    "name": "resume",
+    "snapshot": "[{\"session\":{\"id\":\"one\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"kind\":\"direct\",\"createdAt\":1,\"lastTurnAt\":60,\"updatedAt\":60,\"archivedAt\":null,\"pinned\":false,\"memoryMode\":\"remember\",\"chatKey\":null,\"title\":\"\",\"turnCount\":1},\"messages\":[{\"id\":\"message-one\",\"sessionId\":\"one\",\"turnId\":\"turn-one\",\"seq\":1,\"role\":\"user\",\"text\":\"Example statement\",\"tokens\":2,\"createdAt\":50}],\"events\":[],\"days\":[\"1970-01-01\"]}]"
+  },
+  {
+    "config": {
+      "enabled": true,
+      "focus": "fixture focus",
+      "maxSessions": 50,
+      "maxTokens": 100000
+    },
+    "expected": {
+      "calls": [
+        {
+          "data": {
+            "data": {
+              "events": [],
+              "focus": "fixture focus",
+              "messages": [
+                {
+                  "createdAt": 50,
+                  "id": "message-one",
+                  "role": "user",
+                  "seq": 1,
+                  "sessionId": "one",
+                  "text": "Example statement",
+                  "tokens": 2,
+                  "turnId": "turn-one"
+                }
+              ],
+              "vocabulary": []
+            },
+            "type": "UNTRUSTED_DATA"
+          },
+          "maxOutputTokens": 4096,
+          "modelClass": "small",
+          "stage": "extract"
+        }
+      ],
+      "findings": [
+        {
+          "agreement": "unknown",
+          "change": "add",
+          "contentKey": "fixture",
+          "desiredTier": "C",
+          "effectiveTier": "C",
+          "evidence": [
+            {
+              "agentId": "alpha",
+              "day": "1970-01-01",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "sessionId": "one",
+              "source": "message",
+              "sourceId": "message-one",
+              "trust": "person",
+              "turnId": "turn-one"
+            }
+          ],
+          "id": "0032f0e9abf004b1de52c80203a41b4e1ce9865462c89548b754190d89554297",
+          "kind": "knowledge",
+          "modelClasses": [
+            "small"
+          ],
+          "models": [
+            "fixture-small"
+          ],
+          "prevalence": {
+            "agents": 1,
+            "days": 1,
+            "persons": 1,
+            "sessions": 1,
+            "total": 1
+          },
+          "promptVersion": "learn-2",
+          "revision": 1,
+          "runId": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+          "score": 0,
+          "skeptic": "not-required",
+          "status": "pending",
+          "target": {
+            "agentId": "alpha",
+            "owner": "ada",
+            "scope": "agent"
+          },
+          "text": "Scoped fixture observation",
+          "verify": "not-applicable"
+        }
+      ],
+      "notices": [
+        {
+          "pending": 1,
+          "waitingH3": 0
+        }
+      ],
+      "run": {
+        "digest": "86df4416280ec5ababb0cd9fb0fa0c765a04c00ba6899e600b0c583497258756",
+        "findings": 1,
+        "finishedAt": 200,
+        "id": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+        "omittedSessions": 0,
+        "outcome": "completed",
+        "reason": null,
+        "sessionIds": [
+          "one"
+        ],
+        "startedAt": 200,
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "tokens": 7,
+        "truncated": false,
+        "window": {
+          "from": 1,
+          "to": 101
+        }
+      }
+    },
+    "name": "completed again",
+    "snapshot": "[{\"session\":{\"id\":\"one\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"kind\":\"direct\",\"createdAt\":1,\"lastTurnAt\":60,\"updatedAt\":60,\"archivedAt\":null,\"pinned\":false,\"memoryMode\":\"remember\",\"chatKey\":null,\"title\":\"\",\"turnCount\":1},\"messages\":[{\"id\":\"message-one\",\"sessionId\":\"one\",\"turnId\":\"turn-one\",\"seq\":1,\"role\":\"user\",\"text\":\"Example statement\",\"tokens\":2,\"createdAt\":50}],\"events\":[],\"days\":[\"1970-01-01\"]}]"
+  },
+  {
+    "config": {
+      "enabled": true,
+      "focus": "fixture focus",
+      "maxSessions": 50,
+      "maxTokens": 100000
+    },
+    "expected": {
+      "calls": [
+        {
+          "data": {
+            "data": {
+              "events": [],
+              "focus": "fixture focus",
+              "messages": [
+                {
+                  "createdAt": 50,
+                  "id": "message-one",
+                  "role": "user",
+                  "seq": 1,
+                  "sessionId": "one",
+                  "text": "Example statement",
+                  "tokens": 2,
+                  "turnId": "turn-one"
+                }
+              ],
+              "vocabulary": []
+            },
+            "type": "UNTRUSTED_DATA"
+          },
+          "maxOutputTokens": 4096,
+          "modelClass": "small",
+          "stage": "extract"
+        }
+      ],
+      "findings": [],
+      "notices": [
+        {
+          "pending": 0,
+          "waitingH3": 0
+        },
+        {
+          "pending": 0,
+          "waitingH3": 0
+        }
+      ],
+      "run": {
+        "digest": "86df4416280ec5ababb0cd9fb0fa0c765a04c00ba6899e600b0c583497258756",
+        "findings": 0,
+        "finishedAt": 200,
+        "id": "ec3e67c7f6358ea2b05b3b7b6d3c934c051304d711bef0936a4aa39129a3be03",
+        "omittedSessions": 0,
+        "outcome": "skipped",
+        "reason": "rights-changed",
+        "sessionIds": [
+          "one"
+        ],
+        "startedAt": 200,
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "tokens": 5843,
+        "truncated": false,
+        "window": {
+          "from": 1,
+          "to": 101
+        }
+      }
+    },
+    "name": "digest changed",
+    "snapshot": "[{\"session\":{\"id\":\"one\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"kind\":\"direct\",\"createdAt\":1,\"lastTurnAt\":60,\"updatedAt\":60,\"archivedAt\":null,\"pinned\":false,\"memoryMode\":\"remember\",\"chatKey\":null,\"title\":\"\",\"turnCount\":1},\"messages\":[{\"id\":\"message-one\",\"sessionId\":\"one\",\"turnId\":\"turn-one\",\"seq\":1,\"role\":\"user\",\"text\":\"Example statement\",\"tokens\":2,\"createdAt\":50}],\"events\":[],\"days\":[\"1970-01-01\"]}]"
+  }
+]

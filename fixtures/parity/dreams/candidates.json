@@ -1,0 +1,522 @@
+{
+  "fallback": [
+    {
+      "input": {
+        "createdAt": 13600000,
+        "importance": 0.75
+      },
+      "name": "age and importance",
+      "now": 100000000,
+      "result": {
+        "age": true,
+        "eligible": true,
+        "importance": true,
+        "repetition": false
+      }
+    },
+    {
+      "input": {
+        "createdAt": 13600000,
+        "repetitions": 2
+      },
+      "name": "age and repetitions",
+      "now": 100000000,
+      "result": {
+        "age": true,
+        "eligible": true,
+        "importance": false,
+        "repetition": true
+      }
+    },
+    {
+      "input": {
+        "createdAt": 13600001,
+        "importance": 1
+      },
+      "name": "one millisecond too recent",
+      "now": 100000000,
+      "result": {
+        "age": false,
+        "eligible": false,
+        "importance": true,
+        "repetition": false
+      }
+    },
+    {
+      "input": {
+        "createdAt": -1,
+        "importance": 1
+      },
+      "name": "negative timestamp",
+      "now": 100000000,
+      "result": {
+        "age": false,
+        "eligible": false,
+        "importance": true,
+        "repetition": false
+      }
+    },
+    {
+      "input": {
+        "createdAt": 13600000
+      },
+      "name": "age alone",
+      "now": 100000000,
+      "result": {
+        "age": true,
+        "eligible": false,
+        "importance": false,
+        "repetition": false
+      }
+    },
+    {
+      "input": {
+        "importance": 1,
+        "repetitions": 3
+      },
+      "name": "without age",
+      "now": 100000000,
+      "result": {
+        "age": false,
+        "eligible": false,
+        "importance": true,
+        "repetition": true
+      }
+    },
+    {
+      "input": {
+        "createdAt": 13600000,
+        "repetitions": 2.5
+      },
+      "name": "fractional repeats",
+      "now": 100000000,
+      "result": {
+        "age": true,
+        "eligible": false,
+        "importance": false,
+        "repetition": false
+      }
+    },
+    {
+      "input": {
+        "createdAt": 13600000,
+        "repetitions": 9007199254740992
+      },
+      "name": "unsafe integer",
+      "now": 100000000,
+      "result": {
+        "age": true,
+        "eligible": false,
+        "importance": false,
+        "repetition": false
+      }
+    },
+    {
+      "input": {
+        "createdAt": 13600000,
+        "repetitions": 9007199254740991
+      },
+      "name": "maximum safe integer",
+      "now": 100000000,
+      "result": {
+        "age": true,
+        "eligible": true,
+        "importance": false,
+        "repetition": true
+      }
+    },
+    {
+      "input": {
+        "createdAt": 13600000,
+        "importance": 0.749,
+        "repetitions": 1
+      },
+      "name": "below importance and repeats",
+      "now": 100000000,
+      "result": {
+        "age": true,
+        "eligible": false,
+        "importance": false,
+        "repetition": false
+      }
+    }
+  ],
+  "gates": [
+    {
+      "config": {
+        "minRecallCount": 3,
+        "minScore": 0.75,
+        "minUniqueQueries": 3
+      },
+      "input": {
+        "expiresAt": 100000001,
+        "recalls": 3,
+        "score": 0.75,
+        "uniqueQueries": 3
+      },
+      "name": "all at threshold",
+      "now": 100000000,
+      "result": {
+        "at": 100000000,
+        "gates": [
+          {
+            "gate": "expiry",
+            "passed": true
+          },
+          {
+            "gate": "utility",
+            "passed": true
+          },
+          {
+            "gate": "recall-count",
+            "passed": true
+          },
+          {
+            "gate": "unique-queries",
+            "passed": true
+          },
+          {
+            "gate": "score",
+            "passed": true
+          }
+        ],
+        "promote": true,
+        "rejectedBy": null
+      }
+    },
+    {
+      "config": {
+        "minRecallCount": 3,
+        "minScore": 0.75,
+        "minUniqueQueries": 3
+      },
+      "input": {
+        "expiresAt": 100000001,
+        "recalls": 3,
+        "score": null,
+        "uniqueQueries": 3
+      },
+      "name": "null score",
+      "now": 100000000,
+      "result": {
+        "at": 100000000,
+        "gates": [
+          {
+            "gate": "expiry",
+            "passed": true
+          },
+          {
+            "gate": "utility",
+            "passed": true
+          },
+          {
+            "gate": "recall-count",
+            "passed": true
+          },
+          {
+            "gate": "unique-queries",
+            "passed": true
+          },
+          {
+            "gate": "score",
+            "passed": true
+          }
+        ],
+        "promote": true,
+        "rejectedBy": null
+      }
+    },
+    {
+      "config": {
+        "minRecallCount": 3,
+        "minScore": 0.75,
+        "minUniqueQueries": 3
+      },
+      "input": {
+        "expiresAt": 100000000,
+        "recalls": 3,
+        "score": 0.75,
+        "uniqueQueries": 3
+      },
+      "name": "at expiry",
+      "now": 100000000,
+      "result": {
+        "at": 100000000,
+        "gates": [
+          {
+            "detail": "expired at 100000000",
+            "gate": "expiry",
+            "passed": false
+          },
+          {
+            "gate": "utility",
+            "passed": true
+          },
+          {
+            "gate": "recall-count",
+            "passed": true
+          },
+          {
+            "gate": "unique-queries",
+            "passed": true
+          },
+          {
+            "gate": "score",
+            "passed": true
+          }
+        ],
+        "promote": false,
+        "rejectedBy": "expiry"
+      }
+    },
+    {
+      "config": {
+        "minRecallCount": 3,
+        "minScore": 0.75,
+        "minUniqueQueries": 3
+      },
+      "input": {
+        "expiresAt": 99999999,
+        "recalls": 0,
+        "score": 0,
+        "uniqueQueries": 0
+      },
+      "name": "all failures recorded",
+      "now": 100000000,
+      "result": {
+        "at": 100000000,
+        "gates": [
+          {
+            "detail": "expired at 99999999",
+            "gate": "expiry",
+            "passed": false
+          },
+          {
+            "detail": "recalls = 0",
+            "gate": "utility",
+            "passed": false
+          },
+          {
+            "detail": "0 < 3",
+            "gate": "recall-count",
+            "passed": false
+          },
+          {
+            "detail": "0 < 3",
+            "gate": "unique-queries",
+            "passed": false
+          },
+          {
+            "detail": "0 < 0.75",
+            "gate": "score",
+            "passed": false
+          }
+        ],
+        "promote": false,
+        "rejectedBy": "expiry"
+      }
+    },
+    {
+      "config": {
+        "minRecallCount": 0,
+        "minScore": 0.75,
+        "minUniqueQueries": 3
+      },
+      "input": {
+        "expiresAt": 100000001,
+        "recalls": 0,
+        "score": 0.75,
+        "uniqueQueries": 3
+      },
+      "name": "utility is necessary",
+      "now": 100000000,
+      "result": {
+        "at": 100000000,
+        "gates": [
+          {
+            "gate": "expiry",
+            "passed": true
+          },
+          {
+            "detail": "recalls = 0",
+            "gate": "utility",
+            "passed": false
+          },
+          {
+            "gate": "recall-count",
+            "passed": true
+          },
+          {
+            "gate": "unique-queries",
+            "passed": true
+          },
+          {
+            "gate": "score",
+            "passed": true
+          }
+        ],
+        "promote": false,
+        "rejectedBy": "utility"
+      }
+    },
+    {
+      "config": {
+        "minRecallCount": 3,
+        "minScore": 0.75,
+        "minUniqueQueries": 3
+      },
+      "input": {
+        "expiresAt": 100000001,
+        "recalls": 3,
+        "score": 0.75,
+        "uniqueQueries": 2
+      },
+      "name": "too few distinct queries",
+      "now": 100000000,
+      "result": {
+        "at": 100000000,
+        "gates": [
+          {
+            "gate": "expiry",
+            "passed": true
+          },
+          {
+            "gate": "utility",
+            "passed": true
+          },
+          {
+            "gate": "recall-count",
+            "passed": true
+          },
+          {
+            "detail": "2 < 3",
+            "gate": "unique-queries",
+            "passed": false
+          },
+          {
+            "gate": "score",
+            "passed": true
+          }
+        ],
+        "promote": false,
+        "rejectedBy": "unique-queries"
+      }
+    },
+    {
+      "config": {
+        "minRecallCount": 3,
+        "minScore": 0.75,
+        "minUniqueQueries": 3
+      },
+      "input": {
+        "expiresAt": 100000001,
+        "recalls": 3,
+        "score": 0.749,
+        "uniqueQueries": 3
+      },
+      "name": "below minimum score",
+      "now": 100000000,
+      "result": {
+        "at": 100000000,
+        "gates": [
+          {
+            "gate": "expiry",
+            "passed": true
+          },
+          {
+            "gate": "utility",
+            "passed": true
+          },
+          {
+            "gate": "recall-count",
+            "passed": true
+          },
+          {
+            "gate": "unique-queries",
+            "passed": true
+          },
+          {
+            "detail": "0.749 < 0.75",
+            "gate": "score",
+            "passed": false
+          }
+        ],
+        "promote": false,
+        "rejectedBy": "score"
+      }
+    },
+    {
+      "config": {
+        "minRecallCount": 2,
+        "minScore": 0.8,
+        "minUniqueQueries": 2
+      },
+      "input": {
+        "expiresAt": 100000001,
+        "recalls": 12,
+        "score": 0.75,
+        "uniqueQueries": 2
+      },
+      "name": "explicit thresholds",
+      "now": 100000000,
+      "result": {
+        "at": 100000000,
+        "gates": [
+          {
+            "gate": "expiry",
+            "passed": true
+          },
+          {
+            "gate": "utility",
+            "passed": true
+          },
+          {
+            "gate": "recall-count",
+            "passed": true
+          },
+          {
+            "gate": "unique-queries",
+            "passed": true
+          },
+          {
+            "detail": "0.75 < 0.8",
+            "gate": "score",
+            "passed": false
+          }
+        ],
+        "promote": false,
+        "rejectedBy": "score"
+      }
+    }
+  ],
+  "hashes": [
+    {
+      "hash": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+      "text": "fixture"
+    },
+    {
+      "hash": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+      "text": "  fixture\r\n"
+    },
+    {
+      "hash": "850f7dc43910ff890f8879c0ed26fe697c93a067ad93a7d50f466a7028a9bf4e",
+      "text": "café"
+    },
+    {
+      "hash": "850f7dc43910ff890f8879c0ed26fe697c93a067ad93a7d50f466a7028a9bf4e",
+      "text": "café "
+    },
+    {
+      "hash": "c2d51906915f1a55466987d7b5312f33a2393c0527c386f28f26e31b0d579f36",
+      "text": "一🙂"
+    },
+    {
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "text": "﻿"
+    },
+    {
+      "hash": "f4e48e664a603543865edc77bbc76dd1dd53dc9d0c30f651bbad7c8231091348",
+      "text": "​"
+    }
+  ]
+}

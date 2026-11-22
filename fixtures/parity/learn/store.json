@@ -1,0 +1,110 @@
+{
+  "afterPayload": null,
+  "afterReconcile": {
+    "digest": "fixture-digest",
+    "findings": 0,
+    "finishedAt": 300,
+    "id": "dd43c6a117ce575e3596173ca1edf7f286d6b7b446260d9704c858e6519445ed",
+    "outcome": "failed",
+    "reason": "provider-failed",
+    "sessionIds": [],
+    "startedAt": 201,
+    "target": {
+      "agentId": "alpha",
+      "owner": "ada",
+      "scope": "agent"
+    },
+    "tokens": 5,
+    "window": {
+      "from": 100,
+      "to": 200
+    }
+  },
+  "breaker": true,
+  "checkpoint": {
+    "inputTokens": 2,
+    "model": "fixture",
+    "outputTokens": 1,
+    "text": "[]"
+  },
+  "health": {
+    "breakers": 1,
+    "integrity": true,
+    "pending": 0,
+    "schema": 7,
+    "waitingH3": 0
+  },
+  "initial": {
+    "digest": "",
+    "findings": 0,
+    "finishedAt": null,
+    "id": "dd43c6a117ce575e3596173ca1edf7f286d6b7b446260d9704c858e6519445ed",
+    "outcome": null,
+    "reason": null,
+    "sessionIds": [],
+    "startedAt": 201,
+    "target": {
+      "agentId": "alpha",
+      "owner": "ada",
+      "scope": "agent"
+    },
+    "tokens": 0,
+    "window": {
+      "from": 100,
+      "to": 200
+    }
+  },
+  "invalidated": true,
+  "nextDayBreaker": false,
+  "otherBreaker": false,
+  "retained": {
+    "inputTokens": 2,
+    "model": "fixture",
+    "outputTokens": 1,
+    "text": "[]"
+  },
+  "runsBefore": [
+    {
+      "digest": "fixture-digest",
+      "findings": 0,
+      "finishedAt": null,
+      "id": "dd43c6a117ce575e3596173ca1edf7f286d6b7b446260d9704c858e6519445ed",
+      "outcome": null,
+      "reason": null,
+      "sessionIds": [
+        "fixture-session"
+      ],
+      "startedAt": 201,
+      "target": {
+        "agentId": "alpha",
+        "owner": "ada",
+        "scope": "agent"
+      },
+      "tokens": 5,
+      "window": {
+        "from": 100,
+        "to": 200
+      }
+    }
+  ],
+  "sameWindow": {
+    "digest": "",
+    "findings": 0,
+    "finishedAt": null,
+    "id": "dd43c6a117ce575e3596173ca1edf7f286d6b7b446260d9704c858e6519445ed",
+    "outcome": null,
+    "reason": null,
+    "sessionIds": [],
+    "startedAt": 201,
+    "target": {
+      "agentId": "alpha",
+      "owner": "ada",
+      "scope": "agent"
+    },
+    "tokens": 0,
+    "window": {
+      "from": 100,
+      "to": 200
+    }
+  }
+}

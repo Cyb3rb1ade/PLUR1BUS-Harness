@@ -98,16 +98,20 @@ impl JobBody for ClassifyRecent {
             if tombstones.refreshed().masks(row)? {
                 continue;
             }
-            let kind =
-                match critical::classify_with_limit(content(row), &completion, Some(16), &cancel) {
-                    Ok(kind) => kind,
-                    Err(_) => {
-                        cancel.check()?;
-                        log::warn!("classify-recent: completion failed");
-                        errors += 1;
-                        continue;
-                    }
-                };
+            let kind = match critical::classify_with_limit(
+                content(row),
+                &completion,
+                Some(crate::jobs::llm::Purpose::Encoding.max_tokens()),
+                &cancel,
+            ) {
+                Ok(kind) => kind,
+                Err(_) => {
+                    cancel.check()?;
+                    log::warn!("classify-recent: completion failed");
+                    errors += 1;
+                    continue;
+                }
+            };
             let provenance = parse_json(
                 &serde_json::json!({
                     "sourceMessageRole":row.source_message_role, "origin":row.origin,

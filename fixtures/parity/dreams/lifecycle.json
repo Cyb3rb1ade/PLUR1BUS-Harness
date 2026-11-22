@@ -1,0 +1,218 @@
+[
+  {
+    "expected": {
+      "captures": 0,
+      "runs": [
+        {
+          "at": 1749999999999,
+          "id": "fixture-1",
+          "trigger": "catchup"
+        }
+      ],
+      "wakeAt": 1750003200000
+    },
+    "name": "startup due"
+  },
+  {
+    "expected": {
+      "captures": 0,
+      "runs": [],
+      "wakeAt": 1750003600000
+    },
+    "name": "disabled due"
+  },
+  {
+    "expected": {
+      "captures": 0,
+      "runs": [
+        {
+          "at": 1750000001000,
+          "id": "fixture-1",
+          "trigger": "cron"
+        }
+      ],
+      "wakeAt": 1750003200000
+    },
+    "name": "cron due"
+  },
+  {
+    "expected": {
+      "captures": 0,
+      "runs": [
+        {
+          "at": 1750000001000,
+          "id": "fixture-1",
+          "trigger": "catchup"
+        }
+      ],
+      "wakeAt": 1750003200000
+    },
+    "name": "returning agent"
+  },
+  {
+    "expected": {
+      "captures": null,
+      "runs": [],
+      "wakeAt": 1750003600000
+    },
+    "name": "removed agent"
+  },
+  {
+    "expected": {
+      "captures": 0,
+      "runs": [
+        {
+          "at": 1749999999900,
+          "claimed": false,
+          "id": "crashed",
+          "outcome": "aborted",
+          "reason": "crashed",
+          "trigger": "cron"
+        },
+        {
+          "at": 1749999999900,
+          "id": "fixture-1",
+          "trigger": "catchup"
+        }
+      ],
+      "wakeAt": 1750003200000
+    },
+    "name": "retry once"
+  },
+  {
+    "expected": {
+      "captures": 0,
+      "runs": [
+        {
+          "at": 1749913600000,
+          "claimed": false,
+          "id": "crashed",
+          "outcome": "aborted",
+          "reason": "crashed",
+          "trigger": "cron"
+        },
+        {
+          "at": 1749913600000,
+          "id": "fixture-1",
+          "trigger": "catchup"
+        }
+      ],
+      "wakeAt": 1750003200000
+    },
+    "name": "retry boundary"
+  },
+  {
+    "expected": {
+      "captures": 0,
+      "runs": [
+        {
+          "at": 1749913599999,
+          "claimed": false,
+          "id": "crashed",
+          "outcome": "aborted",
+          "reason": "crashed",
+          "trigger": "cron"
+        }
+      ],
+      "wakeAt": 1750003200000
+    },
+    "name": "retry too old"
+  },
+  {
+    "expected": {
+      "captures": 0,
+      "runs": [
+        {
+          "at": 1749999999900,
+          "claimed": false,
+          "id": "crashed",
+          "outcome": "aborted",
+          "reason": "crashed",
+          "trigger": "cron"
+        },
+        {
+          "at": 1749999999900,
+          "claimed": false,
+          "id": "prior",
+          "outcome": "failed",
+          "reason": "fixture",
+          "trigger": "catchup"
+        }
+      ],
+      "wakeAt": 1750003200000
+    },
+    "name": "retry exhausted"
+  },
+  {
+    "expected": {
+      "captures": 0,
+      "runs": [
+        {
+          "at": 1749999999900,
+          "claimed": false,
+          "id": "crashed",
+          "outcome": "aborted",
+          "reason": "crashed",
+          "trigger": "manual"
+        }
+      ],
+      "wakeAt": 1750003200000
+    },
+    "name": "retry manual"
+  },
+  {
+    "expected": {
+      "captures": 1,
+      "runs": [],
+      "wakeAt": 1750003200000
+    },
+    "name": "prestart capture"
+  },
+  {
+    "expected": {
+      "captures": null,
+      "runs": [
+        {
+          "at": null,
+          "id": "fixture-1",
+          "trigger": "importance"
+        }
+      ],
+      "wakeAt": 1750003200000
+    },
+    "name": "importance threshold"
+  },
+  {
+    "expected": {
+      "captures": 1,
+      "runs": [],
+      "wakeAt": 1750003200000
+    },
+    "name": "below importance threshold"
+  },
+  {
+    "expected": {
+      "captures": 1,
+      "runs": [
+        {
+          "at": null,
+          "claimed": false,
+          "id": "prior",
+          "outcome": "failed",
+          "reason": "fixture",
+          "trigger": "manual"
+        }
+      ],
+      "wakeAt": 1750003200000
+    },
+    "name": "minimum gap"
+  },
+  {
+    "expected": {
+      "captures": 0,
+      "runs": [],
+      "wakeAt": null
+    },
+    "name": "stopped"
+  }
+]
