@@ -1,0 +1,75 @@
+{
+  "exchanges": [
+    {
+      "receive": [
+        {
+          "type": "session.created"
+        }
+      ],
+      "send": [
+        {
+          "session": {
+            "input_audio_format": "pcm16",
+            "output_audio_format": "pcm16"
+          },
+          "type": "session.update"
+        }
+      ],
+      "sendText": [
+        "{\"type\":\"session.update\",\"session\":{\"input_audio_format\":\"pcm16\",\"output_audio_format\":\"pcm16\"}}"
+      ]
+    },
+    {
+      "receive": [
+        {
+          "delta": "AQACAA==",
+          "type": "response.audio.delta"
+        }
+      ],
+      "send": [
+        {
+          "audio": "AQACAA==",
+          "type": "input_audio_buffer.append"
+        }
+      ],
+      "sendText": [
+        "{\"type\":\"input_audio_buffer.append\",\"audio\":\"AQACAA==\"}"
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "type": "ready"
+    },
+    {
+      "bytes": [
+        1,
+        0,
+        2,
+        0
+      ],
+      "sampleRate": 24000,
+      "type": "audio"
+    }
+  ],
+  "exporter": "scripts/parity/export-voice.ts",
+  "input": {
+    "model": "fixture-live",
+    "pcm": [
+      1,
+      0,
+      2,
+      0
+    ],
+    "sampleRate": 16000,
+    "vendor": "grok"
+  },
+  "request": {
+    "headers": {
+      "authorization": "Bearer <credential>"
+    },
+    "path": "/v1/realtime?model=fixture-live"
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "websocket"
+}

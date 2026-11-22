@@ -1,0 +1,94 @@
+{
+  "exchanges": [
+    {
+      "receive": [
+        {
+          "setupComplete": {}
+        }
+      ],
+      "send": [
+        {
+          "setup": {
+            "generationConfig": {
+              "responseModalities": [
+                "AUDIO"
+              ]
+            },
+            "inputAudioTranscription": {},
+            "model": "models/fixture-live",
+            "outputAudioTranscription": {}
+          }
+        }
+      ],
+      "sendText": [
+        "{\"setup\":{\"model\":\"models/fixture-live\",\"generationConfig\":{\"responseModalities\":[\"AUDIO\"]},\"inputAudioTranscription\":{},\"outputAudioTranscription\":{}}}"
+      ]
+    },
+    {
+      "receive": [
+        {
+          "serverContent": {
+            "modelTurn": {
+              "parts": [
+                {
+                  "inlineData": {
+                    "data": "AQACAA==",
+                    "mimeType": "audio/pcm;rate=24000"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "send": [
+        {
+          "realtimeInput": {
+            "audio": {
+              "data": "AQACAA==",
+              "mimeType": "audio/pcm;rate=16000"
+            }
+          }
+        }
+      ],
+      "sendText": [
+        "{\"realtimeInput\":{\"audio\":{\"data\":\"AQACAA==\",\"mimeType\":\"audio/pcm;rate=16000\"}}}"
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "type": "ready"
+    },
+    {
+      "bytes": [
+        1,
+        0,
+        2,
+        0
+      ],
+      "sampleRate": 24000,
+      "type": "audio"
+    }
+  ],
+  "exporter": "scripts/parity/export-voice.ts",
+  "input": {
+    "model": "fixture-live",
+    "pcm": [
+      1,
+      0,
+      2,
+      0
+    ],
+    "sampleRate": 16000,
+    "vendor": "gemini"
+  },
+  "request": {
+    "headers": {
+      "x-goog-api-key": "<credential>"
+    },
+    "path": "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "websocket"
+}

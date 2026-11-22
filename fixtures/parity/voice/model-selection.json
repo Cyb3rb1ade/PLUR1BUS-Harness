@@ -1,0 +1,233 @@
+[
+  {
+    "expected": "fixture-voice",
+    "http": {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
+              "authorization": "Bearer <credential>"
+            },
+            "method": "GET",
+            "path": "/v1/models"
+          },
+          "response": {
+            "body": {
+              "data": [
+                {
+                  "id": "fixture-text"
+                },
+                {
+                  "id": "fixture-voice"
+                }
+              ]
+            },
+            "status": 200
+          }
+        }
+      ],
+      "transport": "http"
+    },
+    "socket": {
+      "exchanges": [
+        {
+          "receive": [
+            {
+              "type": "session.created"
+            }
+          ],
+          "send": [
+            {
+              "session": {
+                "input_audio_format": "pcm16",
+                "output_audio_format": "pcm16"
+              },
+              "type": "session.update"
+            }
+          ],
+          "sendText": [
+            "{\"type\":\"session.update\",\"session\":{\"input_audio_format\":\"pcm16\",\"output_audio_format\":\"pcm16\"}}"
+          ]
+        }
+      ],
+      "request": {
+        "headers": {
+          "authorization": "Bearer <credential>"
+        },
+        "path": "/v1/realtime?model=fixture-voice"
+      },
+      "transport": "websocket"
+    },
+    "vendor": "xai"
+  },
+  {
+    "expected": "models/fixture-native-audio",
+    "http": {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
+              "x-goog-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1beta/models?pageSize=100"
+          },
+          "response": {
+            "body": {
+              "models": [
+                {
+                  "name": "models/plain",
+                  "supportedGenerationMethods": [
+                    "bidiGenerateContent"
+                  ]
+                },
+                {
+                  "name": "models/fixture-native-audio",
+                  "supportedGenerationMethods": [
+                    "bidiGenerateContent"
+                  ]
+                }
+              ]
+            },
+            "status": 200
+          }
+        }
+      ],
+      "transport": "http"
+    },
+    "socket": {
+      "exchanges": [
+        {
+          "receive": [
+            {
+              "setupComplete": {}
+            }
+          ],
+          "send": [
+            {
+              "setup": {
+                "generationConfig": {
+                  "responseModalities": [
+                    "AUDIO"
+                  ]
+                },
+                "inputAudioTranscription": {},
+                "model": "models/fixture-native-audio",
+                "outputAudioTranscription": {}
+              }
+            }
+          ],
+          "sendText": [
+            "{\"setup\":{\"model\":\"models/fixture-native-audio\",\"generationConfig\":{\"responseModalities\":[\"AUDIO\"]},\"inputAudioTranscription\":{},\"outputAudioTranscription\":{}}}"
+          ]
+        }
+      ],
+      "request": {
+        "headers": {
+          "x-goog-api-key": "<credential>"
+        },
+        "path": "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
+      },
+      "transport": "websocket"
+    },
+    "vendor": "gemini"
+  },
+  {
+    "expected": "models/gemini-3.8-live",
+    "http": {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
+              "x-goog-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1beta/models?pageSize=100"
+          },
+          "response": {
+            "body": {
+              "detail": "synthetic"
+            },
+            "status": 404
+          }
+        }
+      ],
+      "transport": "http"
+    },
+    "socket": {
+      "exchanges": [
+        {
+          "receive": [
+            {
+              "setupComplete": {}
+            }
+          ],
+          "send": [
+            {
+              "setup": {
+                "generationConfig": {
+                  "responseModalities": [
+                    "AUDIO"
+                  ]
+                },
+                "inputAudioTranscription": {},
+                "model": "models/gemini-3.8-live",
+                "outputAudioTranscription": {}
+              }
+            }
+          ],
+          "sendText": [
+            "{\"setup\":{\"model\":\"models/gemini-3.8-live\",\"generationConfig\":{\"responseModalities\":[\"AUDIO\"]},\"inputAudioTranscription\":{},\"outputAudioTranscription\":{}}}"
+          ]
+        }
+      ],
+      "request": {
+        "headers": {
+          "x-goog-api-key": "<credential>"
+        },
+        "path": "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
+      },
+      "transport": "websocket"
+    },
+    "vendor": "gemini"
+  },
+  {
+    "expected": "fixture-explicit",
+    "http": {
+      "exchanges": [],
+      "transport": "http"
+    },
+    "override": "fixture-explicit",
+    "socket": {
+      "exchanges": [
+        {
+          "receive": [
+            {
+              "type": "session.created"
+            }
+          ],
+          "send": [
+            {
+              "session": {
+                "input_audio_format": "pcm16",
+                "output_audio_format": "pcm16"
+              },
+              "type": "session.update"
+            }
+          ],
+          "sendText": [
+            "{\"type\":\"session.update\",\"session\":{\"input_audio_format\":\"pcm16\",\"output_audio_format\":\"pcm16\"}}"
+          ]
+        }
+      ],
+      "request": {
+        "headers": {
+          "authorization": "Bearer <credential>"
+        },
+        "path": "/v1/realtime?model=fixture-explicit"
+      },
+      "transport": "websocket"
+    },
+    "vendor": "xai"
+  }
+]

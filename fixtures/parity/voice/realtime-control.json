@@ -1,0 +1,188 @@
+[
+  {
+    "closeCode": 1008,
+    "exchanges": [
+      {
+        "receive": [
+          {
+            "type": "session.created"
+          }
+        ],
+        "send": [
+          {
+            "session": {
+              "input_audio_format": "pcm16",
+              "output_audio_format": "pcm16"
+            },
+            "type": "session.update"
+          }
+        ],
+        "sendText": [
+          "{\"type\":\"session.update\",\"session\":{\"input_audio_format\":\"pcm16\",\"output_audio_format\":\"pcm16\"}}"
+        ]
+      },
+      {
+        "receive": [
+          {
+            "type": "input_audio_buffer.speech_started"
+          }
+        ],
+        "send": [
+          {
+            "type": "response.cancel"
+          }
+        ],
+        "sendText": [
+          "{\"type\":\"response.cancel\"}"
+        ]
+      }
+    ],
+    "expected": [
+      {
+        "type": "ready"
+      },
+      {
+        "type": "interrupted"
+      },
+      {
+        "code": "auth",
+        "type": "error"
+      },
+      {
+        "reason": "1008",
+        "type": "closed"
+      }
+    ],
+    "input": {
+      "inputSampleRate": 16000,
+      "model": "fixture-live",
+      "pcm": [
+        2,
+        0
+      ],
+      "vendor": "grok"
+    },
+    "request": {
+      "headers": {
+        "authorization": "Bearer <credential>"
+      },
+      "path": "/v1/realtime?model=fixture-live"
+    },
+    "transport": "websocket"
+  },
+  {
+    "closeCode": 1001,
+    "exchanges": [
+      {
+        "receive": [
+          {
+            "setupComplete": {}
+          }
+        ],
+        "send": [
+          {
+            "setup": {
+              "generationConfig": {
+                "responseModalities": [
+                  "AUDIO"
+                ]
+              },
+              "inputAudioTranscription": {},
+              "model": "models/fixture-live",
+              "outputAudioTranscription": {}
+            }
+          }
+        ],
+        "sendText": [
+          "{\"setup\":{\"model\":\"models/fixture-live\",\"generationConfig\":{\"responseModalities\":[\"AUDIO\"]},\"inputAudioTranscription\":{},\"outputAudioTranscription\":{}}}"
+        ]
+      },
+      {
+        "receive": [
+          {
+            "serverContent": {
+              "modelTurn": {
+                "parts": [
+                  {
+                    "inlineData": {
+                      "data": "AQI=",
+                      "mimeType": "audio/pcm;rate=24000"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "serverContent": {
+              "interrupted": true
+            }
+          },
+          {
+            "serverContent": {
+              "modelTurn": {
+                "parts": [
+                  {
+                    "inlineData": {
+                      "data": "AwQ=",
+                      "mimeType": "audio/pcm;rate=24000"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "send": [
+          {
+            "realtimeInput": {
+              "audio": {
+                "data": "AgA=",
+                "mimeType": "audio/pcm;rate=16000"
+              }
+            }
+          }
+        ],
+        "sendText": [
+          "{\"realtimeInput\":{\"audio\":{\"data\":\"AgA=\",\"mimeType\":\"audio/pcm;rate=16000\"}}}"
+        ]
+      }
+    ],
+    "expected": [
+      {
+        "type": "ready"
+      },
+      {
+        "type": "interrupted"
+      },
+      {
+        "bytes": [
+          3,
+          4
+        ],
+        "sampleRate": 24000,
+        "type": "audio"
+      },
+      {
+        "reason": "1001",
+        "type": "closed"
+      }
+    ],
+    "input": {
+      "inputSampleRate": 16000,
+      "model": "fixture-live",
+      "pcm": [
+        2,
+        0
+      ],
+      "vendor": "gemini"
+    },
+    "request": {
+      "headers": {
+        "x-goog-api-key": "<credential>"
+      },
+      "path": "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
+    },
+    "transport": "websocket"
+  }
+]

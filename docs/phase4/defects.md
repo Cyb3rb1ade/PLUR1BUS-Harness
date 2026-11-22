@@ -56,8 +56,6 @@ Paket T uses the reserved numbers P4D-40, P4D-43, P4D-44 and P4D-45. P4-K K12 al
 | P4D-43 | File mutation must wait for handle verification | `packages/core/src/policy/paths.ts` | security (file integrity) | P4-21 | fixed in TypeScript under the owner exception |
 | P4D-44 | RSA signing keys must meet the verifier's minimum requirements | `packages/core/src/openai-auth/identity.ts` | security (identity verification) | P4-21 | fixed in TypeScript under the owner exception |
 | P4D-45 | Login listeners must handle unreadable request targets | `packages/core/src/auth/login.ts`, `packages/core/src/openai-auth/loopback.ts` | security (availability) | P4-21 | fixed in TypeScript under the owner exception |
-| P4D-195 | Provider error redaction can miss normalized header values | `packages/providers/src/client.ts` | low (provider error with affected header spelling) | P4-41 | open in TypeScript, Rust redacts both spellings |
-| P4D-196 | Invalid catalog descriptors can produce ill-typed reasoning directives | `packages/providers/src/reasoning.ts` | low (invalid catalog shapes before adapter validation) | P4-41 | Rust handles malformed fields explicitly |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -1028,9 +1026,6 @@ The provider and A2A adapters used a stream as the body of a Fetch response even
 required an absent body. They now construct a response with a null body for 204 and 205. The A2A
 adapter does the same for 304. The provider transport continues to refuse 304 through its existing
 redirect policy. Adapter tests cover the statuses, response headers and the provider refusal.
-P4-W records all three statuses through the Core bridge and pins the corresponding Rust error
-contracts. A missing SSE body has a distinct error from a stream that ends without an event.
-See the [wire inventory](p4-w-inventory.md#p4d-40-http-wrapper).
 
 <a id="p4d-43"></a>
 
@@ -1304,3 +1299,69 @@ flag, and missing or numeric-string budget bounds. The adapter already validates
 Rust uses a boolean toggle, enables adaptive thinking only for a declared effort flag, and requires
 numeric budget bounds. The six catalog cases are recorded from the real TypeScript builder. A null
 effort value falls back to the chosen level in both languages.
+
+<a id="p4d-202"></a>
+
+## P4D-202 — cloud voice JSON responses have no byte limit
+
+Security, W3, reported from static review. The voice HTTP client calls
+`Response.json()` on a successful response. The production voice transport
+passes the body stream through to the client. The headers deadline has already
+ended by the time parsing starts. Listing voices limits the number of pages,
+but accepts the full contents of each page before iterating its entries. An
+oversized response can exhaust process memory. No live provider or stress
+test was used. See [HTTP parsing](../../packages/voice-providers/src/http.ts),
+[voice transport](../../packages/core/src/voice/transport.ts) and
+[voice listing](../../packages/voice-providers/src/providers/elevenlabs.ts).
+
+R-W-12 requires a 1 MiB decoded byte limit on each successful JSON body and
+one absolute deadline covering both headers and the complete body. The
+Rust reader checks the limit before parsing and reports overflow as an
+unretryable `bad_response`. Provider error bodies are dropped unread.
+
+<a id="p4d-204"></a>
+
+## P4D-204 — buffered cloud voice audio
+
+The Rust buffered audio path reads at most 4 MiB decoded bytes. It shares the
+absolute request deadline across headers and body. Polly uses the same audio
+limit and delegates signed calls to a host port that must honor that deadline.
+
+<a id="p4d-205"></a>
+
+## P4D-205 — structured realtime voice messages
+
+Each assembled structured voice message is limited to 1 MiB, including
+fragmented WebSocket messages. The host supplies finite handshake and I/O
+deadlines. The runtime delivers decoded events on demand.
+
+<a id="p4d-206"></a>
+
+## P4D-206 — Gemini realtime credentials
+
+The Rust Gemini handshake accepts only the header form of the credential.
+The TypeScript gateway fallback can put credentials in a URL query. The
+Rust host can use a gateway that forwards the credential header.
+
+<a id="p4d-210"></a>
+
+## P4D-210 — cloud synthesis stream deadline and completion
+
+The Rust HTTP audio stream reads one decoded chunk at a time under the
+request's absolute deadline. WebSocket synthesis uses the same absolute
+deadline for writes and reads, admits structured frames up to the
+P4D-205 ceiling, and exposes usage only after the text input and the provider's
+final frame both complete. The TypeScript HTTP deadline ends at the headers.
+The TypeScript socket consumer queues audio frames asynchronously. The native
+host owns the ordering of calls to the blocking dialogue.
+
+<a id="p4d-211"></a>
+
+## P4D-211 — streaming text admission and usage identifiers
+
+The Rust Polly sentence splitter admits up to 1 MiB per input delta and
+keeps up to 1 MiB of unfinished text. Individual signed requests use Polly's
+3,000 UTF-16 code unit ceiling. The TypeScript sentence splitter has no bound
+on unfinished text. The Rust realtime host supplies the Gemini session
+identifier used to deduplicate usage events. Audio and transcripts remain
+application data and are omitted from event Debug output.

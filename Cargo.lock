@@ -6316,6 +6316,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "plur1bus-voice-providers"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "flate2",
+ "log",
+ "percent-encoding",
+ "plur1bus-channels",
+ "plur1bus-providers",
+ "plur1bus-wire-fixtures",
+ "plur1bus-wire-log",
+ "serde",
+ "serde_json",
+ "ureq",
+ "url",
+]
+
+[[package]]
 name = "plur1bus-wire-fixtures"
 version = "0.1.0"
 dependencies = [

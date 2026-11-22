@@ -16,6 +16,10 @@ const MAX_TIMEOUT: Duration = Duration::from_secs(600);
 const MAX_MESSAGE: usize = 32 * 1024 * 1024;
 
 pub trait SocketPorts {
+    fn cancelled(&self) -> bool {
+        false
+    }
+
     fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr>;
 
     /// Connect only to the pin. Complete and verify TLS for the original hostname before
@@ -82,6 +86,13 @@ pub enum Peer {
     Closed(Option<u16>),
 }
 
+/// Credential headers for the two voice providers without Bearer authentication.
+#[derive(Clone, Copy)]
+pub enum VoiceKey<'a> {
+    ElevenLabs(&'a str),
+    Gemini(&'a str),
+}
+
 pub struct Socket {
     ws: WebSocket<DeadlineStream>,
     limits: Limits,
@@ -96,6 +107,39 @@ impl Socket {
         ports: &dyn SocketPorts,
         limits: Limits,
         insecure_loopback: bool,
+    ) -> Result<Self, Error> {
+        Self::connect_with_headers(url, headers, ports, limits, insecure_loopback, None)
+    }
+
+    /// Allow one of the voice vendors' API-key headers at the TLS handshake.
+    pub fn connect_with_voice_key(
+        url: &Url,
+        key: VoiceKey<'_>,
+        ports: &dyn SocketPorts,
+        limits: Limits,
+        insecure_loopback: bool,
+    ) -> Result<Self, Error> {
+        let (name, value) = match key {
+            VoiceKey::ElevenLabs(value) => ("xi-api-key", value),
+            VoiceKey::Gemini(value) => ("x-goog-api-key", value),
+        };
+        Self::connect_with_headers(
+            url,
+            &[(name, value)],
+            ports,
+            limits,
+            insecure_loopback,
+            Some(name),
+        )
+    }
+
+    fn connect_with_headers(
+        url: &Url,
+        headers: &[(&str, &str)],
+        ports: &dyn SocketPorts,
+        limits: Limits,
+        insecure_loopback: bool,
+        voice_header: Option<&str>,
     ) -> Result<Self, Error> {
         let plaintext = url.scheme() == "ws" && insecure_loopback;
         if (url.scheme() != "wss" && !plaintext)
@@ -135,7 +179,9 @@ impl Socket {
         let mut request = url.as_str().into_client_request().map_err(classify)?;
         for (name, value) in headers {
             let name = HeaderName::from_bytes(name.as_bytes()).map_err(|_| Error::Protocol)?;
-            if name.as_str() != "authorization" && name.as_str() != "sec-websocket-protocol" {
+            if !matches!(name.as_str(), "authorization" | "sec-websocket-protocol")
+                && Some(name.as_str()) != voice_header
+            {
                 return Err(Error::Protocol);
             }
             let mut value = HeaderValue::from_str(value).map_err(|_| Error::Protocol)?;
@@ -164,7 +210,12 @@ impl Socket {
     }
 
     pub fn receive(&mut self, budget: Duration) -> Result<Peer, Error> {
-        self.ws.get_mut().deadline = Instant::now() + budget.min(self.limits.read).min(MAX_TIMEOUT);
+        self.receive_until(Instant::now() + budget.min(MAX_TIMEOUT))
+    }
+
+    pub fn receive_until(&mut self, deadline: Instant) -> Result<Peer, Error> {
+        self.ws.get_mut().deadline =
+            deadline.min(Instant::now() + self.limits.read.min(MAX_TIMEOUT));
         let message = self.ws.read().map_err(classify)?;
         match message {
             Message::Text(text) => Ok(Peer::Text(text.to_string())),
@@ -186,10 +237,15 @@ impl Socket {
     }
 
     pub fn send_text(&mut self, text: &str) -> Result<(), Error> {
+        self.send_text_until(text, Instant::now() + self.limits.write.min(MAX_TIMEOUT))
+    }
+
+    pub fn send_text_until(&mut self, text: &str, deadline: Instant) -> Result<(), Error> {
         if text.len() > self.limits.message_bytes.min(self.limits.frame_bytes) {
             return Err(Error::Capacity);
         }
-        self.ws.get_mut().deadline = Instant::now() + self.limits.write.min(MAX_TIMEOUT);
+        self.ws.get_mut().deadline =
+            deadline.min(Instant::now() + self.limits.write.min(MAX_TIMEOUT));
         self.ws.send(Message::Text(text.into())).map_err(classify)
     }
 
@@ -204,10 +260,19 @@ impl Socket {
     }
 
     pub fn close(&mut self, code: u16, reason: &str) -> Result<(), Error> {
+        self.close_until(
+            code,
+            reason,
+            Instant::now() + self.limits.write.min(MAX_TIMEOUT),
+        )
+    }
+
+    pub fn close_until(&mut self, code: u16, reason: &str, deadline: Instant) -> Result<(), Error> {
         if reason.len() > 123 {
             return Err(Error::Capacity);
         }
-        self.ws.get_mut().deadline = Instant::now() + self.limits.write.min(MAX_TIMEOUT);
+        self.ws.get_mut().deadline =
+            deadline.min(Instant::now() + self.limits.write.min(MAX_TIMEOUT));
         self.ws
             .close(Some(CloseFrame {
                 code: code.into(),
