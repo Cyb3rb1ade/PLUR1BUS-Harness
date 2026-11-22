@@ -178,6 +178,63 @@ fn websocket_provider_error_drops_its_text_and_never_reports_usage() {
 }
 
 #[test]
+fn wire_logger_drops_the_provider_close_reason_and_credential() {
+    use plur1bus_voice_providers::http::Error;
+    use plur1bus_wire_fixtures::frame;
+    use std::sync::{Arc, Mutex};
+
+    const KEY: &str = "synthetic-tts-logging-credential";
+    const REASON: &str = "synthetic-tts-close-reason";
+    struct Records(Arc<Mutex<Vec<String>>>);
+
+    impl log::Log for Records {
+        fn enabled(&self, _: &log::Metadata<'_>) -> bool {
+            true
+        }
+
+        fn log(&self, record: &log::Record<'_>) {
+            self.0.lock().unwrap().push(record.args().to_string());
+        }
+
+        fn flush(&self) {}
+    }
+
+    let records = Arc::new(Mutex::new(Vec::new()));
+    plur1bus_wire_log::install(Records(Arc::clone(&records))).unwrap();
+    log::set_max_level(log::LevelFilter::Trace);
+    log::debug!(target: "plur1bus_voice_providers", "synthetic logger control");
+
+    let mut fixture = socket_fixture();
+    let mut payload = 1008u16.to_be_bytes().to_vec();
+    payload.extend_from_slice(REASON.as_bytes());
+    fixture["exchanges"][0]["receive"] = json!([]);
+    fixture["exchanges"][0]["rawFramesBase64"] =
+        json!([STANDARD.encode(frame(0x8, &payload, None))]);
+    let server = FakeServer::start(&fixture);
+    let pin = Pin {
+        addr: server.addr,
+        expected_target: fixture["request"]["path"].as_str().unwrap().into(),
+    };
+    let base = Url::parse(&format!("http://{}", server.addr)).unwrap();
+    let input = &fixture["input"];
+    let mut stream = TtsSocket::connect(&base, KEY, &options(input), &pin, BUDGET, true).unwrap();
+    for text in input["text"].as_array().unwrap() {
+        stream.send_text(text.as_str().unwrap()).unwrap();
+    }
+    stream.finish_input().unwrap();
+    assert_eq!(stream.next_audio().err(), Some(Error::Auth));
+    assert!(stream.usage().is_none());
+
+    let records = records.lock().unwrap();
+    assert!(records
+        .iter()
+        .any(|line| line == "synthetic logger control"));
+    assert!(!records
+        .iter()
+        .any(|line| line.contains(REASON) || line.contains(KEY)));
+}
+
+#[test]
 fn callback_can_stop_http_playback_before_success() {
     use plur1bus_voice_providers::http::Error;
 

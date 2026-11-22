@@ -23,3 +23,4 @@ percent-encoding = "=2.3.2"
 
 [dev-dependencies]
 plur1bus-wire-fixtures = { path = "../plur1bus-wire-fixtures" }
+plur1bus-wire-log = { path = "../plur1bus-wire-log" }

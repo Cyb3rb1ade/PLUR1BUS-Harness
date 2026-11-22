@@ -121,6 +121,7 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+#[derive(Clone, Copy)]
 pub struct Client<'a> {
     ports: &'a dyn Ports,
     allow_loopback_http: bool,
@@ -145,6 +146,10 @@ impl<'a> Client<'a> {
     pub fn with_retries(mut self, retries: u8) -> Self {
         self.retries = retries;
         self
+    }
+
+    pub(crate) fn check(&self, deadline: Instant) -> Result<(), Error> {
+        check(self.ports, deadline)
     }
 
     pub fn json(

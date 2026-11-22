@@ -6326,6 +6326,7 @@ dependencies = [
  "plur1bus-channels",
  "plur1bus-providers",
  "plur1bus-wire-fixtures",
+ "plur1bus-wire-log",
  "serde",
  "serde_json",
  "ureq",

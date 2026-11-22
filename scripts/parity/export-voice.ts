@@ -5,12 +5,114 @@ import { createGeminiLive } from "../../packages/voice-providers/src/providers/g
 import { createGrokVoice } from "../../packages/voice-providers/src/providers/grok.ts";
 import { createPolly, type PollyClientLike } from "../../packages/voice-providers/src/providers/polly.ts";
 import { VoiceProviderError } from "../../packages/voice-providers/src/errors.ts";
+import { createVoiceProviders, discover, lookupProvider } from "../../packages/voice-providers/src/registry.ts";
 import { startFakeVendor, type FakeSocket } from "../../packages/voice-providers/test/helpers/fake-vendor.ts";
 import { startStub } from "../../packages/providers/test/helpers/stub.ts";
 import { exporterMain } from "./lib.mjs";
 
 const fixtureKey = "synthetic-voice-credential";
 const keyHeaders = ["xi-api-key", "x-goog-api-key", "authorization"];
+
+async function captureRegistry() {
+  const responses = [
+    { status: 401, body: { detail: fixtureKey } },
+    { status: 200, body: { voices: [{ voice_id: "fixture-voice" }] } },
+    { status: 200, body: [] },
+  ];
+  const stub = await startStub((_request, reply) => {
+    const response = responses[stub.requests.length - 1];
+    if (!response) throw new Error("Unexpected cloud voice discovery request");
+    reply.writeHead(response.status, { "content-type": "application/json" });
+    reply.end(JSON.stringify(response.body));
+  });
+  try {
+    const references: string[] = [];
+    const registry = createVoiceProviders({
+      elevenlabs: { enabled: true, apiKeyRef: "eleven-fixture", baseUrl: stub.baseUrl, defaultSttModel: "scribe_fixture" },
+      xai: { enabled: true },
+      gemini: { enabled: true, apiKeyRef: "gemini-fixture", baseUrl: stub.baseUrl },
+      polly: { enabled: true },
+    }, {
+      getSecret: async ref => {
+        references.push(ref);
+        if (ref === "gemini-fixture") throw new Error(fixtureKey);
+        return fixtureKey;
+      },
+      pollyClientFactory: async () => ({
+        async synthesize() { throw new Error("Unexpected Polly synthesis"); },
+        async describeVoices() { return { Voices: [{ Id: "polly-fixture", SupportedEngines: ["neural"] }] }; },
+      }),
+    });
+    const expected = await discover(registry);
+    return {
+      transport: "http",
+      status: registry.status,
+      references,
+      known: ([
+        ["asr", "elevenlabs"], ["tts", "polly"], ["realtime", "gemini"],
+        ["realtime", "xai"], ["tts", "gemini"], ["asr", "constructor"],
+      ] as const).map(([kind, id]) => Boolean(lookupProvider(registry, kind, id))),
+      expected,
+      exchanges: stub.requests.map((request, index) => ({
+        request: {
+          method: request.method, path: request.url,
+          headers: { "xi-api-key": String(request.headers["xi-api-key"]).replaceAll(fixtureKey, "<credential>") },
+        },
+        response: {
+          status: responses[index]!.status,
+          body: JSON.parse(JSON.stringify(responses[index]!.body).replaceAll(fixtureKey, "<credential>")),
+        },
+      })),
+    };
+  } finally {
+    await stub.close();
+  }
+}
+
+async function captureModelSelection(vendor: "xai" | "gemini", reply: Reply, override?: string) {
+  const ready = vendor === "xai" ? { type: "session.created" } : { setupComplete: {} };
+  const server = await startFakeVendor({
+    http: (_request, response) => {
+      response.writeHead(reply.status ?? 200, { "content-type": "application/json" });
+      response.end(JSON.stringify(reply.body));
+    },
+    ws: socket => { void socket.waitFor(1).then(() => socket.send(ready)); },
+  });
+  const authHeader = vendor === "xai" ? "authorization" : "x-goog-api-key";
+  const recordedHeader = (headers: Record<string, unknown>) => ({
+    [authHeader]: String(headers[authHeader]).replaceAll(fixtureKey, "<credential>"),
+  });
+  let session;
+  try {
+    const config = { baseUrl: server.httpUrl, apiKeyRef: "fixture", getSecret: async () => fixtureKey };
+    const provider = vendor === "xai" ? createGrokVoice(config) : createGeminiLive(config);
+    session = await provider.connect({ ...(override ? { model: override } : {}), signal: AbortSignal.timeout(3000) });
+    const event = (await session.events[Symbol.asyncIterator]().next()).value;
+    if (event?.type !== "ready") throw new Error("Expected realtime readiness after model selection");
+    const socket = server.sockets[0]!;
+    const frames = socket.jsonFrames();
+    const model = vendor === "xai" ? new URL(socket.req.url!, server.httpUrl).searchParams.get("model")
+      : (frames[0] as { setup: { model: string } }).setup.model;
+    return {
+      vendor, ...(override ? { override } : {}), expected: model,
+      http: {
+        transport: "http",
+        exchanges: server.requests.map(request => ({
+          request: { method: request.method, path: request.url, headers: recordedHeader(request.headers) },
+          response: { status: reply.status ?? 200, body: reply.body },
+        })),
+      },
+      socket: {
+        transport: "websocket", request: { path: socket.req.url, headers: recordedHeader(socket.req.headers) },
+        exchanges: [{ send: frames, receive: [ready] }],
+      },
+    };
+  } finally {
+    await session?.close();
+    await server.close();
+  }
+}
+
 type Operation = "eleven-voices" | "eleven-models" | "eleven-asr-models" | "gemini-models" | "xai-models";
 type Reply = { status?: number; body: unknown };
 
@@ -429,6 +531,16 @@ export async function buildVoiceFixtures() {
     "gemini-realtime": await captureRealtime("gemini"),
     "eleven-asr-realtime": await captureRealtime("eleven-asr"),
     transcription: await captureTranscription(),
+    registry: await captureRegistry(),
+    "model-selection": [
+      await captureModelSelection("xai", { body: { data: [{ id: "fixture-text" }, { id: "fixture-voice" }] } }),
+      await captureModelSelection("gemini", { body: { models: [
+        { name: "models/plain", supportedGenerationMethods: ["bidiGenerateContent"] },
+        { name: "models/fixture-native-audio", supportedGenerationMethods: ["bidiGenerateContent"] },
+      ] } }),
+      await captureModelSelection("gemini", { status: 404, body: { detail: "synthetic" } }),
+      await captureModelSelection("xai", { body: { data: [] } }, "fixture-explicit"),
+    ],
     catalog: {
       schema: "plur1bus.parity-wire/1",
       exporter: "scripts/parity/export-voice.ts",

@@ -32,6 +32,73 @@ impl SocketPorts for Loopback {
     }
 }
 
+impl plur1bus_voice_providers::http::Ports for Loopback {
+    fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr> {
+        SocketPorts::pin(self, endpoint, deadline)
+    }
+}
+
+#[test]
+fn discovery_selection_matches_the_typescript_websocket_handshake_and_setup() {
+    use plur1bus_voice_providers::{catalog, http::Client};
+    use serde_json::Value;
+
+    const KEY: &str = "synthetic-voice-credential";
+    let cases: Vec<Value> = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/voice/model-selection.json"
+    ))
+    .unwrap();
+    let budget = Duration::from_secs(5);
+    for case in cases {
+        let (catalog_vendor, vendor) = if case["vendor"] == "xai" {
+            (catalog::Vendor::Xai, Vendor::Grok)
+        } else {
+            (catalog::Vendor::Gemini, Vendor::Gemini)
+        };
+        let http = FakeServer::start(&case["http"]);
+        let ports = Loopback(http.addr, None);
+        let base = Url::parse(&format!("http://{}", http.addr)).unwrap();
+        let client = Client::new(&ports).with_loopback_http();
+        let catalog = catalog::Catalog::new(client, base, catalog_vendor).unwrap();
+        let model = catalog
+            .realtime_model(KEY, case["override"].as_str(), budget)
+            .unwrap();
+        assert_eq!(model, case["expected"]);
+        let requests = http.received();
+        let exchanges = case["http"]["exchanges"].as_array().unwrap();
+        assert_eq!(requests.len(), exchanges.len());
+        for (request, exchange) in requests.iter().zip(exchanges) {
+            assert_eq!(request["path"], exchange["request"]["path"]);
+            for (header, value) in exchange["request"]["headers"].as_object().unwrap() {
+                assert_eq!(
+                    request["headers"][header],
+                    value.as_str().unwrap().replace("<credential>", KEY)
+                );
+            }
+        }
+
+        let socket = FakeServer::start(&case["socket"]);
+        let target = case["socket"]["request"]["path"].as_str().unwrap();
+        let ports = Loopback(socket.addr, Some(target.into()));
+        let base = Url::parse(&format!("http://{}", socket.addr)).unwrap();
+        let options = Options {
+            vendor,
+            model: &model,
+            voice: None,
+            instructions: None,
+            tools: &[],
+            input_rate: 16_000,
+        };
+        let mut session = Session::connect(&base, KEY, &options, &ports, budget, true).unwrap();
+        assert_eq!(session.receive(budget).unwrap(), [Event::Ready]);
+        assert_eq!(
+            json!(socket.received()),
+            case["socket"]["exchanges"][0]["send"]
+        );
+        session.close().unwrap();
+    }
+}
+
 #[test]
 fn recorded_ready_and_audio_turns_replay_through_the_blocking_socket() {
     for (name, vendor) in [

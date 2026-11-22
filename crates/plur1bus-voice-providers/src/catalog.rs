@@ -53,7 +53,10 @@ impl<'a> Catalog<'a> {
     }
 
     pub fn list_models(&self, key: &str, budget: Duration) -> Result<Vec<Value>, Error> {
-        let deadline = deadline(budget);
+        self.models_until(key, deadline(budget))
+    }
+
+    pub(crate) fn models_until(&self, key: &str, deadline: Instant) -> Result<Vec<Value>, Error> {
         match self.vendor {
             Vendor::ElevenLabs => self.elevenlabs_models(key, deadline, "tts"),
             Vendor::Xai => {
@@ -159,10 +162,19 @@ impl<'a> Catalog<'a> {
         default_model: Option<&str>,
         budget: Duration,
     ) -> Result<Vec<Value>, Error> {
+        self.elevenlabs_asr_models_until(key, default_model, deadline(budget))
+    }
+
+    pub(crate) fn elevenlabs_asr_models_until(
+        &self,
+        key: &str,
+        default_model: Option<&str>,
+        deadline: Instant,
+    ) -> Result<Vec<Value>, Error> {
         if self.vendor != Vendor::ElevenLabs {
             return Err(Error::InvalidRequest);
         }
-        let mut models = self.elevenlabs_models(key, deadline(budget), "asr")?;
+        let mut models = self.elevenlabs_models(key, deadline, "asr")?;
         if models.is_empty() {
             let model = default_model.unwrap_or("scribe_v2");
             models.push(json!({"id":model,"name":model,"capabilities":["asr"]}));
@@ -215,10 +227,17 @@ impl<'a> Catalog<'a> {
     }
 
     pub fn list_elevenlabs_voices(&self, key: &str, budget: Duration) -> Result<Vec<Value>, Error> {
+        self.elevenlabs_voices_until(key, deadline(budget))
+    }
+
+    pub(crate) fn elevenlabs_voices_until(
+        &self,
+        key: &str,
+        deadline: Instant,
+    ) -> Result<Vec<Value>, Error> {
         if self.vendor != Vendor::ElevenLabs {
             return Err(Error::InvalidRequest);
         }
-        let deadline = deadline(budget);
         let mut endpoint = self.endpoint("/v2/voices");
         let mut token: Option<String> = None;
         let mut out = Vec::new();

@@ -6,5 +6,6 @@ pub mod elevenlabs;
 pub mod http;
 pub mod polly;
 pub mod realtime;
+pub mod registry;
 mod sentences;
 mod tts_socket;

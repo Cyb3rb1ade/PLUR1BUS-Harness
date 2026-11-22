@@ -215,6 +215,14 @@ waits are bounded by the same request deadline. See
 [P4D-210](defects.md#p4d-210) and [P4D-211](defects.md#p4d-211). The cloud
 library has no production caller.
 
+The cloud registry replays configured statuses, capability lookup, independent
+catalog jobs and unified error codes in TypeScript order. A failed catalog
+operation leaves the results from the other operations available. The host
+supplies the credential lease and the signed Polly port. The catalog-to-socket
+recordings cover a configured model, selection from xAI and Gemini catalogs,
+and Gemini's fallback model. A test through the host logger checks a synthetic
+credential and a provider close reason against the R-W-11 boundary.
+
 ### W4 · Medien und Dokumente (P4-53)
 
 - **Dateien.** [Media](../../packages/media/src) mit Adapterprotokollen, `jobs.ts`, `store.ts`,
