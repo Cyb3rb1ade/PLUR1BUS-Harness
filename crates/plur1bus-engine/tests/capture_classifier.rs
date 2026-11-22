@@ -277,7 +277,7 @@ fn real_capture_classification_and_reminders_match_node_lance_rows() {
     }
 }
 #[test]
-fn a_cut_off_t3_response_uses_the_same_local_fallback_as_a_failed_call() {
+fn a_cut_off_t3_response_uses_the_local_emotion_score() {
     let fixture = fixture();
     let scenario = fixture["recordings"]
         .as_array()
@@ -286,34 +286,28 @@ fn a_cut_off_t3_response_uses_the_same_local_fallback_as_a_failed_call() {
         .map(|record| &record["scenario"])
         .find(|scenario| scenario["name"] == "fixed-t3")
         .unwrap();
-    let classify = |provider: &str| {
-        let mut scenario = scenario.clone();
-        scenario["provider"] = provider.into();
-        let rig = Rig::new(&scenario);
-        let turn = rig.turn(0, "The public fixture team is happy about the release.");
-        let context =
-            RequestContext::build(&turn.principal, &turn.agent, rig.host.as_ref()).unwrap();
-        let result = rig
-            .classifier
-            .classify(ClassificationRequest {
-                text: &JsString::from(turn.messages[0].content.as_str()),
-                role: "user",
-                turn: &turn,
-                context: &context,
-                now: NOW,
-                cancel: &Cancel::never(),
-            })
-            .unwrap();
-        let calls = rig.routes.calls.lock().unwrap();
-        assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0]["maxTokens"], 450);
-        (
-            result.emotional_valence,
-            result.emotional_dominant,
-            result.emotion_status,
-        )
-    };
-    assert_eq!(classify("cut-off"), classify("throw"));
+    let mut scenario = scenario.clone();
+    scenario["provider"] = "cut-off".into();
+    let rig = Rig::new(&scenario);
+    let turn = rig.turn(0, "The public fixture team is happy about the release.");
+    let context = RequestContext::build(&turn.principal, &turn.agent, rig.host.as_ref()).unwrap();
+    let result = rig
+        .classifier
+        .classify(ClassificationRequest {
+            text: &JsString::from(turn.messages[0].content.as_str()),
+            role: "user",
+            turn: &turn,
+            context: &context,
+            now: NOW,
+            cancel: &Cancel::never(),
+        })
+        .unwrap();
+    let calls = rig.routes.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0]["maxTokens"], 450);
+    assert_eq!(result.emotional_valence, "joy:1.00");
+    assert_eq!(result.emotional_dominant, "joy");
+    assert_eq!(result.emotion_status, "final");
 }
 #[test]
 fn forged_context_cancel_and_foreign_mood_refuse_before_route_binding() {
