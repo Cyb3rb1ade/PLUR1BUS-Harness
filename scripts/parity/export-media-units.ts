@@ -4,7 +4,7 @@ import type { ImageRequest } from "../../packages/media/src/types.ts";
 import type { Manifest } from "../../packages/media/src/store.ts";
 import { exporterMain } from "./lib.mjs";
 
-function recordMediaUnits() {
+export function recordMediaUnits() {
   const cases = [
     { input: { prompt: "Draw a blue circle" }, files: [null] },
     { input: { prompt: "Three blue circles", n: 3, size: { width: 512, height: 512 } }, files: [null, null] },

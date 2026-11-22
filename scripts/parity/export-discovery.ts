@@ -3,7 +3,7 @@ import { resolveRole, roleWarnings } from "../../packages/core/src/discovery/rol
 import { emptyCatalog, type CatalogModel } from "../../packages/core/src/discovery/types.ts";
 import { exporterMain } from "./lib.mjs";
 
-function captureRoles() {
+export function captureRoles() {
   const make = (provider: string, id: string, status: CatalogModel["status"], aliases: string[] = []): CatalogModel => ({
     provider, id, status, aliases, displayName: id, kind: "chat", capabilities: [],
     firstSeen: "2026-11-18T00:00:00Z", lastSeen: "2026-11-19T00:00:00Z",

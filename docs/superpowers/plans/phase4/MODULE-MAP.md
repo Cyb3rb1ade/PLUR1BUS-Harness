@@ -124,12 +124,12 @@ A test file with no mode carries a reason instead (test support, a package that 
 
 | Mode | Test files |
 |---|---:|
-| `V` | 555 |
-| `T` | 903 |
+| `V` | 559 |
+| `T` | 901 |
 | `S` | 0 |
-| `W` | 414 |
+| `W` | 411 |
 | `B` | 167 |
-| no mode, with a reason | 129 |
+| no mode, with a reason | 128 |
 | unassigned owner | 0 |
 | **all** | **1644** |
 
@@ -2172,7 +2172,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/tools/web/ip-display.test.ts` | V,W | ip classification, robots, extraction (V); fetch and search exchanges (W) |
 | `packages/core/test/tools/web/ip-vectors.test.ts` | V,W | ip classification, robots, extraction (V); fetch and search exchanges (W) |
 | `packages/core/test/tools/web/ip.test.ts` | V,W | ip classification, robots, extraction (V); fetch and search exchanges (W) |
-| `packages/core/test/tools/web/robots.test.ts` | V,W | ip classification, robots, extraction (V); fetch and search exchanges (W) |
+| `packages/core/test/tools/web/robots.test.ts` | V,W | robots rules (V), clock and pacing (W, open) |
 | `packages/core/test/tools/web/search-http.test.ts` | V,W | ip classification, robots, extraction (V); fetch and search exchanges (W) |
 | `packages/core/test/tools/web/search-providers.test.ts` | V,W | ip classification, robots, extraction (V); fetch and search exchanges (W) |
 | `packages/core/test/tools/web/search.test.ts` | V,W | ip classification, robots, extraction (V); fetch and search exchanges (W) |
@@ -2507,7 +2507,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/discovery/reasoning.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
 | `packages/core/test/discovery/reconcile.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
 | `packages/core/test/discovery/redaction-lifecycle.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/roles.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
+| `packages/core/test/discovery/roles.test.ts` | V | model identity, aliases and role warnings |
 | `packages/core/test/discovery/scanners.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
 | `packages/core/test/discovery/schedule.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
 | `packages/core/test/discovery/scheduler.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
@@ -2753,7 +2753,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/composition/documents.test.ts` | T | media and documents wiring |
 | `packages/core/test/composition/media.test.ts` | T | media and documents wiring |
 | `packages/documents/test/brand.test.ts` | — | rendering is covered by the documents-golden CI job (PDF goldens) until the Rust driver renders them |
-| `packages/documents/test/checks.test.ts` | — | rendering is covered by the documents-golden CI job (PDF goldens) until the Rust driver renders them |
+| `packages/documents/test/checks.test.ts` | V | pure document assertions, assembled HTML checks open |
 | `packages/documents/test/golden-diff.test.ts` | — | rendering is covered by the documents-golden CI job (PDF goldens) until the Rust driver renders them |
 | `packages/documents/test/render-e2e.test.ts` | — | rendering is covered by the documents-golden CI job (PDF goldens) until the Rust driver renders them |
 | `packages/documents/test/render.test.ts` | — | rendering is covered by the documents-golden CI job (PDF goldens) until the Rust driver renders them |
@@ -2798,7 +2798,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/media/test/store-uploads.test.ts` | W,T | plan P4-53 |
 | `packages/media/test/store.coverage.test.ts` | W,T | plan P4-53 |
 | `packages/media/test/transport.test.ts` | W,T | plan P4-53 |
-| `packages/media/test/units.coverage.test.ts` | W,T | plan P4-53 |
+| `packages/media/test/units.coverage.test.ts` | V | requested and delivered media units |
 | `packages/media/test/upload-index.test.ts` | W,T | plan P4-53 |
 | `packages/media/test/video-native.test.ts` | W,T | plan P4-53 |
 | `packages/media/test/video.test.ts` | W,T | plan P4-53 |
@@ -3079,7 +3079,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 
 | File | Mode | Reason |
 |---|---|---|
-| `packages/core/test/a2a/a2a-card.coverage.test.ts` | W | peer exchanges against the fixture peer |
+| `packages/core/test/a2a/a2a-card.coverage.test.ts` | V | public card projection and schema |
 | `packages/core/test/a2a/a2a-handler.coverage.test.ts` | W | peer exchanges against the fixture peer |
 | `packages/core/test/a2a/a2a-index.coverage.test.ts` | W | peer exchanges against the fixture peer |
 | `packages/core/test/a2a/a2a-push.coverage.test.ts` | W | peer exchanges against the fixture peer |
@@ -3087,7 +3087,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/a2a/a2a-tasks.coverage.test.ts` | W | peer exchanges against the fixture peer |
 | `packages/core/test/a2a/a2a-turn-port.coverage.test.ts` | W | peer exchanges against the fixture peer |
 | `packages/core/test/a2a/audit-b01.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/card.test.ts` | W | peer exchanges against the fixture peer |
+| `packages/core/test/a2a/card.test.ts` | V,W | public card projection (V) and served card routes (W, open) |
 | `packages/core/test/a2a/conformance.test.ts` | W | peer exchanges against the fixture peer |
 | `packages/core/test/a2a/early-refusal.test.ts` | W | peer exchanges against the fixture peer |
 | `packages/core/test/a2a/helpers.ts` | W | peer exchanges against the fixture peer |

@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import { buildAgentCard, validateAgentCard } from "../../packages/core/src/a2a/card.ts";
 import { exporterMain } from "./lib.mjs";
 
-function recordCards() {
+export function recordCards() {
   const cases = [
     { id: "example", base: "https://agents.example.invalid", version: "2.0", info: { optIn: true } },
     {
