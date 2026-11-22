@@ -2,7 +2,7 @@
 
 use super::{open_ledger, text_id, tool_name, tool_version, Scope, R};
 use crate::collab::{CollabError, CollabErrorCode};
-use plur1bus_store::rusqlite::{params, Transaction, TransactionBehavior};
+use plur1bus_store::rusqlite::params;
 use plur1bus_store::Store as SqliteStore;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -80,7 +80,7 @@ impl Store {
                 "invalid dispatcher evidence",
             ));
         }
-        let tx = Transaction::new_unchecked(self.db.conn(), TransactionBehavior::Immediate)?;
+        let tx = plur1bus_store::begin_immediate(self.db.conn())?;
         let changed=tx.execute("INSERT OR IGNORE INTO mining_executions(owner,agent,session,turn,call,tool,version,success)
             VALUES(?,?,?,?,?,?,?,?)",params![e.owner,e.agent_id,e.session_id,e.turn_id,e.call_id,e.tool,e.version,e.success])?;
         if changed == 0 {

@@ -6,9 +6,7 @@ use super::{digest, target_hash, target_valid, Target, Window};
 use crate::collab::{CollabError, CollabErrorCode as C};
 use crate::private_store;
 use crate::toolcall::json::{parse, V};
-use plur1bus_store::rusqlite::{
-    self, params, Connection, OptionalExtension, Row, Transaction, TransactionBehavior,
-};
+use plur1bus_store::rusqlite::{self, params, Connection, OptionalExtension, Row, Transaction};
 use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreSpec};
 use serde::{Deserialize, Serialize};
 
@@ -302,10 +300,7 @@ impl LearnStore {
     }
 
     fn transaction(&self) -> R<Transaction<'_>> {
-        Ok(Transaction::new_unchecked(
-            self.db.conn(),
-            TransactionBehavior::Immediate,
-        )?)
+        Ok(plur1bus_store::begin_immediate(self.db.conn())?)
     }
 
     /// Checkpoint and compact the WAL through SQLite.

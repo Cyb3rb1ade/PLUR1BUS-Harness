@@ -1,6 +1,4 @@
-use plur1bus_store::rusqlite::{
-    params, Connection, OptionalExtension, Transaction, TransactionBehavior,
-};
+use plur1bus_store::rusqlite::{params, Connection, OptionalExtension};
 use plur1bus_store::StoreError;
 
 use super::{read_payload_on, rows, CollabError, C, R};
@@ -35,7 +33,7 @@ pub(super) fn checked_version(cx: &Connection) -> R<u32> {
 
 pub(super) fn apply(cx: &Connection) -> R<()> {
     loop {
-        let tx = Transaction::new_unchecked(cx, TransactionBehavior::Immediate)?;
+        let tx = plur1bus_store::begin_immediate(cx)?;
         let version = checked_version(&tx)?;
         let Some(sql) = DDL.get(version as usize) else {
             tx.commit()?;
