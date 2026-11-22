@@ -935,6 +935,16 @@ impl Shared {
                 self.live_core_instance(connection)?;
                 self.tokens.observe(params)
             }
+            "engine.media.index" => {
+                self.live_core_instance(connection)?;
+                let request: crate::contract::MediaIndexRequest = decode(params)?;
+                if request.mime.chars().any(char::is_control)
+                    || request.caption.is_some() != request.caption_source.is_some()
+                {
+                    return Err(WireError::invalid_params());
+                }
+                encode(self.engine.index_media(request, &connection.cancel)?)
+            }
             "engine.jobs.run" => self.run_job(connection, params),
             "engine.capture.wait" => self.capture_wait(params, &connection.cancel),
             "engine.capture.abort" => {

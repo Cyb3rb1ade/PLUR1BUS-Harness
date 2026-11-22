@@ -35,6 +35,7 @@
   "engine.jobs.history": "1.7.0",
   "engine.jobs.list": "1.7.0",
   "engine.jobs.run": "1.7.0",
+  "engine.media.index": "1.28.0",
   "engine.memory.correct": "1.7.0",
   "engine.memory.curation.drop": "1.7.0",
   "engine.memory.curation.keep": "1.7.0",

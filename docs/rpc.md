@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.27.0)
+# RPC reference (rpc 1.28.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -460,6 +460,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ### engine server
 
+- `engine.media.index`: experimental, since 1.28.0
 - `engine.admin.reembedding.checkpoint.put`: experimental, since 1.27.0
 - `engine.admin.reembedding.checkpoint.get`: experimental, since 1.27.0
 - `engine.tokens.families`: experimental, since 1.27.0
@@ -559,6 +560,131 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `legacy.secret.changed`: experimental, since 1.27.0
 
 ## Methods
+
+### `engine.media.index`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Index one Core-authorized media item. Captioning and codec admission remain with the Core.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mediaId",
+    "kind",
+    "mime",
+    "source",
+    "scope"
+  ],
+  "properties": {
+    "mediaId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "image",
+        "video",
+        "audio"
+      ]
+    },
+    "mime": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "source": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bytes"
+          ],
+          "properties": {
+            "bytes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1048576,
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              }
+            }
+          }
+        }
+      ]
+    },
+    "scope": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "caption": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "captionSource": {
+      "type": "string",
+      "enum": [
+        "prompt",
+        "user",
+        "auto"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "segments",
+    "state"
+  ],
+  "properties": {
+    "segments": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "indexed",
+        "pending",
+        "unsupported-kind",
+        "failed"
+      ]
+    }
+  }
+}
+```
 
 ### `engine.admin.reembedding.checkpoint.put`
 

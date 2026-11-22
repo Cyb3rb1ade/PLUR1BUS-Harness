@@ -1286,3 +1286,39 @@ fn the_same_first_writes_leave_a_legacy_store_base_at_schema_zero() {
         assert!(engine.wait_for_exit().success());
     }
 }
+
+#[test]
+fn media_index_is_core_only_and_has_no_unbound_runtime_fallback() {
+    let _guard = process_test();
+    let home = home();
+    let engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut client = RawConnection::connect(engine.address());
+    client.set_read_timeout(Duration::from_secs(10));
+    let hello = client.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"media-fixture"}),
+    );
+    assert_eq!(hello["result"]["pid"], engine.pid());
+    let request = json!({
+        "mediaId": "fixture-image", "kind": "image", "mime": "image/png",
+        "source": {"bytes": [0, 1, 2]},
+        "scope": {
+            "agentId": "a1", "workspace": "workspace:v1:fixture",
+            "channel": "local", "accountId": "fixture",
+            "chat": {"id": "fixture", "kind": "direct"}, "trust": "inferred"
+        }
+    });
+
+    let unauthorized = client.call(2, "engine.media.index", request.clone());
+    assert_unauthorized(&unauthorized);
+    assert_eq!(
+        unauthorized["error"]["data"]["reason"],
+        "core-link-required"
+    );
+
+    let mut core = core_peer(&engine, home.path());
+    let unbound = core.call(2, "engine.media.index", request);
+    assert_eq!(unbound["error"]["data"]["reason"], "operation-unavailable");
+    assert!(unbound.get("result").is_none());
+}

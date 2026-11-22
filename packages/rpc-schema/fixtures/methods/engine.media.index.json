@@ -1,0 +1,29 @@
+{
+  "params": {
+    "mediaId": "fixture-image",
+    "kind": "image",
+    "mime": "image/png",
+    "source": {
+      "bytes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "scope": {
+      "agentId": "a1",
+      "workspace": "workspace:v1:fixture",
+      "channel": "local",
+      "accountId": "fixture",
+      "chat": {
+        "id": "fixture",
+        "kind": "direct"
+      },
+      "trust": "inferred"
+    }
+  },
+  "result": {
+    "segments": 1,
+    "state": "indexed"
+  }
+}

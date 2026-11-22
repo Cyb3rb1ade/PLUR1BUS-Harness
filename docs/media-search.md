@@ -15,6 +15,11 @@ MM-3a adds the Harness prerequisites for the Rust media path: authenticated chan
 optional status metadata and explicit ffmpeg setup. The Rust media index and its `engine.media.*` binding arrive in
 MM-2b/MM-3b; these prerequisites do not make an unavailable index ready.
 
+RE-10 T4 reserves the authenticated Rust-engine `engine.media.index` entry in Harness RPC 1.28.
+A linked Core presents the admitted principal and either its resolved media path or a bounded byte payload.
+The unbound native backend reports `E_NOT_AVAILABLE` with reason `operation-unavailable`.
+The Core's index hook and backfill keep their existing adapter until the native index and its codec ports are bound.
+
 ## Model of the two indexes
 
 - The text index stays the main index. Media never change its provider, dimension or fingerprint.

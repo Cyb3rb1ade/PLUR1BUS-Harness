@@ -5,8 +5,8 @@ use std::time::Duration;
 use super::{
     AdminOps, AgentId, AgentStoreHandle, Cancel, Capabilities, CaptureHandle, CaptureOptions,
     ChannelRegistry, CheckpointReason, CheckpointResult, ContractVersion, EmbeddingService,
-    EngineError, EngineStatus, EventReceiver, JobRegistry, MemoryOps, ModelsService, RecallOptions,
-    RecallQuery, RecallResult, StoreOps, TurnRecord,
+    EngineError, EngineStatus, EventReceiver, JobRegistry, MediaIndexRequest, MediaIndexResult,
+    MemoryOps, ModelsService, RecallOptions, RecallQuery, RecallResult, StoreOps, TurnRecord,
 };
 
 /// The complete engine contract consumed by the harness and later engine stages.
@@ -48,6 +48,18 @@ pub trait Engine: Send + Sync {
     fn embedding(&self) -> &dyn EmbeddingService;
     /// Access model readiness and coalesced warm-up.
     fn models(&self) -> &dyn ModelsService;
+    /// Submit a Core-authorized source to the negotiated media index. The
+    /// default covers engines that have no native media index bound.
+    fn index_media(
+        &self,
+        _request: MediaIndexRequest,
+        cancel: &Cancel,
+    ) -> Result<MediaIndexResult, EngineError> {
+        cancel.check()?;
+        Err(EngineError::NotAvailable {
+            reason: "operation-unavailable".into(),
+        })
+    }
     /// Access ACL-filtered memory operations.
     fn memory(&self) -> &dyn MemoryOps;
     /// Access administrative operations.

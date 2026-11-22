@@ -1,5 +1,9 @@
 {
   "methods": {
+    "engine.media.index": {
+      "stability": "experimental",
+      "since": "1.28.0"
+    },
     "engine.admin.reembedding.checkpoint.put": {
       "stability": "experimental",
       "since": "1.27.0"
