@@ -410,11 +410,7 @@ fn hostctl_verified_file_operations_reuse_the_gate_and_path_executor() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().canonicalize().unwrap();
     std::fs::write(root.join("note"), "\u{feff}alpha").unwrap();
-    let roots = [PathRoot {
-        id: "fixture".into(),
-        path: root.to_str().unwrap().into(),
-        identity: None,
-    }];
+    let roots = [fixture_root(&root)];
     let policy = Policy {
         roots: &roots,
         deny: &[],
@@ -580,13 +576,11 @@ fn hostctl_refuses_trash_of_a_nested_root_and_its_parent() {
     let roots = [
         PathRoot {
             id: "root".into(),
-            path: root.to_str().unwrap().into(),
-            identity: None,
+            ..fixture_root(&root)
         },
         PathRoot {
             id: "nested".into(),
-            path: root.join("parent").join("nested").to_str().unwrap().into(),
-            identity: None,
+            ..fixture_root(&root.join("parent").join("nested"))
         },
     ];
     let policy = Policy {
@@ -863,11 +857,7 @@ fn hostctl_process_port_receives_only_owned_ids_and_bounded_input() {
 
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().canonicalize().unwrap();
-    let roots = [PathRoot {
-        id: "fixture".into(),
-        path: root.to_str().unwrap().into(),
-        identity: None,
-    }];
+    let roots = [fixture_root(&root)];
     let policy = Policy {
         roots: &roots,
         deny: &[],
@@ -974,7 +964,7 @@ struct HostReviewFixture<'a> {
     who: Caller,
 }
 
-fn review_root(path: &std::path::Path) -> PathRoot {
+fn fixture_root(path: &std::path::Path) -> PathRoot {
     let canonical = path.canonicalize().unwrap();
     let native = canonical.to_str().unwrap();
     let path = native
@@ -1154,7 +1144,7 @@ fn an_audit_callback_can_invalidate_the_approved_file_before_effect() {
     }
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("note.txt"), "old fixture").unwrap();
-    let roots = [review_root(dir.path())];
+    let roots = [fixture_root(dir.path())];
     let fixture = HostReviewFixture::new(&roots);
     let action = fixture.approval(
         "hostctl.fs.stat",
@@ -1176,7 +1166,7 @@ fn namespace_preparation_rejects_a_symbolic_link_name() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("note.txt"), "document").unwrap();
     std::os::unix::fs::symlink("note.txt", dir.path().join("alias.txt")).unwrap();
-    let roots = [review_root(dir.path())];
+    let roots = [fixture_root(dir.path())];
     let fixture = HostReviewFixture::new(&roots);
     for (op, input) in [
         (catalog::Operation::Trash, json!({"path":"alias.txt"})),
@@ -1220,7 +1210,7 @@ fn app_open_enforces_document_types_for_files_and_directories() {
         }
     }
     let dir = tempfile::tempdir().unwrap();
-    let roots = [review_root(dir.path())];
+    let roots = [fixture_root(dir.path())];
     let fixture = HostReviewFixture::new(&roots);
     let vectors: Value = serde_json::from_str(include_str!(
         "../../../../fixtures/parity/host/hostctl.json"
@@ -1274,7 +1264,7 @@ fn both_audit_lines_identify_the_approved_target_without_its_raw_name() {
     let dir = tempfile::tempdir().unwrap();
     let name = "private-fixture-document.txt";
     std::fs::write(dir.path().join(name), "fixture").unwrap();
-    let roots = [review_root(dir.path())];
+    let roots = [fixture_root(dir.path())];
     let fixture = HostReviewFixture::new(&roots);
     let input = json!({"path":name});
     let binding = fixture
