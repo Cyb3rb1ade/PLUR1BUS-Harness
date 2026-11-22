@@ -8669,6 +8669,50 @@
       }
     },
     "methods": {
+      "engine.dreams.log": {
+        "x-server": "engine",
+        "x-stability": "experimental",
+        "x-since": "1.28.0",
+        "description": "Read imported dream runs over the verified Core link, newest first. With runId, include the private per-run log when available.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "phase": {
+              "$ref": "#/$defs/DreamPhase"
+            },
+            "runId": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "runs"
+          ],
+          "properties": {
+            "runs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DreamRun"
+              }
+            },
+            "log": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "engine.dreams.schedule": {
         "x-server": "engine",
         "x-stability": "experimental",

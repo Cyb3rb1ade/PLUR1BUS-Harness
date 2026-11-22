@@ -1,12 +1,17 @@
 //! Native ownership of the ADR-009 ledger after the Core stops its legacy writer.
 
-use std::{io::ErrorKind, path::Path, time::Duration};
+use std::{
+    io::{ErrorKind, Read, Seek, SeekFrom},
+    path::Path,
+    time::Duration,
+};
 
 use rusqlite::{
     params, params_from_iter, types::Value as SqlValue, Connection, OpenFlags, Transaction,
     TransactionBehavior,
 };
-use serde_json::{json, Value};
+use serde::Deserialize;
+use serde_json::{json, Map, Value};
 
 use crate::contract::{Cancel, EngineError, StoreError};
 
@@ -20,6 +25,7 @@ const NATIVE: &str = "engine.sqlite";
 const DDL: &str = include_str!("dream-ledger-v1.sql");
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 const OPEN: OpenFlags = OpenFlags::SQLITE_OPEN_NO_MUTEX.union(OpenFlags::SQLITE_OPEN_NOFOLLOW);
+const MAX_LOG_UNITS: usize = 262_144;
 
 const TABLES: [(&str, &str); 3] = [
     ("dream_run", "run_id,agent_id,phase,job_id,partition,idempotency_key,trigger,scheduled_for,started_at,finished_at,outcome,reason,counts_json,tokens_in,tokens_out,cost_micros,log_path,error_json"),
@@ -167,6 +173,16 @@ pub(crate) fn schedules(
     agent: &str,
     cancel: &Cancel,
 ) -> Result<(Value, Option<Imported>), EngineError> {
+    with_ledger(state, cancel, |db, _| {
+        Ok(json!({"schedules": read_schedules(db, agent)?}))
+    })
+}
+
+fn with_ledger<T>(
+    state: &Path,
+    cancel: &Cancel,
+    operation: impl FnOnce(&Connection, &TrustedDirectory) -> Result<T, EngineError>,
+) -> Result<(T, Option<Imported>), EngineError> {
     cancel.check()?;
     secure_dir(state)?;
     let dir = TrustedDirectory::open(state)?.create_child("dreams")?;
@@ -186,14 +202,159 @@ pub(crate) fn schedules(
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(StoreError::from)?;
     let imported = initialize(&tx, &dir, cancel)?;
-    let rows = read_schedules(&tx, agent)?;
+    let value = operation(&tx, &dir)?;
     cancel.check()?;
     dir.assert_unchanged()?;
     tx.commit().map_err(StoreError::from)?;
     if imported.is_some() {
         dir.sync_entries()?;
     }
-    Ok((json!({"schedules": rows}), imported))
+    Ok((value, imported))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub(crate) struct LogQuery {
+    pub(crate) agent_id: Option<String>,
+    pub(crate) phase: Option<String>,
+    pub(crate) run_id: Option<String>,
+    pub(crate) limit: Option<u16>,
+}
+
+pub(crate) fn log(
+    state: &Path,
+    query: &LogQuery,
+    cancel: &Cancel,
+) -> Result<(Option<Value>, Option<Imported>), EngineError> {
+    with_ledger(state, cancel, |db, dir| {
+        let runs = read_runs(db, query, cancel)?;
+        if query.run_id.is_some() && runs.is_empty() {
+            return Ok(None);
+        }
+        let log = if query.run_id.is_some() {
+            runs.first().and_then(|run| read_log_tail(dir, run))
+        } else {
+            None
+        };
+        let mut value = json!({"runs":runs});
+        if let Some(log) = log {
+            value["log"] = json!(log);
+        }
+        Ok(Some(value))
+    })
+}
+
+fn read_runs(
+    db: &Connection,
+    query: &LogQuery,
+    cancel: &Cancel,
+) -> Result<Vec<Value>, EngineError> {
+    let mut terms = Vec::new();
+    let mut args = Vec::new();
+    let limit = if let Some(run) = query.run_id.as_ref() {
+        terms.push("run_id = ?");
+        args.push(SqlValue::Text(run.clone()));
+        1
+    } else {
+        if let Some(agent) = query.agent_id.as_ref() {
+            terms.push("agent_id = ?");
+            args.push(SqlValue::Text(agent.clone()));
+        }
+        if let Some(phase) = query.phase.as_ref() {
+            terms.push("phase = ?");
+            args.push(SqlValue::Text(phase.clone()));
+        }
+        query.limit.unwrap_or(20)
+    };
+    args.push(SqlValue::Integer(i64::from(limit)));
+    let predicate = if terms.is_empty() {
+        String::new()
+    } else {
+        format!("WHERE {}", terms.join(" AND "))
+    };
+    let mut select = db.prepare(&format!(
+        "SELECT run_id,agent_id,phase,job_id,partition,idempotency_key,trigger,scheduled_for,started_at,
+                finished_at,outcome,reason,counts_json,tokens_in,tokens_out,log_path,error_json
+         FROM dream_run {predicate} ORDER BY started_at DESC, rowid DESC LIMIT ?"
+    )).map_err(StoreError::from)?;
+    let mut rows = select
+        .query(params_from_iter(args))
+        .map_err(StoreError::from)?;
+    let mut runs = Vec::new();
+    while let Some(row) = rows.next().map_err(StoreError::from)? {
+        cancel.check()?;
+        runs.push(project_run(row)?);
+    }
+    Ok(runs)
+}
+
+fn project_run(row: &rusqlite::Row<'_>) -> Result<Value, StoreError> {
+    let key: String = row.get(5)?;
+    let (key, claimed) = key
+        .split_once('#')
+        .map_or((key.as_str(), true), |(key, _)| (key, false));
+    let started: i64 = row.get(8)?;
+    let finished: Option<i64> = row.get(9)?;
+    let mut counts: Map<String, Value> =
+        serde_json::from_str(&row.get::<_, String>(12)?).map_err(|_| StoreError::Corrupt)?;
+    counts.retain(|_, value| value.is_number());
+    let failure: Option<String> = row.get(16)?;
+    let failure = failure
+        .filter(|value| !value.is_empty())
+        .map(|value| -> Result<Value, StoreError> {
+            let data: Value = serde_json::from_str(&value).map_err(|_| StoreError::Corrupt)?;
+            if data.is_null() {
+                return Ok(Value::Null);
+            }
+            let mut error =
+                json!({"message": data["message"].as_str().ok_or(StoreError::Corrupt)?});
+            if let Some(name) = data["name"].as_str().filter(|name| !name.is_empty()) {
+                error["name"] = json!(name);
+            }
+            Ok(error)
+        })
+        .transpose()?;
+    Ok(json!({
+        "runId":row.get::<_, String>(0)?, "agentId":row.get::<_, String>(1)?,
+        "phase":row.get::<_, String>(2)?, "jobId":row.get::<_, String>(3)?,
+        "partition":row.get::<_, Option<String>>(4)?, "idempotencyKey":key, "claimed":claimed,
+        "trigger":row.get::<_, String>(6)?, "scheduledFor":row.get::<_, Option<i64>>(7)?,
+        "startedAt":started, "finishedAt":finished,
+        "durationMs":finished.map(|end| end.saturating_sub(started).max(0)),
+        "outcome":row.get::<_, Option<String>>(10)?, "reason":row.get::<_, Option<String>>(11)?,
+        "counts":counts, "tokensIn":row.get::<_, Option<i64>>(13)?, "tokensOut":row.get::<_, Option<i64>>(14)?,
+        "logPath":row.get::<_, Option<String>>(15)?, "error":failure,
+    }))
+}
+
+fn read_log_tail(dir: &TrustedDirectory, run: &Value) -> Option<String> {
+    let recorded = Path::new(run["logPath"].as_str()?);
+    let agent = dir.open_child(run["agentId"].as_str()?).ok()?;
+    let phase = agent.open_child(run["phase"].as_str()?).ok()?;
+    let name = format!("{}.log", run["runId"].as_str()?);
+    if recorded != phase.path().join(&name) {
+        return None;
+    }
+    let mut file = phase.open_file(&name).ok()?;
+    regular_file_identity(&file).ok()?;
+    let len = file.metadata().ok()?.len();
+    // A UTF-16 unit needs at most three UTF-8 bytes. Leave room for the
+    // leading partial UTF-8 code point when seeking into a large file.
+    let size = len.min((MAX_LOG_UNITS * 3 + 3) as u64);
+    file.seek(SeekFrom::Start(len - size)).ok()?;
+    let mut raw = Vec::new();
+    file.take(size).read_to_end(&mut raw).ok()?;
+    let text = String::from_utf8_lossy(&raw);
+    let mut units = 0;
+    let start = text
+        .char_indices()
+        .rev()
+        .find_map(|(index, character)| {
+            units += character.len_utf16();
+            (units > MAX_LOG_UNITS).then_some(index + character.len_utf8())
+        })
+        .unwrap_or(0);
+    Some(text[start..].to_owned())
 }
 
 fn read_schedules(db: &Connection, agent: &str) -> Result<Vec<Value>, StoreError> {

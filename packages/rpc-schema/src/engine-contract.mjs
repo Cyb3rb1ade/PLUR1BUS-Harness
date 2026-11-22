@@ -315,6 +315,19 @@ export function engineRpcSurface() {
   );
 
   add(
+    "engine.dreams.log",
+    {
+      agentId: { $ref: "#/$defs/AgentId" },
+      phase: { $ref: "#/$defs/DreamPhase" },
+      runId: string,
+      limit: { type: "integer", minimum: 1, maximum: 1000 },
+    },
+    [],
+    object({ runs: { type: "array", items: { $ref: "#/$defs/DreamRun" } }, log: string }, ["runs"]),
+    "Read imported dream runs over the verified Core link, newest first. With runId, include the private per-run log when available.",
+    "1.28.0",
+  );
+  add(
     "engine.dreams.schedule",
     { agentId: { $ref: "#/$defs/AgentId" } },
     ["agentId"],

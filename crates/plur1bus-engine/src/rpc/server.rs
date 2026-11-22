@@ -945,6 +945,33 @@ impl Shared {
                 }
                 encode(self.engine.index_media(request, &connection.cancel)?)
             }
+            "engine.dreams.log" => {
+                self.live_core_instance(connection)?;
+                let query: crate::store::dream_ledger::LogQuery = decode(params)?;
+                if query
+                    .agent_id
+                    .as_deref()
+                    .is_some_and(|id| crate::context::safe_agent_id(id).is_err())
+                    || query
+                        .phase
+                        .as_deref()
+                        .is_some_and(|phase| !matches!(phase, "light" | "rem" | "deep"))
+                    || query
+                        .limit
+                        .is_some_and(|limit| !(1..=1000).contains(&limit))
+                {
+                    return Err(WireError::invalid_params());
+                }
+                let (result, imported) = crate::store::dream_ledger::log(
+                    &self.home.join("state"),
+                    &query,
+                    &connection.cancel,
+                )?;
+                if let Some(imported) = imported {
+                    diagnostics::dream_ledger_import(imported);
+                }
+                result.ok_or_else(WireError::dream_run_not_found)
+            }
             "engine.dreams.schedule" => {
                 self.live_core_instance(connection)?;
                 let agent: String = decode(&params["agentId"])?;

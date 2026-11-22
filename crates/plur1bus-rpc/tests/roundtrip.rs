@@ -508,6 +508,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::EngineAdminReembeddingCheckpointPutParams,
                 types::EngineAdminReembeddingCheckpointPutResult,
             >(name, fixture, &root_schema),
+            "engine.dreams.log" => check_pair::<
+                types::EngineDreamsLogParams,
+                types::EngineDreamsLogResult,
+            >(name, fixture, &root_schema),
             "engine.dreams.schedule" => check_pair::<
                 types::EngineDreamsScheduleParams,
                 types::EngineDreamsScheduleResult,

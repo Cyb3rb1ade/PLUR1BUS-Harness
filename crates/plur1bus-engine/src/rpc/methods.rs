@@ -49,6 +49,10 @@ impl WireError {
         )
     }
 
+    pub(crate) fn dream_run_not_found() -> Self {
+        Self::application("E_NOT_FOUND", "not-found", "dream run not found")
+    }
+
     pub(crate) fn engine_busy() -> Self {
         Self::application(
             "E_NOT_AVAILABLE",
@@ -940,6 +944,7 @@ mod tests {
                         // are exercised through authenticated connections in rpc_server.rs.
                         | "engine.media.index"
                         | "engine.dreams.schedule"
+                        | "engine.dreams.log"
                         | "engine.tokens.count"
                         | "engine.tokens.families"
                         | "engine.tokens.observe"

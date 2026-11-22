@@ -460,6 +460,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ### engine server
 
+- `engine.dreams.log`: experimental, since 1.28.0
 - `engine.dreams.schedule`: experimental, since 1.28.0
 - `engine.media.index`: experimental, since 1.28.0
 - `engine.admin.reembedding.checkpoint.put`: experimental, since 1.27.0
@@ -561,6 +562,62 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `legacy.secret.changed`: experimental, since 1.27.0
 
 ## Methods
+
+### `engine.dreams.log`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Read imported dream runs over the verified Core link, newest first. With runId, include the private per-run log when available.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runs"
+  ],
+  "properties": {
+    "runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DreamRun"
+      }
+    },
+    "log": {
+      "type": "string"
+    }
+  }
+}
+```
 
 ### `engine.dreams.schedule`
 

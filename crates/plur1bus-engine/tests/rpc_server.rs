@@ -1464,3 +1464,67 @@ fn dreams_schedule_rolls_back_an_incomplete_legacy_import() {
         "{retry}"
     );
 }
+
+#[test]
+fn dreams_log_reads_imported_rows_and_their_private_log_over_the_core_link() {
+    let _guard = process_test();
+    let home = home();
+    let engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let state = home.path().join("state/dreams");
+    plur1bus_engine::store::paths::secure_dir(&state).unwrap();
+    let path = state.join("dreams.db");
+    let log_dir = state.join("a1/rem");
+    plur1bus_engine::store::paths::secure_dir(&log_dir).unwrap();
+    let log = log_dir.join("run-one.log");
+    fs::write(&log, "fixture dream log\n").unwrap();
+    plur1bus_engine::store::paths::secure_file(&log).unwrap();
+    let legacy = rusqlite::Connection::open(&path).unwrap();
+    plur1bus_engine::store::paths::secure_file(&path).unwrap();
+    legacy
+        .execute_batch(include_str!("../../plur1bus-core/src/dreams/store-v1.sql"))
+        .unwrap();
+    legacy.execute_batch(r#"
+        PRAGMA user_version=1;
+        INSERT INTO dream_run
+          (run_id,agent_id,phase,job_id,partition,idempotency_key,trigger,started_at,finished_at,outcome,counts_json)
+          VALUES
+          ('run-one','a1','rem','rem-dream','agent-private','fixture#run-one','manual',30,10,'completed','{"items":3,"invalid":"text"}'),
+          ('run-two','a1','deep','dream-deep',NULL,'fixture-two','cron',30,NULL,NULL,'{}'),
+          ('run-three','a2','rem','rem-dream',NULL,'fixture-three','cron',40,NULL,NULL,'{}');
+    "#).unwrap();
+    legacy
+        .execute(
+            "UPDATE dream_run SET log_path=? WHERE run_id='run-one'",
+            [log.to_str().unwrap()],
+        )
+        .unwrap();
+    drop(legacy);
+
+    let mut unauthorized = RawConnection::connect(engine.address());
+    assert!(unauthorized.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"dream-log-fixture"})
+    )["result"]
+        .is_object());
+    assert_unauthorized(&unauthorized.call(2, "engine.dreams.log", json!({})));
+    let mut core = core_peer(&engine, home.path());
+    let page = core.call(2, "engine.dreams.log", json!({"agentId":"a1","limit":1}));
+    assert_eq!(page["result"]["runs"][0]["runId"], "run-two", "{page}");
+    let lookup = core.call(3, "engine.dreams.log", json!({"runId":"run-one"}));
+    assert_eq!(lookup["result"]["log"], "fixture dream log\n", "{lookup}");
+    assert_eq!(
+        lookup["result"]["runs"][0],
+        json!({
+            "runId":"run-one","agentId":"a1","phase":"rem","jobId":"rem-dream","partition":"agent-private",
+            "idempotencyKey":"fixture","claimed":false,"trigger":"manual","scheduledFor":null,
+            "startedAt":30,"finishedAt":10,"durationMs":0,"outcome":"completed","reason":null,
+            "counts":{"items":3},"tokensIn":null,"tokensOut":null,"logPath":log,"error":null,
+        })
+    );
+    let missing = core.call(4, "engine.dreams.log", json!({"runId":"missing"}));
+    assert_eq!(
+        missing["error"]["data"]["error"], "E_NOT_FOUND",
+        "{missing}"
+    );
+}

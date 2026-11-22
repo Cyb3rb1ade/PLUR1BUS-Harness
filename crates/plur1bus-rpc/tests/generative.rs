@@ -1983,6 +1983,8 @@ table! {
     Result "engine.admin.reembedding.checkpoint.get" EngineAdminReembeddingCheckpointGetResult,
     Params "engine.admin.reembedding.checkpoint.put" EngineAdminReembeddingCheckpointPutParams,
     Result "engine.admin.reembedding.checkpoint.put" EngineAdminReembeddingCheckpointPutResult,
+    Params "engine.dreams.log" EngineDreamsLogParams,
+    Result "engine.dreams.log" EngineDreamsLogResult,
     Params "engine.dreams.schedule" EngineDreamsScheduleParams,
     Result "engine.dreams.schedule" EngineDreamsScheduleResult,
     Params "engine.media.index" EngineMediaIndexParams,
