@@ -1260,6 +1260,8 @@ refusal and K7-D5 identifies the calendar difference.
 | <a id="p4d-181"></a>P4D-181 | K10-D16 | [P4-31](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-31) · `packages/hostctl/src/` | security | flip | Host publication must be exclusive and native effects must retain verified identity. A move permits only supported same-filesystem sources. |
 | <a id="p4d-182"></a>P4D-182 | K10-D21 | [P4-11](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-11) · `crates/plur1bus-core/src/logs/` | security | Rust strict | Log readers verify opened regular-file identity and refuse replaced leaves. Watchers revalidate before accepting new lines. |
 | <a id="p4d-183"></a>P4D-183 | K10-D22 | [P4-31](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-31) · `packages/hostctl/src/` | security | Rust strict | Host document opening refuses the legacy launchable file classes plus additional platform launcher and configuration types. The vectors preserve both outcomes. |
+| <a id="p4d-197"></a>P4D-197 | K10-D23 | [P4-31](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-31) · `packages/hostctl/src/` | security | Rust strict | R-K-31 requires ASCII program names in direct calls and at the program position of shell commands. The flip must use the same admission rule. |
+| <a id="p4d-198"></a>P4D-198 | K10-D24 | [P4-31](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-31) · `packages/hostctl/src/` | security | flip blocker | RE-6 and R-K-30 require a private receipt when an effect precedes result or audit failure, and confirmed stop or continued management of a newly started process. |
 
 ### P4-K K11
 

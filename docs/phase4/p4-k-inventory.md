@@ -627,7 +627,8 @@ Ports: clock, ids, git, process runner, session store (K5), budget (K1).
 
 **K6a-Rest as built** (collaboration execution and transcript library, with no live adapters registered).
 
-- **K6-D24 (RF-1, R-K-25):** Rust validates delegation ancestry against the stored trace and live parent task. It uses
+- **K6-D24 (RF-1, N1-1, R-K-25):** Consult admission binds the calling turn to the stored root or a verified running parent delegation. The stored parent determines the path, span and counter bucket. Root consults share their root bucket across request labels and restore their pair counts from recorded spans.
+  Rust validates delegation ancestry against the stored trace and live parent task. It uses
   that task's path and budget, keys fan-out by the admitted parent, and checks the task class before selecting tools.
   Read and review delegates admit only the three built-in read tools. A nested delegate cannot expand its parent's
   tool view, and any write delegate must hold a writer reservation. The flip must still bind the authenticated turn
@@ -1119,6 +1120,11 @@ unchanged). K10b uses this gate and the same path and process layers.
   forms and recursive root removal. The Rust guard also refuses wrapper executables and direct removal commands that
   TypeScript may accept. The literal shell subset also refuses wrapper builtins and shell removal aliases (RE-2).
   The environment inherits only the approved names, and callers cannot replace the program lookup path.
+- **K10-D23 (R-K-31, P4D-197):** Hostctl requires ASCII program names for direct execution and at the program position of a shell command.
+  The host must preserve this check when wiring both process adapters. The shell deny patterns cover the actual launcher and arguments.
+- **K10-D24 (RE-6, R-K-30, P4D-198):** A native effect may complete before audit delivery or result validation fails.
+  The flip requires an authenticated operation ID before dispatch, a private bounded receipt without output and a stop port for started processes.
+  A process with unconfirmed termination must remain registered. Implementation and durable host storage are pending.
 - **K10-D16:** Rust requires exclusive publication for copy and move. There is no path-based fallback for native trash,
   directory creation or no-replace movement. A move is limited to a singly linked file on one filesystem. Local application
   opening is limited to verified document types and directories; an adapter must preserve the held identity.
@@ -1213,7 +1219,7 @@ real host adapters and the single-writer handoff.
 | K8 | ACP transcripts and connection bounds | [K8-D1](defects.md#p4d-151), [K8-D2](defects.md#p4d-152), [K8-D3](defects.md#p4d-153), [K8-D4](defects.md#p4d-154), [K8-D5](defects.md#p4d-155), [K8-D6](defects.md#p4d-156), [K8-D7](defects.md#p4d-157) |
 | K9a | prompt, triage and decision vectors | [K9a-D1](defects.md#p4d-158), [K9a-D2](defects.md#p4d-159), [K9a-D3](defects.md#p4d-160), [K9a-D6](defects.md#p4d-161), [K9a-D7](defects.md#p4d-162) |
 | K9b | tool-call registry B round-trip and ranking vectors | [K9b-D1](defects.md#p4d-163), [K9b-D2](defects.md#p4d-164), [K9b-D3](defects.md#p4d-165) |
-| K10 | exec, filesystem, gate and Hostctl vectors and negative-effect tests | [K10-D1](defects.md#p4d-166), [K10-D2](defects.md#p4d-167), [K10-D3](defects.md#p4d-168), [K10-D4](defects.md#p4d-169), [K10-D5](defects.md#p4d-170), [K10-D6](defects.md#p4d-171), [K10-D7](defects.md#p4d-172), [K10-D8](defects.md#p4d-173), [K10-D9](defects.md#p4d-174), [K10-D10](defects.md#p4d-175), [K10-D11](defects.md#p4d-176), [K10-D12](defects.md#p4d-177), [K10-D13](defects.md#p4d-178), [K10-D14](defects.md#p4d-179), [K10-D15](defects.md#p4d-180), [K10-D16](defects.md#p4d-181), [K10-D21](defects.md#p4d-182), [K10-D22](defects.md#p4d-183) |
+| K10 | exec, filesystem, gate and Hostctl vectors and negative-effect tests | [K10-D1](defects.md#p4d-166), [K10-D2](defects.md#p4d-167), [K10-D3](defects.md#p4d-168), [K10-D4](defects.md#p4d-169), [K10-D5](defects.md#p4d-170), [K10-D6](defects.md#p4d-171), [K10-D7](defects.md#p4d-172), [K10-D8](defects.md#p4d-173), [K10-D9](defects.md#p4d-174), [K10-D10](defects.md#p4d-175), [K10-D11](defects.md#p4d-176), [K10-D12](defects.md#p4d-177), [K10-D13](defects.md#p4d-178), [K10-D14](defects.md#p4d-179), [K10-D15](defects.md#p4d-180), [K10-D16](defects.md#p4d-181), [K10-D21](defects.md#p4d-182), [K10-D22](defects.md#p4d-183), [K10-D23](defects.md#p4d-197), [K10-D24](defects.md#p4d-198) |
 | K11 | receipt content markers, adoption recovery and live-rights gate tests | [K11-D1](defects.md#p4d-184), [K11-D2](defects.md#p4d-185), [K11-D3](defects.md#p4d-186), [K11-D4](defects.md#p4d-187), [K11-D5](defects.md#p4d-188), [K11-D6](defects.md#p4d-189), [K11-D7](defects.md#p4d-190), [K11-D8](defects.md#p4d-191), [K11-D9](defects.md#p4d-192), [K11-D10](defects.md#p4d-193), [K11-D11](defects.md#p4d-194) |
 
 ### Store owners and Windows
