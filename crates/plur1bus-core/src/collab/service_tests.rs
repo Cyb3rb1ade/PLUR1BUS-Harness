@@ -1064,3 +1064,26 @@ mod read_tests;
 
 #[path = "service_run_tests.rs"]
 mod run_tests;
+
+#[test]
+fn reopening_a_chain_restores_the_persisted_root_pair_count() {
+    let h = open();
+    let project_id = setup(&h, &["a", "b"]);
+    let o = owner();
+    let start = h
+        .svc
+        .start_consult(&input(&o, &project_id, "a", "b", "Read the summary"))
+        .unwrap();
+    let project = h.svc.live_project(&project_id).unwrap();
+    h.svc.st().chains.remove(&start.trace_id);
+    let restored = h
+        .svc
+        .get_chain(Some(&start.trace_id), &project, "a")
+        .unwrap();
+    assert_eq!(
+        restored
+            .pair_counts
+            .get(&pair_key(&CollabService::turn_key("a", None), "b")),
+        Some(&1)
+    );
+}
