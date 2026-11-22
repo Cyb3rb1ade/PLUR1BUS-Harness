@@ -1,0 +1,217 @@
+{
+  "models": [
+    {
+      "aliases": [],
+      "capabilities": [],
+      "displayName": "region/preferred",
+      "firstSeen": "2026-11-18T00:00:00Z",
+      "id": "region/preferred",
+      "kind": "chat",
+      "lastSeen": "2026-11-19T00:00:00Z",
+      "overrides": {},
+      "provider": "vendor",
+      "source": "scan",
+      "status": "available"
+    },
+    {
+      "aliases": [
+        "short"
+      ],
+      "capabilities": [],
+      "displayName": "preferred",
+      "firstSeen": "2026-11-18T00:00:00Z",
+      "id": "preferred",
+      "kind": "chat",
+      "lastSeen": "2026-11-19T00:00:00Z",
+      "overrides": {},
+      "provider": "vendor/region",
+      "source": "manual",
+      "status": "manual"
+    },
+    {
+      "aliases": [],
+      "capabilities": [],
+      "displayName": "gone",
+      "firstSeen": "2026-11-18T00:00:00Z",
+      "id": "gone",
+      "kind": "chat",
+      "lastSeen": "2026-11-19T00:00:00Z",
+      "overrides": {},
+      "provider": "vendor/region",
+      "source": "scan",
+      "status": "unavailable"
+    },
+    {
+      "aliases": [
+        "gone"
+      ],
+      "capabilities": [],
+      "displayName": "alternative",
+      "firstSeen": "2026-11-18T00:00:00Z",
+      "id": "alternative",
+      "kind": "chat",
+      "lastSeen": "2026-11-19T00:00:00Z",
+      "overrides": {},
+      "provider": "other",
+      "source": "scan",
+      "status": "available"
+    },
+    {
+      "aliases": [
+        "short"
+      ],
+      "capabilities": [],
+      "displayName": "archived",
+      "firstSeen": "2026-11-18T00:00:00Z",
+      "id": "archived",
+      "kind": "chat",
+      "lastSeen": "2026-11-19T00:00:00Z",
+      "overrides": {},
+      "provider": "vendor",
+      "source": "scan",
+      "status": "unavailable"
+    },
+    {
+      "aliases": [
+        "archived"
+      ],
+      "capabilities": [],
+      "displayName": "later",
+      "firstSeen": "2026-11-18T00:00:00Z",
+      "id": "later",
+      "kind": "chat",
+      "lastSeen": "2026-11-19T00:00:00Z",
+      "overrides": {},
+      "provider": "vendor",
+      "source": "scan",
+      "status": "available"
+    },
+    {
+      "aliases": [],
+      "capabilities": [],
+      "displayName": "other-gone",
+      "firstSeen": "2026-11-18T00:00:00Z",
+      "id": "other-gone",
+      "kind": "chat",
+      "lastSeen": "2026-11-19T00:00:00Z",
+      "overrides": {},
+      "provider": "other",
+      "source": "scan",
+      "status": "unavailable"
+    }
+  ],
+  "roles": [
+    [
+      "chat",
+      "vendor/region/preferred"
+    ],
+    [
+      "decision",
+      "vendor/region/gone"
+    ],
+    [
+      "light",
+      "other-gone"
+    ]
+  ],
+  "selectors": [
+    {
+      "result": {
+        "id": "preferred",
+        "provider": "vendor/region",
+        "state": "available"
+      },
+      "selector": "vendor/region/preferred"
+    },
+    {
+      "result": {
+        "id": "gone",
+        "provider": "vendor/region",
+        "state": "unavailable"
+      },
+      "selector": "vendor/region/gone"
+    },
+    {
+      "result": {
+        "id": "alternative",
+        "provider": "other",
+        "state": "available"
+      },
+      "selector": "gone"
+    },
+    {
+      "result": {
+        "id": "preferred",
+        "provider": "vendor/region",
+        "state": "available"
+      },
+      "selector": "short"
+    },
+    {
+      "result": {
+        "id": "later",
+        "provider": "vendor",
+        "state": "available"
+      },
+      "selector": "archived"
+    },
+    {
+      "result": {
+        "id": "later",
+        "provider": "vendor",
+        "state": "available"
+      },
+      "selector": "vendor/archived"
+    },
+    {
+      "result": null,
+      "selector": "vendor/missing"
+    },
+    {
+      "result": {
+        "id": "other-gone",
+        "provider": "other",
+        "state": "unavailable"
+      },
+      "selector": "other-gone"
+    },
+    {
+      "result": null,
+      "selector": ""
+    }
+  ],
+  "warnings": [
+    {
+      "provider": null,
+      "result": [
+        {
+          "code": "role_unavailable",
+          "id": "gone",
+          "provider": "vendor/region",
+          "role": "decision"
+        },
+        {
+          "code": "role_unavailable",
+          "id": "other-gone",
+          "provider": "other",
+          "role": "light"
+        }
+      ]
+    },
+    {
+      "provider": "vendor/region",
+      "result": [
+        {
+          "code": "role_unavailable",
+          "id": "gone",
+          "provider": "vendor/region",
+          "role": "decision"
+        }
+      ]
+    },
+    {
+      "provider": "vendor",
+      "result": []
+    }
+  ]
+}

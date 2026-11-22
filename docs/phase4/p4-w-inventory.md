@@ -249,6 +249,11 @@ acceptance remain open. Neither crate is installed by the Core.
 - **Lücken.** Alle Provider-Seiten und 429/Retry-After, unvollständige und leere Aufzählungen,
   Entfernung/Übernahme von Metadaten, Rollen-Fallback und Katalog-Rollback/-Ablauf.
 
+**W5 local partial delivery.** Model role and alias resolution replays the
+production TypeScript implementation, including qualified provider prefixes,
+availability ordering and provider-scoped warnings. Scanner HTTP, reconciliation
+and overrides remain future slices. The role library has no network or store port.
+
 ### W6 · Web (Bibliothek von P4-30)
 
 - **Dateien.** [Web-Tools](../../packages/core/src/tools/web) für Fetch, Guard, IP, Robots, HTML und
