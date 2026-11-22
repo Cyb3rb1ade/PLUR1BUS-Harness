@@ -1,0 +1,122 @@
+{
+  "exchanges": [
+    {
+      "request": {
+        "bodyText": "{\"Engine\":\"neural\",\"LanguageCode\":\"de-DE\",\"OutputFormat\":\"pcm\",\"SampleRate\":\"16000\",\"Text\":\"A fixture voice 👋\",\"VoiceId\":\"FixtureVoice\"}",
+        "headers": {
+          "authorization": "<credential>",
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "path": "/v1/speech"
+      },
+      "response": {
+        "chunksBase64": [
+          "AQQGCQ=="
+        ],
+        "headers": {
+          "content-type": "audio/pcm"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {
+          "authorization": "<credential>"
+        },
+        "method": "GET",
+        "path": "/v1/voices"
+      },
+      "response": {
+        "body": {
+          "NextToken": "second + page /",
+          "Voices": [
+            {
+              "Id": "fixture-a",
+              "Name": "Fixture A",
+              "SupportedEngines": [
+                "neural"
+              ]
+            }
+          ]
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {
+          "authorization": "<credential>"
+        },
+        "method": "GET",
+        "path": "/v1/voices?NextToken=second%20%2B%20page%20%2F"
+      },
+      "response": {
+        "body": {
+          "Voices": [
+            {
+              "Id": "fixture-b",
+              "SupportedEngines": [
+                "standard"
+              ]
+            }
+          ]
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "{\"Engine\":\"neural\",\"OutputFormat\":\"pcm\",\"SampleRate\":\"16000\",\"Text\":\"A fixture voice 👋\",\"VoiceId\":\"FixtureVoice\"}",
+        "headers": {
+          "authorization": "<credential>",
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "path": "/v1/speech"
+      },
+      "response": {
+        "body": {
+          "message": "synthetic refusal detail"
+        },
+        "headers": {
+          "x-amzn-errortype": "AccessDeniedException"
+        },
+        "status": 400
+      }
+    }
+  ],
+  "expected": {
+    "dataBase64": "AQQGCQ==",
+    "errorCode": "auth",
+    "format": "pcm16",
+    "sampleRate": 16000,
+    "voices": [
+      {
+        "engines": [
+          "neural"
+        ],
+        "id": "fixture-a",
+        "name": "Fixture A"
+      },
+      {
+        "engines": [
+          "standard"
+        ],
+        "id": "fixture-b",
+        "name": "fixture-b"
+      }
+    ]
+  },
+  "exporter": "scripts/parity/export-polly-http.ts",
+  "input": {
+    "language": "de-DE",
+    "text": "A fixture voice 👋",
+    "voice": "FixtureVoice"
+  },
+  "sdk": "3.922.0",
+  "transport": "http"
+}

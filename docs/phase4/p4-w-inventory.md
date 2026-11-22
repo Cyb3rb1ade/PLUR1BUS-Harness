@@ -193,7 +193,7 @@ folgt in W10.
 - **Lücken.** W0 hat JSON-Frames des Voice-Fakes. W3 braucht aufzunehmende Provider-Header,
   Audio-Bytes, Fehler/Abbruch, Credential-Abweisung, Pipeline-Timeouts und ggf. binäre WS-Nachrichten.
 
-**W3 Rust partial delivery.** The cloud library covers the JSON HTTP boundary,
+**W3 cloud library.** The Rust crate covers the JSON HTTP boundary,
 ElevenLabs catalogs, buffered TTS/ASR and streaming TTS, Gemini/XAI catalog discovery, Polly
 buffered synthesis and list projection through a signed-request port, and
 blocking Grok, Gemini and ElevenLabs ASR readiness and audio exchange. The
@@ -216,7 +216,13 @@ schedule, and Grok/Gemini/ElevenLabs dialogues are recorded from the TypeScript
 providers. The host supplies the duplex scheduling and usage sink. Retry
 waits are bounded by the same request deadline. See
 [P4D-210](defects.md#p4d-210) and [P4D-211](defects.md#p4d-211). The cloud
-library has no production caller.
+library has no production caller. Polly's SynthesizeSpeech and DescribeVoices
+use the shared pinned Rust HTTP transport. The host supplies a signer for the
+exact request bytes after the destination is authorized. The SDK recording
+also covers pagination and an AWS error type. P4D-219 describes the diagnostic
+body bound. For a reproducible recording, run
+`node --experimental-strip-types --conditions=source scripts/parity/export-polly-http.ts <external-sdk-directory> --check`
+with the test-only AWS SDK version pinned in the exporter.
 
 The cloud registry replays configured statuses, capability lookup, independent
 catalog jobs and unified error codes in TypeScript order. A failed catalog

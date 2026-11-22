@@ -1365,3 +1365,13 @@ keeps up to 1 MiB of unfinished text. Individual signed requests use Polly's
 on unfinished text. The Rust realtime host supplies the Gemini session
 identifier used to deduplicate usage events. Audio and transcripts remain
 application data and are omitted from event Debug output.
+
+<a id="p4d-219"></a>
+
+## P4D-219 — Polly diagnostic body admission
+
+The TypeScript SDK may read an AWS diagnostics body before classifying a
+failure. The Rust transport classifies a known error header without reading
+the body. A body-only error is decoded under the original request deadline
+and limited to 64 KiB. Overflow yields `bad_response`. Provider message text
+is discarded. The boundary and delayed-body tests cover both restrictions.
