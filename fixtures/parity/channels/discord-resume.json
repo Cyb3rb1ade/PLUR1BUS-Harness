@@ -1,0 +1,162 @@
+{
+  "exchanges": [
+    {
+      "receive": [
+        {
+          "d": {
+            "heartbeat_interval": 1000
+          },
+          "op": 10
+        }
+      ],
+      "send": []
+    },
+    {
+      "receive": [
+        {
+          "d": {},
+          "op": 0,
+          "s": 8,
+          "t": "RESUMED"
+        }
+      ],
+      "send": [
+        {
+          "d": {
+            "seq": 7,
+            "session_id": "recorded-session",
+            "token": "[FIXTURE:DISCORD]"
+          },
+          "op": 6
+        }
+      ]
+    },
+    {
+      "receive": [
+        {
+          "d": {
+            "content": "Hallo",
+            "id": "44"
+          },
+          "op": 0,
+          "s": 11,
+          "t": "MESSAGE_CREATE"
+        }
+      ],
+      "send": []
+    },
+    {
+      "receive": [
+        {
+          "op": 11
+        }
+      ],
+      "send": [
+        {
+          "d": 11,
+          "op": 1
+        }
+      ]
+    },
+    {
+      "receive": [],
+      "send": [
+        {
+          "d": 11,
+          "op": 1
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "close": {
+      "code": 4000,
+      "reason": "zombie"
+    },
+    "events": [
+      {
+        "ready": "recorded-session",
+        "resumed": true
+      },
+      {
+        "data": {
+          "content": "Hallo",
+          "id": "44"
+        },
+        "dispatch": "MESSAGE_CREATE"
+      }
+    ],
+    "session": {
+      "botId": "42",
+      "resumeGatewayUrl": "wss://gateway.discord.gg",
+      "seq": 11,
+      "sessionId": "recorded-session"
+    }
+  },
+  "exporter": "scripts/parity/export-channels.ts",
+  "initialSession": {
+    "botId": "42",
+    "resumeGatewayUrl": "wss://gateway.discord.gg",
+    "seq": 7,
+    "sessionId": "recorded-session"
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/channels-discord/src/gateway.ts",
+  "steps": [
+    {
+      "frame": {
+        "d": {
+          "heartbeat_interval": 1000
+        },
+        "op": 10
+      },
+      "sent": [
+        "{\"op\":6,\"d\":{\"token\":\"[FIXTURE:DISCORD]\",\"session_id\":\"recorded-session\",\"seq\":7}}"
+      ]
+    },
+    {
+      "frame": {
+        "d": {},
+        "op": 0,
+        "s": 8,
+        "t": "RESUMED"
+      },
+      "sent": []
+    },
+    {
+      "frame": {
+        "d": {
+          "content": "Hallo",
+          "id": "44"
+        },
+        "op": 0,
+        "s": 11,
+        "t": "MESSAGE_CREATE"
+      },
+      "sent": []
+    },
+    {
+      "advance": 500,
+      "sent": [
+        "{\"op\":1,\"d\":11}"
+      ]
+    },
+    {
+      "frame": {
+        "op": 11
+      },
+      "sent": []
+    },
+    {
+      "advance": 1000,
+      "sent": [
+        "{\"op\":1,\"d\":11}"
+      ]
+    },
+    {
+      "advance": 1000,
+      "sent": []
+    }
+  ],
+  "transport": "websocket"
+}

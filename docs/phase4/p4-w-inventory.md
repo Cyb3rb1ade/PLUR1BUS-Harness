@@ -1,6 +1,6 @@
 # P4-W · Inventar der Wire-Bibliotheken
 
-Stand W1, 18. November 2026. Bestandsaufnahme aus W0 auf `origin/main` bei `fc113b4e2d`.
+Stand W2, 22. November 2026. Bestandsaufnahme aus W0 auf `origin/main` bei `fc113b4e2d`.
 Maßgeblich sind die Paketkarte mit den Nachträgen 1 bis 3 und der [Phase-4-Plan](../superpowers/plans/2026-11-07-phase4-ts-core-to-rust.md).
 Die [Quellzeilen](../superpowers/plans/phase4/MODULE-MAP.md#source-rows) und
 [Testzeilen](../superpowers/plans/phase4/MODULE-MAP.md#test-rows) des MODULE-MAP geben die
@@ -102,10 +102,11 @@ Thinking- und Signatur-Deltas im vorhandenen String. Die Proben prüfen eine off
 ### P4D-40 · Verwandte HTTP-Wrapper
 
 Unter R-W-10 meldet HTTP 304 in Rust und in der TypeScript-Core-Bridge `invalid_request` mit
-„provider redirects refused“. Der Exporter zeichnet die Core-Bridge für alle vier Anbieterformate,
-beide Aufrufarten und drei Content-Type-Fälle auf. Für 204 und 205 bleibt die Abweichung P4D-40
-bis zum Merge von #937 bestehen. Der Exporter isoliert dort den TypeScript-Konstruktorfehler und
-verwendet für Rust die aufgezeichnete leere 200 als Referenz.
+„provider redirects refused“. Nach #937 zeichnet der Exporter auch 204 und 205 direkt aus der
+reparierten Core-Bridge auf. Es gibt je Status 24 Fälle über die vier Anbieterformate, beide
+Aufrufarten und drei Content-Type-Fälle. Bei SSE meldet der Adapter einen fehlenden Body, sofern
+der Aufruf das SSE-Parsing erreicht. JSON erhält leere Eingabe. Die Abweichungsmarkierung für
+P4D-40 entfällt.
 
 | Stelle | Befund zur Behandlung körperloser Antworten |
 |---|---|
@@ -123,20 +124,60 @@ verwendet für Rust die aufgezeichnete leere 200 als Referenz.
 
 ### W2 · Kanäle (P4-60–64, P4-66)
 
-| Feature | Quellen und Tests | Ports für den Flip | W-Aufzeichnung und Lücken |
-|---|---|---|---|
-| `telegram` | [Quellen](../../packages/channels-telegram/src), [Tests](../../packages/channels-telegram/test) | Bot-Credentials, Egress, Uhr/Warten, Update-Offset, eingehende Nachrichten und Uploads | Bot-API-Requests, Long Poll und Webhook einschließlich Wiederanlauf, Retry und Attachments |
-| `discord` | [Quellen](../../packages/channels-discord/src), [Tests](../../packages/channels-discord/test) | Credentials, Egress, Uhr/RNG, Gateway-Session, Nachrichten-/Upload-Port | REST, Gateway Hello/Heartbeat, Reconnect/Resume, Close-Codes und Rate Limits |
-| `slack` | [Quellen](../../packages/channels-slack/src), [Tests](../../packages/channels-slack/test) | Bot/App-Credentials, Egress, Uhr, Zustellport, Channel- und Thread-Zuordnung | Socket-URL, ACK, Burst/Retry, Web API und mehrstufige Uploads |
-| `signal` | [Quellen](../../packages/channels-signal/src), [Tests](../../packages/channels-signal/test) | `signal-cli`-Transport/Prozess, Konto, Uhr, Attachment-Pfade und Zustellport | JSON-RPC-Antworten und Notifications mit Wechsel der Reihenfolge, Reconnect und Timeouts. Dafür fehlt der Stream-Fake jenseits HTTP/WS. |
-| `email` | [Quellen](../../packages/channels-email/src), [Tests](../../packages/channels-email/test), [Auth-Vertrag](../../packages/core/src/channels/email-auth-check.ts) | IMAP-/SMTP-Streams aus einem freigegebenen Connector, Credentials, UID-/Thread-/Datei-Ports, Uhr und Zufall für MIME-Metadaten | IMAP und SMTP mit partiellem Lesen, Antwortfolgen und Retry. MIME- und Auth-Vektoren für Encodings, gefaltete Header, Anhänge und Grenzen. Dafür fehlen Roh-TCP-/TLS-Testseams. |
-| `buzz` | [Quellen](../../packages/channels-buzz/src), [Tests](../../packages/channels-buzz/test) | Relay-Egress, Schlüssel-/Signaturport, Uhr/RNG, Nachrichtenport | Relay-Gespräche mit Filtern, ACKs, EOSE, Wiederverbindung und NIP-44 mit Testschlüsseln |
+[`plur1bus-channels`](../../crates/plur1bus-channels/src) enthält je ein Feature für Telegram,
+Discord, Slack, Signal, E-Mail und Buzz. Die sechs sind in der Standalone-Bibliothek Standard,
+damit der bestehende native Workspace-Test alle Adapter abdeckt. Der Flip kann einzelne
+Features auswählen. Die [Aufzeichnungen](../../fixtures/parity/channels) erzeugt der
+[TypeScript-Exporter](../../scripts/parity/export-channels.ts). Der Rust-Fake spielt HTTP,
+WebSocket oder bytegenaue Duplex-Dialoge lokal ab.
 
-Der Testmodus für die Adapterdateien im MODULE-MAP ist W. Reine Parser-, Signatur- und
-Nachrichtenabbildungen können zusätzlich V bekommen. Modulstart, Modulmanifest, Host-Prozess,
-Switchboard, Routing der Core-Kanäle und RPC bleiben bei den jeweiligen Flip- und Systemtests.
-`email-auth-check` liefert V für die Protokollentscheidung. Einbindung und Durchsetzung im
-Core bleiben bei der Kanal-Laufzeit.
+| Feature | TypeScript-Quellen und Tests | Aufgezeichnet und im Rust-Replay geprüft | Ports beim Flip |
+|---|---|---|---|
+| `telegram` | [Quellen](../../packages/channels-telegram/src), [Tests](../../packages/channels-telegram/test) | Bot API einschließlich Long-Poll-Offset, Sendefelder, 429, Download-Grenze und Redirect. Webhook mit Geheimnis, Body-Grenze, Update-ID und Duplikaten. | Bot-Credential, Egress, HTTP/TLS-Ingress, Offset-Persistenz vor dem nächsten Poll, Wartefunktion, Zustellung und Dateiport. |
+| `discord` | [Quellen](../../packages/channels-discord/src), [Tests](../../packages/channels-discord/test) | REST-Körper, Autorisierung je Route, Retry-Timing und Gateway v10 Identify, Resume, Sequenz, ACK und fehlender Heartbeat-ACK. | Clock, RNG und Schlaf, zugelassener TCP-/TLS-Stream, dauerhafte Gateway-Session, Supervisor des Gateway-Zyklus, Nachrichten und Uploads. |
+| `slack` | [Quellen](../../packages/channels-slack/src), [Tests](../../packages/channels-slack/test) | Web API, URL-Formulare, Upload ohne Bearer, geprüfte File-Redirects, Hello, ACK vor Zustellung und ACK bei Redelivery. | Bot/App-Credentials, Egress-Pin je Dateihop, erneutes Öffnen bei Refresh mit gemeinsamem Dedupe-Fenster, Zustellung und Zuordnung von Channel und Thread. |
+| `signal` | [Quellen](../../packages/channels-signal/src), [Tests](../../packages/channels-signal/test) | Byte-Splits und coalesced reads, vertauschte Antworten, Notification, Rückantwort auf unbekannte Daemon-Methode, Retry-Hinweis, Timeout und Schließen bei Linienüberschreitung. | Daemon-Prozess und Duplex-Transport, Watchdog und Wiederverbindung, Uhr, Konto, Zustellung und Attachment-Pfade. |
+| `email` | [Quellen](../../packages/channels-email/src), [Tests](../../packages/channels-email/test), [Auth-Vertrag](../../packages/core/src/channels/email-auth-check.ts) | SMTP- und IMAP-STARTTLS-Sequenz, fehlendes STARTTLS, SMTP 450 und DATA, IMAP-Literal und UID-Operationen, MIME-Bytes, Charset, RFC 2231, Größen-/Tiefengrenzen und unklare Absender. | Egress plus zertifikatsgeprüfter TLS-Upgrade desselben Streams, DNS/IP-Pin, Store für UID/Threads, Thread-Metadaten, Zeit und RNG für MIME, Absenderautorisierung des Hosts. |
+| `buzz` | [Quellen](../../packages/channels-buzz/src), [Tests](../../packages/channels-buzz/test) | REQ-Bytes, EOSE, signierte Relay-Metadaten, drei AUTH-Antworten, NIP-44/59 mit synthetischen Schlüsseln, Abgleich der entschlüsselten Nutzlast, persistierte Deduplizierung und OK-Korrelation. | Relay-Egress, Host-Credentials und kryptografische Entropie, Uhr, atomare Replay-Persistenz, Zustellung und Auswahl der aktiven Relay-Verbindungen. |
+
+Der Host besitzt Weiterleitung, Pairing, Ausgabe-/Tool-Policy, Cooldowns, Dateien und Stores.
+Gateway-, Socket-Mode- und Relay-Zustandsmaschinen geben Entscheidungen an den Host zurück.
+Live-Verbindung, Prozessstart, Netzwerk-Disposition und die Core-Policy um die Adapter folgen
+beim Flip. Die STARTTLS-Replays prüfen den Übergang vor den Credentials über den Stream-Port.
+Zertifikatsverifikation führt der Host aus. Der E-Mail-Auth-Vertrag bleibt bei der Core-Kanal-Laufzeit.
+Bei Buzz bleiben die tatsächlichen Signaturen prüfbar. Die Aufzeichnung vergleicht variable
+Signaturen und verschlüsselte Outbound-Frames über Event-ID, Signaturprüfung und entschlüsselte Nutzlast.
+
+R-W-6 bindet Nachrichten- und Frame-Limits getrennt und beaufschlagt Handshake, Lesen und
+Schreiben mit Fristen. Bei R-W-9 können blockierende Kanalaufrufe bis zur jeweiligen Restfrist
+laufen. HTTP begrenzt Einzelaufrufe auf 600 Sekunden, WebSocket-Phasen ebenfalls auf maximal
+600 Sekunden. SMTP/IMAP-Kommandos nutzen bis zu 600 Sekunden, IMAP IDLE hat separat das
+protokollbedingte Maximum von 25 Minuten. Egress- und TLS-Ports müssen ihre erhaltenen Fristen
+am Socket durchsetzen. Die HTTP- und WebSocket-Features deaktivieren TRACE beim Kompilieren,
+auch bei isoliertem Build des Kanal-Crates. Telegram transportiert Credentials im Pfad und
+Socket Mode Tickets in der URL. Der Kanalcode reicht von Close-Frames nur den Code weiter.
+Beim Flip muss der Host seinen `log`-Logger über
+[`plur1bus_wire_log::install`](../../crates/plur1bus-wire-log/src/lib.rs) registrieren.
+Nach R-W-11 lässt der Filter Ziele mit Präfix `plur1bus` und sonst nur WARN und ERROR zu.
+Der Loopback-Test zeigt denselben synthetischen Close-Grund mit ungefiltertem Logger und
+weist seine Unterdrückung mit Filter nach. HYG-018 sperrt direkte Logger-Registrierungen im
+Anwendungscode. Ein Host außerhalb des Repos muss den Filter ebenfalls einsetzen.
+
+Alle 27 neuen Registry-Einträge wurden gegen Veröffentlichungsdatum, Yank-Status und
+Lizenzliste geprüft. Die aktivierten direkten Neuzugänge sind `tungstenite =0.30.0` (MIT OR
+Apache-2.0, nur `handshake`), `nostr =0.45.5` (MIT, `std` und `nip44`) und
+`secp256k1 =0.30.0` (CC0-1.0, Signieren mit vom Host geliefertem Aux-Zufall).
+Die Graphkante `faster-hex → heapless 0.8.0` bleibt in Cargo sichtbar. Nostr aktiviert
+bei `faster-hex` die Features `alloc,std`. Damit kompiliert dessen einziger Heapless-Import
+und -Aufrufpfad nicht. Das wurde am Feature-Fingerprint und an den Symbolen des macOS-Artefakts
+geprüft. Der Aufrufumfang der bestehenden Rstar-Ausnahmen bleibt unverändert.
+
+18 Mutationen wurden jeweils mit dem fachlich zuständigen Replay zurückgewiesen: Redirects,
+Pin-Port und Pin-IP, HTTP-Body-Limit, Retry-Deckel, Telegram-Redaktion und Webhook-Auth,
+Discord-Tokenroute, Slack-Redirect und Socket-Dedupe, WebSocket-Frame- und Nachrichtenlimit,
+Signal-Zeilengrenze, IMAP- und SMTP-STARTTLS, MIME-From-Duplikate sowie Buzz-Rumor-Dedupe
+und AUTH-Challenge-Deckel. Die Zuordnung sämtlicher TypeScript-Testdateien zum Testmodus
+folgt in W10.
 
 ### W3 · Cloud-Sprache (P4-52)
 
@@ -243,7 +284,7 @@ Rust 1.96 für `matrix-sdk-crypto 0.19.1`.
 | W0 Exact-Bytes und WS-Handshake | `base64 0.22.1`, MIT OR Apache-2.0. `sha1 0.11.0`, MIT OR Apache-2.0 | Bereits im Lockfile. SHA-1 dient hier nur dem vorgeschriebenen WebSocket-Accept-Wert. Der Testserver nutzt blockierende Standardbibliotheks-Sockets. |
 | HTTP und SSE (W1–W8) | `ureq 3.4.2`, MIT OR Apache-2.0. `rustls 0.23.46`, Apache-2.0 OR ISC OR MIT | Wiederverwendung mit `default-features = false`, `rustls` und `platform-verifier` wie bei der Engine. Wiederverwendung der gesperrten URL-, JSON-, Hash- und Plattform-Crates, wo sie den Port erfüllen. |
 | WebSocket (W2/W3/W4) | R-W-6 bestätigt `tungstenite =0.30.0`, MIT OR Apache-2.0, Rust 1.85, veröffentlicht am 11. Juli 2026 | `default-features = false`, nur `handshake`. `client_with_config` benutzt einen bereits verbundenen `Read + Write`-Stream des Ports, für WSS mit dem bestehenden Rustls. Der Port verbindet den gepinnten TCP-Endpunkt nach Egress-Prüfung. TLS- und `url`-Features bleiben aus. Der Adapter setzt Frame- und Nachrichtengrenzen mit Grenztest sowie Fristen für Handshake, Lesen und Schreiben. Transitive Auflösung und Gates beim ersten Einsatz. |
-| Nostr (W2) | Kandidat `nostr =0.45.5`, MIT, veröffentlicht am 11. September 2026 | Spike verwendet `std`, `nip44`, `os-rng`. Einsatz als Protokoll-/Crypto-Crate, Relay-Transport über den WS-Port. Lockfile-Auflösung und Gates bei W2 erneut prüfen. |
+| Nostr (W2) | `nostr =0.45.5`, MIT, veröffentlicht am 11. September 2026 | `std,nip44` mit separatem Entropie-Port, getestete NIP-44/59-Interoperabilität. Siehe W2 zur Heapless-Graphkante. |
 | E-Mail (W2) | Handgeschriebene IMAP-/SMTP-/MIME-Schicht, bestehende `base64`-/TLS-Bausteine | Der Stream-Port liefert TCP oder Rustls, einschließlich des STARTTLS-Übergangs. Weitere Codec-Kandidaten erst anhand der TS-Fixtures bewerten. |
 | Markdown/HTML (W4/W6) | Parserauswahl offen | Erforderlich sind HTML-/Sanitization-Parität für den vorhandenen Korpus und ein zulässiger Lizenz-/Advisory-Befund. CDP braucht den WS-Port. Chromium und ffmpeg sind vom Aufrufer bereitgestellte Prozesse. |
 | Scanner/Katalog/A2A (W5/W8) | Bestehende JSON-, Hash-/Signatur- und HTTP-Bausteine | Keine neue SDK-Abhängigkeit vorgesehen. Socket- und Prozess-Ports werden vom Flip besetzt. |

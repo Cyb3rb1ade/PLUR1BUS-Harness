@@ -665,7 +665,7 @@ impl Adapter {
                 "provider redirects refused",
             ));
         }
-        // R-W-7 / P4D-40: process the remaining bodyless statuses like an empty 200.
+        // P4D-40: keep a bodyless response distinct from an empty stream.
         let bodyless = matches!(status, 204 | 205) || parts.status.is_informational();
         let on_stream = use_sse;
         let media = parts
@@ -716,8 +716,7 @@ impl Adapter {
             request,
             ports,
         };
-        let mut empty = io::empty();
-        let input: &mut dyn Read = if bodyless { &mut empty } else { &mut reader };
+        let input = (!bodyless).then_some(&mut reader as &mut dyn Read);
         let outcome = delivery.run(input, &mut |event| {
             if stream {
                 emit(event);

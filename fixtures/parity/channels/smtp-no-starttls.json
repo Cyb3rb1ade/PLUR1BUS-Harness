@@ -1,0 +1,42 @@
+{
+  "exchanges": [
+    {
+      "receiveChunksBase64": [
+        "MjIwIGZha2Uuc210cCByZWFkeQ0K"
+      ],
+      "sendBase64": []
+    },
+    {
+      "receiveChunksBase64": [
+        "MjUwLWZha2Uuc210cA0KMjUwLUFVVEggUExBSU4gTE9HSU4NCjI1MCBTSVpFIDI2MjE0NDAwDQo="
+      ],
+      "sendBase64": [
+        "RUhMTyBleGFtcGxlLmludmFsaWQNCg=="
+      ]
+    },
+    {
+      "receiveChunksBase64": [
+        "MjIxIGJ5ZQ0K"
+      ],
+      "sendBase64": [
+        "UVVJVA0K"
+      ]
+    }
+  ],
+  "expected": {
+    "error": {
+      "kind": "tls",
+      "message": "server does not offer STARTTLS; credentials not sent"
+    }
+  },
+  "exporter": "scripts/parity/export-channels.ts",
+  "input": {
+    "dataBase64": "U3ViamVjdDogZml4dHVyZQoKLmZpcnN0DQouLnNlY29uZAo=",
+    "from": "fixture-sender@example.invalid",
+    "to": "fixture-recipient@example.invalid"
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/channels-email/src/smtp.ts",
+  "transport": "lines",
+  "upgrades": []
+}

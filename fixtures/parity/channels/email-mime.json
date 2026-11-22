@@ -1,0 +1,490 @@
+{
+  "build": {
+    "bytesBase64": "RnJvbTogPT9VVEYtOD9CP1RjTzhiR3hsY2lEd241R0w/PSA8Zml4dHVyZS1zZW5kZXJAZXhhbXBsZS5pbnZhbGlkPg0KVG86IHJlY2lwaWVudEBleGFtcGxlLmludmFsaWQNClN1YmplY3Q6ID0/VVRGLTg/Qj9SM0xEdk1PZlpTQmhkWE1nWkdWdElGUmxjM1E9Pz0NCkRhdGU6IFR1ZSwgMTQgTm92IDIwMjMgMjI6MTM6MjAgR01UDQpNZXNzYWdlLUlEOiA8bG9jYWwtMDAwMUBleGFtcGxlLmludmFsaWQ+DQpNSU1FLVZlcnNpb246IDEuMA0KQXV0by1TdWJtaXR0ZWQ6IGF1dG8tcmVwbGllZA0KSW4tUmVwbHktVG86IDxsb2NhbC0wMDAwQGV4YW1wbGUuaW52YWxpZD4NClJlZmVyZW5jZXM6IDxsb2NhbC0wMDAwQGV4YW1wbGUuaW52YWxpZD4NCkNvbnRlbnQtVHlwZTogbXVsdGlwYXJ0L21peGVkOyBib3VuZGFyeT0iZml4dHVyZS1taXhlZC1tYXJrZXIiDQoNCi0tZml4dHVyZS1taXhlZC1tYXJrZXINCkNvbnRlbnQtVHlwZTogbXVsdGlwYXJ0L2FsdGVybmF0aXZlOyBib3VuZGFyeT0iZml4dHVyZS1hbHQtbWFya2VyIg0KDQotLWZpeHR1cmUtYWx0LW1hcmtlcg0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PXV0Zi04DQpDb250ZW50LVRyYW5zZmVyLUVuY29kaW5nOiBiYXNlNjQNCg0KUlhKemRHVWdXbVZwYkdVdUNpNWFkMlZwZEdVZ1dtVnBiR1V1DQotLWZpeHR1cmUtYWx0LW1hcmtlcg0KQ29udGVudC1UeXBlOiB0ZXh0L2h0bWw7IGNoYXJzZXQ9dXRmLTgNCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IGJhc2U2NA0KDQpQSEErUVd4MFpYSnVZWFJwZG1VOEwzQSsNCi0tZml4dHVyZS1hbHQtbWFya2VyLS0NCi0tZml4dHVyZS1taXhlZC1tYXJrZXINCkNvbnRlbnQtVHlwZTogdGV4dC9wbGFpbjsgbmFtZT0iQmVyaWNodF8udHh0Ig0KQ29udGVudC1EaXNwb3NpdGlvbjogYXR0YWNobWVudDsgZmlsZW5hbWU9IkJlcmljaHRfLnR4dCINCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IGJhc2U2NA0KDQpBQUVDL3c9PQ0KLS1maXh0dXJlLW1peGVkLW1hcmtlci0tDQo=",
+    "input": {
+      "attachments": [
+        {
+          "bytes": [
+            0,
+            1,
+            2,
+            255
+          ],
+          "filename": "../Bericht ü.txt",
+          "mimeType": "text/plain"
+        }
+      ],
+      "boundaries": [
+        "fixture-alt-marker",
+        "fixture-mixed-marker"
+      ],
+      "date": 1700000000000,
+      "from": {
+        "address": "fixture-sender@example.invalid",
+        "name": "Müller 👋"
+      },
+      "html": "<p>Alternative</p>",
+      "inReplyTo": "local-0000@example.invalid",
+      "messageId": "local-0001@example.invalid",
+      "references": [
+        "local-0000@example.invalid"
+      ],
+      "subject": "Grüße aus dem Test",
+      "text": "Erste Zeile.\n.Zweite Zeile.",
+      "to": "recipient@example.invalid"
+    }
+  },
+  "exporter": "scripts/parity/export-channels.ts",
+  "schema": "plur1bus.parity-email/1",
+  "source": "packages/channels-email/src/mime-build.ts and mime-parse.ts",
+  "variants": [
+    {
+      "bytesBase64": "RnJvbTogPT9VVEYtOD9CP1RjTzhiR3hsY2lEd241R0w/PSA8Zml4dHVyZS1zZW5kZXJAZXhhbXBsZS5pbnZhbGlkPg0KVG86IHJlY2lwaWVudEBleGFtcGxlLmludmFsaWQNClN1YmplY3Q6ID0/VVRGLTg/Qj9SM0xEdk1PZlpTQmhkWE1nWkdWdElGUmxjM1E9Pz0NCkRhdGU6IFR1ZSwgMTQgTm92IDIwMjMgMjI6MTM6MjAgR01UDQpNZXNzYWdlLUlEOiA8bG9jYWwtMDAwMUBleGFtcGxlLmludmFsaWQ+DQpNSU1FLVZlcnNpb246IDEuMA0KQXV0by1TdWJtaXR0ZWQ6IGF1dG8tcmVwbGllZA0KSW4tUmVwbHktVG86IDxsb2NhbC0wMDAwQGV4YW1wbGUuaW52YWxpZD4NClJlZmVyZW5jZXM6IDxsb2NhbC0wMDAwQGV4YW1wbGUuaW52YWxpZD4NCkNvbnRlbnQtVHlwZTogbXVsdGlwYXJ0L21peGVkOyBib3VuZGFyeT0iZml4dHVyZS1taXhlZC1tYXJrZXIiDQoNCi0tZml4dHVyZS1taXhlZC1tYXJrZXINCkNvbnRlbnQtVHlwZTogbXVsdGlwYXJ0L2FsdGVybmF0aXZlOyBib3VuZGFyeT0iZml4dHVyZS1hbHQtbWFya2VyIg0KDQotLWZpeHR1cmUtYWx0LW1hcmtlcg0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PXV0Zi04DQpDb250ZW50LVRyYW5zZmVyLUVuY29kaW5nOiBiYXNlNjQNCg0KUlhKemRHVWdXbVZwYkdVdUNpNWFkMlZwZEdVZ1dtVnBiR1V1DQotLWZpeHR1cmUtYWx0LW1hcmtlcg0KQ29udGVudC1UeXBlOiB0ZXh0L2h0bWw7IGNoYXJzZXQ9dXRmLTgNCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IGJhc2U2NA0KDQpQSEErUVd4MFpYSnVZWFJwZG1VOEwzQSsNCi0tZml4dHVyZS1hbHQtbWFya2VyLS0NCi0tZml4dHVyZS1taXhlZC1tYXJrZXINCkNvbnRlbnQtVHlwZTogdGV4dC9wbGFpbjsgbmFtZT0iQmVyaWNodF8udHh0Ig0KQ29udGVudC1EaXNwb3NpdGlvbjogYXR0YWNobWVudDsgZmlsZW5hbWU9IkJlcmljaHRfLnR4dCINCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IGJhc2U2NA0KDQpBQUVDL3c9PQ0KLS1maXh0dXJlLW1peGVkLW1hcmtlci0tDQo=",
+      "expected": {
+        "attachments": [
+          {
+            "bytes": [
+              0,
+              1,
+              2,
+              255
+            ],
+            "filename": "Bericht_.txt",
+            "inline": false,
+            "mimeType": "text/plain"
+          }
+        ],
+        "contentType": "multipart/mixed",
+        "date": 1700000000000,
+        "from": {
+          "address": "fixture-sender@example.invalid",
+          "name": "Müller 👋"
+        },
+        "fromHtml": false,
+        "headers": {
+          "content-type": [
+            "multipart/mixed; boundary=\"fixture-mixed-marker\""
+          ],
+          "date": [
+            "Tue, 14 Nov 2023 22:13:20 GMT"
+          ],
+          "from": [
+            "=?UTF-8?B?TcO8bGxlciDwn5GL?= <fixture-sender@example.invalid>"
+          ],
+          "return-path": [],
+          "to": [
+            "recipient@example.invalid"
+          ]
+        },
+        "inReplyTo": "local-0000@example.invalid",
+        "isReport": false,
+        "messageId": "local-0001@example.invalid",
+        "references": [
+          "local-0000@example.invalid"
+        ],
+        "skippedAttachments": 0,
+        "subject": "Grüße aus dem Test",
+        "text": "Erste Zeile.\n.Zweite Zeile.",
+        "to": [
+          {
+            "address": "recipient@example.invalid"
+          }
+        ]
+      },
+      "name": "roundtrip"
+    },
+    {
+      "bytesBase64": "RnJvbTogRXhhbXBsZSA8Zml4dHVyZS1zZW5kZXJAZXhhbXBsZS5pbnZhbGlkPg0KRnJvbTogRXhhbXBsZSA8Zml4dHVyZS1zZW5kZXJAZXhhbXBsZS5pbnZhbGlkPg0KDQpib2R5",
+      "expected": {
+        "attachments": [],
+        "contentType": "text/plain",
+        "fromHtml": false,
+        "fromProblem": "duplicate",
+        "headers": {
+          "content-type": [],
+          "date": [],
+          "from": [
+            "Example <fixture-sender@example.invalid>",
+            "Example <fixture-sender@example.invalid>"
+          ],
+          "return-path": [],
+          "to": []
+        },
+        "isReport": false,
+        "references": [],
+        "skippedAttachments": 0,
+        "subject": "",
+        "text": "body",
+        "to": []
+      },
+      "name": "duplicate-from"
+    },
+    {
+      "bytesBase64": "RnJvbTogb25lQGV4YW1wbGUuaW52YWxpZCwgdHdvQGV4YW1wbGUuaW52YWxpZA0KDQpib2R5",
+      "expected": {
+        "attachments": [],
+        "contentType": "text/plain",
+        "fromHtml": false,
+        "fromProblem": "multiple",
+        "headers": {
+          "content-type": [],
+          "date": [],
+          "from": [
+            "one@example.invalid, two@example.invalid"
+          ],
+          "return-path": [],
+          "to": []
+        },
+        "isReport": false,
+        "references": [],
+        "skippedAttachments": 0,
+        "subject": "",
+        "text": "body",
+        "to": []
+      },
+      "name": "multiple-mailboxes"
+    },
+    {
+      "bytesBase64": "RnJvbTogR3JvdXA6IG9uZUBleGFtcGxlLmludmFsaWQ7DQoNCmJvZHk=",
+      "expected": {
+        "attachments": [],
+        "contentType": "text/plain",
+        "fromHtml": false,
+        "fromProblem": "group",
+        "headers": {
+          "content-type": [],
+          "date": [],
+          "from": [
+            "Group: one@example.invalid;"
+          ],
+          "return-path": [],
+          "to": []
+        },
+        "isReport": false,
+        "references": [],
+        "skippedAttachments": 0,
+        "subject": "",
+        "text": "body",
+        "to": []
+      },
+      "name": "group"
+    },
+    {
+      "bytesBase64": "RnJvbTogRXhhbXBsZSA8Zml4dHVyZS1zZW5kZXJAZXhhbXBsZS5pbnZhbGlkPg0KUmV0dXJuLVBhdGg6IDw+DQpSZXR1cm4tUGF0aDogPD4NCg0K",
+      "expected": {
+        "attachments": [],
+        "contentType": "text/plain",
+        "fromHtml": false,
+        "fromProblem": "duplicate-return-path",
+        "headers": {
+          "content-type": [],
+          "date": [],
+          "from": [
+            "Example <fixture-sender@example.invalid>"
+          ],
+          "return-path": [
+            "<>",
+            "<>"
+          ],
+          "to": []
+        },
+        "isReport": false,
+        "references": [],
+        "returnPath": "<>",
+        "skippedAttachments": 0,
+        "subject": "",
+        "text": "",
+        "to": []
+      },
+      "name": "duplicate-path"
+    },
+    {
+      "bytesBase64": "RnJvbTogRXhhbXBsZSA8Zml4dHVyZS1zZW5kZXJAZXhhbXBsZS5pbnZhbGlkPg0KU2VuZGVyOiBvdGhlckBleGFtcGxlLmludmFsaWQNCg0KYm9keQ==",
+      "expected": {
+        "attachments": [],
+        "contentType": "text/plain",
+        "fromHtml": false,
+        "fromProblem": "sender-mismatch",
+        "headers": {
+          "content-type": [],
+          "date": [],
+          "from": [
+            "Example <fixture-sender@example.invalid>"
+          ],
+          "return-path": [],
+          "to": []
+        },
+        "isReport": false,
+        "references": [],
+        "skippedAttachments": 0,
+        "subject": "",
+        "text": "body",
+        "to": []
+      },
+      "name": "sender-mismatch"
+    },
+    {
+      "bytesBase64": "RnJvbTogIkV4YW1wbGUsIEFsaSIgKG9wYXF1ZSkgPFNFTkRFUkBleGFtcGxlLmludmFsaWQ+DQoNCmJvZHk=",
+      "expected": {
+        "attachments": [],
+        "contentType": "text/plain",
+        "from": {
+          "address": "sender@example.invalid",
+          "name": "Example, Ali"
+        },
+        "fromHtml": false,
+        "headers": {
+          "content-type": [],
+          "date": [],
+          "from": [
+            "\"Example, Ali\" (opaque) <SENDER@example.invalid>"
+          ],
+          "return-path": [],
+          "to": []
+        },
+        "isReport": false,
+        "references": [],
+        "skippedAttachments": 0,
+        "subject": "",
+        "text": "body",
+        "to": []
+      },
+      "name": "comments-and-quotes"
+    },
+    {
+      "bytesBase64": "RnJvbTogRXhhbXBsZSA8Zml4dHVyZS1zZW5kZXJAZXhhbXBsZS5pbnZhbGlkPg0KU3ViamVjdDogPT93aW5kb3dzLTEyNTI/UT9Hcj1GQz1ERmU/PQ0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PXdpbmRvd3MtMTI1Mg0KQ29udGVudC1UcmFuc2Zlci1FbmNvZGluZzogcXVvdGVkLXByaW50YWJsZQ0KDQpHcj1GQz1ERmUgIA0KQT0NCkI=",
+      "expected": {
+        "attachments": [],
+        "contentType": "text/plain",
+        "from": {
+          "address": "fixture-sender@example.invalid",
+          "name": "Example"
+        },
+        "fromHtml": false,
+        "headers": {
+          "content-type": [
+            "text/plain; charset=windows-1252"
+          ],
+          "date": [],
+          "from": [
+            "Example <fixture-sender@example.invalid>"
+          ],
+          "return-path": [],
+          "to": []
+        },
+        "isReport": false,
+        "references": [],
+        "skippedAttachments": 0,
+        "subject": "Grüße",
+        "text": "Grüße\nAB",
+        "to": []
+      },
+      "name": "quoted-printable"
+    },
+    {
+      "bytesBase64": "RnJvbTogPT9VVEYtOD9CP1RjTzhiR3hsY2lEd241R0w/PSA8Zml4dHVyZS1zZW5kZXJAZXhhbXBsZS5pbnZhbGlkPg0KVG86IHJlY2lwaWVudEBleGFtcGxlLmludmFsaWQNClN1YmplY3Q6ID0/VVRGLTg/Qj9SM0xEdk1PZlpTQmhkWE1nWkdWdElGUmxjM1E9Pz0NCkRhdGU6IFR1ZSwgMTQgTm92IDIwMjMgMjI6MTM6MjAgR01UDQpNZXNzYWdlLUlEOiA8bG9jYWwtMDAwMUBleGFtcGxlLmludmFsaWQ+DQpNSU1FLVZlcnNpb246IDEuMA0KQXV0by1TdWJtaXR0ZWQ6IGF1dG8tcmVwbGllZA0KSW4tUmVwbHktVG86IDxsb2NhbC0wMDAwQGV4YW1wbGUuaW52YWxpZD4NClJlZmVyZW5jZXM6IDxsb2NhbC0wMDAwQGV4YW1wbGUuaW52YWxpZD4NCkNvbnRlbnQtVHlwZTogbXVsdGlwYXJ0L21peGVkOyBib3VuZGFyeT0iZml4dHVyZS1taXhlZC1tYXJrZXIiDQoNCi0tZml4dHVyZS1taXhlZC1tYXJrZXINCkNvbnRlbnQtVHlwZTogbXVsdGlwYXJ0L2FsdGVybmF0aXZlOyBib3VuZGFyeT0iZml4dHVyZS1hbHQtbWFya2VyIg0KDQotLWZpeHR1cmUtYWx0LW1hcmtlcg0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PXV0Zi04DQpDb250ZW50LVRyYW5zZmVyLUVuY29kaW5nOiBiYXNlNjQNCg0KUlhKemRHVWdXbVZwYkdVdUNpNWFkMlZwZEdVZ1dtVnBiR1V1DQotLWZpeHR1cmUtYWx0LW1hcmtlcg0KQ29udGVudC1UeXBlOiB0ZXh0L2h0bWw7IGNoYXJzZXQ9dXRmLTgNCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IGJhc2U2NA0KDQpQSEErUVd4MFpYSnVZWFJwZG1VOEwzQSsNCi0tZml4dHVyZS1hbHQtbWFya2VyLS0NCi0tZml4dHVyZS1taXhlZC1tYXJrZXINCkNvbnRlbnQtVHlwZTogdGV4dC9wbGFpbjsgbmFtZT0iQmVyaWNodF8udHh0Ig0KQ29udGVudC1EaXNwb3NpdGlvbjogYXR0YWNobWVudDsgZmlsZW5hbWU9IkJlcmljaHRfLnR4dCINCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IGJhc2U2NA0KDQpBQUVDL3c9PQ0KLS1maXh0dXJlLW1peGVkLW1hcmtlci0tDQo=",
+      "expected": {
+        "attachments": [],
+        "contentType": "multipart/mixed",
+        "date": 1700000000000,
+        "from": {
+          "address": "fixture-sender@example.invalid",
+          "name": "Müller 👋"
+        },
+        "fromHtml": false,
+        "headers": {
+          "content-type": [
+            "multipart/mixed; boundary=\"fixture-mixed-marker\""
+          ],
+          "date": [
+            "Tue, 14 Nov 2023 22:13:20 GMT"
+          ],
+          "from": [
+            "=?UTF-8?B?TcO8bGxlciDwn5GL?= <fixture-sender@example.invalid>"
+          ],
+          "return-path": [],
+          "to": [
+            "recipient@example.invalid"
+          ]
+        },
+        "inReplyTo": "local-0000@example.invalid",
+        "isReport": false,
+        "messageId": "local-0001@example.invalid",
+        "references": [
+          "local-0000@example.invalid"
+        ],
+        "skippedAttachments": 1,
+        "subject": "Grüße aus dem Test",
+        "text": "Erste Zeile.\n.Zweite Zeile.",
+        "to": [
+          {
+            "address": "recipient@example.invalid"
+          }
+        ]
+      },
+      "name": "attachments-capped",
+      "options": {
+        "maxAttachmentBytes": 2
+      }
+    },
+    {
+      "bytesBase64": "RnJvbTogPT9VVEYtOD9CP1RjTzhiR3hsY2lEd241R0w/PSA8Zml4dHVyZS1zZW5kZXJAZXhhbXBsZS5pbnZhbGlkPg0KVG86IHJlY2lwaWVudEBleGFtcGxlLmludmFsaWQNClN1YmplY3Q6ID0/VVRGLTg/Qj9SM0xEdk1PZlpTQmhkWE1nWkdWdElGUmxjM1E9Pz0NCkRhdGU6IFR1ZSwgMTQgTm92IDIwMjMgMjI6MTM6MjAgR01UDQpNZXNzYWdlLUlEOiA8bG9jYWwtMDAwMUBleGFtcGxlLmludmFsaWQ+DQpNSU1FLVZlcnNpb246IDEuMA0KQXV0by1TdWJtaXR0ZWQ6IGF1dG8tcmVwbGllZA0KSW4tUmVwbHktVG86IDxsb2NhbC0wMDAwQGV4YW1wbGUuaW52YWxpZD4NClJlZmVyZW5jZXM6IDxsb2NhbC0wMDAwQGV4YW1wbGUuaW52YWxpZD4NCkNvbnRlbnQtVHlwZTogbXVsdGlwYXJ0L21peGVkOyBib3VuZGFyeT0iZml4dHVyZS1taXhlZC1tYXJrZXIiDQoNCi0tZml4dHVyZS1taXhlZC1tYXJrZXINCkNvbnRlbnQtVHlwZTogbXVsdGlwYXJ0L2FsdGVybmF0aXZlOyBib3VuZGFyeT0iZml4dHVyZS1hbHQtbWFya2VyIg0KDQotLWZpeHR1cmUtYWx0LW1hcmtlcg0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PXV0Zi04DQpDb250ZW50LVRyYW5zZmVyLUVuY29kaW5nOiBiYXNlNjQNCg0KUlhKemRHVWdXbVZwYkdVdUNpNWFkMlZwZEdVZ1dtVnBiR1V1DQotLWZpeHR1cmUtYWx0LW1hcmtlcg0KQ29udGVudC1UeXBlOiB0ZXh0L2h0bWw7IGNoYXJzZXQ9dXRmLTgNCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IGJhc2U2NA0KDQpQSEErUVd4MFpYSnVZWFJwZG1VOEwzQSsNCi0tZml4dHVyZS1hbHQtbWFya2VyLS0NCi0tZml4dHVyZS1taXhlZC1tYXJrZXINCkNvbnRlbnQtVHlwZTogdGV4dC9wbGFpbjsgbmFtZT0iQmVyaWNodF8udHh0Ig0KQ29udGVudC1EaXNwb3NpdGlvbjogYXR0YWNobWVudDsgZmlsZW5hbWU9IkJlcmljaHRfLnR4dCINCkNvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IGJhc2U2NA0KDQpBQUVDL3c9PQ0KLS1maXh0dXJlLW1peGVkLW1hcmtlci0tDQo=",
+      "expected": {
+        "attachments": [
+          {
+            "bytes": [
+              0,
+              1,
+              2,
+              255
+            ],
+            "filename": "Bericht_.txt",
+            "inline": false,
+            "mimeType": "text/plain"
+          }
+        ],
+        "contentType": "multipart/mixed",
+        "date": 1700000000000,
+        "from": {
+          "address": "fixture-sender@example.invalid",
+          "name": "Müller 👋"
+        },
+        "fromHtml": false,
+        "headers": {
+          "content-type": [
+            "multipart/mixed; boundary=\"fixture-mixed-marker\""
+          ],
+          "date": [
+            "Tue, 14 Nov 2023 22:13:20 GMT"
+          ],
+          "from": [
+            "=?UTF-8?B?TcO8bGxlciDwn5GL?= <fixture-sender@example.invalid>"
+          ],
+          "return-path": [],
+          "to": [
+            "recipient@example.invalid"
+          ]
+        },
+        "inReplyTo": "local-0000@example.invalid",
+        "isReport": false,
+        "messageId": "local-0001@example.invalid",
+        "references": [
+          "local-0000@example.invalid"
+        ],
+        "skippedAttachments": 0,
+        "subject": "Grüße aus dem Test",
+        "text": "",
+        "to": [
+          {
+            "address": "recipient@example.invalid"
+          }
+        ]
+      },
+      "name": "depth-capped",
+      "options": {
+        "maxDepth": 1
+      }
+    },
+    {
+      "bytesBase64": "RnJvbTogRXhhbXBsZSA8Zml4dHVyZS1zZW5kZXJAZXhhbXBsZS5pbnZhbGlkPg0KQ29udGVudC1UeXBlOiB0ZXh0L2h0bWwNCg0KPHA+R3ImdXVtbDsmc3psaWc7ZSA8YSBocmVmPSdodHRwczovL2ZpeHR1cmUuaW52YWxpZC8nPmxpbms8L2E+PC9wPjxzY3JpcHQ+aWdub3JlZDwvc2NyaXB0Pg==",
+      "expected": {
+        "attachments": [],
+        "contentType": "text/html",
+        "from": {
+          "address": "fixture-sender@example.invalid",
+          "name": "Example"
+        },
+        "fromHtml": true,
+        "headers": {
+          "content-type": [
+            "text/html"
+          ],
+          "date": [],
+          "from": [
+            "Example <fixture-sender@example.invalid>"
+          ],
+          "return-path": [],
+          "to": []
+        },
+        "isReport": false,
+        "references": [],
+        "skippedAttachments": 0,
+        "subject": "",
+        "text": "Grüße link (https://fixture.invalid/)",
+        "to": []
+      },
+      "name": "html"
+    },
+    {
+      "bytesBase64": "RnJvbTogRXhhbXBsZSA8Zml4dHVyZS1zZW5kZXJAZXhhbXBsZS5pbnZhbGlkPg0KQ29udGVudC1UeXBlOiBtZXNzYWdlL2RlbGl2ZXJ5LXN0YXR1cw0KDQpzdGF0dXM=",
+      "expected": {
+        "attachments": [],
+        "contentType": "message/delivery-status",
+        "from": {
+          "address": "fixture-sender@example.invalid",
+          "name": "Example"
+        },
+        "fromHtml": false,
+        "headers": {
+          "content-type": [
+            "message/delivery-status"
+          ],
+          "date": [],
+          "from": [
+            "Example <fixture-sender@example.invalid>"
+          ],
+          "return-path": [],
+          "to": []
+        },
+        "isReport": true,
+        "references": [],
+        "skippedAttachments": 0,
+        "subject": "",
+        "text": "",
+        "to": []
+      },
+      "name": "machine-report"
+    },
+    {
+      "bytesBase64": "RnJvbTogRXhhbXBsZSA8Zml4dHVyZS1zZW5kZXJAZXhhbXBsZS5pbnZhbGlkPg0KQ29udGVudC1UeXBlOiBpbWFnZS9wbmcNCkNvbnRlbnQtRGlzcG9zaXRpb246IGlubGluZTsgZmlsZW5hbWUqMCo9dXRmLTgnJ2dyJUMzJUJDOyBmaWxlbmFtZSoxKj1zc2UucG5nDQpDb250ZW50LVRyYW5zZmVyLUVuY29kaW5nOiBiYXNlNjQNCg0KQUFFQw==",
+      "expected": {
+        "attachments": [
+          {
+            "bytes": [
+              0,
+              1,
+              2
+            ],
+            "filename": "grüsse.png",
+            "inline": true,
+            "mimeType": "image/png"
+          }
+        ],
+        "contentType": "image/png",
+        "from": {
+          "address": "fixture-sender@example.invalid",
+          "name": "Example"
+        },
+        "fromHtml": false,
+        "headers": {
+          "content-type": [
+            "image/png"
+          ],
+          "date": [],
+          "from": [
+            "Example <fixture-sender@example.invalid>"
+          ],
+          "return-path": [],
+          "to": []
+        },
+        "isReport": false,
+        "references": [],
+        "skippedAttachments": 0,
+        "subject": "",
+        "text": "",
+        "to": []
+      },
+      "name": "filename-parameters"
+    }
+  ]
+}

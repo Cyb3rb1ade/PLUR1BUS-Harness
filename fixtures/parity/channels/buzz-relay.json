@@ -1,0 +1,222 @@
+{
+  "auth": [
+    "synthetic challenge",
+    "second challenge",
+    "third challenge",
+    "ignored fourth"
+  ],
+  "exchanges": [
+    {
+      "receive": [
+        [
+          "EVENT",
+          "buzz-relays",
+          {
+            "content": "",
+            "created_at": 1700000000,
+            "id": "ea66efc84ef153fb0b586fb9a2cad88b7f4ad5c0bc75773580a5b9a43ce8d976",
+            "kind": 10050,
+            "pubkey": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+            "sig": "4eb227ff1dd96f5eebdea9a381d2e02d07d942b77a86e7e2308b87ee4a8aa94e2c43f5f1d9a9e90f2281522530fa3c537485dbde1f5f9d606c1aa1ac0c28a405",
+            "tags": [
+              [
+                "relay",
+                "wss://relay.fixture.invalid/"
+              ]
+            ]
+          }
+        ],
+        [
+          "EOSE",
+          "buzz-relays"
+        ],
+        [
+          "EVENT",
+          "buzz-inbox",
+          {
+            "content": "AgUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFUYxabmN6XucpkrgIHE8/wgyHxXTG3n+KkLfncJe284w5pqnft2nvZ+0IigyN3MB6ODclfF83TZIpwpx/0SHA6yc3DgSNSA9kvGhWoahCFHErwr4F4b3r5xp88UgFWz5nUPWk20Q+ORa/RmuhhZJFlmyVg5Ak7cCA2GnaOg/3O/RjMuTIAhlm0up83HInQ1azPKYbjDXw2wwgVB57PROoOQl4+7Fo9+NocU/LF7Yqzrsc5CfxFdG0CSKTu7LD2hAkWClbcnA8dSJqnMRKwlhKWHK8SYInPAv1IUzhoa7fLR4hL9+H/Ap7RbIog4Gn2XGibLBy0aXKXM3Hlgfz8vN8v9JJJjlXYpKKaMjxesdTTZ4PsPUTBipf9Fwq3L6MMBouoqPhOi7CsMpEuwofCnAnwYiLWmYzKEpmm23d8khmQpP+UzQw3Es6oHb4P7z7aaw77fEHswcpOsF/CRLWN8xh7LOcYupksydxYZNc+C/cQ+rPisNip6CepagyLyLPxeeQZ6K7ruo13VtfEKTefkyLILIa8X62QOz9J5okY4VBnWgrYdLmCTsXWdj7eohsyYiKkX6UP/9DuGZwGkBgHQkwnwjSRUQJ1SvkDsW7eaGkehXM95VbEWgWs+E8m7DdHitUp7bdo6xhznztHUolurqcDTJTHw7ybuTU0LR7KBZZIZ//pjjFwB97UU16u5fKizUj1PlDXpClBPMn5XYkLvMN43rPK7HrdYkn0PCm8toxCcpLb2cTE7p868ZcAMTMpdG9S5rA2gfSIi4LJ6nrF2ZPtNSeJaUVY7ScUO8DlNaKhDTKE/kGvVMEcTKDUe83A3ln3cTQ+UPhX79cMhSh+aWM0MRnhCvuI1ghwdtsZIneUfOpdYgxsPPHzpet6oZqXfvzWNG8sJP6KOSnITHRcY4doZTqIX15f57OmnrNR33QurdyxuSSqzsyUeOSRs9VZwD8Fpm9In5xXy8aiQ8KPYwX0KLI8ZQnc/Q1OAUJgPTiYZiRk33LlvoozfXAAJqRN4evLJo75oCM5eCGBfSoai4O/dZyTLgat4z899MNLpHGvGdgwSJa38Zrg+5q/O2fpy+A3UcMG1kXq2HeDMlL8+4xKPrWivo/yFwNCEZ7K3Hau1PYAigD1J0z69jl8/v/pli9zC8xPfZJNWcs0nEiy3PIeL5x3ZdlmXk1ULKDLIRjOz53G2Ohu1Acy0pczclbA95y9biwhIXhdTlYHZpXbN71HEuw",
+            "created_at": 1699956800,
+            "id": "c492df8b13517884f4ebb5e818ee41b71896d882f8825c1a9636e6df5c8256a4",
+            "kind": 1059,
+            "pubkey": "c0d3ef96222506eab77ef218777e98a86fa1906704a043caeb9e395ecb215b2b",
+            "sig": "619ac580acbc02f387098dbdbce2a4805e955add9d4d6e421d674d9ce0fba3eff8c7aa89c70dbd7260b036abc3ad1e2a2b734116ce87678697147d03967c9e7d",
+            "tags": [
+              [
+                "p",
+                "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f"
+              ]
+            ]
+          }
+        ],
+        [
+          "EVENT",
+          "buzz-inbox",
+          {
+            "content": "AgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKtPPEeEWxj3YxV7zlGRxfmtPgSiVeEpCSDnLX79VbKAXtzo1vyNAjwQwNStljaRmXyqJJpb249EBjDtR2vh5N5bBdqyetl+WZUonqCPJL59mczUVIVWP85BQqqDbpNZQfFaxNJw+0N2T6Nam++HGFczhmI5Abf61H5n9xtregtHYANkFmE9MkxuvNArQE2QQD+TYj182NiWZBXFhY/7vA9jB6BVMfODogzbnqTro92h7O7CTG0VbT4qs84qpFUKk3Uuthc047EGih7BOXSWf6jjJwWTv0h6NfUf8RU91GvZ9dQ4OKZLMp044azkpdYim3AcUrllRqeR0YVfNWJpII4SUyuN23mIckYHd8xzlCJt3mwplvx7F4EUPbOKFCcPD3bb00eSG16W+TzBU6k8ehdgay2BDQQs6deLlqVdGm21yN7Hk7bLZ3OU+Zot0PRZE2ZUvrCAb5fBNTtBo2j2OYyimIzoWqruxOkNKSYlAH3XIyOU39jUtD3ng/k9HyAuudnx3sSwmhXWFav2qb+mw6KdnBxO5YkwyZqDL7jlL8kU46jEUcrPRf1bj5+vxQ6kHODfrKHSh2ewlHkY+YJ2THGhL7QrNkJ4aPOZE5pXCOIdS0sJkQjjZ3WhVtfLm7AtE773mNbv32EWfDOtydAxY+tfj+m3GgPxVD/38+WHTPvf8EckSvbrudcDq9I6rvpeZCRLNZyA/LULRdIAn9i6u29FPc+NmK1cJeibaBU0Eab97vVzOGz9hucRMKsSjrhbnUmdxWAQ7uUaaoVVOLE/dRYTEUUZUqqxAQbf84t36NRRUtxROpsgG5XDQsVb0iPtRsiJvVEh7Tvbx+p/kN5ORPtGbtgqL5rLA2O/SM4m+yKT5tpwVhspqkW+86l9HBdmG6RTmAgaN+FZyDme5SqoDt/EYzkYtedBK5sgUPOYyEgy4+83xow7vjDQwaJDoy2JBwilGm9h4nDeyergHQHjYHNBHWXUjCFVe2LUqbaROdbIZVsPiW1VM2PvEPXsacKZbrys29YiY1ZnJoz3lee5qO9KghMOFFd35TGLajs9MLcqJ3lN7QF6xm1p6zYAOZrVV3WgBIOQFYBeMW2f6uqPtKdkxUsXscgME95l1sp5r8JwueGv0x/KM9Js/M3JEEhHECtQay1OUzhOuTdSGXTR+NpZB2oosL7gk/IC4w1L2cDPpWbV5ZKNaSTQYUpRG9H2GWspTT9LpstcKq/NgMWgn6qUEb",
+            "created_at": 1699956800,
+            "id": "ca09e9509498a1fd45edbb6b06c96afe10464ca646bc407b9852eca056a938cf",
+            "kind": 1059,
+            "pubkey": "ae28d8da24e9b4c8a612989a41ef70e1f82da35091cd27f587bf88b6f510b81e",
+            "sig": "d3bf10ee386ad48cb7546c3563d810bb51c7e9b9998c93304183ca3943e0bad04fcf7acb42088309f5262fc409861bd8937f4a138e391d3647c6cea6989f2320",
+            "tags": [
+              [
+                "p",
+                "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f"
+              ]
+            ]
+          }
+        ],
+        [
+          "EOSE",
+          "buzz-inbox"
+        ]
+      ],
+      "send": [
+        [
+          "REQ",
+          "buzz-inbox",
+          {
+            "#p": [
+              "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f"
+            ],
+            "kinds": [
+              1059
+            ],
+            "since": 1699827200
+          }
+        ],
+        [
+          "REQ",
+          "buzz-relays",
+          {
+            "authors": [
+              "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+            ],
+            "kinds": [
+              10050
+            ]
+          }
+        ]
+      ]
+    }
+  ],
+  "expected": {
+    "announcement": {
+      "content": "",
+      "created_at": 1700000000,
+      "id": "89d9773edec2a1d5e815979b7c8d0f59dee4724c8adc239646e8a3928f2cfe8c",
+      "kind": 10050,
+      "pubkey": "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
+      "tags": [
+        [
+          "relay",
+          "wss://relay.fixture.invalid/"
+        ]
+      ]
+    },
+    "authentication": [
+      {
+        "content": "",
+        "created_at": 1700000000,
+        "id": "c1293e769e9027fc718abd8a8cc96abec97a5dd9833d9e88ec1d58c2706660bd",
+        "kind": 22242,
+        "pubkey": "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
+        "tags": [
+          [
+            "relay",
+            "wss://relay.fixture.invalid/"
+          ],
+          [
+            "challenge",
+            "synthetic challenge"
+          ]
+        ]
+      },
+      {
+        "content": "",
+        "created_at": 1700000000,
+        "id": "bd38282bea72ea2c4acf7d9da084e370eeb8379a12261b2d60a450280ade5002",
+        "kind": 22242,
+        "pubkey": "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
+        "tags": [
+          [
+            "relay",
+            "wss://relay.fixture.invalid/"
+          ],
+          [
+            "challenge",
+            "second challenge"
+          ]
+        ]
+      },
+      {
+        "content": "",
+        "created_at": 1700000000,
+        "id": "7e04b104262be9ef8be78bbe3ab5e2e1aecff58fd0dddd8b65923e580e6ee9d4",
+        "kind": 22242,
+        "pubkey": "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
+        "tags": [
+          [
+            "relay",
+            "wss://relay.fixture.invalid/"
+          ],
+          [
+            "challenge",
+            "third challenge"
+          ]
+        ]
+      }
+    ],
+    "messages": [
+      {
+        "messageId": "3fe9f94127c1f6695cc4075b038b56ef3acbe8d71d7ec06cc00dce93559f29c0",
+        "persisted": true,
+        "senderId": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+        "text": "Grüße vom Fixture"
+      }
+    ],
+    "published": [
+      {
+        "id": "3b9e02bcba1f6fa20814858cc4c2f03067d983a138d0abc3cd8709b5b9b73956",
+        "kind": 14,
+        "tags": [
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ]
+        ],
+        "text": "Reply from the fixture",
+        "toPeer": true
+      },
+      {
+        "id": "3b9e02bcba1f6fa20814858cc4c2f03067d983a138d0abc3cd8709b5b9b73956",
+        "kind": 14,
+        "tags": [
+          [
+            "p",
+            "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
+          ]
+        ],
+        "text": "Reply from the fixture",
+        "toPeer": false
+      }
+    ],
+    "saved": [
+      "c492df8b13517884f4ebb5e818ee41b71896d882f8825c1a9636e6df5c8256a4",
+      "3fe9f94127c1f6695cc4075b038b56ef3acbe8d71d7ec06cc00dce93559f29c0"
+    ]
+  },
+  "exporter": "scripts/parity/export-channels.ts",
+  "now": 1700000000,
+  "recipient": "1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
+  "relay": "wss://relay.fixture.invalid/",
+  "requestTexts": [
+    "[\"REQ\",\"buzz-inbox\",{\"kinds\":[1059],\"#p\":[\"1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f\"],\"since\":1699827200}]",
+    "[\"REQ\",\"buzz-relays\",{\"kinds\":[10050],\"authors\":[\"4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766\"]}]"
+  ],
+  "response": "Reply from the fixture",
+  "schema": "plur1bus.parity-wire/1",
+  "sender": "4d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+  "source": "packages/channels-buzz/src/index.ts",
+  "transport": "websocket"
+}

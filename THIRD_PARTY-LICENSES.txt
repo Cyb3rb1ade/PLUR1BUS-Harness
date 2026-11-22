@@ -7941,6 +7941,7 @@ DEALINGS IN THE SOFTWARE.
 
 SHA256 23860c2a7b5d96b21569afedf033469bab9fe14a1b24a35068b8641c578ce24d
 cargo:unicode-normalization-alignments@0.1.12/COPYRIGHT
+cargo:unicode-normalization@0.1.26/COPYRIGHT
 cargo:unicode-segmentation@1.13.3/COPYRIGHT
 cargo:unicode-truncate@2.0.1/COPYRIGHT
 cargo:unicode-width@0.2.2/COPYRIGHT
@@ -13770,6 +13771,38 @@ THE SOFTWARE.
 
 ============================================================
 
+SHA256 3c0dfa33fd2e6976038555b52095699452653b1fcabe113074f14e0848a6b11e
+cargo:chacha20poly1305@0.10.1/LICENSE-MIT
+
+Copyright (c) 2019 The RustCrypto Project Developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+
+============================================================
+
 SHA256 3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94
 cargo:brotli@8.0.4/LICENSE.MIT
 cargo:brotli@9.0.0/LICENSE.MIT
@@ -13884,7 +13917,7 @@ SOFTWARE.
 ============================================================
 
 SHA256 3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8
-npm:zod@4.6.6/LICENSE
+npm:zod@4.6.7/LICENSE
 
 MIT License
 
@@ -19652,6 +19685,7 @@ npm:openai@6.49.0/LICENSE
 ============================================================
 
 SHA256 63af4bea227c94d021e99427f6ca3a4b8efddadcca93ab6130f708cf6138cf68
+cargo:cbc@0.1.2/LICENSE-MIT
 cargo:cbc@0.2.1/LICENSE-MIT
 cargo:ctr@0.10.1/LICENSE-MIT
 
@@ -20865,10 +20899,71 @@ SOFTWARE.
 
 ============================================================
 
+SHA256 6a891eb4928dc43daf339e9ba7151cff1dfc26852cbc92b2b378b583203aaf83
+cargo:nostr@0.45.5/LICENSE
+
+MIT License
+
+Copyright (c) 2022-2023 Yuki Kishimoto
+Copyright (c) 2023-present Nostr Dev Kit Developers
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+============================================================
+
 SHA256 6b2702e491e967c99d7e0191bb0ec6b3b91db5c703a71c3b952c9e271ba46ac2
 cargo:ethnum@1.5.3/LICENSE-MIT
 
 Copyright (c) 2020-2022 Nicholas Rodrigues Lordello
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+
+============================================================
+
+SHA256 6b50510a0400c72172355cc5d2ba0f2c5c2eb33149b8f96539dc345fdc484920
+cargo:universal-hash@0.5.1/LICENSE-MIT
+
+Copyright (c) 2019-2020 RustCrypto Developers
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -21086,6 +21181,38 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+============================================================
+
+SHA256 6d99fffea918d1f7dfe567029c7bd21d6fcaf310ad28c44e6511a0e1f68c79ea
+cargo:poly1305@0.8.0/LICENSE-MIT
+
+Copyright (c) 2015-2019 RustCrypto Developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
 
 
 ============================================================
@@ -21963,6 +22090,139 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+
+============================================================
+
+SHA256 7179683e8000e6bdc9bbc60d85edf0a4ac8e76f951857f54fcb775d5886f1309
+cargo:bip39@2.2.2/LICENSE
+cargo:hex-conservative@0.2.3/LICENSE
+cargo:hex-conservative@1.3.0/LICENSE
+cargo:secp256k1-sys@0.10.1/LICENSE
+cargo:secp256k1@0.30.0/LICENSE
+
+Creative Commons Legal Code
+
+CC0 1.0 Universal
+
+    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE
+    LEGAL SERVICES. DISTRIBUTION OF THIS DOCUMENT DOES NOT CREATE AN
+    ATTORNEY-CLIENT RELATIONSHIP. CREATIVE COMMONS PROVIDES THIS
+    INFORMATION ON AN "AS-IS" BASIS. CREATIVE COMMONS MAKES NO WARRANTIES
+    REGARDING THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS
+    PROVIDED HEREUNDER, AND DISCLAIMS LIABILITY FOR DAMAGES RESULTING FROM
+    THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS PROVIDED
+    HEREUNDER.
+
+Statement of Purpose
+
+The laws of most jurisdictions throughout the world automatically confer
+exclusive Copyright and Related Rights (defined below) upon the creator
+and subsequent owner(s) (each and all, an "owner") of an original work of
+authorship and/or a database (each, a "Work").
+
+Certain owners wish to permanently relinquish those rights to a Work for
+the purpose of contributing to a commons of creative, cultural and
+scientific works ("Commons") that the public can reliably and without fear
+of later claims of infringement build upon, modify, incorporate in other
+works, reuse and redistribute as freely as possible in any form whatsoever
+and for any purposes, including without limitation commercial purposes.
+These owners may contribute to the Commons to promote the ideal of a free
+culture and the further production of creative, cultural and scientific
+works, or to gain reputation or greater distribution for their Work in
+part through the use and efforts of others.
+
+For these and/or other purposes and motivations, and without any
+expectation of additional consideration or compensation, the person
+associating CC0 with a Work (the "Affirmer"), to the extent that he or she
+is an owner of Copyright and Related Rights in the Work, voluntarily
+elects to apply CC0 to the Work and publicly distribute the Work under its
+terms, with knowledge of his or her Copyright and Related Rights in the
+Work and the meaning and intended legal effect of CC0 on those rights.
+
+1. Copyright and Related Rights. A Work made available under CC0 may be
+protected by copyright and related or neighboring rights ("Copyright and
+Related Rights"). Copyright and Related Rights include, but are not
+limited to, the following:
+
+  i. the right to reproduce, adapt, distribute, perform, display,
+     communicate, and translate a Work;
+ ii. moral rights retained by the original author(s) and/or performer(s);
+iii. publicity and privacy rights pertaining to a person's image or
+     likeness depicted in a Work;
+ iv. rights protecting against unfair competition in regards to a Work,
+     subject to the limitations in paragraph 4(a), below;
+  v. rights protecting the extraction, dissemination, use and reuse of data
+     in a Work;
+ vi. database rights (such as those arising under Directive 96/9/EC of the
+     European Parliament and of the Council of 11 March 1996 on the legal
+     protection of databases, and under any national implementation
+     thereof, including any amended or successor version of such
+     directive); and
+vii. other similar, equivalent or corresponding rights throughout the
+     world based on applicable law or treaty, and any national
+     implementations thereof.
+
+2. Waiver. To the greatest extent permitted by, but not in contravention
+of, applicable law, Affirmer hereby overtly, fully, permanently,
+irrevocably and unconditionally waives, abandons, and surrenders all of
+Affirmer's Copyright and Related Rights and associated claims and causes
+of action, whether now known or unknown (including existing as well as
+future claims and causes of action), in the Work (i) in all territories
+worldwide, (ii) for the maximum duration provided by applicable law or
+treaty (including future time extensions), (iii) in any current or future
+medium and for any number of copies, and (iv) for any purpose whatsoever,
+including without limitation commercial, advertising or promotional
+purposes (the "Waiver"). Affirmer makes the Waiver for the benefit of each
+member of the public at large and to the detriment of Affirmer's heirs and
+successors, fully intending that such Waiver shall not be subject to
+revocation, rescission, cancellation, termination, or any other legal or
+equitable action to disrupt the quiet enjoyment of the Work by the public
+as contemplated by Affirmer's express Statement of Purpose.
+
+3. Public License Fallback. Should any part of the Waiver for any reason
+be judged legally invalid or ineffective under applicable law, then the
+Waiver shall be preserved to the maximum extent permitted taking into
+account Affirmer's express Statement of Purpose. In addition, to the
+extent the Waiver is so judged Affirmer hereby grants to each affected
+person a royalty-free, non transferable, non sublicensable, non exclusive,
+irrevocable and unconditional license to exercise Affirmer's Copyright and
+Related Rights in the Work (i) in all territories worldwide, (ii) for the
+maximum duration provided by applicable law or treaty (including future
+time extensions), (iii) in any current or future medium and for any number
+of copies, and (iv) for any purpose whatsoever, including without
+limitation commercial, advertising or promotional purposes (the
+"License"). The License shall be deemed effective as of the date CC0 was
+applied by Affirmer to the Work. Should any part of the License for any
+reason be judged legally invalid or ineffective under applicable law, such
+partial invalidity or ineffectiveness shall not invalidate the remainder
+of the License, and in such case Affirmer hereby affirms that he or she
+will not (i) exercise any of his or her remaining Copyright and Related
+Rights in the Work or (ii) assert any associated claims and causes of
+action with respect to the Work, in either case contrary to Affirmer's
+express Statement of Purpose.
+
+4. Limitations and Disclaimers.
+
+ a. No trademark or patent rights held by Affirmer are waived, abandoned,
+    surrendered, licensed or otherwise affected by this document.
+ b. Affirmer offers the Work as-is and makes no representations or
+    warranties of any kind concerning the Work, express, implied,
+    statutory or otherwise, including without limitation warranties of
+    title, merchantability, fitness for a particular purpose, non
+    infringement, or the absence of latent or other defects, accuracy, or
+    the present or absence of errors, whether or not discoverable, all to
+    the greatest extent permissible under applicable law.
+ c. Affirmer disclaims responsibility for clearing rights of other persons
+    that may apply to the Work or any use thereof, including without
+    limitation any person's Copyright and Related Rights in the Work.
+    Further, Affirmer disclaims responsibility for obtaining any necessary
+    consents, permissions or other rights required for any use of the
+    Work.
+ d. Affirmer understands and acknowledges that Creative Commons is not a
+    party to this document and has no duty or obligation with respect to
+    this CC0 or use of the Work.
+
 
 
 ============================================================
@@ -23938,6 +24198,7 @@ cargo:fs4@0.8.4/LICENSE-MIT
 cargo:heck@0.4.1/LICENSE-MIT
 cargo:heck@0.5.0/LICENSE-MIT
 cargo:unicode-normalization-alignments@0.1.12/LICENSE-MIT
+cargo:unicode-normalization@0.1.26/LICENSE-MIT
 cargo:unicode-segmentation@1.13.3/LICENSE-MIT
 cargo:unicode-width@0.2.2/LICENSE-MIT
 
@@ -24107,6 +24368,34 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+
+============================================================
+
+SHA256 7e4baa202160a035c769bb83bd994222c74f479ec582624e3aedaa8f553481c7
+cargo:faster-hex@0.10.1/LICENSE
+
+MIT License
+
+Copyright (c) 2018 Nervos Foundation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 
 ============================================================
@@ -24377,6 +24666,7 @@ SOFTWARE.
 
 SHA256 7fea0ee51a4ca5d5cea7464135fd55e8b09caf3a61da3d451ac8a22af95c033f
 cargo:tungstenite@0.28.0/LICENSE-MIT
+cargo:tungstenite@0.30.0/LICENSE-MIT
 
 Copyright (c) 2017 Alexey Galakhov
 Copyright (c) 2016 Jason Housley
@@ -27707,6 +27997,39 @@ limitations under the License.
 
 ============================================================
 
+SHA256 949ab7b3e7140fee216f06fe3a2bd67d68dd511f8ea73c1e01c98cb348e9c8ae
+cargo:aead@0.5.2/LICENSE-MIT
+
+Copyright (c) 2019 The RustCrypto Project Developers
+Copyright (c) 2019 MobileCoin, LLC
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+
+============================================================
+
 SHA256 950d712c518a02fcb7cff96950aee304a1cc5283361712c980ea21e8d6d669a5
 cargo:cipher@0.5.2/LICENSE-MIT
 
@@ -28026,6 +28349,38 @@ cargo:block-buffer@0.12.1/LICENSE-MIT
 cargo:block-padding@0.4.2/LICENSE-MIT
 
 Copyright (c) 2018-2025 The RustCrypto Project Developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+
+============================================================
+
+SHA256 9877c7b48cde1462f4e8688263aa96f3f1bd9717250718d3d2d9ebb031414fb9
+cargo:bech32@0.12.0/LICENSE-MIT
+
+Copyright (c) 2017 Clark Moody
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -30698,8 +31053,10 @@ cargo:thread_local@1.1.10/LICENSE-APACHE
 cargo:toml_datetime@0.6.3/LICENSE-APACHE
 cargo:tray-icon@0.25.1/LICENSE-APACHE
 cargo:tungstenite@0.28.0/LICENSE-APACHE
+cargo:tungstenite@0.30.0/LICENSE-APACHE
 cargo:unicase@2.10.0/LICENSE-APACHE
 cargo:unicode-normalization-alignments@0.1.12/LICENSE-APACHE
+cargo:unicode-normalization@0.1.26/LICENSE-APACHE
 cargo:unicode-segmentation@1.13.3/LICENSE-APACHE
 cargo:unicode-truncate@2.0.1/LICENSE-APACHE
 cargo:unicode-width@0.2.2/LICENSE-APACHE
@@ -31639,10 +31996,14 @@ cargo:blake2@0.10.6/LICENSE-APACHE
 cargo:blake2@0.11.0/LICENSE-APACHE
 cargo:block-buffer@0.10.4/LICENSE-APACHE
 cargo:block-buffer@0.12.1/LICENSE-APACHE
+cargo:block-padding@0.3.3/LICENSE-APACHE
 cargo:block-padding@0.4.2/LICENSE-APACHE
 cargo:blowfish@0.10.0/LICENSE-APACHE
+cargo:cbc@0.1.2/LICENSE-APACHE
 cargo:cbc@0.2.1/LICENSE-APACHE
 cargo:chacha20@0.10.2/LICENSE-APACHE
+cargo:chacha20@0.9.1/LICENSE-APACHE
+cargo:chacha20poly1305@0.10.1/LICENSE-APACHE
 cargo:cipher@0.4.4/LICENSE-APACHE
 cargo:cipher@0.5.2/LICENSE-APACHE
 cargo:const-oid@0.10.2/LICENSE-APACHE
@@ -31672,6 +32033,7 @@ cargo:keccak@0.2.2/LICENSE-APACHE
 cargo:md-5@0.10.6/LICENSE-APACHE
 cargo:ml-kem@0.3.3/LICENSE-APACHE
 cargo:module-lattice@0.2.3/LICENSE-APACHE
+cargo:opaque-debug@0.3.1/LICENSE-APACHE
 cargo:p256@0.14.0/LICENSE-APACHE
 cargo:p384@0.14.0/LICENSE-APACHE
 cargo:p521@0.14.0/LICENSE-APACHE
@@ -31683,6 +32045,7 @@ cargo:pem-rfc7468@1.0.0/LICENSE-APACHE
 cargo:phc@0.6.1/LICENSE-APACHE
 cargo:pkcs5@0.8.1/LICENSE-APACHE
 cargo:pkcs8@0.11.0/LICENSE-APACHE
+cargo:poly1305@0.8.0/LICENSE-APACHE
 cargo:poly1305@0.9.1/LICENSE-APACHE
 cargo:polyval@0.7.3/LICENSE-APACHE
 cargo:primefield@0.14.0/LICENSE-APACHE
@@ -31705,6 +32068,7 @@ cargo:sponge-cursor@0.1.0/LICENSE-APACHE
 cargo:ssh-cipher@0.3.0/LICENSE-APACHE
 cargo:ssh-encoding@0.3.0/LICENSE-APACHE
 cargo:ssh-key@0.7.0-rc.11/LICENSE-APACHE
+cargo:universal-hash@0.5.1/LICENSE-APACHE
 cargo:universal-hash@0.6.1/LICENSE-APACHE
 cargo:wnaf@0.14.1/LICENSE-APACHE
 
@@ -33354,6 +33718,7 @@ limitations under the License.
 ============================================================
 
 SHA256 b1cf9a3333ca78152b859012cd4a804156e5243e9ca20ad1df7327ba5ea7405c
+cargo:aead@0.5.2/LICENSE-APACHE
 cargo:aead@0.6.1/LICENSE-APACHE
 
                               Apache License
@@ -34117,6 +34482,38 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+============================================================
+
+SHA256 b6f6f01b03ee7e93c0ae96d62ed39527e98a120fb951afc9de456a741ef3f204
+cargo:chacha20@0.9.1/LICENSE-MIT
+
+Copyright (c) 2019-2023 The RustCrypto Project Developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
 
 
 ============================================================
@@ -36642,6 +37039,35 @@ SOFTWARE.
 
 ============================================================
 
+SHA256 ca681e008c76bb520cc46a59f1db463d2b1cdb499cbd7f185ad5aa14cb955da9
+cargo:opaquerr@0.2.0/LICENSE
+cargo:universal-time@0.3.1/LICENSE
+
+MIT License
+
+Copyright (c) 2026 Yuki Kishimoto
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+============================================================
+
 SHA256 cb3c929a05e6cbc9de9ab06a4c57eeb60ca8c724bef6c138c87d3a577e27aa14
 cargo:same-file@1.0.6/LICENSE-MIT
 cargo:winapi-util@0.1.11/LICENSE-MIT
@@ -37178,7 +37604,7 @@ cargo:utf8_iter@1.0.4/LICENSE-APACHE
 cargo:write16@1.0.0/LICENSE-APACHE
 cargo:zeroize@1.9.0/LICENSE-APACHE
 npm:@a2a-js/sdk@1.3.0/LICENSE
-npm:@huggingface/transformers@4.3.1/LICENSE
+npm:@huggingface/transformers@4.3.2/LICENSE
 npm:flatbuffers@24.12.23/LICENSE
 npm:flatbuffers@25.9.23/LICENSE
 npm:long@5.3.2/LICENSE
@@ -38207,6 +38633,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 SHA256 d5c22aa3118d240e877ad41c5d9fa232f9c77d757d4aac0c2f943afc0a95e0ef
 cargo:block-buffer@0.10.4/LICENSE-MIT
+cargo:block-padding@0.3.3/LICENSE-MIT
 
 Copyright (c) 2018-2019 The RustCrypto Project Developers
 
@@ -41577,6 +42004,38 @@ SOFTWARE.
 
 ============================================================
 
+SHA256 f59f5a78193597e04fd932ee9af86254d14d08be5c9d0e003ab888feccce2161
+cargo:opaque-debug@0.3.1/LICENSE-MIT
+
+Copyright (c) 2018-2024 The RustCrypto Project Developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+
+============================================================
+
 SHA256 f5b6a58f5d2082e403c49663d87566328d40cf03f16abb01f52632a09b97c55e
 cargo:arrow-arith@57.3.1/NOTICE.txt
 cargo:arrow-array@57.3.1/NOTICE.txt
@@ -41884,6 +42343,7 @@ SOFTWARE.
 
 SHA256 f7db81051789b729fea528a63ec4c938fdcb93d9d61d97dc8cc2e9df6d47f2a1
 cargo:unicode-ident@1.0.26/LICENSE-UNICODE
+cargo:unicode-normalization@0.1.26/LICENSE-UNICODE
 
 UNICODE LICENSE V3
 

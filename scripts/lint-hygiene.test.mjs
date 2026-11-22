@@ -54,6 +54,27 @@ const RULE_FIXTURES = [
   ["HYG-017", "packages/core/src/external-agents/discovery.ts"],
 ];
 
+test("R-W-11 requires logger registration through the wire log boundary", () => {
+  const code = "use log::{set_logger, set_boxed_logger as install};";
+  for (const forbidden of [
+    { "crates/sample/src/boot.rs": "log::set_logger(&LOGGER)?;" },
+    { "crates/sample/src/boot.rs": "use log::{set_boxed_logger as install};" },
+    { "apps/desktop/src/main.rs": "log::set_logger_racy(&LOGGER)?;" },
+  ]) {
+    const result = lintTree(forbidden);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stderr, /\[HYG-018\]/);
+  }
+  for (const allowed of [
+    { "crates/sample/src/boot.rs": "use plur1bus_wire_log::install;" },
+    { "crates/sample/tests/sink.rs": code },
+    { "crates/plur1bus-wire-log/src/lib.rs": code },
+  ]) {
+    const result = lintTree(allowed);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  }
+});
+
 test("pinned capture oracle exceptions cover only its verified stub import and provenance paths", () => {
   const recorder = "crates/plur1bus-engine/tests/fixtures/capture/record-accept.mjs";
   const golden = "crates/plur1bus-engine/tests/fixtures/capture/golden/accept.json";

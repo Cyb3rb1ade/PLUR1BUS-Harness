@@ -1,0 +1,78 @@
+{
+  "calls": [
+    {
+      "method": "send",
+      "paramsJson": "{\"account\":\"fixture\",\"recipient\":[\"sample\"],\"message\":\"Hallo 👋\"}",
+      "timeout": 2000
+    },
+    {
+      "method": "listGroups",
+      "paramsJson": "{}",
+      "timeout": 2000
+    },
+    {
+      "method": "listIdentities",
+      "paramsJson": "{\"account\":\"fixture\"}",
+      "timeout": 2000
+    }
+  ],
+  "exchanges": [
+    {
+      "receiveChunksBase64": [
+        "e2ludmFsaWQgbGluZX0KeyJqc29ucnBjIjoiMi4wIiwiaWQiOiIyIiwicmVzdWx0IjpbImdyb3VwIl19CnsianNvbnJwYyI6IjIuMCIsIm1ldGhvZCI6InJlY2VpdmUiLCJwYXJhbXMiOnsidGV4dCI6Ikdyww==",
+        "vMOfZSJ9fQp7Impzb25ycGMiOiIyLjAiLCJpZCI6ImRhZW1vbi1tZXRob2QiLCJtZXRob2QiOiJ1bnN1cHBvcnRlZCIsInBhcmFtcyI6e319CnsianNvbnJwYyI6IjIuMCIsImlkIjoxLCJlcnJvciI6eyJjb2RlIjotMTIsIm1lc3NhZ2UiOiJSQVRFX0xJTUlUIHdoaWxlIHByb2Nlc3NpbmciLCJkYXRhIjp7InJldHJ5QWZ0ZXJTZWNvbmRzIjoxLjIzNDl9fX0K"
+      ],
+      "sendBase64": [
+        "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjEsIm1ldGhvZCI6InNlbmQiLCJwYXJhbXMiOnsiYWNjb3VudCI6ImZpeHR1cmUiLCJyZWNpcGllbnQiOlsic2FtcGxlIl0sIm1lc3NhZ2UiOiJIYWxsbyDwn5GLIn19Cg==",
+        "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjIsIm1ldGhvZCI6Imxpc3RHcm91cHMiLCJwYXJhbXMiOnt9fQo=",
+        "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjMsIm1ldGhvZCI6Imxpc3RJZGVudGl0aWVzIiwicGFyYW1zIjp7ImFjY291bnQiOiJmaXh0dXJlIn19Cg=="
+      ]
+    },
+    {
+      "receiveChunksBase64": [],
+      "sendBase64": [
+        "eyJqc29ucnBjIjoiMi4wIiwiaWQiOiJkYWVtb24tbWV0aG9kIiwiZXJyb3IiOnsiY29kZSI6LTMyNjAxLCJtZXNzYWdlIjoibWV0aG9kIG5vdCBmb3VuZCJ9fQo="
+      ]
+    }
+  ],
+  "expected": {
+    "closures": [],
+    "notifications": [
+      {
+        "method": "receive",
+        "params": {
+          "text": "Grüße"
+        }
+      }
+    ],
+    "outcomes": [
+      {
+        "id": 2,
+        "result": [
+          "group"
+        ]
+      },
+      {
+        "error": {
+          "code": -12,
+          "kind": "rate-limited",
+          "message": "signal rate limit",
+          "retryAfterMs": 1235
+        },
+        "id": 1
+      },
+      {
+        "error": {
+          "kind": "timeout",
+          "message": "signal request timed out"
+        },
+        "id": 3
+      }
+    ]
+  },
+  "exporter": "scripts/parity/export-channels.ts",
+  "maxLineBytes": 4096,
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/channels-signal/src/rpc.ts",
+  "transport": "lines"
+}

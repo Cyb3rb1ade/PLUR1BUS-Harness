@@ -173,20 +173,12 @@ fn recorded_bodyless_and_redirect_responses_match_the_bridge_contract() {
         let exchanges = recording["exchanges"].as_array().unwrap();
         assert_eq!(exchanges.len(), 24);
         for exchange in exchanges {
-            if matches!(exchange["response"]["status"].as_u64(), Some(204 | 205)) {
-                assert_eq!(exchange["expected-divergence"], "P4D-40");
-                assert_eq!(
-                    exchange["typescriptConstructor"],
-                    json!({"throws": "TypeError"})
-                );
-            } else {
-                assert!(exchange.get("expected-divergence").is_none());
-                assert!(exchange.get("typescriptConstructor").is_none());
-                if exchange["response"]["status"] == 304 {
-                    let error = &exchange["expected"]["error"];
-                    assert_eq!(error["kind"], "invalid_request");
-                    assert_eq!(error["message"], "provider redirects refused");
-                }
+            assert!(exchange.get("expected-divergence").is_none());
+            assert!(exchange.get("typescriptConstructor").is_none());
+            if exchange["response"]["status"] == 304 {
+                let error = &exchange["expected"]["error"];
+                assert_eq!(error["kind"], "invalid_request");
+                assert_eq!(error["message"], "provider redirects refused");
             }
             replay(wire, &recording, exchange);
         }

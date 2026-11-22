@@ -109,17 +109,6 @@ async function record(
   }
 }
 
-function checkBodylessConstructor(status: 204 | 205): { throws: string } {
-  try {
-    // Isolate the conversion. Do not invoke the core's asynchronous transport.
-    new Response(new ReadableStream<Uint8Array>(), { status });
-  } catch (error) {
-    if (error instanceof TypeError) return { throws: error.name };
-    throw error;
-  }
-  throw new Error("Node accepted a stream for a bodyless status");
-}
-
 async function bodyless(wire: Wire) {
   const exchanges = [];
   const media = [
@@ -132,20 +121,14 @@ async function bodyless(wire: Wire) {
       const reference = await record(wire, `${mode}-${name}-empty-200`, mode, { status: 200, headers, chunks: [] });
       if (!reference.expected.error) throw new Error("the empty reference response must fail");
       exchanges.push(reference);
-      for (const status of [204, 205] as const) {
-        exchanges.push({
-          ...reference,
-          name: `${mode}-${name}-empty-${status}`,
-          response: { status, headers },
-          "expected-divergence": "P4D-40",
-          typescriptConstructor: checkBodylessConstructor(status),
-        });
+      // Paket T fixed P4D-40. Use the real Core bridge for null-body
+      // responses and for the R-W-10 redirect path.
+      for (const status of [204, 205, 304] as const) {
+        exchanges.push(await record(
+          wire, `${mode}-${name}-empty-${status}`, mode,
+          { status, headers, chunks: [] }, undefined, input, true,
+        ));
       }
-      // R-W-10: use the production bridge's redirect path, including its error envelope.
-      exchanges.push(await record(
-        wire, `${mode}-${name}-empty-304`, mode,
-        { status: 304, headers, chunks: [] }, undefined, input, true,
-      ));
     }
   }
   return exchanges;

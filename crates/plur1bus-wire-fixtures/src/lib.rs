@@ -45,9 +45,21 @@ pub fn ws_accept(key: &str) -> String {
     STANDARD.encode(digest.as_slice())
 }
 
+struct WsExchange {
+    send: Vec<Value>,
+    receive: Vec<Value>,
+    raw_frames: Vec<Vec<u8>>,
+}
+
+struct LineExchange {
+    send: Vec<Vec<u8>>,
+    receive: Vec<Vec<u8>>,
+}
+
 struct Script {
     http: Vec<(String, String, VecDeque<Value>)>,
-    ws: Vec<(Vec<Value>, Vec<Value>)>,
+    ws: Vec<WsExchange>,
+    lines: Option<Vec<LineExchange>>,
     received: Vec<Value>,
 }
 
@@ -109,6 +121,7 @@ impl Worker {
         let mut script = Script {
             http: Vec::new(),
             ws: Vec::new(),
+            lines: None,
             received: Vec::new(),
         };
         match fixture["transport"].as_str() {
@@ -130,8 +143,39 @@ impl Worker {
             Some("websocket") => {
                 for exchange in exchanges {
                     let frames = |key: &str| exchange[key].as_array().unwrap().clone();
-                    script.ws.push((frames("send"), frames("receive")));
+                    let raw_frames = exchange["rawFramesBase64"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .map(decode_bytes)
+                        .collect();
+                    script.ws.push(WsExchange {
+                        send: frames("send"),
+                        receive: frames("receive"),
+                        raw_frames,
+                    });
                 }
+            }
+            Some("lines") => {
+                script.lines = Some(
+                    exchanges
+                        .iter()
+                        .map(|exchange| {
+                            let packets = |key: &str| {
+                                exchange[key]
+                                    .as_array()
+                                    .unwrap()
+                                    .iter()
+                                    .map(decode_bytes)
+                                    .collect()
+                            };
+                            LineExchange {
+                                send: packets("sendBase64"),
+                                receive: packets("receiveChunksBase64"),
+                            }
+                        })
+                        .collect(),
+                );
             }
             other => panic!("unknown transport {other:?}"),
         }
@@ -231,6 +275,10 @@ fn serve<S: FixtureStream>(
 }
 
 fn connection(stream: &mut (impl Read + Write), script: &Mutex<Script>) -> io::Result<()> {
+    let line_script = script.lock().unwrap().lines.take();
+    if let Some(exchanges) = line_script {
+        return lines(stream, exchanges, script);
+    }
     let mut buffer = Vec::new();
     let head_end = loop {
         if let Some(i) = buffer.windows(4).position(|w| w == b"\r\n\r\n") {
@@ -294,6 +342,39 @@ fn connection(stream: &mut (impl Read + Write), script: &Mutex<Script>) -> io::R
     }
     .unwrap_or_else(|| json!({ "status": 501, "body": { "fake": format!("no recorded exchange for {method} {path}") } }));
     send_http(stream, &response)
+}
+
+fn lines(
+    stream: &mut (impl Read + Write),
+    exchanges: Vec<LineExchange>,
+    script: &Mutex<Script>,
+) -> io::Result<()> {
+    for exchange in exchanges {
+        for expected in exchange.send {
+            assert!(
+                expected.len() <= MAX_BODY,
+                "test input exceeds fixture size limit"
+            );
+            let mut actual = vec![0; expected.len()];
+            stream.read_exact(&mut actual)?;
+            script
+                .lock()
+                .unwrap()
+                .received
+                .push(json!(STANDARD.encode(&actual)));
+            if actual != expected {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "unexpected stream request",
+                ));
+            }
+        }
+        for packet in exchange.receive {
+            stream.write_all(&packet)?;
+        }
+        stream.flush()?;
+    }
+    Ok(())
 }
 
 fn send_http(stream: &mut impl Write, response: &Value) -> io::Result<()> {
@@ -466,13 +547,16 @@ fn websocket(
     let mut sent = 0;
     loop {
         // Server-first exchanges model a welcome message before the first client event.
-        while let Some((send, receive)) = &current {
-            if sent < send.len() {
+        while let Some(exchange) = &current {
+            if sent < exchange.send.len() {
                 break;
             }
-            for reply in receive {
+            for reply in &exchange.receive {
                 let text = serde_json::to_vec(reply).unwrap();
                 stream.write_all(&frame(0x1, &text, None))?;
+            }
+            for raw in &exchange.raw_frames {
+                stream.write_all(raw)?;
             }
             current = exchanges.next();
             sent = 0;
@@ -485,7 +569,7 @@ fn websocket(
                 let value: Value = serde_json::from_slice(&payload).map_err(io::Error::other)?;
                 let matches = current
                     .as_ref()
-                    .is_some_and(|(send, _)| send.get(sent) == Some(&value));
+                    .is_some_and(|exchange| exchange.send.get(sent) == Some(&value));
                 script.lock().unwrap().received.push(value);
                 if !matches {
                     stream.write_all(&frame(0x8, &1008u16.to_be_bytes(), None))?;

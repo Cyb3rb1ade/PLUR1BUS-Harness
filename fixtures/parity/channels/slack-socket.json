@@ -1,0 +1,170 @@
+{
+  "exchanges": [
+    {
+      "receive": [
+        {
+          "envelope_id": "early",
+          "type": "events_api"
+        }
+      ],
+      "send": []
+    },
+    {
+      "receive": [
+        {
+          "num_connections": 1,
+          "type": "hello"
+        }
+      ],
+      "send": []
+    },
+    {
+      "receive": [
+        {
+          "envelope_id": "e-1",
+          "payload": {
+            "event": {
+              "text": "Hallo"
+            }
+          },
+          "type": "events_api"
+        }
+      ],
+      "send": []
+    },
+    {
+      "receive": [
+        {
+          "envelope_id": "e-1",
+          "retry_attempt": 2,
+          "type": "events_api"
+        }
+      ],
+      "send": [
+        {
+          "envelope_id": "e-1"
+        }
+      ]
+    },
+    {
+      "receive": [
+        {
+          "envelope_id": "has spaces",
+          "type": "events_api"
+        }
+      ],
+      "send": [
+        {
+          "envelope_id": "e-1"
+        }
+      ]
+    },
+    {
+      "receive": [
+        {
+          "envelope_id": "e-2",
+          "type": "events_api"
+        }
+      ],
+      "send": []
+    },
+    {
+      "receive": [
+        {
+          "reason": "link_disabled",
+          "type": "disconnect"
+        }
+      ],
+      "send": [
+        {
+          "envelope_id": "e-2"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "events": [
+      {
+        "connected": true
+      },
+      {
+        "ackCount": 1,
+        "received": "e-1"
+      },
+      {
+        "ackCount": 3,
+        "received": "e-2"
+      },
+      {
+        "fatal": "link_disabled"
+      }
+    ]
+  },
+  "exporter": "scripts/parity/export-channels.ts",
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/channels-slack/src/socket.ts",
+  "steps": [
+    {
+      "frame": {
+        "envelope_id": "early",
+        "type": "events_api"
+      },
+      "sent": []
+    },
+    {
+      "frame": {
+        "num_connections": 1,
+        "type": "hello"
+      },
+      "sent": []
+    },
+    {
+      "frame": {
+        "envelope_id": "e-1",
+        "payload": {
+          "event": {
+            "text": "Hallo"
+          }
+        },
+        "type": "events_api"
+      },
+      "sent": [
+        "{\"envelope_id\":\"e-1\"}"
+      ]
+    },
+    {
+      "frame": {
+        "envelope_id": "e-1",
+        "retry_attempt": 2,
+        "type": "events_api"
+      },
+      "sent": [
+        "{\"envelope_id\":\"e-1\"}"
+      ]
+    },
+    {
+      "frame": {
+        "envelope_id": "has spaces",
+        "type": "events_api"
+      },
+      "sent": []
+    },
+    {
+      "frame": {
+        "envelope_id": "e-2",
+        "type": "events_api"
+      },
+      "sent": [
+        "{\"envelope_id\":\"e-2\"}"
+      ]
+    },
+    {
+      "frame": {
+        "reason": "link_disabled",
+        "type": "disconnect"
+      },
+      "sent": []
+    }
+  ],
+  "transport": "websocket"
+}

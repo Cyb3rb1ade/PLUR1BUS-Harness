@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { inspect } from 'node:util';
+import crypto from 'node:crypto';
+import { syncBuiltinESMExports } from 'node:module';
 import { ChatGPTPlan, HostIdentity, JwksVerifier, guardSiwc, chooseFailover, keyStatus, endpoint, profiles, importedProfile, credentialAccess, Sensitive, OpenAIError } from '../../src/openai-auth/index.ts';
 import { FakeOpenAI, FakeRefreshOwner, MemorySecrets } from '../fixtures/openai/server.ts';
 function setup() {
@@ -24,6 +26,86 @@ test('Acceptance 15: registration, OIDC, scope, PKCE, rotation, siwc and billing
   for (const secret of s.server.secrets) assert.equal(JSON.stringify(s.events).includes(secret), false);
 });
 for (const badClaim of ['iss', 'aud', 'exp', 'nonce', 'signature'] as const) test('OIDC rejects ' + badClaim, async () => { const s = setup(); s.server.badClaim = badClaim; await assert.rejects(s.plan.login('a', principal), { code: 'id-token-invalid' }); assert.equal(s.store.data.has(s.plan.accountRef('a')), false); });
+test('OIDC rejects non-string header and key members before using them', async t => {
+  const key = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 }).publicKey.export({ format: 'jwk' });
+  const importKey = t.mock.method(crypto, 'createPublicKey');
+  const verify = t.mock.method(crypto, 'verify', () => false);
+  const issuer = 'https://issuer.invalid';
+  const discovery = { issuer, authorization_endpoint: issuer + '/authorize', token_endpoint: issuer + '/token', revocation_endpoint: issuer + '/revoke', jwks_uri: issuer + '/keys' };
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const signature = Buffer.from('unused fixture').toString('base64url');
+  const baseJwk = { ...key, kid: 'fixture' };
+  let jwk: Record<string, unknown> = baseJwk;
+  const request = t.mock.fn(async () => ({ status: 200, body: { keys: [jwk] } }));
+  syncBuiltinESMExports();
+  try {
+    const invalidValues = [7, ['RS256'], { name: 'RS256' }, null, undefined];
+    for (const [member, invalidInputs, expectedRequests] of [
+      ['header alg', invalidValues, 0],
+      ['kty', invalidValues, 1],
+      ['n', invalidValues, 1],
+      ['e', invalidValues, 1],
+      ['JWK alg', invalidValues.slice(0, -1), 1],
+    ] as const) {
+      for (const value of invalidInputs) {
+        await t.test(member + ' with ' + JSON.stringify(value), async () => {
+          request.mock.resetCalls();
+          importKey.mock.resetCalls();
+          verify.mock.resetCalls();
+          const alg = member === 'header alg' ? value : 'RS256';
+          jwk = member === 'header alg' ? baseJwk : { ...baseJwk, [member === 'JWK alg' ? 'alg' : member]: value };
+          const verifier = new JwksVerifier({ request }, { now: () => 0 });
+          const token = [encode({ alg, kid: 'fixture' }), encode({}), signature].join('.');
+          await assert.rejects(verifier.validate(token, { discovery, audience: 'fixture', nonce: 'fixture' }), { code: 'id-token-invalid' });
+          assert.equal(request.mock.callCount(), expectedRequests);
+          assert.equal(importKey.mock.callCount(), 0);
+          assert.equal(verify.mock.callCount(), 0);
+        });
+      }
+    }
+  } finally {
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  }
+});
+test('RSA key constraints apply before signature verification', async t => {
+  const rsa = (modulusLength: number, publicExponent = 65537) => {
+    const { publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength, publicExponent });
+    assert.equal(publicKey.asymmetricKeyDetails?.modulusLength, modulusLength);
+    return publicKey.export({ format: 'jwk' });
+  };
+  const strong = rsa(2048);
+  const belowMinimum = rsa(2047);
+  const exponentThree = rsa(2048, 3);
+  const short = crypto.generateKeyPairSync('rsa', { modulusLength: 1024 }).publicKey.export({ format: 'jwk' });
+  const verify = t.mock.method(crypto, 'verify', () => false);
+  syncBuiltinESMExports();
+  const issuer = 'https://issuer.invalid';
+  const discovery = { issuer, authorization_endpoint: issuer + '/authorize', token_endpoint: issuer + '/token', revocation_endpoint: issuer + '/revoke', jwks_uri: issuer + '/keys' };
+  const header = Buffer.from(JSON.stringify({ alg: 'RS256', kid: 'test' })).toString('base64url');
+  const token = [header, Buffer.from('{}').toString('base64url'), Buffer.from('invalid signature').toString('base64url')].join('.');
+  try {
+    for (const [name, jwk, expectedCalls] of [
+      ['short modulus', short, 0],
+      ['2047-bit modulus', belowMinimum, 0],
+      ['exponent one', { ...strong, e: 'AQ' }, 0],
+      ['exponent two', { ...strong, e: Buffer.from([2]).toString('base64url') }, 0],
+      ['exponent four', { ...strong, e: Buffer.from([4]).toString('base64url') }, 0],
+      ['exponent three control', exponentThree, 1],
+      ['2048-bit control', strong, 1],
+    ] as const) {
+      await t.test(name, async () => {
+        verify.mock.resetCalls();
+        const verifier = new JwksVerifier({ request: async () => ({ status: 200, body: { keys: [{ ...jwk, kid: 'test' }] } }) }, { now: () => 0 });
+        await assert.rejects(verifier.validate(token, { discovery, audience: 'test', nonce: 'test' }), { code: 'id-token-invalid' });
+        assert.equal(verify.mock.callCount(), expectedCalls);
+      });
+    }
+  } finally {
+    verify.mock.restore();
+    syncBuiltinESMExports();
+  }
+});
 test('scope and state gates fail before persistence/inference', async () => { for (const flag of ['omitScope', 'badState'] as const) { const s = setup(); s.server[flag] = true; await assert.rejects(s.plan.login('a', principal)); assert.equal(s.store.data.has(s.plan.accountRef('a')), false); } });
 test('host identity RFC 9278, stable, independent installs and JWKS cache', async () => { const s = setup(); const id = await s.ports.host.id(); assert.match(id, /^urn:ietf:params:oauth:jwk-thumbprint:sha-256:[A-Za-z0-9_-]{43}$/); assert.equal(await new HostIdentity(s.store, s.owner).id(), id); assert.notEqual(await new HostIdentity(new MemorySecrets(), new FakeRefreshOwner()).id(), id); await s.plan.login('a', principal); await s.plan.login('a', principal); assert.equal(s.server.jwksCount, 1); });
 test('siwc closed wire guard refuses unsupported fields/tools/audio/system', () => {
