@@ -645,13 +645,18 @@ fn a_nested_reader_inherits_its_stored_parent_path_and_live_budget() {
     let owner = owner();
     let project = setup(&h, &["sender", "receiver", "other"]);
     let tools = ["file.read".to_owned()];
-    let enqueue = |admission, parent_task| {
+    let child_tools = ["file.read".to_owned(), "file.list".to_owned()];
+    let enqueue = |admission, parent_task: Option<&str>| {
         h.svc.delegate(DelegateRequest {
             admission,
             parent_task,
             task_class: TaskClass::Research,
             contract: None,
-            allowed_tools: &tools,
+            allowed_tools: if parent_task.is_some() {
+                &child_tools
+            } else {
+                &tools
+            },
             writer: None,
             cancel: None,
             audit: &mut |_: &AuditEvent| Ok(()),

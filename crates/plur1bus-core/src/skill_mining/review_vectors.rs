@@ -188,6 +188,7 @@ fn proposal_review_checks_role_and_person_on_both_identity_snapshots() {
         ..owner.clone()
     };
     evaluate(&owner, &member, Some("reviewer-role"));
+    evaluate(&member, &owner, Some("reviewer-role"));
 }
 
 #[test]

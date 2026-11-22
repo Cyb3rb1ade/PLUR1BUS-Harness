@@ -1425,7 +1425,23 @@ fn the_identity_is_checked_on_the_open_descriptor() {
             },
             "unsupported-open",
         ),
-        // Without a birth time on one side, device and inode decide (a file system without one).
+        (
+            FileStat {
+                birth_ns: None,
+                size: real.size + 1,
+                ..real
+            },
+            "identity-changed",
+        ),
+        (
+            FileStat {
+                birth_ns: None,
+                ctime_ns: Some(real.ctime_ns.unwrap_or(0) + 1),
+                ..real
+            },
+            "identity-changed",
+        ),
+        // Missing birth time also requires matching file metadata.
         (
             FileStat {
                 birth_ns: None,
