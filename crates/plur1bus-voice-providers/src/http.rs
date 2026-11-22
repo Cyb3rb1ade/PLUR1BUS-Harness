@@ -199,7 +199,7 @@ impl<'a> Client<'a> {
         deadline: Instant,
         consume: impl FnOnce(u16, &mut dyn Read) -> Result<T, Error>,
     ) -> Result<T, Error> {
-        let mut response = self.request(endpoint, method, headers, request, deadline)?;
+        let mut response = self.request(endpoint, method, headers, request, deadline, None)?;
         let gzip = response
             .headers()
             .get("content-encoding")
@@ -222,6 +222,19 @@ impl<'a> Client<'a> {
         checked_read(reader, self.ports, deadline, buffer)
     }
 
+    pub(crate) fn signed_reader_until(
+        &self,
+        endpoint: &Url,
+        method: &str,
+        headers: &[(&str, &str)],
+        request: &[u8],
+        deadline: Instant,
+        signer: &dyn crate::polly::Signer,
+    ) -> Result<Box<dyn Read>, Error> {
+        let response = self.request(endpoint, method, headers, request, deadline, Some(signer))?;
+        Ok(decoded_reader(response))
+    }
+
     fn request(
         &self,
         endpoint: &Url,
@@ -229,12 +242,14 @@ impl<'a> Client<'a> {
         headers: &[(&str, &str)],
         request: &[u8],
         deadline: Instant,
+        signer: Option<&dyn crate::polly::Signer>,
     ) -> Result<ureq::http::Response<ureq::Body>, Error> {
         for attempt in 0..self.retries {
-            let failure = match self.request_once(endpoint, method, headers, request, deadline) {
-                Err(error) if error.retryable() => error,
-                outcome => return outcome,
-            };
+            let failure =
+                match self.request_once(endpoint, method, headers, request, deadline, signer) {
+                    Err(error) if error.retryable() => error,
+                    outcome => return outcome,
+                };
             check(self.ports, deadline)?;
             let backoff = 500 * (1_u64 << attempt.min(6));
             let delay =
@@ -244,7 +259,7 @@ impl<'a> Client<'a> {
             }
             self.ports.wait_retry(delay, deadline)?;
         }
-        self.request_once(endpoint, method, headers, request, deadline)
+        self.request_once(endpoint, method, headers, request, deadline, signer)
     }
 
     fn request_once(
@@ -254,6 +269,7 @@ impl<'a> Client<'a> {
         headers: &[(&str, &str)],
         request: &[u8],
         deadline: Instant,
+        signer: Option<&dyn crate::polly::Signer>,
     ) -> Result<ureq::http::Response<ureq::Body>, Error> {
         let insecure = endpoint.scheme() == "http" && self.allow_loopback_http;
         if (endpoint.scheme() != "https" && !insecure)
@@ -280,6 +296,11 @@ impl<'a> Client<'a> {
             return Err(Error::InvalidRequest);
         }
         check(self.ports, deadline)?;
+        let authorization = signer
+            .map(|signer| signer.sign(endpoint, method, headers, request, deadline))
+            .transpose()?
+            .unwrap_or_default();
+        check(self.ports, deadline)?;
 
         let config = ureq::Agent::config_builder()
             .proxy(None)
@@ -299,13 +320,17 @@ impl<'a> Client<'a> {
             .method(method)
             .uri(endpoint.as_str())
             .header("accept-encoding", "gzip");
-        for (name, value) in headers {
+        for (name, value) in headers.iter().copied().chain(
+            authorization
+                .iter()
+                .map(|(name, value)| (name.as_str(), value.as_str())),
+        ) {
             if name.eq_ignore_ascii_case("accept-encoding") {
                 return Err(Error::InvalidRequest);
             }
             let mut header = HeaderValue::from_str(value).map_err(|_| Error::InvalidRequest)?;
             header.set_sensitive(true);
-            builder = builder.header(*name, header);
+            builder = builder.header(name, header);
         }
         let request = builder.body(request).map_err(|_| Error::InvalidRequest)?;
         let response = agent.run(request).map_err(|err| {
@@ -320,6 +345,9 @@ impl<'a> Client<'a> {
         check(self.ports, deadline)?;
         let status = response.status();
         if !status.is_success() {
+            if signer.is_some() {
+                return Err(crate::polly::response_error(response, self.ports, deadline));
+            }
             // Provider diagnostics are neither consumed nor surfaced.
             let hint = response
                 .headers()
@@ -328,21 +356,35 @@ impl<'a> Client<'a> {
                 .and_then(|value| retry_after_ms(value, self.ports.wall_time()));
             return Err(Error::status(status.as_u16(), hint));
         }
-        if let Some(encoding) = response.headers().get("content-encoding") {
-            if response
-                .headers()
-                .get_all("content-encoding")
-                .iter()
-                .count()
-                > 1
-                || ![b"identity".as_slice(), b"gzip"]
-                    .iter()
-                    .any(|allowed| encoding.as_bytes().eq_ignore_ascii_case(allowed))
-            {
-                return Err(Error::BadResponse);
-            }
-        }
+        check_encoding(response.headers())?;
         Ok(response)
+    }
+}
+
+pub(crate) fn check_encoding(headers: &ureq::http::HeaderMap) -> Result<(), Error> {
+    let mut encodings = headers.get_all("content-encoding").iter();
+    if let Some(encoding) = encodings.next() {
+        if encodings.next().is_some()
+            || ![b"identity".as_slice(), b"gzip"]
+                .iter()
+                .any(|allowed| encoding.as_bytes().eq_ignore_ascii_case(allowed))
+        {
+            return Err(Error::BadResponse);
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn decoded_reader(response: ureq::http::Response<ureq::Body>) -> Box<dyn Read> {
+    let gzip = response
+        .headers()
+        .get("content-encoding")
+        .is_some_and(|enc| enc.as_bytes().eq_ignore_ascii_case(b"gzip"));
+    let reader = response.into_body().into_reader();
+    if gzip {
+        Box::new(flate2::read::MultiGzDecoder::new(reader))
+    } else {
+        Box::new(reader)
     }
 }
 
