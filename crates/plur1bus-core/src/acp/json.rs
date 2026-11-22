@@ -19,7 +19,6 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 
 /// A parsed or built JSON value.
-#[derive(Debug, PartialEq)]
 pub enum V {
     /// `null`.
     Null,
@@ -52,17 +51,84 @@ impl Drop for V {
     }
 }
 
-impl Clone for V {
-    /// A recursive copy. Only for values the core or a test built (bounded depth); a value read off the wire is never cloned.
-    fn clone(&self) -> V {
+impl std::fmt::Debug for V {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            V::Null => V::Null,
-            V::Bool(b) => V::Bool(*b),
-            V::Num(n) => V::Num(*n),
-            V::Str(s) => V::Str(s.clone()),
-            V::Arr(a) => V::Arr(a.iter().map(V::clone).collect()),
-            V::Obj(m) => V::Obj(m.iter().map(|(k, v)| (k.clone(), v.clone())).collect()),
+            V::Null => f.write_str("Null"),
+            V::Bool(b) => f.debug_tuple("Bool").field(b).finish(),
+            V::Num(n) => f.debug_tuple("Num").field(n).finish(),
+            V::Str(s) => f.debug_tuple("Str").field(s).finish(),
+            V::Arr(a) => f.debug_struct("Arr").field("len", &a.len()).finish(),
+            V::Obj(m) => f.debug_struct("Obj").field("len", &m.len()).finish(),
         }
+    }
+}
+
+impl PartialEq for V {
+    fn eq(&self, other: &Self) -> bool {
+        let mut pairs = vec![(self, other)];
+        while let Some((left, right)) = pairs.pop() {
+            match (left, right) {
+                (V::Null, V::Null) => {}
+                (V::Bool(a), V::Bool(b)) if a == b => {}
+                (V::Num(a), V::Num(b)) if a == b => {}
+                (V::Str(a), V::Str(b)) if a == b => {}
+                (V::Arr(a), V::Arr(b)) if a.len() == b.len() => pairs.extend(a.iter().zip(b)),
+                (V::Obj(a), V::Obj(b)) if a.len() == b.len() => {
+                    for ((ak, av), (bk, bv)) in a.iter().zip(b) {
+                        if ak != bk {
+                            return false;
+                        }
+                        pairs.push((av, bv));
+                    }
+                }
+                _ => return false,
+            }
+        }
+        true
+    }
+}
+
+impl Clone for V {
+    fn clone(&self) -> V {
+        enum Task<'a> {
+            Copy(&'a V),
+            Array(usize),
+            Object(&'a [(String, V)]),
+        }
+        let mut pending = vec![Task::Copy(self)];
+        let mut copies = Vec::new();
+        while let Some(task) = pending.pop() {
+            let copy = match task {
+                Task::Copy(V::Null) => V::Null,
+                Task::Copy(V::Bool(b)) => V::Bool(*b),
+                Task::Copy(V::Num(n)) => V::Num(*n),
+                Task::Copy(V::Str(s)) => V::Str(s.clone()),
+                Task::Copy(V::Arr(elements)) => {
+                    pending.push(Task::Array(elements.len()));
+                    pending.extend(elements.iter().rev().map(Task::Copy));
+                    continue;
+                }
+                Task::Copy(V::Obj(members)) => {
+                    pending.push(Task::Object(members));
+                    pending.extend(members.iter().rev().map(|(_, v)| Task::Copy(v)));
+                    continue;
+                }
+                Task::Array(len) => V::Arr(copies.split_off(copies.len() - len)),
+                Task::Object(members) => {
+                    let children = copies.drain(copies.len() - members.len()..);
+                    V::Obj(
+                        members
+                            .iter()
+                            .map(|(k, _)| k.clone())
+                            .zip(children)
+                            .collect(),
+                    )
+                }
+            };
+            copies.push(copy);
+        }
+        copies.pop().expect("one root value")
     }
 }
 
@@ -149,57 +215,78 @@ impl V {
             bytes: Vec::new(),
             max,
         };
-        self.write_json(&mut out, 0).ok()?;
+        self.write_json(&mut out).ok()?;
         String::from_utf8(out.bytes).ok()
     }
 
-    fn write_json(&self, out: &mut JsonBytes, depth: usize) -> io::Result<()> {
-        if depth > MAX_WRITE_DEPTH {
-            return Err(io::Error::other("JSON depth limit"));
+    fn write_json(&self, out: &mut JsonBytes) -> io::Result<()> {
+        enum Container<'a> {
+            Array(std::iter::Enumerate<std::slice::Iter<'a, V>>),
+            Object(std::iter::Enumerate<Box<dyn Iterator<Item = &'a (String, V)> + 'a>>),
         }
-        match self {
-            V::Null => out.write_all(b"null"),
-            V::Bool(b) => out.write_all(if *b { b"true" } else { b"false" }),
-            V::Num(n) if n.is_finite() => out.write_all(js_number_to_string(*n).as_bytes()),
-            V::Num(_) => out.write_all(b"null"),
-            V::Str(s) => serde_json::to_writer(out, s).map_err(io::Error::from),
-            V::Arr(a) => {
-                out.write_all(b"[")?;
-                for (i, v) in a.iter().enumerate() {
-                    if i > 0 {
-                        out.write_all(b",")?;
-                    }
-                    v.write_json(out, depth + 1)?;
-                }
-                out.write_all(b"]")
+        let mut stack = Vec::new();
+        let mut value = self;
+        'value: loop {
+            if stack.len() > MAX_WRITE_DEPTH {
+                return Err(io::Error::other("JSON depth limit"));
             }
-            V::Obj(m) => {
-                // Even the smallest property ("":0) costs four bytes. Bound the ordering scratch space too.
-                if m.len() > out.remaining() / 4 {
-                    return Err(io::Error::other("JSON byte limit"));
+            match value {
+                V::Null => out.write_all(b"null")?,
+                V::Bool(b) => out.write_all(if *b { b"true" } else { b"false" })?,
+                V::Num(n) if n.is_finite() => out.write_all(js_number_to_string(*n).as_bytes())?,
+                V::Num(_) => out.write_all(b"null")?,
+                V::Str(s) => serde_json::to_writer(&mut *out, s)?,
+                V::Arr(a) => {
+                    out.write_all(b"[")?;
+                    stack.push(Container::Array(a.iter().enumerate()));
                 }
-                out.write_all(b"{")?;
-                let mut first = true;
-                let mut indexed: Vec<(usize, &(String, V))> = m
-                    .iter()
-                    .filter_map(|e| array_index(&e.0).map(|i| (i, e)))
-                    .collect();
-                indexed.sort_by_key(|(i, _)| *i);
-                let ordered = indexed
-                    .into_iter()
-                    .map(|(_, e)| e)
-                    .chain(m.iter().filter(|e| array_index(&e.0).is_none()));
-                for (k, v) in ordered {
-                    if !first {
-                        out.write_all(b",")?;
+                V::Obj(m) => {
+                    if m.len() > out.remaining() / 4 {
+                        return Err(io::Error::other("JSON byte limit"));
                     }
-                    first = false;
-                    serde_json::to_writer(&mut *out, k).map_err(io::Error::from)?;
-                    out.write_all(b":")?;
-                    v.write_json(out, depth + 1)?;
+                    out.write_all(b"{")?;
+                    let mut indexed: Vec<_> = m
+                        .iter()
+                        .filter_map(|e| array_index(&e.0).map(|i| (i, e)))
+                        .collect();
+                    indexed.sort_by_key(|(i, _)| *i);
+                    let ordered: Box<dyn Iterator<Item = &_>> = Box::new(
+                        indexed
+                            .into_iter()
+                            .map(|(_, e)| e)
+                            .chain(m.iter().filter(|e| array_index(&e.0).is_none())),
+                    );
+                    stack.push(Container::Object(ordered.enumerate()));
                 }
-                out.write_all(b"}")
             }
+            while let Some(frame) = stack.last_mut() {
+                match frame {
+                    Container::Array(elements) => {
+                        if let Some((index, child)) = elements.next() {
+                            if index > 0 {
+                                out.write_all(b",")?;
+                            }
+                            value = child;
+                            continue 'value;
+                        }
+                        out.write_all(b"]")?;
+                    }
+                    Container::Object(members) => {
+                        if let Some((index, (key, child))) = members.next() {
+                            if index > 0 {
+                                out.write_all(b",")?;
+                            }
+                            serde_json::to_writer(&mut *out, key)?;
+                            out.write_all(b":")?;
+                            value = child;
+                            continue 'value;
+                        }
+                        out.write_all(b"}")?;
+                    }
+                }
+                stack.pop();
+            }
+            return Ok(());
         }
     }
 }
@@ -558,6 +645,22 @@ mod tests {
         );
         drop(v);
         assert!(parse(&"[".repeat(n)).is_none());
+    }
+
+    #[test]
+    fn nested_roundtrip_at_the_output_boundary() {
+        let prefix = r#"{"value":["#.repeat(MAX_WRITE_DEPTH / 2);
+        let suffix = "]}".repeat(MAX_WRITE_DEPTH / 2);
+        let text = format!("{prefix}true{suffix}");
+        let value = parse(&text).unwrap();
+        let copy = value.clone();
+        assert_eq!(value, copy);
+        assert_ne!(copy, parse(&format!("{prefix}false{suffix}")).unwrap());
+        assert_eq!(
+            copy.stringify_bounded(text.len()).as_deref(),
+            Some(text.as_str())
+        );
+        assert_eq!(copy.stringify_bounded(text.len() - 1), None);
     }
 
     #[test]
