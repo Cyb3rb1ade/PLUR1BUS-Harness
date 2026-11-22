@@ -299,7 +299,7 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `docs-hygiene` | Gated. Hygiene, source quality, i18n, doc links and `pnpm docs:check` (generated documents), for every selected run |
 | `unit` | Gated (ubuntu-24.04). Toolchain, fixture drift, lint, offline TypeScript tests outside Core, Rust fmt/clippy/tests |
 | `core-unit-shard`, `core-unit` | Gated. Three measured Ubuntu Core shards plus the exact-partition check; missing manifests, failure and cancellation block |
-| `unit-os` | Not gated; only under the full-platform policy. The same steps as `unit` on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)`: full offline TypeScript workspace tests on macOS, every package but Core on Windows |
+| `unit-os` | Not gated; only under the full-platform policy. The same steps as `unit` on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)`: full offline TypeScript workspace tests on macOS, every package but Core on Windows. The Windows Rust workspace leg delegates the engine crate to its separate native job. |
 | `front-door-windows` | Gated when selected (output `front-door`; every full run). On `windows-2025`: the Rust tests of `plur1bus-core` (the whole `front_door` scenario binary), `plur1bus-audit`, `plur1bus-tools` and `plur1bus-rpc` (also `--features server`), the supervisor's core-slot spec, the `core` command and 1staid's legacy-core kill in `plur1bus`, and the TypeScript seam (`module-api` `front-door-link`, `core` `core-front-door` and `bin-entry`). Linux and macOS run the same tests in `unit` |
 | `core-unit-shard-windows`, `core-unit-windows` | Not gated; only under the full-platform policy. Core on `windows-2025` in the three measured Ubuntu shards (`core unit shard i/3 (windows-2025)`) plus their exact-partition check |
 | `web-browser-macos` | Not gated (since 2026-10-28). Runs for proceed + web + macos and reports its own check |
@@ -314,7 +314,7 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `sandbox`, `documents-golden` | Not gated. Kernel sandbox probes on five runners (the three non-Linux ones follow the full-platform policy); golden-set visual diff |
 | `perf-startup`, `perf-budgets` | Not gated. Advisory timings and budget catalogue; the macOS, Windows and Windows ARM legs follow the full-platform policy |
 | `ci-gate` | THE gate: the required jobs above |
-| `engine-tests-windows` | Native engine tests with their own build/run timeouts and pinned tokenizer inputs; D135 requires the Windows verdict with RY-B2. |
+| `engine-tests-windows` | The separate native engine verdict for RY-B2 (D135). Runs on `windows-2025` with verified tokenizer inputs, a 55-minute build allowance and a 50-minute test allowance. Its check is currently advisory. |
 | nightly `system-real-models` | Real models on Node and Rust, with capture/recall/rerank medians per engine; full kill soak on Node. May fetch model weights. |
 | nightly `ext-fuzz` | Seeded extension inspect fuzzing |
 

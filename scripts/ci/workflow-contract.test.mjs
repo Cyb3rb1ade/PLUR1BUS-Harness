@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -251,6 +252,11 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
       windowsEngineSplit + '          cargo test --workspace "${packages[@]}" ');
   assert.equal(stepsOf(jobs['unit-os']), expected);
   const windowsEngine = jobs['engine-tests-windows'];
+  assert.doesNotMatch(/^    needs: \[.*\]$/m.exec(jobs["ci-gate"])[0], /\bengine-tests-windows\b/);
+  const workflowPath = new URL("../../.github/workflows/ci.yml", import.meta.url);
+  const hashPath = new URL("../../packages/rpc-schema/fixtures/team/ci-workflow.json", import.meta.url);
+  const actualHash = createHash("sha256").update(readFileSync(workflowPath)).digest("hex");
+  assert.equal(JSON.parse(readFileSync(hashPath, "utf8")).sha256, actualHash);
   assert.match(windowsEngine, /^    runs-on: windows-2025$/m);
   assert.match(windowsEngine, /cargo test --locked -p plur1bus-engine --no-run --timings\n        timeout-minutes: 55\n/);
   assert.match(windowsEngine, /cargo test --locked -p plur1bus-engine --no-fail-fast\n        timeout-minutes: 50\n/);

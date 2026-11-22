@@ -138,6 +138,10 @@ describe("M2 — memory reembed through the CLI (acceptance 6)", () => {
       assert.equal(result.checkpoint.error.code, "switch-unavailable");
       assert.equal(result.checkpoint.counts.rowsDone, first.plan.rows);
       assert.equal(result.engineState, "ready_to_switch");
+      const aborted = cli(h, ["memory", "reembed", "--abort"]);
+      assert.equal(aborted.checkpoint.id, first.plan.id);
+      assert.equal(aborted.checkpoint.phase, "aborted");
+      assert.equal(cli(h, ["memory", "reembed", "--status"]).checkpoint.phase, "aborted");
       const audit = readFileSync(join(h, "state", "engine-maintenance.jsonl"), "utf8").trim().split("\n").map(line => JSON.parse(line));
       assert.ok(audit.some(entry => entry.method === "engine.admin.reembedding.checkpoint.get"));
       assert.ok(audit.some(entry => entry.method === "engine.admin.reembedding.checkpoint.put" && entry.target.id === first.plan.id));
