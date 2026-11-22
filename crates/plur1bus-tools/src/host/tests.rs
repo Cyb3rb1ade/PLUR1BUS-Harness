@@ -68,6 +68,68 @@ fn hostctl_command_rules_match_typescript_refusals() {
     }
 }
 
+#[test]
+fn process_admission_validates_the_program_and_configured_shell_launcher() {
+    use catalog::Operation;
+    let caller = Caller {
+        session_id: Some("fixture-session".into()),
+        ..Default::default()
+    };
+    let check = |op, input: Value, config: &Config| {
+        eligibility::validate_runtime(
+            op,
+            input.as_object().unwrap(),
+            config,
+            &caller,
+            ProcessIdentity::default(),
+        )
+    };
+    let config = Config::from_json(&json!({"shell":{"allowed":true}}));
+    let name = char::from_u32(u32::from(u8::MAX) + 1).unwrap().to_string();
+    for op in [Operation::Exec, Operation::Start] {
+        assert_eq!(
+            check(op, json!({"program":name}), &config)
+                .unwrap_err()
+                .code,
+            "DENIED"
+        );
+    }
+    assert_eq!(
+        check(Operation::Shell, json!({"command":name}), &config)
+            .unwrap_err()
+            .code,
+        "DENIED"
+    );
+    for keyword in ["if", "then", "else", "elif", "while", "until", "do"] {
+        assert_eq!(
+            check(
+                Operation::Shell,
+                json!({"command":format!("{keyword} fixture")}),
+                &config
+            )
+            .unwrap_err()
+            .code,
+            "DENIED"
+        );
+    }
+    for (shell, pattern) in [
+        ("bash", "BASH -C"),
+        ("zsh", "-C fixture"),
+        ("pwsh", "-NonInteractive -Command"),
+    ] {
+        let settings = Config::from_json(
+            &json!({"shell":{"allowed":true,"default":shell},"denyPatterns":[pattern]}),
+        );
+        assert_eq!(
+            check(Operation::Shell, json!({"command":"fixture"}), &settings)
+                .unwrap_err()
+                .code,
+            "DENIED"
+        );
+    }
+    assert!(check(Operation::Shell, json!({"command":"fixture"}), &config).is_ok());
+}
+
 macro_rules! refuses {
     ($test:ident, $op:literal, $args:expr) => {
         #[test]

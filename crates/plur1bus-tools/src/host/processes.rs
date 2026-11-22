@@ -31,6 +31,14 @@ impl Owner {
     }
 }
 
+pub(super) fn shell_args<'a>(shell: &str, command: &'a str) -> Vec<&'a str> {
+    if shell == "pwsh" {
+        vec!["-NoProfile", "-NonInteractive", "-Command", command]
+    } else {
+        vec!["-c", command]
+    }
+}
+
 struct Entry {
     id: Uuid,
     owner: Owner,
@@ -232,11 +240,7 @@ fn checked_spawn<F: plur1bus_core::policy::fs_paths::PathFs>(
             .get("command")
             .and_then(Value::as_str)
             .ok_or_else(|| Failure::invalid("Expected a command."))?;
-        let words = if call.shell_program == "pwsh" {
-            vec!["-NoProfile", "-NonInteractive", "-Command", command]
-        } else {
-            vec!["-c", command]
-        };
+        let words = shell_args(call.shell_program, command);
         (
             call.shell_program,
             words.into_iter().map(str::to_owned).collect(),

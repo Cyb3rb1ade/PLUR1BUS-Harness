@@ -56,7 +56,14 @@ pub(super) fn validate_runtime(
             let builtin = program.to_ascii_lowercase();
             if matches!(
                 builtin.as_str(),
-                "eval"
+                "if" | "then"
+                    | "else"
+                    | "elif"
+                    | "while"
+                    | "until"
+                    | "do"
+                    | "!"
+                    | "eval"
                     | "builtin"
                     | "coproc"
                     | "source"
@@ -81,7 +88,11 @@ pub(super) fn validate_runtime(
                     "Shell wrappers are outside the literal command subset.",
                 ));
             }
-            validate_command(config, program, command)?;
+            let launch = std::iter::once(config.shell.as_str())
+                .chain(super::processes::shell_args(&config.shell, command))
+                .collect::<Vec<_>>()
+                .join(" ");
+            validate_command(config, program, &launch)?;
         }
         O::Exec | O::Start => {
             let program = input["program"]
@@ -142,6 +153,9 @@ fn matches_hard_argument_rule(command: &str) -> bool {
 }
 
 fn validate_command(config: &Config, program: &str, command: &str) -> Result<(), Failure> {
+    if !program.is_ascii() {
+        return Err(Failure::denied("Program names must be ASCII."));
+    }
     if matches_hard_argument_rule(command) {
         return Err(Failure::denied(
             "Dangerous command refused; use a bounded file operation instead.",
