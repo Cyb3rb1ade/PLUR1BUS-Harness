@@ -153,8 +153,15 @@ Schreiben mit Fristen. Bei R-W-9 können blockierende Kanalaufrufe bis zur jewei
 laufen. HTTP begrenzt Einzelaufrufe auf 600 Sekunden, WebSocket-Phasen ebenfalls auf maximal
 600 Sekunden. SMTP/IMAP-Kommandos nutzen bis zu 600 Sekunden, IMAP IDLE hat separat das
 protokollbedingte Maximum von 25 Minuten. Egress- und TLS-Ports müssen ihre erhaltenen Fristen
-am Socket durchsetzen. Der Host deaktiviert Wire-Logging der Abhängigkeiten, da Telegram
-Credentials im Pfad und Socket Mode Tickets in der URL transportieren.
+am Socket durchsetzen. Die HTTP- und WebSocket-Features deaktivieren TRACE beim Kompilieren,
+auch bei isoliertem Build des Kanal-Crates. Telegram transportiert Credentials im Pfad und
+Socket Mode Tickets in der URL. Der Kanalcode reicht von Close-Frames nur den Code weiter.
+Beim Flip muss der Host seinen `log`-Logger über
+[`plur1bus_wire_log::install`](../../crates/plur1bus-wire-log/src/lib.rs) registrieren.
+Nach R-W-11 lässt der Filter Ziele mit Präfix `plur1bus` und sonst nur WARN und ERROR zu.
+Der Loopback-Test zeigt denselben synthetischen Close-Grund mit ungefiltertem Logger und
+weist seine Unterdrückung mit Filter nach. HYG-018 sperrt direkte Logger-Registrierungen im
+Anwendungscode. Ein Host außerhalb des Repos muss den Filter ebenfalls einsetzen.
 
 Alle 27 neuen Registry-Einträge wurden gegen Veröffentlichungsdatum, Yank-Status und
 Lizenzliste geprüft. Die aktivierten direkten Neuzugänge sind `tungstenite =0.30.0` (MIT OR

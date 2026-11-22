@@ -32,6 +32,13 @@ const EXT_WORKER = ["inspect", "stage", "package_worker", "source_fetch", "impor
 // Path prefix (or `files`) -> patterns checked only under it.
 const SCOPED = [
   {
+    paths: /^(?:crates\/[^/]+|apps\/desktop(?:\/[^/]+)?)\/(?:src\/.*|build)\.rs$/,
+    except: "crates/plur1bus-wire-log/src/lib.rs",
+    patterns: [
+      { id: "HYG-018", re: /\bset_(?:boxed_)?logger(?:_racy)?\b/, why: "register through plur1bus_wire_log::install (R-W-11)" },
+    ],
+  },
+  {
     // Spec §4: the supervisor's dependency budget. Downloads, archives and signatures belong to the installer
     // (`crate::install::{fetch,archive}`, reached from setup/update/repair), never to the supervisor.
     prefix: "crates/plur1bus/src/supervisor/",
@@ -258,7 +265,9 @@ function walk(dir) {
     }
     if (ALLOW_FILES.has(rel) || ALLOW_DIRS.some((d) => rel.startsWith(d))) continue;
     const allow = ALLOW.get(rel) ?? [];
-    const patterns = [...PATTERNS, ...SCOPED.filter((s) => (s.files ? s.files.includes(rel) : rel.startsWith(s.prefix))).flatMap((s) => s.patterns)];
+    const patterns = [...PATTERNS, ...SCOPED.filter((s) =>
+      s.except !== rel && (s.paths?.test(rel) || s.files?.includes(rel) || (s.prefix && rel.startsWith(s.prefix)))
+    ).flatMap((s) => s.patterns)];
     const text = readFileSync(p, "utf8");
     for (const { id, re, why, multi } of patterns) {
       const m = multi ? re.exec(text) : null;

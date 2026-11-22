@@ -6049,9 +6049,11 @@ dependencies = [
  "chrono",
  "encoding_rs",
  "indexmap 2.14.2",
+ "log",
  "nostr",
  "percent-encoding",
  "plur1bus-wire-fixtures",
+ "plur1bus-wire-log",
  "regex",
  "secp256k1",
  "serde",
@@ -6303,6 +6305,13 @@ dependencies = [
  "base64 0.22.1",
  "serde_json",
  "sha1",
+]
+
+[[package]]
+name = "plur1bus-wire-log"
+version = "0.1.0"
+dependencies = [
+ "log",
 ]
 
 [[package]]

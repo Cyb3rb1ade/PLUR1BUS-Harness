@@ -3,31 +3,15 @@
 
 use nostr::prelude::{Event, Keys, SecretKey, Tag};
 use plur1bus_channels::buzz::{open_gift, Buzz, Entropy, Error, Relay, RelayEvent, Seen};
-use plur1bus_channels::websocket::{Limits, Peer, Socket, SocketPorts, TimedStream};
+use plur1bus_channels::websocket::{Limits, Peer, Socket};
 use plur1bus_wire_fixtures::{load_fixture, FakeServer};
 use serde_json::{json, Value};
-use std::io;
-use std::net::{SocketAddr, TcpStream};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use url::Url;
 
-struct Loopback(SocketAddr);
-impl SocketPorts for Loopback {
-    fn pin(&self, endpoint: &Url, _: Instant) -> Option<SocketAddr> {
-        (endpoint.host_str() == Some("127.0.0.1") && endpoint.port() == Some(self.0.port()))
-            .then_some(self.0)
-    }
-
-    fn dial(
-        &self,
-        _: &Url,
-        pin: SocketAddr,
-        deadline: Instant,
-    ) -> io::Result<Box<dyn TimedStream>> {
-        TcpStream::connect_timeout(&pin, deadline.saturating_duration_since(Instant::now()))
-            .map(|tcp| Box::new(tcp) as Box<dyn TimedStream>)
-    }
-}
+#[path = "support/socket.rs"]
+mod socket;
+use socket::Loopback;
 
 struct Random(u8);
 impl Entropy for Random {

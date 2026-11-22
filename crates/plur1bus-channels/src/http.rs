@@ -1,6 +1,7 @@
 //! Blocking HTTP for channel adapters. The host authorizes one concrete remote socket per request.
 //!
-//! The eventual host must keep dependency wire tracing disabled because it can log paths and bodies.
+//! The manifest compiles out dependency TRACE records, which can contain paths and bodies.
+//! Hosts register their logger through the shared wire log boundary (R-W-11).
 use serde::Serialize;
 use std::fmt;
 use std::io::{self, Read};

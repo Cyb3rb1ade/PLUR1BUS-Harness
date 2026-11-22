@@ -3,32 +3,15 @@
 
 use plur1bus_channels::discord::gateway::{Event, Gateway, Session};
 use plur1bus_channels::slack::socket::{Outcome, SocketMode};
-use plur1bus_channels::websocket::{Error, Limits, Peer, Socket, SocketPorts, TimedStream};
+use plur1bus_channels::websocket::{Error, Limits, Peer, Socket};
 use plur1bus_wire_fixtures::{load_fixture, FakeServer};
 use serde_json::{json, Value};
-use std::io;
-use std::net::{SocketAddr, TcpStream};
 use std::time::{Duration, Instant};
 use url::Url;
 
-struct Loopback(SocketAddr);
-
-impl SocketPorts for Loopback {
-    fn pin(&self, endpoint: &Url, _: Instant) -> Option<SocketAddr> {
-        (endpoint.host_str() == Some("127.0.0.1") && endpoint.port() == Some(self.0.port()))
-            .then_some(self.0)
-    }
-
-    fn dial(
-        &self,
-        _: &Url,
-        pin: SocketAddr,
-        deadline: Instant,
-    ) -> io::Result<Box<dyn TimedStream>> {
-        TcpStream::connect_timeout(&pin, deadline.saturating_duration_since(Instant::now()))
-            .map(|tcp| Box::new(tcp) as Box<dyn TimedStream>)
-    }
-}
+#[path = "support/socket.rs"]
+mod socket;
+use socket::Loopback;
 
 fn connect(server: &FakeServer, limits: Limits) -> Socket {
     let endpoint = Url::parse(&format!("ws://{}/gateway", server.addr)).unwrap();

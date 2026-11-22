@@ -88,7 +88,8 @@ pub struct Socket {
 }
 
 impl Socket {
-    /// The host also disables dependency wire tracing before passing credentials or tickets.
+    /// Hosts register through the shared wire log boundary (R-W-11), which rejects
+    /// dependency DEBUG records containing peer close reasons.
     pub fn connect(
         url: &Url,
         headers: &[(&str, &str)],
