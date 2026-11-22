@@ -257,8 +257,10 @@ struct State {
 }
 
 fn remember<T>(contexts: &mut IndexMap<String, T>, key: String, value: T) {
+    if let Some(index) = contexts.get_index_of(&key) {
+        contexts.move_index(index, contexts.len() - 1);
+    }
     contexts.insert(key, value);
-    // FIFO eviction preserves a deterministic bound regardless of clock behaviour.
     if contexts.len() > MAX_TRACKED_CONTEXTS {
         contexts.shift_remove_index(0);
     }
@@ -763,10 +765,20 @@ mod tests {
         input.memory.clear();
         let original = input.clone();
         let first = builder.render(&original).unwrap();
+        let mut least_recent = original.clone();
         for i in 0..1024 {
+            if i == 1023 {
+                assert_eq!(
+                    builder.render(&original).unwrap().prefix,
+                    PrefixStatus::Warm
+                );
+            }
             input.agent_id = format!("agent-{i}");
             input.session_id = Some(format!("session-{i}"));
             builder.render(&input).unwrap();
+            if i == 0 {
+                least_recent = input.clone();
+            }
         }
         {
             let state = builder.state.lock().unwrap();
@@ -778,12 +790,15 @@ mod tests {
                 ),
                 (1024, 1024, 1024)
             );
-            assert!(!state.active_models.contains_key(&first.session_id));
+            assert!(state.active_models.contains_key(&first.session_id));
         }
         assert_eq!(builder.render(&input).unwrap().prefix, PrefixStatus::Warm);
         let again = builder.render(&original).unwrap();
-        assert_eq!(again.prefix, PrefixStatus::Cold);
-        assert_eq!(again.cache.age_ms, None);
+        assert_eq!(again.prefix, PrefixStatus::Warm);
+        assert_eq!(again.cache.age_ms, Some(0.0));
+        let evicted = builder.render(&least_recent).unwrap();
+        assert_eq!(evicted.prefix, PrefixStatus::Cold);
+        assert_eq!(evicted.cache.age_ms, None);
         assert_eq!(again.prefix_hashes, first.prefix_hashes);
         assert_eq!(again.segments, first.segments);
     }

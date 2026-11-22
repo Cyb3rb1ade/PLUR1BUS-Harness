@@ -902,7 +902,7 @@ dispatcher or the supervisor). The tool-call runtime is K9b.
   JSON text `serde_json` cannot hold (a lone surrogate escape, nesting deeper than 128) counts as invalid here. The backend port is
   synchronous: a backend keeps the deadline it is handed and answers `Interrupted`, where TypeScript races it against a timer.
   **K9a-D7 (K9a-R3):** The Rust builder keeps at most 1,024 entries in each of its prefix, session-model and last-render
-  registries for one composition. The oldest inserted entry is evicted first. An evicted observation can become cold again;
+  registries for one composition. The least recently rendered entry is evicted first. An evicted observation can become cold again;
   rendered text, hashes and cache breakpoints are independent of that state. TypeScript retains those entries.
   **K9a-D6 (K9a-R4):** Rust refuses an external classification with over 32 tasks before copying or validating
   the tasks. The external classifier's array check leaves the internal rule classifier unchanged.
@@ -1240,3 +1240,7 @@ The Unix default file modes, schema versions, migrations and journal settings ar
 host verification of the database ACL and private parent ACL for its journal and sidecars before preparing or opening the
 database. No verified production Windows ACL adapter is available for these stores. They refuse disk-backed opens when the port
 is absent or denies access. The test-only callbacks acknowledge synthetic temporary files and do not provide Windows ACL evidence.
+
+### Adapter obligations from follow-up review N1
+
+The collaboration adapter must derive the parent and stored ancestry from the authenticated delegation before dispatch. A delegated caller with omitted metadata must never acquire a new root scope. At the flip the Doctor must report data directories on filesystems without a usable birth time. Regular-file verification continues to refuse those files pending an owner decision on any fallback.
