@@ -1,0 +1,142 @@
+{
+  "cases": [
+    {
+      "commands": [
+        {
+          "method": "Page.printToPDF",
+          "params": {
+            "displayHeaderFooter": false,
+            "preferCSSPageSize": true,
+            "printBackground": true,
+            "transferMode": "ReturnAsBase64"
+          }
+        }
+      ],
+      "expected": {
+        "bytes": [
+          37,
+          80,
+          68,
+          70,
+          45,
+          49,
+          46,
+          55,
+          10,
+          102,
+          105,
+          120,
+          116,
+          117,
+          114,
+          101
+        ]
+      },
+      "name": "pdf"
+    },
+    {
+      "commands": [
+        {
+          "method": "Page.captureScreenshot",
+          "params": {
+            "format": "png",
+            "fromSurface": true
+          }
+        }
+      ],
+      "expected": {
+        "bytes": [
+          137,
+          80,
+          78,
+          71,
+          13,
+          10,
+          26,
+          10
+        ]
+      },
+      "name": "screenshot"
+    },
+    {
+      "commands": [
+        {
+          "method": "Emulation.setDeviceMetricsOverride",
+          "params": {
+            "deviceScaleFactor": 1,
+            "height": 1123,
+            "mobile": false,
+            "width": 794
+          }
+        },
+        {
+          "method": "Runtime.evaluate",
+          "params": {
+            "awaitPromise": true,
+            "expression": "document.fonts.ready.then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(Math.ceil(Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0)))))))",
+            "returnByValue": true
+          }
+        },
+        {
+          "method": "Runtime.evaluate",
+          "params": {
+            "awaitPromise": true,
+            "expression": "document.fonts.ready.then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(Math.ceil(Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0)))))))",
+            "returnByValue": true
+          }
+        },
+        {
+          "method": "Runtime.evaluate",
+          "params": {
+            "awaitPromise": true,
+            "expression": "document.fonts.ready.then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(Math.ceil(Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0)))))))",
+            "returnByValue": true
+          }
+        },
+        {
+          "method": "Runtime.evaluate",
+          "params": {
+            "awaitPromise": true,
+            "expression": "document.fonts.ready.then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(Math.ceil(Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0)))))))",
+            "returnByValue": true
+          }
+        },
+        {
+          "method": "Page.captureScreenshot",
+          "params": {
+            "captureBeyondViewport": true,
+            "clip": {
+              "height": 1500,
+              "scale": 1,
+              "width": 794,
+              "x": 0,
+              "y": 0
+            },
+            "format": "png"
+          }
+        }
+      ],
+      "expected": {
+        "bytes": [
+          137,
+          80,
+          78,
+          71,
+          13,
+          10,
+          26,
+          10
+        ]
+      },
+      "name": "full-page"
+    },
+    {
+      "commands": [],
+      "expected": {
+        "error": "cancelled"
+      },
+      "name": "cancelled"
+    }
+  ],
+  "source": "packages/documents/src/chromium.ts"
+}

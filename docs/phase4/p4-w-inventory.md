@@ -226,12 +226,21 @@ projection and usage. The cloud library has no production caller.
   CDP-Abfolge, unterschiedliche Font-/Plattformausgaben und die existierenden PDF-Goldens.
   Die Downloads und Prozesse im Rust-Test durch Fixtures oder mitgelieferte Testassets steuern.
 
-**W4 local partial delivery.** The Markdown fragment renderer and contrast
-arithmetic replay the document package's original TypeScript outputs. Media
-request validation and accounting cover metadata-only requests. Binary inputs
-remain outside that entry point until the owner supplies typed image and video
-ports. The browser/CDP, PDF goldens, assembled template and output-store
-acceptance remain open. Neither crate is installed by the Core.
+Die Markdown-Fragmente, die Kontrastrechnung und die reinen Medien-Einheiten
+spielen aufgezeichnete TypeScript-Ausgaben ab. Der Video-Port belegt die
+Container-Erkennung und die Argumente von ffprobe, Remux und Poster-Export.
+Der Aufrufer stellt absolute, private Staging-Pfade und eine gemeinsame
+Absolutfrist bereit. Der Prozessport startet ohne Shell, begrenzt stdout
+beim Lesen und beendet den Prozess bei Abbruch oder Fristüberschreitung.
+Der JobRunner hat Ports für Claim, Zustand, Fortschritt, Checkpoint, Ausgabe,
+Budget und Uhr. Replays belegen Generierung, Edit, Resume, Cancel und die
+Wiederaufnahme einer vorhandenen Ausgabe. Binäre Anfragen brauchen noch
+den typisierten Medienport. Die neun HTML-Vorlagen spielen das Rendering
+mit escaped Markdown, neutralen und überschriebenen Farbtokens ab.
+Der CDP-Client prüft Antwort-IDs, Frist und Format und reproduziert
+PDF- und Screenshot-Parameter. Private Chromium-Prozessbindung, Font- und
+pagedjs-Einbettung sowie PDF-Goldens bleiben offen. Zusätzlich fehlen die
+Medienadapter, der OutputStore und die vollständige Dokumentprüfung.
 
 ### W5 · Erkennung und Katalog (P4-44)
 

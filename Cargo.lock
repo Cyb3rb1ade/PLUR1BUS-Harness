@@ -6135,6 +6135,7 @@ dependencies = [
 name = "plur1bus-documents"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "regex",
  "serde_json",
 ]
@@ -6227,6 +6228,7 @@ dependencies = [
 name = "plur1bus-media"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "serde_json",
 ]
 

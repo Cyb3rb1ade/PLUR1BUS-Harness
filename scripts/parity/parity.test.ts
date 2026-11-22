@@ -1446,3 +1446,35 @@ describe("Hostctl contract (P4-K K10b)", () => {
     assert.ok(Buffer.byteLength(actual) < 1_048_576);
   });
 });
+
+describe("media video codec process port (P4-W W4)", () => {
+  it("matches the production TypeScript process calls", async () => {
+    const { recordVideoProcess } = await import("./export-media-video.ts");
+    const expected = fixtureText((await recordVideoProcess())["video-process"]);
+    assert.equal(readFileSync(fixturePath("media", "video-process"), "utf8"), expected);
+  });
+});
+
+describe("media job orchestration (P4-W W4)", () => {
+  it("matches the production TypeScript job and budget port calls", async () => {
+    const { recordMediaJobs } = await import("./export-media-jobs.ts");
+    const expected = fixtureText((await recordMediaJobs())["job-runner"]);
+    assert.equal(readFileSync(fixturePath("media", "job-runner"), "utf8"), expected);
+  });
+});
+
+describe("document template assembly (P4-W W4)", () => {
+  it("matches the authored TypeScript layouts before embedded fonts", async () => {
+    const { recordDocumentTemplates } = await import("./export-document-templates.ts");
+    const expected = fixtureText(recordDocumentTemplates().templates);
+    assert.equal(readFileSync(fixturePath("documents", "templates"), "utf8"), expected);
+  });
+});
+
+describe("Chromium rendering commands (P4-W W4)", () => {
+  it("matches the TypeScript PDF and screenshot command parameters", async () => {
+    const { recordDocumentCdp } = await import("./export-document-cdp.ts");
+    const expected = fixtureText((await recordDocumentCdp()).cdp);
+    assert.equal(readFileSync(fixturePath("documents", "cdp"), "utf8"), expected);
+  });
+});
