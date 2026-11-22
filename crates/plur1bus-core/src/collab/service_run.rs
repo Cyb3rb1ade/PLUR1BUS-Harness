@@ -24,6 +24,7 @@ use std::sync::Arc;
 
 const DEFAULT_READ_TOOLS: &[&str] = &["file.read", "file.list", "file.stat"];
 
+#[derive(Clone, Copy)]
 enum ParentSource<'a> {
     Delegation(Option<&'a str>),
     Consult,

@@ -140,9 +140,17 @@ fn taking_over_a_job_requires_manage_and_a_successful_audit() {
     assert!(jobs.take_over(id, &caller_of(&user)).is_err());
     let use_only =
         json!({"userId":"editor","role":"member","kind":"person","agentRights":{"main":"use"}});
-    assert!(jobs.take_over(id, &caller_of(&use_only)).is_err());
+    assert_eq!(
+        jobs.take_over(id, &caller_of(&use_only))
+            .unwrap_err()
+            .code(),
+        Some("E_DENIED")
+    );
     cx.w.lock().unwrap().principals = vec![("editor".into(), use_only)];
-    assert!(jobs.take_over(id, &caller_of(&editor)).is_err());
+    assert_eq!(
+        jobs.take_over(id, &caller_of(&editor)).unwrap_err().code(),
+        Some("E_DENIED")
+    );
     cx.w.lock().unwrap().principals = vec![("editor".into(), editor.clone())];
     cx.w.lock().unwrap().audit_fail = true;
     assert!(jobs.take_over(id, &caller_of(&editor)).is_err());
