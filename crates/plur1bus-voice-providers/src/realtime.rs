@@ -3,6 +3,7 @@ use crate::elevenlabs::{word_timings, WordTiming};
 use crate::http::{deadline, Error, MAX_JSON_BYTES};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use plur1bus_channels::websocket::{self, Limits, Peer, Socket, SocketPorts, VoiceKey};
+use serde::{ser::SerializeMap, Serialize, Serializer};
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 use url::Url;
@@ -49,12 +50,11 @@ pub struct Settings<'a> {
 }
 
 pub struct Session<'a> {
-    socket: Socket,
+    socket: Option<Socket>,
     vendor: Vendor,
     input_rate: u32,
     ready: bool,
     muted: bool,
-    closed: bool,
     ports: &'a dyn SocketPorts,
     asr_timestamps: bool,
     asr_bytes: usize,
@@ -93,7 +93,10 @@ pub enum Event {
     Error(Error),
     Interrupted,
     TurnDone,
-    Closed,
+    /// The service's numeric close code. The reason text is discarded at transport.
+    Closed {
+        code: Option<u16>,
+    },
 }
 
 impl std::fmt::Debug for Event {
@@ -107,7 +110,7 @@ impl std::fmt::Debug for Event {
             Self::Error(_) => "Error",
             Self::Interrupted => "Interrupted",
             Self::TurnDone => "TurnDone",
-            Self::Closed => "Closed",
+            Self::Closed { .. } => "Closed",
         })
     }
 }
@@ -225,12 +228,11 @@ impl<'a> Session<'a> {
         }
         .map_err(socket_error)?;
         let mut session = Self {
-            socket,
+            socket: Some(socket),
             vendor: options.vendor,
             input_rate: options.input_rate,
             ready: false,
             muted: false,
-            closed: false,
             ports,
             asr_timestamps: settings.timestamps,
             asr_bytes: 0,
@@ -245,8 +247,8 @@ impl<'a> Session<'a> {
         };
         if let Some(setup) = setup(options) {
             session
-                .socket
-                .send_text_until(&setup.to_string(), deadline)
+                .socket()?
+                .send_text_until(&setup.encode()?, deadline)
                 .map_err(socket_error)?;
         }
         Ok(session)
@@ -259,13 +261,24 @@ impl<'a> Session<'a> {
         }
         let encoded = STANDARD.encode(pcm16);
         let message = match self.vendor {
-            Vendor::Grok => json!({"type":"input_audio_buffer.append","audio":encoded}),
-            Vendor::Gemini => {
-                json!({"realtimeInput":{"audio":{"data":encoded,"mimeType":format!("audio/pcm;rate={}", self.input_rate)}}})
-            }
-            Vendor::ElevenLabsAsr => {
-                json!({"message_type":"input_audio_chunk","audio_base_64":encoded,"commit":false,"sample_rate":self.input_rate})
-            }
+            Vendor::Grok => object([
+                ("type", field("input_audio_buffer.append")),
+                ("audio", field(encoded)),
+            ]),
+            Vendor::Gemini => object([(
+                "realtimeInput",
+                object([(
+                    "audio",
+                    object([
+                        ("data", field(encoded)),
+                        (
+                            "mimeType",
+                            field(format!("audio/pcm;rate={}", self.input_rate)),
+                        ),
+                    ]),
+                )]),
+            )]),
+            Vendor::ElevenLabsAsr => asr_audio(encoded, false, self.input_rate),
         };
         self.send(&message)?;
         if matches!(self.vendor, Vendor::ElevenLabsAsr) {
@@ -287,10 +300,38 @@ impl<'a> Session<'a> {
         }
         match self.vendor {
             Vendor::Grok => {
-                self.send(&json!({"type":"conversation.item.create","item":{"type":"message","role":"user","content":[{"type":"input_text","text":text}]}}))?;
-                self.send(&json!({"type":"response.create"}))
+                self.send(&object([
+                    ("type", field("conversation.item.create")),
+                    (
+                        "item",
+                        object([
+                            ("type", field("message")),
+                            ("role", field("user")),
+                            (
+                                "content",
+                                array([object([
+                                    ("type", field("input_text")),
+                                    ("text", field(text)),
+                                ])]),
+                            ),
+                        ]),
+                    ),
+                ]))?;
+                self.send(&object([("type", field("response.create"))]))
             }
-            Vendor::Gemini => self.send(&json!({"clientContent":{"turns":[{"role":"user","parts":[{"text":text}]}],"turnComplete":true}})),
+            Vendor::Gemini => self.send(&object([(
+                "clientContent",
+                object([
+                    (
+                        "turns",
+                        array([object([
+                            ("role", field("user")),
+                            ("parts", array([object([("text", field(text))])])),
+                        ])]),
+                    ),
+                    ("turnComplete", field(true)),
+                ]),
+            )])),
             Vendor::ElevenLabsAsr => Err(Error::Unsupported),
         }
     }
@@ -308,16 +349,36 @@ impl<'a> Session<'a> {
                 let output = value
                     .as_str()
                     .map_or_else(|| value.to_string(), str::to_owned);
-                self.send(&json!({"type":"conversation.item.create","item":{"type":"function_call_output","call_id":call_id,"output":output}}))?;
-                self.send(&json!({"type":"response.create"}))
+                self.send(&object([
+                    ("type", field("conversation.item.create")),
+                    (
+                        "item",
+                        object([
+                            ("type", field("function_call_output")),
+                            ("call_id", field(call_id)),
+                            ("output", field(output)),
+                        ]),
+                    ),
+                ]))?;
+                self.send(&object([("type", field("response.create"))]))
             }
             Vendor::Gemini => {
                 let response = if value.is_object() || value.is_array() {
-                    value.clone()
+                    field(value.clone())
                 } else {
-                    json!({"output":value})
+                    object([("output", field(value.clone()))])
                 };
-                self.send(&json!({"toolResponse":{"functionResponses":[{"id":call_id,"name":name,"response":response}]}}))
+                self.send(&object([(
+                    "toolResponse",
+                    object([(
+                        "functionResponses",
+                        array([object([
+                            ("id", field(call_id)),
+                            ("name", field(name)),
+                            ("response", response),
+                        ])]),
+                    )]),
+                )]))
             }
             Vendor::ElevenLabsAsr => Err(Error::Unsupported),
         }
@@ -326,7 +387,7 @@ impl<'a> Session<'a> {
     pub fn interrupt(&mut self) -> Result<(), Error> {
         self.require_open()?;
         match self.vendor {
-            Vendor::Grok => self.send(&json!({"type":"response.cancel"})),
+            Vendor::Grok => self.send(&object([("type", field("response.cancel"))])),
             Vendor::Gemini => {
                 self.muted = true;
                 Ok(())
@@ -338,7 +399,7 @@ impl<'a> Session<'a> {
     pub fn commit(&mut self) -> Result<(), Error> {
         self.require_open()?;
         match self.vendor {
-            Vendor::ElevenLabsAsr => self.send(&json!({"message_type":"input_audio_chunk","audio_base_64":"","commit":true,"sample_rate":self.input_rate})),
+            Vendor::ElevenLabsAsr => self.send(&asr_audio(String::new(), true, self.input_rate)),
             _ => Err(Error::Unsupported),
         }
     }
@@ -351,23 +412,30 @@ impl<'a> Session<'a> {
             if remaining.is_zero() {
                 return Err(Error::Timeout);
             }
-            let reply = self.socket.receive_until(deadline).map_err(socket_error);
+            let reply = self.socket()?.receive_until(deadline).map_err(socket_error);
             if self.ports.cancelled() {
-                self.closed = true;
-                let _ = self.socket.close_until(1000, "aborted", deadline);
+                self.finish_until(1000, "aborted", deadline);
                 return Err(Error::Aborted);
             }
-            let frame = match reply? {
+            let reply = match reply {
+                Err(Error::UpstreamProtocol) => {
+                    self.finish_until(1002, "protocol error", deadline);
+                    return Err(Error::UpstreamProtocol);
+                }
+                Err(error) => return Err(error),
+                Ok(reply) => reply,
+            };
+            let frame = match reply {
                 Peer::Text(text) => serde_json::from_str::<Value>(&text),
                 Peer::Binary(bytes) => serde_json::from_slice::<Value>(&bytes),
                 Peer::Ping | Peer::Pong => continue,
                 Peer::Closed(code) => {
-                    self.closed = true;
+                    self.socket.take();
                     let mut events = Vec::new();
                     if let Some(error) = close_error(code) {
                         events.push(Event::Error(error));
                     }
-                    events.push(Event::Closed);
+                    events.push(Event::Closed { code });
                     return Ok(events);
                 }
             };
@@ -377,8 +445,7 @@ impl<'a> Session<'a> {
             };
             return match events {
                 Err(error) => {
-                    self.closed = true;
-                    let _ = self.socket.close_until(1002, "protocol error", deadline);
+                    self.finish_until(1002, "protocol error", deadline);
                     Err(error)
                 }
                 result => result,
@@ -387,30 +454,42 @@ impl<'a> Session<'a> {
     }
 
     pub fn close(&mut self) -> Result<(), Error> {
-        if self.closed {
-            return Ok(());
+        match self.socket.take() {
+            Some(mut socket) => socket.close(1000, "done").map_err(socket_error),
+            None => Ok(()),
         }
-        self.closed = true;
-        self.socket.close(1000, "done").map_err(socket_error)
     }
 
-    fn require_open(&self) -> Result<(), Error> {
-        if self.closed {
+    fn finish_until(&mut self, code: u16, reason: &str, deadline: Instant) {
+        if let Some(mut socket) = self.socket.take() {
+            let _ = socket.close_until(code, reason, deadline);
+        }
+    }
+
+    fn socket(&mut self) -> Result<&mut Socket, Error> {
+        self.socket.as_mut().ok_or(Error::Closed)
+    }
+
+    fn require_open(&mut self) -> Result<(), Error> {
+        if self.socket.is_none() {
             Err(Error::Closed)
         } else if self.ports.cancelled() {
+            self.socket.take();
             Err(Error::Aborted)
         } else {
             Ok(())
         }
     }
 
-    fn send(&mut self, value: &Value) -> Result<(), Error> {
-        let frame = value.to_string();
+    fn send(&mut self, value: &Frame) -> Result<(), Error> {
+        let frame = value.encode()?;
         if frame.len() > MAX_JSON_BYTES {
             return Err(Error::InvalidRequest);
         }
         if self.ready {
-            self.socket.send_text(&frame).map_err(socket_error)
+            let result = self.socket()?.send_text(&frame).map_err(socket_error);
+            self.require_open()?;
+            result
         } else {
             const PENDING_BYTES: usize = 4 * 1024 * 1024;
             if self.pending_bytes + frame.len() > PENDING_BYTES {
@@ -601,8 +680,9 @@ impl<'a> Session<'a> {
 
     fn note_ready(&mut self, events: &mut Vec<Event>, deadline: Instant) -> Result<(), Error> {
         if !self.ready {
+            let socket = self.socket.as_mut().ok_or(Error::Closed)?;
             for message in self.pending.drain(..) {
-                self.socket
+                socket
                     .send_text_until(&message, deadline)
                     .map_err(socket_error)?;
             }
@@ -660,24 +740,28 @@ fn transcript(role: &'static str, text: String, final_: bool) -> Event {
     }
 }
 
-fn setup(options: &Options<'_>) -> Option<Value> {
+fn setup(options: &Options<'_>) -> Option<Frame> {
+    let instructions = options.instructions.filter(|text| !text.is_empty());
+    let voice = options.voice.filter(|name| !name.is_empty());
     match options.vendor {
         Vendor::Grok => {
-            let mut settings = json!({"input_audio_format":"pcm16","output_audio_format":"pcm16"});
-            if let Some(instructions) = options.instructions.filter(|value| !value.is_empty()) {
-                settings["instructions"] = json!(instructions);
-            }
-            if let Some(voice) = options.voice.filter(|value| !value.is_empty()) {
-                settings["voice"] = json!(voice);
-            }
+            let mut settings = Vec::new();
+            settings.extend(instructions.map(|text| ("instructions", field(text))));
+            settings.extend(voice.map(|name| ("voice", field(name))));
+            settings.extend([
+                ("input_audio_format", field("pcm16")),
+                ("output_audio_format", field("pcm16")),
+            ]);
             if !options.tools.is_empty() {
-                settings["tools"] = json!(options
-                    .tools
-                    .iter()
-                    .map(|tool| tool_definition(tool, true))
-                    .collect::<Vec<_>>());
+                settings.push((
+                    "tools",
+                    array(options.tools.iter().map(|tool| tool_definition(tool, true))),
+                ));
             }
-            Some(json!({"type":"session.update","session":settings}))
+            Some(object([
+                ("type", field("session.update")),
+                ("session", Frame::Object(settings)),
+            ]))
         }
         Vendor::Gemini => {
             let model = if options.model.starts_with("models/") {
@@ -685,21 +769,43 @@ fn setup(options: &Options<'_>) -> Option<Value> {
             } else {
                 format!("models/{}", options.model)
             };
-            let mut setup = json!({
-                "model":model, "generationConfig":{"responseModalities":["AUDIO"]},
-                "inputAudioTranscription":{}, "outputAudioTranscription":{}
-            });
-            if let Some(voice) = options.voice.filter(|value| !value.is_empty()) {
-                setup["generationConfig"]["speechConfig"] =
-                    json!({"voiceConfig":{"prebuiltVoiceConfig":{"voiceName":voice}}});
+            let mut generation = vec![("responseModalities", array([field("AUDIO")]))];
+            if let Some(voice) = voice {
+                generation.push((
+                    "speechConfig",
+                    object([(
+                        "voiceConfig",
+                        object([("prebuiltVoiceConfig", object([("voiceName", field(voice))]))]),
+                    )]),
+                ));
             }
-            if let Some(instructions) = options.instructions.filter(|value| !value.is_empty()) {
-                setup["systemInstruction"] = json!({"parts":[{"text":instructions}]});
+            let mut setup = vec![
+                ("model", field(model)),
+                ("generationConfig", Frame::Object(generation)),
+            ];
+            if let Some(instructions) = instructions {
+                setup.push((
+                    "systemInstruction",
+                    object([("parts", array([object([("text", field(instructions))])]))]),
+                ));
             }
             if !options.tools.is_empty() {
-                setup["tools"] = json!([{"functionDeclarations":options.tools.iter().map(|tool| tool_definition(tool, false)).collect::<Vec<_>>()}]);
+                let declarations = array(
+                    options
+                        .tools
+                        .iter()
+                        .map(|tool| tool_definition(tool, false)),
+                );
+                setup.push((
+                    "tools",
+                    array([object([("functionDeclarations", declarations)])]),
+                ));
             }
-            Some(json!({"setup":setup}))
+            setup.extend([
+                ("inputAudioTranscription", object([])),
+                ("outputAudioTranscription", object([])),
+            ]);
+            Some(object([("setup", Frame::Object(setup))]))
         }
         Vendor::ElevenLabsAsr => None,
     }
@@ -709,21 +815,75 @@ fn text_string(value: &Value) -> String {
     value.as_str().unwrap_or_default().to_owned()
 }
 
-fn tool_definition(tool: &Tool<'_>, grok: bool) -> Value {
-    let mut definition = json!({"name":tool.name});
+fn tool_definition(tool: &Tool<'_>, grok: bool) -> Frame {
+    let mut definition = Vec::new();
     if grok {
-        definition["type"] = json!("function");
-        definition["parameters"] = tool
-            .parameters
-            .cloned()
-            .unwrap_or_else(|| json!({"type":"object","properties":{}}));
-    } else if let Some(parameters) = tool.parameters {
-        definition["parameters"] = parameters.clone();
+        definition.push(("type", field("function")));
     }
-    if let Some(description) = tool.description {
-        definition["description"] = json!(description);
+    definition.push(("name", field(tool.name)));
+    if let Some(description) = tool.description.filter(|text| !text.is_empty()) {
+        definition.push(("description", field(description)));
     }
-    definition
+    if let Some(parameters) = tool.parameters {
+        definition.push(("parameters", field(parameters.clone())));
+    } else if grok {
+        definition.push((
+            "parameters",
+            object([("type", field("object")), ("properties", object([]))]),
+        ));
+    }
+    Frame::Object(definition)
+}
+
+fn asr_audio(encoded: String, commit: bool, rate: u32) -> Frame {
+    object([
+        ("message_type", field("input_audio_chunk")),
+        ("audio_base_64", field(encoded)),
+        ("commit", field(commit)),
+        ("sample_rate", field(rate)),
+    ])
+}
+
+/// Protocol-owned keys retain the recorded TypeScript order. Application JSON
+/// values supplied by the caller retain the serialization of their own Value.
+enum Frame {
+    Value(Value),
+    Object(Vec<(&'static str, Self)>),
+    Array(Vec<Self>),
+}
+
+impl Frame {
+    fn encode(&self) -> Result<String, Error> {
+        serde_json::to_string(self).map_err(|_| Error::InvalidRequest)
+    }
+}
+
+impl Serialize for Frame {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Value(value) => value.serialize(serializer),
+            Self::Array(items) => items.serialize(serializer),
+            Self::Object(fields) => {
+                let mut map = serializer.serialize_map(Some(fields.len()))?;
+                for (key, value) in fields {
+                    map.serialize_entry(key, value)?;
+                }
+                map.end()
+            }
+        }
+    }
+}
+
+fn object<const N: usize>(fields: [(&'static str, Frame); N]) -> Frame {
+    Frame::Object(fields.into())
+}
+
+fn array(items: impl IntoIterator<Item = Frame>) -> Frame {
+    Frame::Array(items.into_iter().collect())
+}
+
+fn field(value: impl Into<Value>) -> Frame {
+    Frame::Value(value.into())
 }
 
 struct TokenCounts {

@@ -10,9 +10,11 @@
         {
           "session": {
             "input_audio_format": "pcm16",
+            "instructions": "Respond in German.",
             "output_audio_format": "pcm16",
             "tools": [
               {
+                "description": "Read a fixture",
                 "name": "lookup",
                 "parameters": {
                   "properties": {},
@@ -20,10 +22,14 @@
                 },
                 "type": "function"
               }
-            ]
+            ],
+            "voice": "fixture-voice"
           },
           "type": "session.update"
         }
+      ],
+      "sendText": [
+        "{\"type\":\"session.update\",\"session\":{\"instructions\":\"Respond in German.\",\"voice\":\"fixture-voice\",\"input_audio_format\":\"pcm16\",\"output_audio_format\":\"pcm16\",\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"description\":\"Read a fixture\",\"parameters\":{\"type\":\"object\",\"properties\":{}}}]}}"
       ]
     },
     {
@@ -63,6 +69,10 @@
         {
           "type": "response.create"
         }
+      ],
+      "sendText": [
+        "{\"type\":\"conversation.item.create\",\"item\":{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"A fixture turn\"}]}}",
+        "{\"type\":\"response.create\"}"
       ]
     },
     {
@@ -90,6 +100,10 @@
         {
           "type": "response.create"
         }
+      ],
+      "sendText": [
+        "{\"type\":\"conversation.item.create\",\"item\":{\"type\":\"function_call_output\",\"call_id\":\"call-1\",\"output\":\"{\\\"found\\\":true}\"}}",
+        "{\"type\":\"response.create\"}"
       ]
     }
   ],
@@ -141,6 +155,8 @@
   "exporter": "scripts/parity/export-voice.ts",
   "input": {
     "callId": "call-1",
+    "description": "Read a fixture",
+    "instructions": "Respond in German.",
     "language": "de",
     "model": "fixture-live",
     "pcm": [
@@ -155,9 +171,13 @@
     "sampleRate": 16000,
     "text": "A fixture turn",
     "tool": "lookup",
-    "vendor": "grok"
+    "vendor": "grok",
+    "voice": "fixture-voice"
   },
   "request": {
+    "headers": {
+      "authorization": "Bearer <credential>"
+    },
     "path": "/v1/realtime?model=fixture-live"
   },
   "schema": "plur1bus.parity-wire/1",

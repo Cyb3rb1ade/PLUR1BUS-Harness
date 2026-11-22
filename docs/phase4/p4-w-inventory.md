@@ -205,8 +205,11 @@ The flip must supply authorized pins, TLS for WebSocket, resolved credentials,
 Polly signing, request deadlines and the ASR multipart boundary. R-W-12/R-W-13
 are recorded in [P4D-202](defects.md#p4d-202), [P4D-204](defects.md#p4d-204),
 [P4D-205](defects.md#p4d-205) and [P4D-206](defects.md#p4d-206). Audio and JSON
-have separate ceilings. Host registration uses the R-W-11 logger. A socket
-operation already blocked at cancellation can remain blocked until its deadline.
+have separate ceilings. Host registration uses the R-W-11 logger. Under R-W-9
+an in-flight blocking read may observe cancellation as late as its current
+deadline. For realtime reads this is the shortest of the caller's remaining
+read budget, the socket's configured timeout and 600 seconds. The session
+releases the stream when the interrupted read returns.
 
 The HTTP and WebSocket synthesis streams, Polly sentence windows, retry
 schedule, and Grok/Gemini/ElevenLabs dialogues are recorded from the TypeScript
@@ -222,6 +225,11 @@ supplies the credential lease and the signed Polly port. The catalog-to-socket
 recordings cover a configured model, selection from xAI and Gemini catalogs,
 and Gemini's fallback model. A test through the host logger checks a synthetic
 credential and a provider close reason against the R-W-11 boundary.
+The transport replay compares recorded outgoing text frames and upgrade
+targets and credential headers, together with the parsed dialogue events.
+The ElevenLabs settings port takes the ordered fields of the input object.
+Arbitrary tool arguments and results keep the serialization of the host's
+JSON values.
 
 ### W4 · Medien und Dokumente (P4-53)
 

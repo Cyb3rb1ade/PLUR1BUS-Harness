@@ -47,6 +47,7 @@ pub fn ws_accept(key: &str) -> String {
 
 struct WsExchange {
     send: Vec<Value>,
+    send_text: Option<Vec<String>>,
     receive: Vec<Value>,
     raw_frames: Vec<Vec<u8>>,
 }
@@ -61,6 +62,7 @@ struct Script {
     ws: Vec<WsExchange>,
     lines: Option<Vec<LineExchange>>,
     received: Vec<Value>,
+    upgrades: Vec<Value>,
 }
 
 /// A running fake server; dropping it stops it.
@@ -84,6 +86,11 @@ impl FakeServer {
     /// or the JSON messages received from a WebSocket client.
     pub fn received(&self) -> Vec<Value> {
         self.worker.received()
+    }
+
+    /// The HTTP request line and headers for each WebSocket upgrade.
+    pub fn websocket_upgrades(&self) -> Vec<Value> {
+        self.worker.script.lock().unwrap().upgrades.clone()
     }
 }
 
@@ -123,6 +130,7 @@ impl Worker {
             ws: Vec::new(),
             lines: None,
             received: Vec::new(),
+            upgrades: Vec::new(),
         };
         match fixture["transport"].as_str() {
             Some("http") => {
@@ -149,8 +157,17 @@ impl Worker {
                         .flatten()
                         .map(decode_bytes)
                         .collect();
+                    let send = frames("send");
+                    let send_text = exchange["sendText"].as_array().map(|frames| {
+                        assert_eq!(frames.len(), send.len(), "one text frame per JSON frame");
+                        frames
+                            .iter()
+                            .map(|text| text.as_str().unwrap().to_owned())
+                            .collect()
+                    });
                     script.ws.push(WsExchange {
-                        send: frames("send"),
+                        send,
+                        send_text,
                         receive: frames("receive"),
                         raw_frames,
                     });
@@ -306,6 +323,11 @@ fn connection(stream: &mut (impl Read + Write), script: &Mutex<Script>) -> io::R
         let Some(key) = header("sec-websocket-key") else {
             return Ok(());
         };
+        script
+            .lock()
+            .unwrap()
+            .upgrades
+            .push(json!({ "method": method, "path": path, "headers": headers }));
         write!(
             stream,
             "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {}\r\n\r\n",
@@ -567,9 +589,14 @@ fn websocket(
         match opcode {
             0x1 => {
                 let value: Value = serde_json::from_slice(&payload).map_err(io::Error::other)?;
-                let matches = current
-                    .as_ref()
-                    .is_some_and(|exchange| exchange.send.get(sent) == Some(&value));
+                let matches = current.as_ref().is_some_and(|exchange| {
+                    exchange.send.get(sent) == Some(&value)
+                        && exchange.send_text.as_ref().is_none_or(|expected| {
+                            expected
+                                .get(sent)
+                                .is_some_and(|text| text.as_bytes() == payload)
+                        })
+                });
                 script.lock().unwrap().received.push(value);
                 if !matches {
                     stream.write_all(&frame(0x8, &1008u16.to_be_bytes(), None))?;

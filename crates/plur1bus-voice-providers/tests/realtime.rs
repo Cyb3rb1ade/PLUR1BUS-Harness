@@ -11,6 +11,24 @@ use std::{
 };
 use url::Url;
 
+const CREDENTIAL: &str = "synthetic-voice-credential";
+
+fn assert_upgrade(server: &FakeServer, request: &serde_json::Value) {
+    let upgrades = server.websocket_upgrades();
+    assert_eq!(upgrades.len(), 1);
+    assert_eq!(upgrades[0]["method"], "GET");
+    assert_eq!(upgrades[0]["path"], request["path"]);
+    for (header, expected) in request["headers"].as_object().unwrap() {
+        assert_eq!(
+            upgrades[0]["headers"][header],
+            expected
+                .as_str()
+                .unwrap()
+                .replace("<credential>", CREDENTIAL)
+        );
+    }
+}
+
 struct Loopback(SocketAddr, Option<String>);
 
 impl SocketPorts for Loopback {
@@ -91,12 +109,212 @@ fn discovery_selection_matches_the_typescript_websocket_handshake_and_setup() {
         };
         let mut session = Session::connect(&base, KEY, &options, &ports, budget, true).unwrap();
         assert_eq!(session.receive(budget).unwrap(), [Event::Ready]);
+        assert_upgrade(&socket, &case["socket"]["request"]);
         assert_eq!(
             json!(socket.received()),
             case["socket"]["exchanges"][0]["send"]
         );
         session.close().unwrap();
     }
+}
+
+#[test]
+fn interruption_and_remote_close_match_the_recorded_provider_events() {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use plur1bus_wire_fixtures::frame;
+    use serde_json::Value;
+
+    let cases: Vec<Value> = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/voice/realtime-control.json"
+    ))
+    .unwrap();
+    let budget = Duration::from_secs(5);
+    for mut case in cases {
+        let code = case["closeCode"].as_u64().unwrap() as u16;
+        case["exchanges"][1]["rawFramesBase64"] =
+            json!([STANDARD.encode(frame(0x8, &code.to_be_bytes(), None))]);
+        let server = FakeServer::start(&case);
+        let ports = Loopback(server.addr, None);
+        let addr = Url::parse(&format!("http://{}", server.addr)).unwrap();
+        let input = &case["input"];
+        let vendor = if input["vendor"] == "grok" {
+            Vendor::Grok
+        } else {
+            Vendor::Gemini
+        };
+        let options = Options {
+            vendor,
+            model: input["model"].as_str().unwrap(),
+            voice: None,
+            instructions: None,
+            tools: &[],
+            input_rate: input["inputSampleRate"].as_u64().unwrap() as u32,
+        };
+        let mut session =
+            Session::connect(&addr, CREDENTIAL, &options, &ports, budget, true).unwrap();
+        assert_eq!(session.receive(budget).unwrap(), [Event::Ready]);
+        session.interrupt().unwrap();
+        if matches!(vendor, Vendor::Gemini) {
+            let pcm: Vec<u8> = serde_json::from_value(input["pcm"].clone()).unwrap();
+            session.send_audio(&pcm).unwrap();
+        }
+        let mut observed = vec![json!({"type":"ready"})];
+        let mut closed = false;
+        while !closed {
+            for event in session.receive(budget).unwrap() {
+                observed.push(match event {
+                    Event::Interrupted => json!({"type":"interrupted"}),
+                    Event::Audio { bytes, sample_rate } => {
+                        json!({"type":"audio","bytes":bytes,"sampleRate":sample_rate})
+                    }
+                    Event::Closed { code } => {
+                        closed = true;
+                        let reason = match code {
+                            Some(1000) => "normal".to_owned(),
+                            code => code.unwrap_or(1005).to_string(),
+                        };
+                        json!({"type":"closed","reason":reason})
+                    }
+                    Event::Error(error) => json!({"type":"error","code":error.code()}),
+                    event => json!({"unexpected":format!("{event:?}")}),
+                });
+            }
+        }
+        assert_eq!(json!(observed), case["expected"]);
+        assert_upgrade(&server, &case["request"]);
+        assert!(matches!(
+            session.interrupt(),
+            Err(plur1bus_voice_providers::http::Error::Closed)
+        ));
+    }
+}
+
+#[test]
+fn an_abort_during_a_blocked_read_resolves_by_the_deadline_and_releases_the_socket() {
+    use plur1bus_voice_providers::http::Error;
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc::{self, Sender},
+        Arc,
+    };
+    use std::thread;
+
+    struct ObserveRead {
+        tcp: TcpStream,
+        entered: Sender<()>,
+        armed: Arc<AtomicBool>,
+        dropped: Arc<AtomicBool>,
+    }
+
+    impl io::Read for ObserveRead {
+        fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+            if self.armed.swap(false, Ordering::SeqCst) {
+                self.entered.send(()).unwrap();
+            }
+            self.tcp.read(bytes)
+        }
+    }
+
+    impl io::Write for ObserveRead {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.tcp.write(bytes)
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            self.tcp.flush()
+        }
+    }
+
+    impl TimedStream for ObserveRead {
+        fn peer_addr(&self) -> io::Result<SocketAddr> {
+            self.tcp.peer_addr()
+        }
+        fn set_deadline(&mut self, deadline: Instant) -> io::Result<()> {
+            self.tcp.set_deadline(deadline)
+        }
+    }
+
+    impl Drop for ObserveRead {
+        fn drop(&mut self) {
+            self.dropped.store(true, Ordering::SeqCst);
+        }
+    }
+
+    struct AbortPort {
+        entered: Sender<()>,
+        armed: Arc<AtomicBool>,
+        cancelled: AtomicBool,
+        dropped: Arc<AtomicBool>,
+    }
+
+    impl SocketPorts for AbortPort {
+        fn cancelled(&self) -> bool {
+            self.cancelled.load(Ordering::SeqCst)
+        }
+        fn pin(&self, endpoint: &Url, _: Instant) -> Option<SocketAddr> {
+            Some(SocketAddr::from(([127, 0, 0, 1], endpoint.port()?)))
+        }
+        fn dial(
+            &self,
+            _: &Url,
+            addr: SocketAddr,
+            deadline: Instant,
+        ) -> io::Result<Box<dyn TimedStream>> {
+            let tcp = TcpStream::connect_timeout(
+                &addr,
+                deadline.saturating_duration_since(Instant::now()),
+            )?;
+            Ok(Box::new(ObserveRead {
+                tcp,
+                entered: self.entered.clone(),
+                armed: Arc::clone(&self.armed),
+                dropped: Arc::clone(&self.dropped),
+            }))
+        }
+    }
+
+    let server = FakeServer::start(&json!({
+        "transport": "websocket",
+        "exchanges": [{ "send": [], "receive": [{ "message_type": "session_started" }] }],
+    }));
+    let (entered, read) = mpsc::channel();
+    let ports = AbortPort {
+        entered,
+        armed: Arc::default(),
+        cancelled: AtomicBool::default(),
+        dropped: Arc::default(),
+    };
+    let base = Url::parse(&format!("http://{}", server.addr)).unwrap();
+    let options = Options {
+        vendor: Vendor::ElevenLabsAsr,
+        model: "scribe_fixture",
+        voice: None,
+        instructions: None,
+        tools: &[],
+        input_rate: 16_000,
+    };
+    let setup_budget = Duration::from_secs(3);
+    let mut session =
+        Session::connect(&base, CREDENTIAL, &options, &ports, setup_budget, true).unwrap();
+    assert_eq!(session.receive(setup_budget).unwrap(), [Event::Ready]);
+    ports.armed.store(true, Ordering::SeqCst);
+    thread::scope(|scope| {
+        let cancelled = &ports.cancelled;
+        scope.spawn(move || {
+            read.recv_timeout(setup_budget).unwrap();
+            cancelled.store(true, Ordering::SeqCst);
+        });
+        let start = Instant::now();
+        assert_eq!(
+            session.receive(Duration::from_millis(150)).unwrap_err(),
+            Error::Aborted
+        );
+        assert!(
+            start.elapsed() < Duration::from_secs(2),
+            "the port's longer timeout did not get used"
+        );
+    });
+    assert!(ports.dropped.load(Ordering::SeqCst));
+    assert_eq!(session.receive(setup_budget).unwrap_err(), Error::Closed);
 }
 
 #[test]
@@ -129,6 +347,7 @@ fn recorded_ready_and_audio_turns_replay_through_the_blocking_socket() {
         )
         .unwrap();
         assert_eq!(session.receive(budget).unwrap(), [Event::Ready], "{name}");
+        assert_upgrade(&server, &fixture["request"]);
         let pcm = serde_json::from_value::<Vec<u8>>(fixture["input"]["pcm"].clone()).unwrap();
         session.send_audio(&pcm).unwrap();
         let events = session.receive(budget).unwrap();
@@ -193,14 +412,14 @@ fn model_dialogues_match_recorded_transcripts_tools_usage_and_asr_timestamps() {
         let tool_name = input["tool"].as_str().unwrap();
         let tools = [plur1bus_voice_providers::realtime::Tool {
             name: tool_name,
-            description: None,
+            description: input["description"].as_str(),
             parameters: None,
         }];
         let options = Options {
             vendor,
             model,
-            voice: None,
-            instructions: None,
+            voice: input["voice"].as_str(),
+            instructions: input["instructions"].as_str(),
             tools: &tools,
             input_rate: input["sampleRate"].as_u64().unwrap() as u32,
         };
@@ -289,6 +508,7 @@ fn model_dialogues_match_recorded_transcripts_tools_usage_and_asr_timestamps() {
             take(&mut session, first_part + reply_part);
         }
         assert_eq!(json!(observed), fixture["expected"], "{}", input["vendor"]);
+        assert_upgrade(&server, &fixture["request"]);
         let sent: Vec<_> = fixture["exchanges"]
             .as_array()
             .unwrap()

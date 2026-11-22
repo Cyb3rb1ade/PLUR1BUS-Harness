@@ -1,7 +1,7 @@
 //! ElevenLabs buffered synthesis over the cloud HTTP boundary.
 use crate::http::{deadline, Client, Error, MAX_BUFFERED_AUDIO_BYTES};
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
-use serde::Serialize;
+use serde::{ser::SerializeMap, Serialize, Serializer};
 use serde_json::Value;
 use std::time::Duration;
 use url::Url;
@@ -47,8 +47,22 @@ pub struct SynthesisOptions<'a> {
     pub voice: &'a str,
     pub model: Option<&'a str>,
     pub language: Option<&'a str>,
-    pub voice_settings: Option<&'a Value>,
+    pub voice_settings: Option<VoiceSettings<'a>>,
     pub zero_retention: bool,
+}
+
+/// The host provides voice setting fields in the order they appear on the wire.
+#[derive(Clone, Copy)]
+pub struct VoiceSettings<'a>(pub &'a [(String, Value)]);
+
+impl Serialize for VoiceSettings<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut settings = serializer.serialize_map(Some(self.0.len()))?;
+        for (key, value) in self.0 {
+            settings.serialize_entry(key, value)?;
+        }
+        settings.end()
+    }
 }
 
 #[derive(Serialize)]
@@ -56,7 +70,7 @@ struct Payload<'a> {
     text: &'a str,
     model_id: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    voice_settings: Option<&'a Value>,
+    voice_settings: Option<VoiceSettings<'a>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     language_code: Option<&'a str>,
 }

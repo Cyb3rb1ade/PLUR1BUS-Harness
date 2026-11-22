@@ -12,15 +12,30 @@
             "generationConfig": {
               "responseModalities": [
                 "AUDIO"
-              ]
+              ],
+              "speechConfig": {
+                "voiceConfig": {
+                  "prebuiltVoiceConfig": {
+                    "voiceName": "fixture-voice"
+                  }
+                }
+              }
             },
             "inputAudioTranscription": {},
             "model": "models/fixture-live",
             "outputAudioTranscription": {},
+            "systemInstruction": {
+              "parts": [
+                {
+                  "text": "Respond in German."
+                }
+              ]
+            },
             "tools": [
               {
                 "functionDeclarations": [
                   {
+                    "description": "Read a fixture",
                     "name": "lookup"
                   }
                 ]
@@ -28,6 +43,9 @@
             ]
           }
         }
+      ],
+      "sendText": [
+        "{\"setup\":{\"model\":\"models/fixture-live\",\"generationConfig\":{\"responseModalities\":[\"AUDIO\"],\"speechConfig\":{\"voiceConfig\":{\"prebuiltVoiceConfig\":{\"voiceName\":\"fixture-voice\"}}}},\"systemInstruction\":{\"parts\":[{\"text\":\"Respond in German.\"}]},\"tools\":[{\"functionDeclarations\":[{\"name\":\"lookup\",\"description\":\"Read a fixture\"}]}],\"inputAudioTranscription\":{},\"outputAudioTranscription\":{}}}"
       ]
     },
     {
@@ -79,6 +97,9 @@
             ]
           }
         }
+      ],
+      "sendText": [
+        "{\"clientContent\":{\"turns\":[{\"role\":\"user\",\"parts\":[{\"text\":\"A fixture turn\"}]}],\"turnComplete\":true}}"
       ]
     },
     {
@@ -113,6 +134,9 @@
             ]
           }
         }
+      ],
+      "sendText": [
+        "{\"toolResponse\":{\"functionResponses\":[{\"id\":\"call-1\",\"name\":\"lookup\",\"response\":{\"found\":true}}]}}"
       ]
     }
   ],
@@ -176,6 +200,8 @@
   "exporter": "scripts/parity/export-voice.ts",
   "input": {
     "callId": "call-1",
+    "description": "Read a fixture",
+    "instructions": "Respond in German.",
     "language": "de",
     "model": "fixture-live",
     "pcm": [
@@ -190,9 +216,13 @@
     "sampleRate": 16000,
     "text": "A fixture turn",
     "tool": "lookup",
-    "vendor": "gemini"
+    "vendor": "gemini",
+    "voice": "fixture-voice"
   },
   "request": {
+    "headers": {
+      "x-goog-api-key": "<credential>"
+    },
     "path": "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
   },
   "schema": "plur1bus.parity-wire/1",

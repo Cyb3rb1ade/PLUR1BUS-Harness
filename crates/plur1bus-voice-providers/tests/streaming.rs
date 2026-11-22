@@ -3,7 +3,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use plur1bus_channels::websocket::{SocketPorts, TimedStream};
 use plur1bus_voice_providers::{
-    elevenlabs::{stream_synthesis, AudioFormat, SynthesisOptions, TtsSocket},
+    elevenlabs::{stream_synthesis, AudioFormat, SynthesisOptions, TtsSocket, VoiceSettings},
     http::{Client, Ports},
 };
 use plur1bus_wire_fixtures::FakeServer;
@@ -58,10 +58,13 @@ fn options(input: &Value) -> SynthesisOptions<'_> {
     SynthesisOptions {
         voice: input["voice"].as_str().unwrap(),
         language: input["language"].as_str(),
-        voice_settings: input.get("voiceSettings"),
         zero_retention: true,
         ..Default::default()
     }
+}
+
+fn recorded_settings(input: &Value) -> Vec<(String, Value)> {
+    serde_json::from_value(input["voiceSettingsEntries"].clone()).unwrap()
 }
 
 #[test]
@@ -80,13 +83,18 @@ fn http_stream_replays_the_recorded_request_audio_and_usage() {
     let base = base.join("/v1").unwrap();
     let client = Client::new(&pin).with_loopback_http();
     let input = &fixture["input"];
+    let settings = recorded_settings(input);
+    let options = SynthesisOptions {
+        voice_settings: Some(VoiceSettings(&settings)),
+        ..options(input)
+    };
     let mut audio = Vec::new();
     let usage = stream_synthesis(
         &client,
         &base,
         CREDENTIAL,
         input["text"].as_str().unwrap(),
-        &options(input),
+        &options,
         BUDGET,
         |chunk| {
             assert_eq!(chunk.format, AudioFormat::Pcm16);
@@ -120,8 +128,12 @@ fn websocket_stream_replays_the_recorded_dialogue_audio_and_usage() {
     };
     let base = Url::parse(&format!("http://{}", server.addr)).unwrap();
     let input = &fixture["input"];
-    let mut stream =
-        TtsSocket::connect(&base, CREDENTIAL, &options(input), &pin, BUDGET, true).unwrap();
+    let settings = recorded_settings(input);
+    let options = SynthesisOptions {
+        voice_settings: Some(VoiceSettings(&settings)),
+        ..options(input)
+    };
+    let mut stream = TtsSocket::connect(&base, CREDENTIAL, &options, &pin, BUDGET, true).unwrap();
     assert!(stream.usage().is_none());
     for text in input["text"].as_array().unwrap() {
         stream.send_text(text.as_str().unwrap()).unwrap();
@@ -140,6 +152,10 @@ fn websocket_stream_replays_the_recorded_dialogue_audio_and_usage() {
         fixture["expected"]["usage"]["chars"].as_u64().unwrap() as usize
     );
     assert_eq!(json!(server.received()), fixture["exchanges"][0]["send"]);
+    let upgrades = server.websocket_upgrades();
+    assert_eq!(upgrades.len(), 1);
+    assert_eq!(upgrades[0]["path"], fixture["request"]["path"]);
+    assert_eq!(upgrades[0]["headers"]["xi-api-key"], CREDENTIAL);
 }
 
 fn socket_fixture() -> Value {
@@ -164,8 +180,12 @@ fn websocket_provider_error_drops_its_text_and_never_reports_usage() {
     };
     let base = Url::parse(&format!("http://{}", server.addr)).unwrap();
     let input = &fixture["input"];
-    let mut stream =
-        TtsSocket::connect(&base, CREDENTIAL, &options(input), &pin, BUDGET, true).unwrap();
+    let settings = recorded_settings(input);
+    let options = SynthesisOptions {
+        voice_settings: Some(VoiceSettings(&settings)),
+        ..options(input)
+    };
+    let mut stream = TtsSocket::connect(&base, CREDENTIAL, &options, &pin, BUDGET, true).unwrap();
     for text in input["text"].as_array().unwrap() {
         stream.send_text(text.as_str().unwrap()).unwrap();
     }
@@ -217,7 +237,12 @@ fn wire_logger_drops_the_provider_close_reason_and_credential() {
     };
     let base = Url::parse(&format!("http://{}", server.addr)).unwrap();
     let input = &fixture["input"];
-    let mut stream = TtsSocket::connect(&base, KEY, &options(input), &pin, BUDGET, true).unwrap();
+    let settings = recorded_settings(input);
+    let options = SynthesisOptions {
+        voice_settings: Some(VoiceSettings(&settings)),
+        ..options(input)
+    };
+    let mut stream = TtsSocket::connect(&base, KEY, &options, &pin, BUDGET, true).unwrap();
     for text in input["text"].as_array().unwrap() {
         stream.send_text(text.as_str().unwrap()).unwrap();
     }

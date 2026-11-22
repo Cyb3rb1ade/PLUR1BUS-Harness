@@ -12,6 +12,12 @@ import { exporterMain } from "./lib.mjs";
 
 const fixtureKey = "synthetic-voice-credential";
 const keyHeaders = ["xi-api-key", "x-goog-api-key", "authorization"];
+function recordedAuthHeaders(headers: Record<string, unknown>) {
+  return Object.fromEntries(keyHeaders.flatMap(key => {
+    const value = headers[key];
+    return typeof value === "string" ? [[key, value.replaceAll(fixtureKey, "<credential>")]] : [];
+  }));
+}
 
 async function captureRegistry() {
   const responses = [
@@ -104,7 +110,7 @@ async function captureModelSelection(vendor: "xai" | "gemini", reply: Reply, ove
       },
       socket: {
         transport: "websocket", request: { path: socket.req.url, headers: recordedHeader(socket.req.headers) },
-        exchanges: [{ send: frames, receive: [ready] }],
+        exchanges: [{ send: frames, sendText: socket.received, receive: [ready] }],
       },
     };
   } finally {
@@ -174,8 +180,9 @@ async function captureSynthesis(stream = false) {
       zeroRetention: true,
       usage: (report) => reports.push(report),
     });
-    const input = { text: "A fixture voice 👋", voice: "synthetic/a b", language: "en" };
-    const options = { voice: input.voice, language: input.language };
+    const voiceSettings = { stability: 0.5, use_speaker_boost: true, similarity_boost: 0.75 };
+    const input = { text: "A fixture voice 👋", voice: "synthetic/a b", language: "en", voiceSettingsEntries: Object.entries(voiceSettings) };
+    const options = { voice: input.voice, language: input.language, voiceSettings };
     const buffered = async () => await provider.tts.synthesize(input.text, options);
     const streamed = async () => {
       const chunks = [];
@@ -237,10 +244,10 @@ async function captureSocketSynthesis() {
     const peer = server.sockets[0]!;
     return {
       schema: "plur1bus.parity-wire/1", exporter: "scripts/parity/export-voice.ts",
-      transport: "websocket", input,
+      transport: "websocket", input: { ...input, voiceSettingsEntries: Object.entries(input.voiceSettings) },
       request: { path: peer.req.url, headers: { "xi-api-key": String(peer.req.headers["xi-api-key"]).replaceAll(fixtureKey, "<credential>") } },
       expected: { chunks, usage: reports[0] },
-      exchanges: [{ send: peer.jsonFrames(), receive: frames }],
+      exchanges: [{ send: peer.jsonFrames(), sendText: peer.received, receive: frames }],
     };
   } finally {
     await server.close();
@@ -375,8 +382,8 @@ async function captureRealtime(vendor: "grok" | "gemini" | "eleven-asr") {
           ? { type: "audio", bytes: [...second.chunk.data], sampleRate: second.chunk.sampleRate }
           : second],
         exchanges: [
-          { send: hasSetup ? [frames[0]] : [], receive: [ready] },
-          { send: [frames[hasSetup ? 1 : 0]], receive: [answer] },
+          { send: hasSetup ? [frames[0]] : [], sendText: peer.received.slice(0, hasSetup ? 1 : 0), receive: [ready] },
+          { send: [frames[hasSetup ? 1 : 0]], sendText: peer.received.slice(hasSetup ? 1 : 0, hasSetup ? 2 : 1), receive: [answer] },
         ],
       };
     } finally {
@@ -392,6 +399,7 @@ async function captureDialogue(vendor: "grok" | "gemini" | "eleven-asr") {
   const asr = vendor === "eleven-asr";
   const model = asr ? "scribe_v2_realtime" : "fixture-live";
   const input = { vendor, model, language: "de", pcm: [1, 0, 2, 0], sampleRate: 16000, text: "A fixture turn",
+    voice: "fixture-voice", instructions: "Respond in German.", description: "Read a fixture",
     callId: "call-1", tool: "lookup", result: { found: true } };
   const ready = vendor === "grok" ? { type: "session.created" } : asr
     ? { message_type: "session_started" } : { setupComplete: {} };
@@ -438,7 +446,8 @@ async function captureDialogue(vendor: "grok" | "gemini" | "eleven-asr") {
         model, sampleRate: input.sampleRate, language: input.language, timestamps: true, signal,
       })
       : await (vendor === "grok" ? createGrokVoice(config) : createGeminiLive(config))
-        .connect({ model, inputSampleRate: input.sampleRate, tools: [{ name: input.tool }], signal });
+        .connect({ model, voice: input.voice, instructions: input.instructions, inputSampleRate: input.sampleRate,
+          tools: [{ name: input.tool, description: input.description }], signal });
     const stream = session.events[Symbol.asyncIterator]();
     const events = [];
     const take = async (count: number) => {
@@ -464,11 +473,66 @@ async function captureDialogue(vendor: "grok" | "gemini" | "eleven-asr") {
     const split = setupFrames + requestFrames;
     return {
       schema: "plur1bus.parity-wire/1", exporter: "scripts/parity/export-voice.ts", transport: "websocket",
-      input, request: { path: peer.req.url }, expected: events,
+      input, request: { path: peer.req.url, headers: recordedAuthHeaders(peer.req.headers) }, expected: events,
       exchanges: [
-        { send: sent.slice(0, setupFrames), receive: [ready] },
-        { send: sent.slice(setupFrames, split), receive: response },
-        ...(!asr ? [{ send: sent.slice(split), receive: done }] : []),
+        { send: sent.slice(0, setupFrames), sendText: peer.received.slice(0, setupFrames), receive: [ready] },
+        { send: sent.slice(setupFrames, split), sendText: peer.received.slice(setupFrames, split), receive: response },
+        ...(!asr ? [{ send: sent.slice(split), sendText: peer.received.slice(split), receive: done }] : []),
+      ],
+    };
+  } finally {
+    await session?.close();
+    await server.close();
+  }
+}
+
+async function captureRealtimeControl(vendor: "grok" | "gemini") {
+  const grok = vendor === "grok";
+  const input = { vendor, model: "fixture-live", pcm: [2, 0], inputSampleRate: 16000 };
+  const ready = grok ? { type: "session.created" } : { setupComplete: {} };
+  const response = grok ? [
+    { type: "input_audio_buffer.speech_started" },
+  ] : [
+    { serverContent: { modelTurn: { parts: [{ inlineData: { data: "AQI=", mimeType: "audio/pcm;rate=24000" } }] } } },
+    { serverContent: { interrupted: true } },
+    { serverContent: { modelTurn: { parts: [{ inlineData: { data: "AwQ=", mimeType: "audio/pcm;rate=24000" } }] } } },
+  ];
+  const closeCode = grok ? 1008 : 1001;
+  const server = await startFakeVendor({ ws: socket => { void (async () => {
+    await socket.waitFor(1);
+    socket.send(ready);
+    await socket.waitFor(2);
+    response.forEach(frame => socket.send(frame));
+    socket.close(closeCode);
+  })(); } });
+  let session;
+  try {
+    const config = { baseUrl: server.httpUrl, apiKeyRef: "fixture", getSecret: async () => fixtureKey };
+    const provider = grok ? createGrokVoice(config) : createGeminiLive(config);
+    session = await provider.connect({ model: input.model, inputSampleRate: input.inputSampleRate,
+      signal: AbortSignal.timeout(3000) });
+    const events = session.events[Symbol.asyncIterator]();
+    const first = (await events.next()).value;
+    if (first?.type !== "ready") throw new Error("Expected readiness before interruption");
+    session.interrupt();
+    if (!grok) session.sendAudio(Uint8Array.from(input.pcm));
+    const expected: unknown[] = [first];
+    for (;;) {
+      const event = (await events.next()).value;
+      if (!event) throw new Error("Expected the remote close event");
+      if (event.type === "audio") expected.push({ type: "audio", bytes: Array.from(event.chunk.data), sampleRate: event.chunk.sampleRate });
+      else if (event.type === "error") expected.push({ type: "error", code: event.error.code });
+      else expected.push(event);
+      if (event.type === "closed") break;
+    }
+    const peer = server.sockets[0]!;
+    const sent = peer.jsonFrames();
+    return {
+      transport: "websocket", input, closeCode, expected,
+      request: { path: peer.req.url, headers: recordedAuthHeaders(peer.req.headers) },
+      exchanges: [
+        { send: sent.slice(0, 1), sendText: peer.received.slice(0, 1), receive: [ready] },
+        { send: sent.slice(1), sendText: peer.received.slice(1), receive: response },
       ],
     };
   } finally {
@@ -541,6 +605,7 @@ export async function buildVoiceFixtures() {
       await captureModelSelection("gemini", { status: 404, body: { detail: "synthetic" } }),
       await captureModelSelection("xai", { body: { data: [] } }, "fixture-explicit"),
     ],
+    "realtime-control": [await captureRealtimeControl("grok"), await captureRealtimeControl("gemini")],
     catalog: {
       schema: "plur1bus.parity-wire/1",
       exporter: "scripts/parity/export-voice.ts",

@@ -6,7 +6,8 @@
           "message_type": "session_started"
         }
       ],
-      "send": []
+      "send": [],
+      "sendText": []
     },
     {
       "receive": [
@@ -22,6 +23,9 @@
           "message_type": "input_audio_chunk",
           "sample_rate": 16000
         }
+      ],
+      "sendText": [
+        "{\"message_type\":\"input_audio_chunk\",\"audio_base_64\":\"AQACAA==\",\"commit\":false,\"sample_rate\":16000}"
       ]
     }
   ],

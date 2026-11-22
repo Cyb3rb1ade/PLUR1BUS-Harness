@@ -1,6 +1,8 @@
 //! The text-input synthesis dialogue over the shared WebSocket transport.
 use crate::{
-    elevenlabs::{streaming_endpoint, AudioChunk, AudioFormat, StreamUsage, SynthesisOptions},
+    elevenlabs::{
+        streaming_endpoint, AudioChunk, AudioFormat, StreamUsage, SynthesisOptions, VoiceSettings,
+    },
     http::{deadline, Error, MAX_JSON_BYTES},
     realtime::socket_error,
 };
@@ -15,7 +17,7 @@ use url::Url;
 struct Init<'a> {
     text: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    voice_settings: Option<&'a Value>,
+    voice_settings: Option<VoiceSettings<'a>>,
     generation_config: Generation,
 }
 
