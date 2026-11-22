@@ -686,6 +686,17 @@ fn a_nested_reader_inherits_its_stored_parent_path_and_live_budget() {
     );
     let mut held = parent.reserve(parent.limit() as f64).unwrap();
 
+    let mut consult = input(&owner, &project, "receiver", "other", "Verify the appendix");
+    consult.trace_id = Some(&root.queued.trace_id);
+    consult.task_id = Some(&root.queued.id);
+    assert_eq!(
+        h.svc.start_consult(&consult).unwrap_err().guardrail,
+        Some(GuardrailReason::Depth)
+    );
+    consult.path = Some(root.queued.path.clone());
+    let admitted = h.svc.start_consult(&consult).unwrap();
+    assert_eq!(admitted.path, ["sender", "receiver", "other"]);
+
     let mut child = input(&owner, &project, "receiver", "other", "Read the annex");
     child.trace_id = Some(&root.queued.trace_id);
     child.path = Some(vec!["receiver".to_owned()]);

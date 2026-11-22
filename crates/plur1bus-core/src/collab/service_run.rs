@@ -24,6 +24,11 @@ use std::sync::Arc;
 
 const DEFAULT_READ_TOOLS: &[&str] = &["file.read", "file.list", "file.stat"];
 
+enum ParentSource<'a> {
+    Delegation(Option<&'a str>),
+    Consult,
+}
+
 struct DelegationParent {
     task: DelegateTask,
     budget: DelegationWorkBudget,
@@ -116,10 +121,16 @@ impl CollabService {
         }
     }
 
+    pub(super) fn consult_parent_task(&self, i: &AdmitInput<'_>) -> R<Option<DelegateTask>> {
+        Ok(self
+            .delegation_parent(i, ParentSource::Consult)?
+            .map(|parent| parent.task))
+    }
+
     fn delegation_parent(
         &self,
         i: &AdmitInput<'_>,
-        parent_task: Option<&str>,
+        source: ParentSource<'_>,
     ) -> R<Option<DelegationParent>> {
         let trace = if let Some(trace_id) = i.trace_id.filter(|trace| !trace.is_empty()) {
             Some(
@@ -133,10 +144,16 @@ impl CollabService {
         } else {
             None
         };
+        let nested = trace
+            .as_ref()
+            .is_some_and(|trace| trace.root_agent != i.from_agent);
+        let parent_task = match source {
+            ParentSource::Delegation(parent) => parent,
+            ParentSource::Consult if nested => i.task_id,
+            ParentSource::Consult => None,
+        };
         let Some(parent_task) = parent_task else {
-            if trace
-                .as_ref()
-                .is_some_and(|trace| trace.root_agent != i.from_agent)
+            if nested
                 || i.parent_span_id.is_some()
                 || i.path
                     .as_ref()
@@ -198,7 +215,8 @@ impl CollabService {
                 "delegation class does not match its task",
             ));
         }
-        let parent = self.delegation_parent(&req.admission, req.parent_task)?;
+        let parent =
+            self.delegation_parent(&req.admission, ParentSource::Delegation(req.parent_task))?;
         if parent.is_some() && class == CallClass::Write {
             return Err(bad_delegation_path());
         }

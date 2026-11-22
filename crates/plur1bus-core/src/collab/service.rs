@@ -149,6 +149,14 @@ pub struct AdmitInput<'a> {
     pub task_id: Option<&'a str>,
 }
 
+struct ConsultAdmission {
+    chain: Chain,
+    project: Project,
+    path: Vec<String>,
+    turn_key: String,
+    parent_span: Option<String>,
+}
+
 /// What an admitted consult gives back.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ConsultStart {
@@ -640,7 +648,15 @@ impl CollabService {
             .iter()
             .filter(|s| s.kind != "guardrail")
             .collect();
-        let key = J::Arr(vec![J::s(&persisted.root_agent), J::Null]).stringify();
+        let key = Self::turn_key(&persisted.root_agent, None);
+        let mut pair_counts = HashMap::new();
+        for span in &live {
+            if span.kind == "consult" && span.parent_span_id.is_none() {
+                *pair_counts
+                    .entry(pair_key(&key, &span.agent_id))
+                    .or_insert(0) += 1;
+            }
+        }
         let revived = Chain {
             trace_id: trace_id.to_owned(),
             project_id: project.id.clone(),
@@ -648,7 +664,7 @@ impl CollabService {
             started_at: persisted.created_at,
             fanout: live.len() as i64,
             read_starts: HashMap::from([(key, live.len() as i64)]),
-            pair_counts: HashMap::new(),
+            pair_counts,
             tokens_used: persisted
                 .spans
                 .iter()
@@ -829,6 +845,10 @@ impl CollabService {
     /// The admission of a consult or a delegation up to and including the guardrails and the budget check. A refused call
     /// leaves a `guardrail` span and an event, never a started run. Returns the chain and the project.
     pub fn admit(&self, i: &AdmitInput<'_>) -> R<(String, Project)> {
+        if i.consult {
+            let admitted = self.admit_consult(i)?;
+            return Ok((admitted.chain.trace_id, admitted.project));
+        }
         let (chain, project, _) = self.admit_inner(i)?;
         Ok((chain.trace_id, project))
     }
@@ -933,10 +953,64 @@ impl CollabService {
         Ok((chain, project, path))
     }
 
-    /// The start of a consult: admission, the counters, the repeat memory, the span and `consult.started`.
+    fn admit_consult(&self, i: &AdmitInput<'_>) -> R<ConsultAdmission> {
+        let project = self.admission_project(i)?;
+        let parent = match self.consult_parent_task(i) {
+            Ok(parent) => parent,
+            Err(error) if error.guardrail == Some(GuardrailReason::Depth) => {
+                let chain = self.get_chain(i.trace_id, &project, i.from_agent)?;
+                let reason = if i
+                    .path
+                    .as_ref()
+                    .is_some_and(|path| path.iter().any(|agent| agent == i.to_agent))
+                {
+                    GuardrailReason::Cycle
+                } else {
+                    GuardrailReason::Depth
+                };
+                return Err(self.refuse(
+                    &chain,
+                    i.to_agent,
+                    None,
+                    reason,
+                    &format!("guardrail {}", reason.as_str()),
+                ));
+            }
+            Err(error) => return Err(error),
+        };
+        if !i.consult || i.call_class != CallClass::Read {
+            return Err(CollabError::new(
+                C::Unauthorized,
+                "consult requires a read admission",
+            ));
+        }
+        let mut admission = i.clone();
+        admission.path = parent.as_ref().map(|task| task.path.clone());
+        admission.parent_span_id = parent.as_ref().map(|task| task.span_id.as_str());
+        admission.task_id = parent.as_ref().map(|task| task.id.as_str());
+        let i = &admission;
+        let (chain, project, path) = self.guard_admission(i, project)?;
+        if chain.ended || chain.aborted {
+            return Err(CollabError::new(C::Aborted, "consult chain ended"));
+        }
+        Ok(ConsultAdmission {
+            chain,
+            project,
+            path,
+            turn_key: Self::turn_key(i.from_agent, i.task_id),
+            parent_span: i.parent_span_id.map(str::to_owned),
+        })
+    }
+
+    /// Start a consult under its authorized parent and update the counters for that turn.
     pub fn start_consult(&self, i: &AdmitInput<'_>) -> R<ConsultStart> {
-        let (chain, project, path) = self.admit_inner(i)?;
-        let turn_key = Self::turn_key(i.from_agent, i.task_id);
+        let ConsultAdmission {
+            chain,
+            project,
+            path,
+            turn_key,
+            parent_span,
+        } = self.admit_consult(i)?;
         let first = self
             .with_chain(&chain.trace_id, |c| {
                 c.fanout += 1;
@@ -961,7 +1035,7 @@ impl CollabService {
         self.store.insert_span(
             &span_id,
             &chain.trace_id,
-            i.parent_span_id,
+            parent_span.as_deref(),
             i.to_agent,
             "consult",
             None,

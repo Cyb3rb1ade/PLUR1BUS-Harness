@@ -447,10 +447,12 @@ fn the_fanout_and_pair_limits_hold_exactly_at_their_bounds() {
         let text = format!("q{n}");
         let mut x = input(&o, &id2, "root", "t", &text);
         x.trace_id = Some(&one.trace_id);
+        x.task_id = Some(&text);
         h2.svc.start_consult(&x).unwrap();
     }
     let mut fifth = input(&o, &id2, "root", "t", "q-last");
     fifth.trace_id = Some(&one.trace_id);
+    fifth.task_id = Some("final question");
     refused(&h2, &fifth, GuardrailReason::PairLimit);
 }
 
