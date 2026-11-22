@@ -1363,3 +1363,14 @@ or deadline. The Rust JSON reader enforces 1 MiB on decoded replies and uses
 the request's absolute deadline for every read. Rejected HTTP statuses return
 only their numeric code. The host connection must enforce the deadline while
 blocked in a read and release the body after a failure.
+
+<a id="p4d-209"></a>
+
+## P4D-209 — A2A Agent Card advertisement boundary
+
+The Rust card builder requires agent opt-in at the projection boundary,
+validates an HTTP(S) base URL without user information, query or fragment,
+and excludes path-navigation identities. The TypeScript handler enforces
+opt-in before it invokes the builder. The Rust field limits count UTF-16
+units and stop before a scalar that would cross the limit. TypeScript slicing
+can emit a lone surrogate at that boundary.

@@ -6007,6 +6007,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "plur1bus-a2a"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "url",
+]
+
+[[package]]
 name = "plur1bus-attest"
 version = "0.1.0"
 dependencies = [

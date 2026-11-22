@@ -1,0 +1,15 @@
+[package]
+name = "plur1bus-a2a"
+description = "A2A wire protocol projections"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+url = "=2.5.8"

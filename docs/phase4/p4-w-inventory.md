@@ -207,8 +207,8 @@ have separate ceilings. Host registration uses the R-W-11 logger. A socket
 operation already blocked at cancellation can remain blocked until its deadline.
 
 Open W3 parity includes retry timing and the retry-after contract, ElevenLabs
-stream-input TTS, caller text and tool frames, and complete realtime event
-projection and usage. The cloud library has no production caller.
+stream-input TTS, end-to-end verification of caller text and tool frames,
+and complete realtime event projection and usage. The cloud library has no production caller.
 
 ### W4 · Medien und Dokumente (P4-53)
 
@@ -307,6 +307,12 @@ SSE and stdio process transports, auth and registration remain open.
 - **Lücken.** Card-Refresh/Trust-Input, SSE-Events und frühe Ablehnung, Task-Abbruch, Push-Fehler,
   Größenlimits und Zugriffsgrenzen über eine geskriptete Policy. Für eingehende Handler kommt
   der HTTP-Listener aus dem Core-Port.
+
+**W8 local partial delivery.** Agent Card projection replays the TypeScript
+builder's public fields and requires a validated advertised endpoint and
+agent opt-in. [P4D-209](defects.md#p4d-209) records the input restrictions
+and the Unicode boundary. Peer discovery, inbound parsing, SSE, push,
+policy and SDK fixture-peer tests are open.
 
 ### W9 · Matrix (P4-65, Owner-Entscheidung)
 
