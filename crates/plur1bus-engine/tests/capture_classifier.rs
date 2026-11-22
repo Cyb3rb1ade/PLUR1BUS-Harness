@@ -102,7 +102,9 @@ impl LlmPort for Port {
             return Err(HostError::Unavailable);
         }
         Ok(LlmResult {
-            text: if self.provider == "malformed" {
+            text: if self.provider == "cut-off" {
+                r#"{"emotions":["#.into()
+            } else if self.provider == "malformed" {
                 "invalid fixture answer".into()
             } else {
                 self.answer.clone()
@@ -259,9 +261,12 @@ fn real_capture_classification_and_reminders_match_node_lance_rows() {
         let expected = case["calls"].as_array().unwrap();
         assert_eq!(calls.len(), expected.len(), "{name} provider call count");
         for (actual, expected) in calls.iter().zip(expected) {
-            let params: Value = serde_json::from_str(expected["line"].as_str().unwrap()).unwrap();
-            assert_eq!(actual, &params, "{name} complete provider parameters");
+            let mut params: Value =
+                serde_json::from_str(expected["line"].as_str().unwrap()).unwrap();
+            // Preserve the pinned recording and check the sole 7.18.23 wire change.
             assert_eq!(params["maxTokens"], 300);
+            params["maxTokens"] = 450.into();
+            assert_eq!(actual, &params, "{name} complete provider parameters");
             assert_eq!(expected["cancel"], true);
         }
         assert_eq!(
@@ -270,6 +275,45 @@ fn real_capture_classification_and_reminders_match_node_lance_rows() {
             "no request callback retained by private emotional history"
         );
     }
+}
+#[test]
+fn a_cut_off_t3_response_uses_the_same_local_fallback_as_a_failed_call() {
+    let fixture = fixture();
+    let scenario = fixture["recordings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|record| &record["scenario"])
+        .find(|scenario| scenario["name"] == "fixed-t3")
+        .unwrap();
+    let classify = |provider: &str| {
+        let mut scenario = scenario.clone();
+        scenario["provider"] = provider.into();
+        let rig = Rig::new(&scenario);
+        let turn = rig.turn(0, "The public fixture team is happy about the release.");
+        let context =
+            RequestContext::build(&turn.principal, &turn.agent, rig.host.as_ref()).unwrap();
+        let result = rig
+            .classifier
+            .classify(ClassificationRequest {
+                text: &JsString::from(turn.messages[0].content.as_str()),
+                role: "user",
+                turn: &turn,
+                context: &context,
+                now: NOW,
+                cancel: &Cancel::never(),
+            })
+            .unwrap();
+        let calls = rig.routes.calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0]["maxTokens"], 450);
+        (
+            result.emotional_valence,
+            result.emotional_dominant,
+            result.emotion_status,
+        )
+    };
+    assert_eq!(classify("cut-off"), classify("throw"));
 }
 #[test]
 fn forged_context_cancel_and_foreign_mood_refuse_before_route_binding() {

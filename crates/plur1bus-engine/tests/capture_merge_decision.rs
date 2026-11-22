@@ -111,7 +111,7 @@ fn node_results_and_request_contracts_match_except_named_unicode_projection() {
             let node = get(&array(get(case, "calls"))[0], "contract");
             assert_eq!(string(get(node, "purpose")), merge_decision::PURPOSE);
             assert_eq!(call.temperature, None);
-            assert_eq!(call.max_tokens.as_ref().unwrap().as_u64(), Some(300));
+            assert_eq!(call.max_tokens.as_ref().unwrap().as_u64(), Some(450));
             assert_eq!(call.model, model);
             let raw =
                 merge_decision::messages(get(case, "a"), get(case, "b"), &Cancel::never()).unwrap();
@@ -152,4 +152,28 @@ fn cancelled_provider_and_bounded_response_cannot_produce_a_decision() {
     }
     let large = Json::String(JsString::from("x".repeat(1_048_577)));
     assert!(merge_decision::messages(&large, &b, &Cancel::never()).is_err());
+}
+
+#[test]
+fn a_cut_off_merge_reply_preserves_the_separate_fragments() {
+    let port = Port {
+        response: r#"{"merge":true,"reason":"partial"#.into(),
+        fail: false,
+        abort: false,
+        calls: Mutex::new(Vec::new()),
+    };
+    let a = Json::String("First".into());
+    let b = Json::String("Second".into());
+    assert!(
+        merge_decision::check(Some(&port), &a, &b, None, &Cancel::never())
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        port.calls.lock().unwrap()[0]
+            .max_tokens
+            .as_ref()
+            .and_then(serde_json::Number::as_u64),
+        Some(450)
+    );
 }

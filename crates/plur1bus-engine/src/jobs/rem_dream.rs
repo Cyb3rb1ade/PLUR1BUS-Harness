@@ -244,9 +244,8 @@ impl JobBody for RemDream {
                 .iter()
                 .map(|&i| JsString::from(rows[i].text.as_str()))
                 .collect();
-            let mut params = Purpose::RemPatternAnalysis
+            let params = Purpose::RemPatternAnalysis
                 .params(&prompts::guarded_rem_pattern(&evidence).text, None);
-            params.max_tokens = Some(600.into());
             let answer = pattern_route.complete(params, cancel);
             cancel.check()?;
             let mut pattern = answer
@@ -291,7 +290,6 @@ impl JobBody for RemDream {
                 .collect();
             let rendered = prompts::dream_narrative(DreamMode::Rem, None, None, &samples, None);
             let mut params = Purpose::RemNarrative.params(&rendered.text, None);
-            params.max_tokens = Some(900.into());
             if let Some(temperature) = settings["temperature"].as_number() {
                 params.temperature = Some(temperature.clone());
             }
