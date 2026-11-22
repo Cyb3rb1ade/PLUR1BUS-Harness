@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { createElevenLabs } from "../../packages/voice-providers/src/providers/elevenlabs.ts";
 import { createGeminiLive } from "../../packages/voice-providers/src/providers/gemini.ts";
 import { createGrokVoice } from "../../packages/voice-providers/src/providers/grok.ts";
+import { createPolly, type PollyClientLike } from "../../packages/voice-providers/src/providers/polly.ts";
 import { VoiceProviderError } from "../../packages/voice-providers/src/errors.ts";
 import { startFakeVendor, type FakeSocket } from "../../packages/voice-providers/test/helpers/fake-vendor.ts";
 import { startStub } from "../../packages/providers/test/helpers/stub.ts";
@@ -186,9 +187,36 @@ async function captureRealtime(vendor: "grok" | "gemini" | "eleven-asr") {
   }
 }
 
+async function capturePolly() {
+  const input = { text: "Eine Teststimme 🎙", voice: "FixtureVoice", language: "de-DE" };
+  const audio = Uint8Array.of(1, 4, 6, 9);
+  const pages = [
+    { Voices: [
+      { Id: "fixture-a", Name: "Fixture A", LanguageCode: "de-DE", AdditionalLanguageCodes: ["en-US"], Gender: "Female", SupportedEngines: ["neural"] },
+      { Name: "Missing ID" },
+    ], NextToken: "second-page" },
+    { Voices: [{ Id: "fixture-b", SupportedEngines: ["standard", "neural"] }] },
+  ];
+  const synthesisRequests: Parameters<PollyClientLike["synthesize"]>[0][] = [];
+  const listRequests: Parameters<PollyClientLike["describeVoices"]>[0][] = [];
+  const provider = createPolly({
+    clientFactory: async () => ({
+      async synthesize(params) { synthesisRequests.push(params); return audio; },
+      async describeVoices(params) { listRequests.push(params); return params.NextToken ? pages[1]! : pages[0]!; },
+    }),
+  });
+  const { data, ...result } = await provider.synthesize(input.text, { voice: input.voice, language: input.language });
+  const voices = await provider.listVoices!();
+  const models = await provider.listModels!();
+  return { input, pages, synthesisRequests, listRequests, expected: {
+    ...result, data: Array.from(data), voices, models,
+  } };
+}
+
 export async function buildVoiceFixtures() {
   return {
     synthesis: await captureSynthesis(),
+    polly: await capturePolly(),
     "grok-realtime": await captureRealtime("grok"),
     "gemini-realtime": await captureRealtime("gemini"),
     "eleven-asr-realtime": await captureRealtime("eleven-asr"),

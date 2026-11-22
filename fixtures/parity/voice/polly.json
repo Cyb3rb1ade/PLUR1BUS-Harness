@@ -1,0 +1,114 @@
+{
+  "expected": {
+    "data": [
+      1,
+      4,
+      6,
+      9
+    ],
+    "format": "pcm16",
+    "models": [
+      {
+        "capabilities": [
+          "tts"
+        ],
+        "id": "neural",
+        "name": "neural"
+      },
+      {
+        "capabilities": [
+          "tts"
+        ],
+        "id": "standard",
+        "name": "standard"
+      }
+    ],
+    "sampleRate": 16000,
+    "usage": {
+      "chars": 18,
+      "model": "neural",
+      "operation": "tts",
+      "provider": "polly"
+    },
+    "voices": [
+      {
+        "engines": [
+          "neural"
+        ],
+        "gender": "Female",
+        "id": "fixture-a",
+        "languages": [
+          "de-DE",
+          "en-US"
+        ],
+        "name": "Fixture A"
+      },
+      {
+        "engines": [
+          "standard",
+          "neural"
+        ],
+        "id": "fixture-b",
+        "name": "fixture-b"
+      }
+    ]
+  },
+  "input": {
+    "language": "de-DE",
+    "text": "Eine Teststimme 🎙",
+    "voice": "FixtureVoice"
+  },
+  "listRequests": [
+    {},
+    {
+      "NextToken": "second-page"
+    },
+    {},
+    {
+      "NextToken": "second-page"
+    }
+  ],
+  "pages": [
+    {
+      "NextToken": "second-page",
+      "Voices": [
+        {
+          "AdditionalLanguageCodes": [
+            "en-US"
+          ],
+          "Gender": "Female",
+          "Id": "fixture-a",
+          "LanguageCode": "de-DE",
+          "Name": "Fixture A",
+          "SupportedEngines": [
+            "neural"
+          ]
+        },
+        {
+          "Name": "Missing ID"
+        }
+      ]
+    },
+    {
+      "Voices": [
+        {
+          "Id": "fixture-b",
+          "SupportedEngines": [
+            "standard",
+            "neural"
+          ]
+        }
+      ]
+    }
+  ],
+  "synthesisRequests": [
+    {
+      "Engine": "neural",
+      "LanguageCode": "de-DE",
+      "OutputFormat": "pcm",
+      "SampleRate": "16000",
+      "Text": "Eine Teststimme 🎙",
+      "VoiceId": "FixtureVoice"
+    }
+  ]
+}
