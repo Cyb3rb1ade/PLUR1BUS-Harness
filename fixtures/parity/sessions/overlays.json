@@ -1,0 +1,4920 @@
+[
+  {
+    "name": "rewind",
+    "ops": [
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_3",
+              "turnId": "trn_2",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_3",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "q1",
+            "tokens": 1,
+            "turnId": "trn_2"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_2",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "q1",
+          "tokens": 1
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_4",
+              "turnId": "trn_2"
+            },
+            "seq": 2,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_4",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "ses_1",
+            "text": "a1",
+            "tokens": 1,
+            "turnId": "trn_2"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "a1",
+            "tokens": 1
+          },
+          "op": "complete",
+          "turnId": "trn_2"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_6",
+              "turnId": "trn_5",
+              "turnSeq": 2
+            },
+            "seq": 3,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_6",
+            "role": "user",
+            "seq": 3,
+            "sessionId": "ses_1",
+            "text": "q2",
+            "tokens": 1,
+            "turnId": "trn_5"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_5",
+            "incognito": false,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "q2",
+          "tokens": 1
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_7",
+              "turnId": "trn_5"
+            },
+            "seq": 4,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_7",
+            "role": "assistant",
+            "seq": 4,
+            "sessionId": "ses_1",
+            "text": "a2",
+            "tokens": 1,
+            "turnId": "trn_5"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "a2",
+            "tokens": 1
+          },
+          "op": "complete",
+          "turnId": "trn_5"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_9",
+              "turnId": "trn_8",
+              "turnSeq": 3
+            },
+            "seq": 5,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_9",
+            "role": "user",
+            "seq": 5,
+            "sessionId": "ses_1",
+            "text": "q3",
+            "tokens": 1,
+            "turnId": "trn_8"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_8",
+            "incognito": false,
+            "seq": 3,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "q3",
+          "tokens": 1
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_10",
+              "turnId": "trn_8"
+            },
+            "seq": 6,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_10",
+            "role": "assistant",
+            "seq": 6,
+            "sessionId": "ses_1",
+            "text": "a3",
+            "tokens": 1,
+            "turnId": "trn_8"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "a3",
+            "tokens": 1
+          },
+          "op": "complete",
+          "turnId": "trn_8"
+        }
+      },
+      {
+        "ok": {
+          "eventSeq": 6,
+          "hiddenFromSeq": 3,
+          "hiddenToSeq": 6,
+          "messages": [
+            {
+              "createdAt": 1000000,
+              "id": "msg_6",
+              "role": "user",
+              "seq": 3,
+              "sessionId": "ses_1",
+              "text": "q2",
+              "tokens": 1,
+              "turnId": "trn_5"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_7",
+              "role": "assistant",
+              "seq": 4,
+              "sessionId": "ses_1",
+              "text": "a2",
+              "tokens": 1,
+              "turnId": "trn_5"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_9",
+              "role": "user",
+              "seq": 5,
+              "sessionId": "ses_1",
+              "text": "q3",
+              "tokens": 1,
+              "turnId": "trn_8"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_10",
+              "role": "assistant",
+              "seq": 6,
+              "sessionId": "ses_1",
+              "text": "a3",
+              "tokens": 1,
+              "turnId": "trn_8"
+            }
+          ],
+          "parentSeq": 2
+        },
+        "op": {
+          "op": "planRewind",
+          "sessionId": "ses_1",
+          "to": 2
+        }
+      },
+      {
+        "ok": {
+          "eventSeq": 6,
+          "hiddenFromSeq": 5,
+          "hiddenToSeq": 6,
+          "messages": [
+            {
+              "createdAt": 1000000,
+              "id": "msg_9",
+              "role": "user",
+              "seq": 5,
+              "sessionId": "ses_1",
+              "text": "q3",
+              "tokens": 1,
+              "turnId": "trn_8"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_10",
+              "role": "assistant",
+              "seq": 6,
+              "sessionId": "ses_1",
+              "text": "a3",
+              "tokens": 1,
+              "turnId": "trn_8"
+            }
+          ],
+          "parentSeq": 4
+        },
+        "op": {
+          "op": "planRewind",
+          "sessionId": "ses_1",
+          "to": "last"
+        }
+      },
+      {
+        "ok": {
+          "eventSeq": 6,
+          "hiddenFromSeq": 1,
+          "hiddenToSeq": 6,
+          "messages": [
+            {
+              "createdAt": 1000000,
+              "id": "msg_3",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "ses_1",
+              "text": "q1",
+              "tokens": 1,
+              "turnId": "trn_2"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_4",
+              "role": "assistant",
+              "seq": 2,
+              "sessionId": "ses_1",
+              "text": "a1",
+              "tokens": 1,
+              "turnId": "trn_2"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_6",
+              "role": "user",
+              "seq": 3,
+              "sessionId": "ses_1",
+              "text": "q2",
+              "tokens": 1,
+              "turnId": "trn_5"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_7",
+              "role": "assistant",
+              "seq": 4,
+              "sessionId": "ses_1",
+              "text": "a2",
+              "tokens": 1,
+              "turnId": "trn_5"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_9",
+              "role": "user",
+              "seq": 5,
+              "sessionId": "ses_1",
+              "text": "q3",
+              "tokens": 1,
+              "turnId": "trn_8"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_10",
+              "role": "assistant",
+              "seq": 6,
+              "sessionId": "ses_1",
+              "text": "a3",
+              "tokens": 1,
+              "turnId": "trn_8"
+            }
+          ],
+          "parentSeq": 0
+        },
+        "op": {
+          "op": "planRewind",
+          "sessionId": "ses_1",
+          "to": 0
+        }
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "rewind target must be on the active path",
+          "reason": "rewind-target"
+        },
+        "op": {
+          "op": "planRewind",
+          "sessionId": "ses_1",
+          "to": 99
+        }
+      },
+      {
+        "err": {
+          "code": "invalid",
+          "message": "rewind target must be on the active path",
+          "reason": "rewind-target"
+        },
+        "op": {
+          "op": "planRewind",
+          "sessionId": "ses_1",
+          "to": -1
+        }
+      },
+      {
+        "err": {
+          "code": "not-found",
+          "message": "session not found",
+          "reason": "session"
+        },
+        "op": {
+          "op": "planRewind",
+          "sessionId": "missing",
+          "to": 1
+        }
+      },
+      {
+        "audit": [
+          {
+            "action": "session.rewind",
+            "detail": {
+              "actor": "alice",
+              "hiddenDigest": "b98ec07190ef49d9a9f4b8962fb3697667c45ea0a6762b8ffd7d15acae641aa7",
+              "hiddenFrom": 3,
+              "hiddenTo": 6,
+              "parentSeq": 2,
+              "rewindId": "rew_11",
+              "sessionId": "ses_1",
+              "trigger": "user"
+            }
+          }
+        ],
+        "ok": {
+          "actor": "alice",
+          "createdAt": 1000000,
+          "hiddenDigest": "b98ec07190ef49d9a9f4b8962fb3697667c45ea0a6762b8ffd7d15acae641aa7",
+          "hiddenFromSeq": 3,
+          "hiddenToSeq": 6,
+          "id": "rew_11",
+          "lessonMessageId": "msg_12",
+          "parentSeq": 2,
+          "sessionId": "ses_1",
+          "trigger": "user",
+          "undoneAt": null
+        },
+        "op": {
+          "actor": "alice",
+          "audit": "record",
+          "lesson": "lesson one",
+          "op": "rewind",
+          "sessionId": "ses_1",
+          "to": 2,
+          "trigger": "user"
+        }
+      },
+      {
+        "ok": [
+          {
+            "createdAt": 1000000,
+            "id": "msg_3",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "q1",
+            "tokens": 1,
+            "turnId": "trn_2"
+          },
+          {
+            "createdAt": 1000000,
+            "id": "msg_4",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "ses_1",
+            "text": "a1",
+            "tokens": 1,
+            "turnId": "trn_2"
+          },
+          {
+            "createdAt": 1000000,
+            "id": "msg_12",
+            "role": "system",
+            "seq": 7,
+            "sessionId": "ses_1",
+            "text": "lesson one",
+            "tokens": 3,
+            "turnId": null
+          }
+        ],
+        "op": {
+          "op": "contextMessages",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          {
+            "actor": "alice",
+            "createdAt": 1000000,
+            "hiddenDigest": "b98ec07190ef49d9a9f4b8962fb3697667c45ea0a6762b8ffd7d15acae641aa7",
+            "hiddenFromSeq": 3,
+            "hiddenToSeq": 6,
+            "id": "rew_11",
+            "lessonMessageId": "msg_12",
+            "parentSeq": 2,
+            "sessionId": "ses_1",
+            "trigger": "user",
+            "undoneAt": null
+          }
+        ],
+        "op": {
+          "op": "rewinds",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          {
+            "hiddenFromSeq": 3,
+            "hiddenToSeq": 6,
+            "undoneAt": null
+          }
+        ],
+        "op": {
+          "op": "summaryRewinds",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "audit": [],
+        "err": {
+          "code": "conflict",
+          "message": "session changed during rewind; retry on the current path",
+          "reason": "rewind-stale"
+        },
+        "op": {
+          "actor": "alice",
+          "expectedEventSeq": 1,
+          "lesson": "x",
+          "op": "rewind",
+          "sessionId": "ses_1",
+          "to": 2,
+          "trigger": "agent"
+        }
+      },
+      {
+        "audit": [
+          {
+            "action": "session.rewind",
+            "detail": {
+              "actor": "bot",
+              "hiddenDigest": "aaef48e29077fbf03f4fb31de30fe1e3341d613ac9a52b189754cea46ecbc3c3",
+              "hiddenFrom": 1,
+              "hiddenTo": 7,
+              "parentSeq": 0,
+              "rewindId": "rew_13",
+              "sessionId": "ses_1",
+              "trigger": "agent"
+            }
+          }
+        ],
+        "err": {
+          "code": "storage",
+          "message": "audit down",
+          "reason": "sqlite"
+        },
+        "op": {
+          "actor": "bot",
+          "audit": "fail",
+          "lesson": "newer lesson",
+          "op": "rewind",
+          "sessionId": "ses_1",
+          "to": "last",
+          "trigger": "agent"
+        }
+      },
+      {
+        "audit": [],
+        "err": {
+          "code": "invalid",
+          "message": "rewind needs an actor and a lesson of at most 400 estimated tokens",
+          "reason": "rewind-lesson"
+        },
+        "op": {
+          "actor": "bot",
+          "lesson": "",
+          "op": "rewind",
+          "sessionId": "ses_1",
+          "to": "last",
+          "trigger": "agent"
+        }
+      },
+      {
+        "audit": [],
+        "err": {
+          "code": "invalid",
+          "message": "rewind needs an actor and a lesson of at most 400 estimated tokens",
+          "reason": "rewind-lesson"
+        },
+        "op": {
+          "actor": "bot",
+          "lesson": "   ",
+          "op": "rewind",
+          "sessionId": "ses_1",
+          "to": "last",
+          "trigger": "agent"
+        }
+      },
+      {
+        "audit": [],
+        "err": {
+          "code": "invalid",
+          "message": "rewind needs an actor and a lesson of at most 400 estimated tokens",
+          "reason": "rewind-lesson"
+        },
+        "op": {
+          "actor": "bot",
+          "lesson": "lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll",
+          "op": "rewind",
+          "sessionId": "ses_1",
+          "to": "last",
+          "trigger": "agent"
+        }
+      },
+      {
+        "audit": [],
+        "err": {
+          "code": "invalid",
+          "message": "rewind needs an actor and a lesson of at most 400 estimated tokens",
+          "reason": "rewind-lesson"
+        },
+        "op": {
+          "actor": "",
+          "lesson": "llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll",
+          "op": "rewind",
+          "sessionId": "ses_1",
+          "to": "last",
+          "trigger": "agent"
+        }
+      },
+      {
+        "audit": [],
+        "ok": {
+          "actor": "alice",
+          "createdAt": 1000000,
+          "hiddenDigest": "88bd80baea42dd92f5784308cdf590e76f141591b0e2b1fbc0fc6cf99e3246d7",
+          "hiddenFromSeq": 2,
+          "hiddenToSeq": 7,
+          "id": "rew_14",
+          "lessonMessageId": "msg_15",
+          "parentSeq": 1,
+          "sessionId": "ses_1",
+          "trigger": "user",
+          "undoneAt": null
+        },
+        "op": {
+          "actor": "alice",
+          "lesson": "😀 lesson",
+          "op": "rewind",
+          "sessionId": "ses_1",
+          "to": 1,
+          "trigger": "user"
+        }
+      },
+      {
+        "ok": [
+          {
+            "actor": "alice",
+            "createdAt": 1000000,
+            "hiddenDigest": "b98ec07190ef49d9a9f4b8962fb3697667c45ea0a6762b8ffd7d15acae641aa7",
+            "hiddenFromSeq": 3,
+            "hiddenToSeq": 6,
+            "id": "rew_11",
+            "lessonMessageId": "msg_12",
+            "parentSeq": 2,
+            "sessionId": "ses_1",
+            "trigger": "user",
+            "undoneAt": null
+          },
+          {
+            "actor": "alice",
+            "createdAt": 1000000,
+            "hiddenDigest": "88bd80baea42dd92f5784308cdf590e76f141591b0e2b1fbc0fc6cf99e3246d7",
+            "hiddenFromSeq": 2,
+            "hiddenToSeq": 7,
+            "id": "rew_14",
+            "lessonMessageId": "msg_15",
+            "parentSeq": 1,
+            "sessionId": "ses_1",
+            "trigger": "user",
+            "undoneAt": null
+          }
+        ],
+        "op": {
+          "op": "rewinds",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          {
+            "createdAt": 1000000,
+            "id": "msg_3",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "q1",
+            "tokens": 1,
+            "turnId": "trn_2"
+          },
+          {
+            "createdAt": 1000000,
+            "id": "msg_15",
+            "role": "system",
+            "seq": 8,
+            "sessionId": "ses_1",
+            "text": "😀 lesson",
+            "tokens": 3,
+            "turnId": null
+          }
+        ],
+        "op": {
+          "op": "contextMessages",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "audit": [],
+        "err": {
+          "code": "not-found",
+          "message": "rewind not found",
+          "reason": "rewind"
+        },
+        "op": {
+          "actor": "alice",
+          "audit": "record",
+          "op": "undoRewind",
+          "rewindId": "rew_20",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "audit": [],
+        "err": {
+          "code": "not-found",
+          "message": "rewind not found",
+          "reason": "rewind"
+        },
+        "op": {
+          "actor": "alice",
+          "op": "undoRewind",
+          "rewindId": "rew_20",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "audit": [],
+        "err": {
+          "code": "not-found",
+          "message": "rewind not found",
+          "reason": "rewind"
+        },
+        "op": {
+          "actor": "alice",
+          "op": "undoRewind",
+          "rewindId": "nope",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "audit": [],
+        "err": {
+          "code": "not-found",
+          "message": "rewind not found",
+          "reason": "rewind"
+        },
+        "op": {
+          "actor": "",
+          "op": "undoRewind",
+          "rewindId": "rew_20",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          {
+            "createdAt": 1000000,
+            "id": "msg_3",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "q1",
+            "tokens": 1,
+            "turnId": "trn_2"
+          },
+          {
+            "createdAt": 1000000,
+            "id": "msg_15",
+            "role": "system",
+            "seq": 8,
+            "sessionId": "ses_1",
+            "text": "😀 lesson",
+            "tokens": 3,
+            "turnId": null
+          }
+        ],
+        "op": {
+          "op": "contextMessages",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          {
+            "hiddenFromSeq": 3,
+            "hiddenToSeq": 6,
+            "undoneAt": null
+          },
+          {
+            "hiddenFromSeq": 2,
+            "hiddenToSeq": 7,
+            "undoneAt": null
+          }
+        ],
+        "op": {
+          "op": "summaryRewinds",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          {
+            "actor": "alice",
+            "createdAt": 1000000,
+            "hiddenDigest": "b98ec07190ef49d9a9f4b8962fb3697667c45ea0a6762b8ffd7d15acae641aa7",
+            "hiddenFromSeq": 3,
+            "hiddenToSeq": 6,
+            "id": "rew_11",
+            "lessonMessageId": "msg_12",
+            "parentSeq": 2,
+            "sessionId": "ses_1",
+            "trigger": "user",
+            "undoneAt": null
+          },
+          {
+            "actor": "alice",
+            "createdAt": 1000000,
+            "hiddenDigest": "88bd80baea42dd92f5784308cdf590e76f141591b0e2b1fbc0fc6cf99e3246d7",
+            "hiddenFromSeq": 2,
+            "hiddenToSeq": 7,
+            "id": "rew_14",
+            "lessonMessageId": "msg_15",
+            "parentSeq": 1,
+            "sessionId": "ses_1",
+            "trigger": "user",
+            "undoneAt": null
+          }
+        ],
+        "op": {
+          "op": "rewinds",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_3",
+            "rank": -1.6860778130262004,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "snippet": "[q1]"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "q1"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": [
+          {
+            "messageId": "msg_15",
+            "rank": -1.0010119900287429,
+            "seq": 8,
+            "sessionId": "ses_1",
+            "snippet": "😀 [lesson]"
+          },
+          {
+            "messageId": "msg_12",
+            "rank": -0.7248707514001242,
+            "rewound": true,
+            "seq": 7,
+            "sessionId": "ses_1",
+            "snippet": "[lesson] one"
+          }
+        ],
+        "op": {
+          "filter": {
+            "owner": "user:v1:alice",
+            "search": "lesson"
+          },
+          "op": "searchMessages"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "name": "r1",
+          "op": "reserve",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": true,
+        "op": {
+          "op": "reserved",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "file rewind is awaiting or applying approval",
+          "reason": "rewind-in-progress"
+        },
+        "op": {
+          "name": "r2",
+          "op": "reserve",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "file rewind is awaiting or applying approval",
+          "reason": "rewind-in-progress"
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "blocked",
+          "tokens": 1
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "file rewind is awaiting or applying approval",
+          "reason": "rewind-in-progress"
+        },
+        "op": {
+          "op": "planRewind",
+          "sessionId": "ses_1",
+          "to": 1
+        }
+      },
+      {
+        "ok": {
+          "eventSeq": 8,
+          "hiddenFromSeq": 2,
+          "hiddenToSeq": 8,
+          "messages": [
+            {
+              "createdAt": 1000000,
+              "id": "msg_4",
+              "role": "assistant",
+              "seq": 2,
+              "sessionId": "ses_1",
+              "text": "a1",
+              "tokens": 1,
+              "turnId": "trn_2"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_6",
+              "role": "user",
+              "seq": 3,
+              "sessionId": "ses_1",
+              "text": "q2",
+              "tokens": 1,
+              "turnId": "trn_5"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_7",
+              "role": "assistant",
+              "seq": 4,
+              "sessionId": "ses_1",
+              "text": "a2",
+              "tokens": 1,
+              "turnId": "trn_5"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_9",
+              "role": "user",
+              "seq": 5,
+              "sessionId": "ses_1",
+              "text": "q3",
+              "tokens": 1,
+              "turnId": "trn_8"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_10",
+              "role": "assistant",
+              "seq": 6,
+              "sessionId": "ses_1",
+              "text": "a3",
+              "tokens": 1,
+              "turnId": "trn_8"
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_12",
+              "role": "system",
+              "seq": 7,
+              "sessionId": "ses_1",
+              "text": "lesson one",
+              "tokens": 3,
+              "turnId": null
+            },
+            {
+              "createdAt": 1000000,
+              "id": "msg_15",
+              "role": "system",
+              "seq": 8,
+              "sessionId": "ses_1",
+              "text": "😀 lesson",
+              "tokens": 3,
+              "turnId": null
+            }
+          ],
+          "parentSeq": 1
+        },
+        "op": {
+          "op": "planRewind",
+          "reservation": "r1",
+          "sessionId": "ses_1",
+          "to": 1
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "name": "r2",
+          "op": "release"
+        }
+      },
+      {
+        "ok": true,
+        "op": {
+          "op": "reserved",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "name": "r1",
+          "op": "release"
+        }
+      },
+      {
+        "ok": false,
+        "op": {
+          "op": "reserved",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_17",
+              "turnId": "trn_16",
+              "turnSeq": 4
+            },
+            "seq": 9,
+            "sessionId": "ses_1",
+            "turnId": "trn_16",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_17",
+            "role": "user",
+            "seq": 9,
+            "sessionId": "ses_1",
+            "text": "q4",
+            "tokens": 1,
+            "turnId": "trn_16"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_16",
+            "incognito": false,
+            "seq": 4,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "q4",
+          "tokens": 1
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "rewind requires an idle session",
+          "reason": "turn-running"
+        },
+        "op": {
+          "op": "planRewind",
+          "sessionId": "ses_1",
+          "to": 1
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "rewind requires an idle session",
+          "reason": "turn-running"
+        },
+        "op": {
+          "name": "r3",
+          "op": "reserve",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "rewind requires an idle session",
+          "reason": "turn-running"
+        },
+        "op": {
+          "commandTurnId": "trn_30",
+          "op": "planRewind",
+          "sessionId": "ses_1",
+          "to": 1
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "session ses_1 has a running turn",
+          "reason": "turn-in-progress"
+        },
+        "op": {
+          "id": "ses_1",
+          "op": "archive"
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "rewind requires an idle session",
+          "reason": "turn-running"
+        },
+        "op": {
+          "op": "planRewind",
+          "sessionId": "ses_1",
+          "to": 1
+        }
+      },
+      {
+        "ok": [
+          {
+            "actor": "alice",
+            "created_at": 1000000,
+            "hidden_digest": "b98ec07190ef49d9a9f4b8962fb3697667c45ea0a6762b8ffd7d15acae641aa7",
+            "hidden_from_seq": 3,
+            "hidden_to_seq": 6,
+            "id": "rew_11",
+            "lesson_message_id": "msg_12",
+            "parent_seq": 2,
+            "session_id": "ses_1",
+            "trigger": "user",
+            "undone_at": null
+          },
+          {
+            "actor": "alice",
+            "created_at": 1000000,
+            "hidden_digest": "88bd80baea42dd92f5784308cdf590e76f141591b0e2b1fbc0fc6cf99e3246d7",
+            "hidden_from_seq": 2,
+            "hidden_to_seq": 7,
+            "id": "rew_14",
+            "lesson_message_id": "msg_15",
+            "parent_seq": 1,
+            "session_id": "ses_1",
+            "trigger": "user",
+            "undone_at": null
+          }
+        ],
+        "op": {
+          "args": [],
+          "op": "sql",
+          "sql": "SELECT id, session_id, parent_seq, hidden_from_seq, hidden_to_seq, lesson_message_id, hidden_digest, trigger, actor, created_at, undone_at FROM path_rewinds ORDER BY rowid"
+        }
+      },
+      {
+        "ok": [
+          {
+            "data": {
+              "actor": "alice",
+              "hiddenDigest": "b98ec07190ef49d9a9f4b8962fb3697667c45ea0a6762b8ffd7d15acae641aa7",
+              "hiddenFrom": 3,
+              "hiddenTo": 6,
+              "lessonMessageId": "msg_12",
+              "parentSeq": 2,
+              "rewindId": "rew_11",
+              "sessionId": "ses_1",
+              "trigger": "user"
+            },
+            "seq": 7,
+            "session_id": "ses_1",
+            "turn_id": null,
+            "type": "session.rewind"
+          },
+          {
+            "data": {
+              "actor": "alice",
+              "hiddenDigest": "88bd80baea42dd92f5784308cdf590e76f141591b0e2b1fbc0fc6cf99e3246d7",
+              "hiddenFrom": 2,
+              "hiddenTo": 7,
+              "lessonMessageId": "msg_15",
+              "parentSeq": 1,
+              "rewindId": "rew_14",
+              "sessionId": "ses_1",
+              "trigger": "user"
+            },
+            "seq": 8,
+            "session_id": "ses_1",
+            "turn_id": null,
+            "type": "session.rewind"
+          }
+        ],
+        "op": {
+          "args": [],
+          "op": "sql",
+          "sql": "SELECT session_id, seq, turn_id, type, data FROM events WHERE type LIKE 'session.rewind%' ORDER BY seq"
+        }
+      }
+    ]
+  },
+  {
+    "name": "rewind-proposal",
+    "ops": [
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_3",
+              "turnId": "trn_2",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_3",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "step 0",
+            "tokens": 1,
+            "turnId": "trn_2"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_2",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "step 0",
+          "tokens": 1
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "path": "a.ts"
+            },
+            "id": "e0",
+            "name": "file.edit"
+          },
+          "seq": 2,
+          "sessionId": "ses_1",
+          "turnId": "trn_2",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "path": "a.ts"
+            },
+            "id": "e0",
+            "name": "file.edit"
+          },
+          "op": "append",
+          "turnId": "trn_2",
+          "type": "tool.call"
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "e0",
+            "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+          },
+          "seq": 3,
+          "sessionId": "ses_1",
+          "turnId": "trn_2",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "e0",
+            "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+          },
+          "op": "append",
+          "turnId": "trn_2",
+          "type": "tool.result"
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "argv": [
+                "pnpm",
+                "test"
+              ]
+            },
+            "id": "c0",
+            "name": "exec.run"
+          },
+          "seq": 4,
+          "sessionId": "ses_1",
+          "turnId": "trn_2",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "argv": [
+                "pnpm",
+                "test"
+              ]
+            },
+            "id": "c0",
+            "name": "exec.run"
+          },
+          "op": "append",
+          "turnId": "trn_2",
+          "type": "tool.call"
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "c0",
+            "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+          },
+          "seq": 5,
+          "sessionId": "ses_1",
+          "turnId": "trn_2",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "c0",
+            "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+          },
+          "op": "append",
+          "turnId": "trn_2",
+          "type": "tool.result"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_4",
+              "turnId": "trn_2"
+            },
+            "seq": 6,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_4",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "ses_1",
+            "text": "done 0",
+            "tokens": 1,
+            "turnId": "trn_2"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "done 0",
+            "tokens": 1
+          },
+          "op": "complete",
+          "turnId": "trn_2"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "op": "rewindProposal",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_6",
+              "turnId": "trn_5",
+              "turnSeq": 2
+            },
+            "seq": 7,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_6",
+            "role": "user",
+            "seq": 3,
+            "sessionId": "ses_1",
+            "text": "step 1",
+            "tokens": 1,
+            "turnId": "trn_5"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_5",
+            "incognito": false,
+            "seq": 2,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "step 1",
+          "tokens": 1
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "path": "a.ts"
+            },
+            "id": "e1",
+            "name": "file.edit"
+          },
+          "seq": 8,
+          "sessionId": "ses_1",
+          "turnId": "trn_5",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "path": "a.ts"
+            },
+            "id": "e1",
+            "name": "file.edit"
+          },
+          "op": "append",
+          "turnId": "trn_5",
+          "type": "tool.call"
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "e1",
+            "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+          },
+          "seq": 9,
+          "sessionId": "ses_1",
+          "turnId": "trn_5",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "e1",
+            "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+          },
+          "op": "append",
+          "turnId": "trn_5",
+          "type": "tool.result"
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "argv": [
+                "pnpm",
+                "test"
+              ]
+            },
+            "id": "c1",
+            "name": "exec.run"
+          },
+          "seq": 10,
+          "sessionId": "ses_1",
+          "turnId": "trn_5",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "argv": [
+                "pnpm",
+                "test"
+              ]
+            },
+            "id": "c1",
+            "name": "exec.run"
+          },
+          "op": "append",
+          "turnId": "trn_5",
+          "type": "tool.call"
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "c1",
+            "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+          },
+          "seq": 11,
+          "sessionId": "ses_1",
+          "turnId": "trn_5",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "c1",
+            "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+          },
+          "op": "append",
+          "turnId": "trn_5",
+          "type": "tool.result"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_7",
+              "turnId": "trn_5"
+            },
+            "seq": 12,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_7",
+            "role": "assistant",
+            "seq": 4,
+            "sessionId": "ses_1",
+            "text": "done 1",
+            "tokens": 1,
+            "turnId": "trn_5"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "done 1",
+            "tokens": 1
+          },
+          "op": "complete",
+          "turnId": "trn_5"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "op": "rewindProposal",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_9",
+              "turnId": "trn_8",
+              "turnSeq": 3
+            },
+            "seq": 13,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_9",
+            "role": "user",
+            "seq": 5,
+            "sessionId": "ses_1",
+            "text": "step 2",
+            "tokens": 1,
+            "turnId": "trn_8"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_8",
+            "incognito": false,
+            "seq": 3,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "step 2",
+          "tokens": 1
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "path": "a.ts"
+            },
+            "id": "e2",
+            "name": "file.edit"
+          },
+          "seq": 14,
+          "sessionId": "ses_1",
+          "turnId": "trn_8",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "path": "a.ts"
+            },
+            "id": "e2",
+            "name": "file.edit"
+          },
+          "op": "append",
+          "turnId": "trn_8",
+          "type": "tool.call"
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "e2",
+            "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+          },
+          "seq": 15,
+          "sessionId": "ses_1",
+          "turnId": "trn_8",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "e2",
+            "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+          },
+          "op": "append",
+          "turnId": "trn_8",
+          "type": "tool.result"
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "argv": [
+                "pnpm",
+                "test"
+              ]
+            },
+            "id": "c2",
+            "name": "exec.run"
+          },
+          "seq": 16,
+          "sessionId": "ses_1",
+          "turnId": "trn_8",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "argv": [
+                "pnpm",
+                "test"
+              ]
+            },
+            "id": "c2",
+            "name": "exec.run"
+          },
+          "op": "append",
+          "turnId": "trn_8",
+          "type": "tool.call"
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "c2",
+            "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+          },
+          "seq": 17,
+          "sessionId": "ses_1",
+          "turnId": "trn_8",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "c2",
+            "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+          },
+          "op": "append",
+          "turnId": "trn_8",
+          "type": "tool.result"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_10",
+              "turnId": "trn_8"
+            },
+            "seq": 18,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_10",
+            "role": "assistant",
+            "seq": 6,
+            "sessionId": "ses_1",
+            "text": "done 2",
+            "tokens": 1,
+            "turnId": "trn_8"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "done 2",
+            "tokens": 1
+          },
+          "op": "complete",
+          "turnId": "trn_8"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "op": "rewindProposal",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_12",
+              "turnId": "trn_11",
+              "turnSeq": 4
+            },
+            "seq": 19,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_12",
+            "role": "user",
+            "seq": 7,
+            "sessionId": "ses_1",
+            "text": "step 3",
+            "tokens": 1,
+            "turnId": "trn_11"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_11",
+            "incognito": false,
+            "seq": 4,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "step 3",
+          "tokens": 1
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "path": "a.ts"
+            },
+            "id": "e3",
+            "name": "file.edit"
+          },
+          "seq": 20,
+          "sessionId": "ses_1",
+          "turnId": "trn_11",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "path": "a.ts"
+            },
+            "id": "e3",
+            "name": "file.edit"
+          },
+          "op": "append",
+          "turnId": "trn_11",
+          "type": "tool.call"
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "e3",
+            "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+          },
+          "seq": 21,
+          "sessionId": "ses_1",
+          "turnId": "trn_11",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "e3",
+            "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+          },
+          "op": "append",
+          "turnId": "trn_11",
+          "type": "tool.result"
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "args": {
+              "argv": [
+                "pnpm",
+                "test"
+              ]
+            },
+            "id": "c3",
+            "name": "exec.run"
+          },
+          "seq": 22,
+          "sessionId": "ses_1",
+          "turnId": "trn_11",
+          "type": "tool.call"
+        },
+        "op": {
+          "data": {
+            "args": {
+              "argv": [
+                "pnpm",
+                "test"
+              ]
+            },
+            "id": "c3",
+            "name": "exec.run"
+          },
+          "op": "append",
+          "turnId": "trn_11",
+          "type": "tool.call"
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "id": "c3",
+            "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+          },
+          "seq": 23,
+          "sessionId": "ses_1",
+          "turnId": "trn_11",
+          "type": "tool.result"
+        },
+        "op": {
+          "data": {
+            "id": "c3",
+            "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+          },
+          "op": "append",
+          "turnId": "trn_11",
+          "type": "tool.result"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_13",
+              "turnId": "trn_11"
+            },
+            "seq": 24,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_13",
+            "role": "assistant",
+            "seq": 8,
+            "sessionId": "ses_1",
+            "text": "done 3",
+            "tokens": 1,
+            "turnId": "trn_11"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "done 3",
+            "tokens": 1
+          },
+          "op": "complete",
+          "turnId": "trn_11"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "op": "rewindProposal",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "agentId": "bernd",
+            "failedCycles": 3,
+            "lastCheckSeq": 3,
+            "parentSeq": 2
+          },
+          "seq": 25,
+          "sessionId": "ses_1",
+          "turnId": null,
+          "type": "session.rewind.proposed"
+        },
+        "op": {
+          "op": "proposeRewind",
+          "proposal": {
+            "agentId": "bernd",
+            "failedCycles": 3,
+            "lastCheckSeq": 3,
+            "parentSeq": 2
+          },
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "path": "a.ts"
+              },
+              "id": "e0",
+              "name": "file.edit"
+            },
+            "seq": 2,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "e0",
+              "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 3,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "tool.result"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "argv": [
+                  "pnpm",
+                  "test"
+                ]
+              },
+              "id": "c0",
+              "name": "exec.run"
+            },
+            "seq": 4,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "c0",
+              "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 5,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "tool.result"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "path": "a.ts"
+              },
+              "id": "e1",
+              "name": "file.edit"
+            },
+            "seq": 8,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "e1",
+              "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 9,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "tool.result"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "argv": [
+                  "pnpm",
+                  "test"
+                ]
+              },
+              "id": "c1",
+              "name": "exec.run"
+            },
+            "seq": 10,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "c1",
+              "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 11,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "tool.result"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "path": "a.ts"
+              },
+              "id": "e2",
+              "name": "file.edit"
+            },
+            "seq": 14,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "e2",
+              "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 15,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "tool.result"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "argv": [
+                  "pnpm",
+                  "test"
+                ]
+              },
+              "id": "c2",
+              "name": "exec.run"
+            },
+            "seq": 16,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "c2",
+              "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 17,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "tool.result"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "path": "a.ts"
+              },
+              "id": "e3",
+              "name": "file.edit"
+            },
+            "seq": 20,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "e3",
+              "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 21,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "tool.result"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "argv": [
+                  "pnpm",
+                  "test"
+                ]
+              },
+              "id": "c3",
+              "name": "exec.run"
+            },
+            "seq": 22,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "c3",
+              "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 23,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "tool.result"
+          }
+        ],
+        "op": {
+          "op": "contextToolEvents",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "path": "a.ts"
+              },
+              "id": "e0",
+              "name": "file.edit"
+            },
+            "seq": 2,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "e0",
+              "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 3,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "tool.result"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "argv": [
+                  "pnpm",
+                  "test"
+                ]
+              },
+              "id": "c0",
+              "name": "exec.run"
+            },
+            "seq": 4,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "c0",
+              "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 5,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "tool.result"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "path": "a.ts"
+              },
+              "id": "e1",
+              "name": "file.edit"
+            },
+            "seq": 8,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "e1",
+              "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 9,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "tool.result"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "argv": [
+                  "pnpm",
+                  "test"
+                ]
+              },
+              "id": "c1",
+              "name": "exec.run"
+            },
+            "seq": 10,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "c1",
+              "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 11,
+            "sessionId": "ses_1",
+            "turnId": "trn_5",
+            "type": "tool.result"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "path": "a.ts"
+              },
+              "id": "e2",
+              "name": "file.edit"
+            },
+            "seq": 14,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "e2",
+              "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 15,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "tool.result"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "argv": [
+                  "pnpm",
+                  "test"
+                ]
+              },
+              "id": "c2",
+              "name": "exec.run"
+            },
+            "seq": 16,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "c2",
+              "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 17,
+            "sessionId": "ses_1",
+            "turnId": "trn_8",
+            "type": "tool.result"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "path": "a.ts"
+              },
+              "id": "e3",
+              "name": "file.edit"
+            },
+            "seq": 20,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "e3",
+              "output": "{\"value\":{\"ok\":true,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 21,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "tool.result"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "args": {
+                "argv": [
+                  "pnpm",
+                  "test"
+                ]
+              },
+              "id": "c3",
+              "name": "exec.run"
+            },
+            "seq": 22,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "tool.call"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "id": "c3",
+              "output": "{\"value\":{\"exitCode\":1,\"isError\":false},\"isError\":false}"
+            },
+            "seq": 23,
+            "sessionId": "ses_1",
+            "turnId": "trn_11",
+            "type": "tool.result"
+          }
+        ],
+        "op": {
+          "op": "toolEvents",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "op": "rewindProposal",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": {
+          "at": 1000000,
+          "data": {
+            "agentId": "bernd",
+            "failedCycles": 3,
+            "lastCheckSeq": 3,
+            "parentSeq": 2
+          },
+          "seq": 26,
+          "sessionId": "ses_1",
+          "turnId": null,
+          "type": "session.rewind.proposed"
+        },
+        "op": {
+          "op": "proposeRewind",
+          "proposal": {
+            "agentId": "bernd",
+            "failedCycles": 3,
+            "lastCheckSeq": 3,
+            "parentSeq": 2
+          },
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          {
+            "data": {
+              "agentId": "bernd",
+              "failedCycles": 3,
+              "lastCheckSeq": 3,
+              "parentSeq": 2
+            },
+            "type": "session.rewind.proposed"
+          },
+          {
+            "data": {
+              "agentId": "bernd",
+              "failedCycles": 3,
+              "lastCheckSeq": 3,
+              "parentSeq": 2
+            },
+            "type": "session.rewind.proposed"
+          }
+        ],
+        "op": {
+          "args": [],
+          "op": "sql",
+          "sql": "SELECT type, data FROM events WHERE type='session.rewind.proposed'"
+        }
+      }
+    ]
+  },
+  {
+    "name": "calibration-and-usage",
+    "ops": [
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_3",
+              "turnId": "trn_2",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_3",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "hello world",
+            "tokens": 3,
+            "turnId": "trn_2"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_2",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "hello world",
+          "tokens": 3
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_4",
+              "turnId": "trn_2"
+            },
+            "seq": 2,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_4",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "ses_1",
+            "text": "reply",
+            "tokens": 2,
+            "turnId": "trn_2"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "reply",
+            "tokens": 2
+          },
+          "op": "complete",
+          "turnId": "trn_2"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "model": "m",
+          "op": "tokenCalibration"
+        }
+      },
+      {
+        "ok": 1,
+        "op": {
+          "model": "m",
+          "op": "tokenFactor"
+        }
+      },
+      {
+        "ok": 1,
+        "op": {
+          "model": "m",
+          "op": "meterCount",
+          "text": "abcd"
+        }
+      },
+      {
+        "ok": 2,
+        "op": {
+          "model": "m",
+          "op": "meterCount",
+          "text": "abcde"
+        }
+      },
+      {
+        "ok": 0,
+        "op": {
+          "model": "m",
+          "op": "meterCount",
+          "text": ""
+        }
+      },
+      {
+        "ok": 1,
+        "op": {
+          "model": "m",
+          "op": "meterCount",
+          "text": "😀😀"
+        }
+      },
+      {
+        "ok": 7,
+        "op": {
+          "measured": 7,
+          "model": "m",
+          "op": "meterCount",
+          "text": "abcd"
+        }
+      },
+      {
+        "ok": 0,
+        "op": {
+          "measured": 0,
+          "model": "m",
+          "op": "meterCount",
+          "text": "abcd"
+        }
+      },
+      {
+        "ok": 1,
+        "op": {
+          "measured": -1,
+          "model": "m",
+          "op": "meterCount",
+          "text": "abcd"
+        }
+      },
+      {
+        "ok": 1,
+        "op": {
+          "measured": 1.5,
+          "model": "m",
+          "op": "meterCount",
+          "text": "abcd"
+        }
+      },
+      {
+        "ok": 1,
+        "op": {
+          "measured": 9007199254740992,
+          "model": "m",
+          "op": "meterCount",
+          "text": "abcd"
+        }
+      },
+      {
+        "ok": 1.5,
+        "op": {
+          "estimated": 100,
+          "measured": 150,
+          "model": "m",
+          "op": "meterObserve"
+        }
+      },
+      {
+        "ok": 1.3800000000000001,
+        "op": {
+          "estimated": 100,
+          "measured": 90,
+          "model": "m",
+          "op": "meterObserve"
+        }
+      },
+      {
+        "ok": 1.1540000000000001,
+        "op": {
+          "estimated": 100,
+          "measured": 1,
+          "model": "m",
+          "op": "meterObserve"
+        }
+      },
+      {
+        "ok": 4.123200000000001,
+        "op": {
+          "estimated": 1,
+          "measured": 1000,
+          "model": "m",
+          "op": "meterObserve"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "estimated": 1,
+          "measured": 2,
+          "model": "",
+          "op": "meterObserve"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "estimated": 0,
+          "measured": 2,
+          "model": "n",
+          "op": "meterObserve"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "estimated": -3,
+          "measured": 2,
+          "model": "n",
+          "op": "meterObserve"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "estimated": 3,
+          "measured": 0,
+          "model": "n",
+          "op": "meterObserve"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "estimated": 3,
+          "measured": 2.5,
+          "model": "n",
+          "op": "meterObserve"
+        }
+      },
+      {
+        "ok": 2.3333333333333335,
+        "op": {
+          "estimated": 3,
+          "measured": 7,
+          "model": "n",
+          "op": "meterObserve"
+        }
+      },
+      {
+        "ok": 1.9523809523809526,
+        "op": {
+          "estimated": 7,
+          "measured": 3,
+          "model": "n",
+          "op": "meterObserve"
+        }
+      },
+      {
+        "ok": 1.761904761904762,
+        "op": {
+          "estimated": 3,
+          "measured": 3,
+          "model": "n",
+          "op": "meterObserve"
+        }
+      },
+      {
+        "ok": 1035,
+        "op": {
+          "model": "m",
+          "op": "meterCount",
+          "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      {
+        "ok": 149,
+        "op": {
+          "model": "n",
+          "op": "meterCount",
+          "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      {
+        "ok": 2,
+        "op": {
+          "model": "n",
+          "op": "meterCount",
+          "text": "aaa"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "factor": 0.1,
+          "model": "x",
+          "op": "setTokenFactor"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "factor": 3,
+          "model": "x",
+          "op": "setTokenFactor"
+        }
+      },
+      {
+        "ok": 3,
+        "op": {
+          "model": "x",
+          "op": "tokenCalibration"
+        }
+      },
+      {
+        "ok": 30,
+        "op": {
+          "model": "x",
+          "op": "meterCount",
+          "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "id": "msg_3",
+          "model": "m",
+          "op": "recordUsage",
+          "tokens": 11
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "id": "msg_3",
+          "model": "m",
+          "op": "recordUsage",
+          "tokens": 12
+        }
+      },
+      {
+        "err": {
+          "message": "FOREIGN KEY constraint failed",
+          "name": "Error"
+        },
+        "op": {
+          "id": "nope",
+          "model": "m",
+          "op": "recordUsage",
+          "tokens": 1
+        }
+      },
+      {
+        "ok": 12,
+        "op": {
+          "id": "msg_3",
+          "model": "m",
+          "op": "messageUsage",
+          "text": "hello world"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "id": "msg_3",
+          "model": "m",
+          "op": "messageUsage",
+          "text": "other"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "id": "msg_3",
+          "model": "z",
+          "op": "messageUsage",
+          "text": "hello world"
+        }
+      },
+      {
+        "ok": [
+          {
+            "factor": 4.123200000000001,
+            "model": "m",
+            "t": "real"
+          },
+          {
+            "factor": 1.761904761904762,
+            "model": "n",
+            "t": "real"
+          },
+          {
+            "factor": 3,
+            "model": "x",
+            "t": "real"
+          }
+        ],
+        "op": {
+          "args": [],
+          "op": "sql",
+          "sql": "SELECT model, factor, typeof(factor) AS t FROM token_calibration ORDER BY model"
+        }
+      },
+      {
+        "ok": [
+          {
+            "message_id": "msg_3",
+            "model": "m",
+            "tokens": 12
+          }
+        ],
+        "op": {
+          "args": [],
+          "op": "sql",
+          "sql": "SELECT message_id, model, tokens FROM message_usage"
+        }
+      },
+      {
+        "ok": 1000,
+        "op": {
+          "model": {
+            "model": "m",
+            "provider": "p"
+          },
+          "models": [
+            {
+              "contextWindow": 1000,
+              "id": "m",
+              "provider": "p"
+            }
+          ],
+          "op": "catalogWindow"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "model": {
+            "model": "m",
+            "provider": "p"
+          },
+          "models": [
+            {
+              "contextWindow": 0,
+              "id": "m",
+              "provider": "p"
+            }
+          ],
+          "op": "catalogWindow"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "model": {
+            "model": "m",
+            "provider": "p"
+          },
+          "models": [
+            {
+              "contextWindow": -5,
+              "id": "m",
+              "provider": "p"
+            }
+          ],
+          "op": "catalogWindow"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "model": {
+            "model": "m",
+            "provider": "p"
+          },
+          "models": [
+            {
+              "contextWindow": 1.5,
+              "id": "m",
+              "provider": "p"
+            }
+          ],
+          "op": "catalogWindow"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "model": {
+            "model": "m",
+            "provider": "p"
+          },
+          "models": [
+            {
+              "contextWindow": 9007199254740992,
+              "id": "m",
+              "provider": "p"
+            }
+          ],
+          "op": "catalogWindow"
+        }
+      },
+      {
+        "ok": 9007199254740991,
+        "op": {
+          "model": {
+            "model": "m",
+            "provider": "p"
+          },
+          "models": [
+            {
+              "contextWindow": 9007199254740991,
+              "id": "m",
+              "provider": "p"
+            }
+          ],
+          "op": "catalogWindow"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "model": {
+            "model": "m",
+            "provider": "p"
+          },
+          "models": [
+            {
+              "id": "m",
+              "provider": "p"
+            }
+          ],
+          "op": "catalogWindow"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "model": {
+            "model": "m",
+            "provider": "p"
+          },
+          "models": [
+            {
+              "contextWindow": 5,
+              "id": "x",
+              "provider": "p"
+            }
+          ],
+          "op": "catalogWindow"
+        }
+      },
+      {
+        "ok": 7,
+        "op": {
+          "model": {
+            "model": "m",
+            "provider": "p"
+          },
+          "models": [
+            {
+              "contextWindow": 7,
+              "id": "m",
+              "provider": "p"
+            },
+            {
+              "contextWindow": 9,
+              "id": "m",
+              "provider": "p"
+            }
+          ],
+          "op": "catalogWindow"
+        }
+      }
+    ]
+  },
+  {
+    "name": "visibility-and-summaries",
+    "ops": [
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_3",
+              "turnId": "trn_2",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_3",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "q",
+            "tokens": 1,
+            "turnId": "trn_2"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_2",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "q",
+          "tokens": 1
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_4",
+              "turnId": "trn_2"
+            },
+            "seq": 2,
+            "sessionId": "ses_1",
+            "turnId": "trn_2",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_4",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "ses_1",
+            "text": "a",
+            "tokens": 1,
+            "turnId": "trn_2"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "a",
+            "tokens": 1
+          },
+          "op": "complete",
+          "turnId": "trn_2"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "op": "visibility",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "old",
+          "ref": "r1",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.75,
+            "mode": "truncate",
+            "tokensSaved": 40
+          },
+          "hidden": false,
+          "op": "setVisibility",
+          "reason": "keep",
+          "ref": "r2",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "detail": {
+            "confidence": 0.5,
+            "mode": "drop",
+            "tokensSaved": 10
+          },
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "again",
+          "ref": "r1",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "message": "FOREIGN KEY constraint failed",
+          "name": "Error"
+        },
+        "op": {
+          "hidden": true,
+          "op": "setVisibility",
+          "reason": "x",
+          "ref": "r1",
+          "sessionId": "nope"
+        }
+      },
+      {
+        "ok": [
+          {
+            "hidden": true,
+            "reason": "again",
+            "ref": "r1"
+          },
+          {
+            "hidden": false,
+            "mode": "truncate",
+            "reason": "keep",
+            "ref": "r2"
+          }
+        ],
+        "op": {
+          "op": "visibility",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          {
+            "confidence": 0.5,
+            "hidden": true,
+            "ref": "r1",
+            "tokensSaved": 10,
+            "verdict": "drop"
+          },
+          {
+            "confidence": 0.75,
+            "hidden": false,
+            "ref": "r2",
+            "tokensSaved": 40,
+            "verdict": "truncate"
+          }
+        ],
+        "op": {
+          "op": "pruneExplanation",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "op": "refetch",
+          "ref": "r1",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "op": "refetch",
+          "ref": "r1",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "op": "refetch",
+          "ref": "none",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": {
+          "pruned": 2,
+          "refetchRate": 1,
+          "refetches": 2,
+          "tokensSaved": 50
+        },
+        "op": {
+          "op": "pruneMetrics",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": {
+          "pruned": 0,
+          "refetchRate": 0,
+          "refetches": 0,
+          "tokensSaved": 0
+        },
+        "op": {
+          "op": "pruneMetrics",
+          "sessionId": "empty"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "changes": [
+            {
+              "detail": {
+                "confidence": 0.9,
+                "mode": "truncate",
+                "tokensSaved": 5
+              },
+              "hidden": true,
+              "reason": "p",
+              "ref": "r3",
+              "turnId": "trn_2"
+            },
+            {
+              "hidden": false,
+              "reason": "plain",
+              "ref": "r4"
+            }
+          ],
+          "op": "setVisibilities",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "pruning turn is not completed",
+          "reason": "turn-not-running"
+        },
+        "op": {
+          "changes": [
+            {
+              "detail": {
+                "confidence": 1,
+                "mode": "drop",
+                "tokensSaved": 1
+              },
+              "hidden": true,
+              "reason": "p",
+              "ref": "r5",
+              "turnId": "trn_2"
+            },
+            {
+              "detail": {
+                "confidence": 1,
+                "mode": "drop",
+                "tokensSaved": 1
+              },
+              "hidden": true,
+              "reason": "bad",
+              "ref": "r6",
+              "turnId": "nope"
+            }
+          ],
+          "op": "setVisibilities",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          {
+            "hidden": true,
+            "reason": "again",
+            "ref": "r1"
+          },
+          {
+            "hidden": false,
+            "mode": "truncate",
+            "reason": "keep",
+            "ref": "r2"
+          },
+          {
+            "hidden": true,
+            "mode": "truncate",
+            "reason": "p",
+            "ref": "r3"
+          },
+          {
+            "hidden": false,
+            "reason": "plain",
+            "ref": "r4"
+          }
+        ],
+        "op": {
+          "op": "visibility",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "after": 3,
+          "op": "events",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          {
+            "confidence": 0.5,
+            "hidden": true,
+            "ref": "r1",
+            "tokensSaved": 10,
+            "verdict": "drop"
+          },
+          {
+            "confidence": 0.75,
+            "hidden": false,
+            "ref": "r2",
+            "tokensSaved": 40,
+            "verdict": "truncate"
+          },
+          {
+            "confidence": 0.9,
+            "hidden": true,
+            "ref": "r3",
+            "tokensSaved": 5,
+            "verdict": "truncate"
+          },
+          {
+            "confidence": null,
+            "hidden": false,
+            "ref": "r4",
+            "tokensSaved": 0,
+            "verdict": "drop"
+          }
+        ],
+        "op": {
+          "op": "pruneExplanation",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": {
+          "createdAt": 1000000,
+          "fromSeq": 1,
+          "id": "sum_5",
+          "sessionId": "ses_1",
+          "state": "prepared",
+          "text": "sum one",
+          "tier": 1,
+          "toSeq": 2,
+          "tokens": 3
+        },
+        "op": {
+          "op": "addSummary",
+          "summary": {
+            "fromSeq": 1,
+            "sessionId": "ses_1",
+            "state": "prepared",
+            "text": "sum one",
+            "tier": 1,
+            "toSeq": 2,
+            "tokens": 3
+          }
+        }
+      },
+      {
+        "ok": {
+          "createdAt": 1000000,
+          "fromSeq": 1,
+          "id": "sum_6",
+          "sessionId": "ses_1",
+          "state": "applied",
+          "text": "sum two",
+          "tier": 2,
+          "toSeq": 2,
+          "tokens": 3
+        },
+        "op": {
+          "op": "addSummary",
+          "summary": {
+            "fromSeq": 1,
+            "sessionId": "ses_1",
+            "state": "applied",
+            "text": "sum two",
+            "tier": 2,
+            "toSeq": 2,
+            "tokens": 3
+          }
+        }
+      },
+      {
+        "ok": {
+          "createdAt": 1000000,
+          "fromSeq": 0,
+          "id": "sum_7",
+          "sessionId": "ses_1",
+          "state": "applied",
+          "text": "sum three",
+          "tier": 1,
+          "toSeq": 1,
+          "tokens": 1
+        },
+        "op": {
+          "op": "addSummary",
+          "summary": {
+            "fromSeq": 0,
+            "sessionId": "ses_1",
+            "state": "applied",
+            "text": "sum three",
+            "tier": 1,
+            "toSeq": 1,
+            "tokens": 1
+          }
+        }
+      },
+      {
+        "err": {
+          "message": "FOREIGN KEY constraint failed",
+          "name": "Error"
+        },
+        "op": {
+          "op": "addSummary",
+          "summary": {
+            "fromSeq": 1,
+            "sessionId": "nope",
+            "state": "applied",
+            "text": "x",
+            "tier": 1,
+            "toSeq": 2,
+            "tokens": 1
+          }
+        }
+      },
+      {
+        "ok": [
+          {
+            "createdAt": 1000000,
+            "fromSeq": 0,
+            "id": "sum_7",
+            "sessionId": "ses_1",
+            "state": "applied",
+            "text": "sum three",
+            "tier": 1,
+            "toSeq": 1,
+            "tokens": 1
+          },
+          {
+            "createdAt": 1000000,
+            "fromSeq": 1,
+            "id": "sum_5",
+            "sessionId": "ses_1",
+            "state": "prepared",
+            "text": "sum one",
+            "tier": 1,
+            "toSeq": 2,
+            "tokens": 3
+          },
+          {
+            "createdAt": 1000000,
+            "fromSeq": 1,
+            "id": "sum_6",
+            "sessionId": "ses_1",
+            "state": "applied",
+            "text": "sum two",
+            "tier": 2,
+            "toSeq": 2,
+            "tokens": 3
+          }
+        ],
+        "op": {
+          "op": "summaries",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": [
+          {
+            "createdAt": 1000000,
+            "fromSeq": 0,
+            "id": "sum_7",
+            "sessionId": "ses_1",
+            "state": "applied",
+            "text": "sum three",
+            "tier": 1,
+            "toSeq": 1,
+            "tokens": 1
+          },
+          {
+            "createdAt": 1000000,
+            "fromSeq": 1,
+            "id": "sum_6",
+            "sessionId": "ses_1",
+            "state": "applied",
+            "text": "sum two",
+            "tier": 2,
+            "toSeq": 2,
+            "tokens": 3
+          }
+        ],
+        "op": {
+          "op": "summaries",
+          "sessionId": "ses_1",
+          "state": "applied"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "id": "sum_20",
+          "op": "setSummaryState",
+          "state": "superseded"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "id": "none",
+          "op": "setSummaryState",
+          "state": "applied"
+        }
+      },
+      {
+        "ok": {
+          "createdAt": 1000000,
+          "fromSeq": 0,
+          "id": "sum_9",
+          "sessionId": "ses_1",
+          "state": "applied",
+          "text": "merged",
+          "tier": 3,
+          "toSeq": 2,
+          "tokens": 2
+        },
+        "op": {
+          "next": {
+            "fromSeq": 0,
+            "sessionId": "ses_1",
+            "state": "applied",
+            "text": "merged",
+            "tier": 3,
+            "toSeq": 2,
+            "tokens": 2
+          },
+          "op": "replaceSummaries",
+          "supersede": [
+            "sum_21",
+            "sum_22"
+          ]
+        }
+      },
+      {
+        "ok": [
+          {
+            "createdAt": 1000000,
+            "fromSeq": 0,
+            "id": "sum_7",
+            "sessionId": "ses_1",
+            "state": "applied",
+            "text": "sum three",
+            "tier": 1,
+            "toSeq": 1,
+            "tokens": 1
+          },
+          {
+            "createdAt": 1000000,
+            "fromSeq": 0,
+            "id": "sum_9",
+            "sessionId": "ses_1",
+            "state": "applied",
+            "text": "merged",
+            "tier": 3,
+            "toSeq": 2,
+            "tokens": 2
+          },
+          {
+            "createdAt": 1000000,
+            "fromSeq": 1,
+            "id": "sum_5",
+            "sessionId": "ses_1",
+            "state": "prepared",
+            "text": "sum one",
+            "tier": 1,
+            "toSeq": 2,
+            "tokens": 3
+          },
+          {
+            "createdAt": 1000000,
+            "fromSeq": 1,
+            "id": "sum_6",
+            "sessionId": "ses_1",
+            "state": "applied",
+            "text": "sum two",
+            "tier": 2,
+            "toSeq": 2,
+            "tokens": 3
+          }
+        ],
+        "op": {
+          "op": "summaries",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "storage",
+          "message": "FOREIGN KEY constraint failed",
+          "reason": "sqlite"
+        },
+        "op": {
+          "next": {
+            "fromSeq": 0,
+            "sessionId": "nope",
+            "state": "applied",
+            "text": "bad",
+            "tier": 3,
+            "toSeq": 2,
+            "tokens": 2
+          },
+          "op": "replaceSummaries",
+          "supersede": []
+        }
+      },
+      {
+        "ok": [
+          {
+            "createdAt": 1000000,
+            "fromSeq": 1,
+            "id": "sum_5",
+            "sessionId": "ses_1",
+            "state": "prepared",
+            "text": "sum one",
+            "tier": 1,
+            "toSeq": 2,
+            "tokens": 3
+          }
+        ],
+        "op": {
+          "op": "summaries",
+          "sessionId": "ses_1",
+          "state": "prepared"
+        }
+      },
+      {
+        "ok": [
+          {
+            "confidence": 0.5,
+            "ct": "real",
+            "hidden": 1,
+            "mode": "drop",
+            "reason": "again",
+            "ref": "r1",
+            "refetches": 2,
+            "tokens_saved": 10
+          },
+          {
+            "confidence": 0.75,
+            "ct": "real",
+            "hidden": 0,
+            "mode": "truncate",
+            "reason": "keep",
+            "ref": "r2",
+            "refetches": 0,
+            "tokens_saved": 40
+          },
+          {
+            "confidence": 0.9,
+            "ct": "real",
+            "hidden": 1,
+            "mode": "truncate",
+            "reason": "p",
+            "ref": "r3",
+            "refetches": 0,
+            "tokens_saved": 5
+          },
+          {
+            "confidence": null,
+            "ct": "null",
+            "hidden": 0,
+            "mode": "drop",
+            "reason": "plain",
+            "ref": "r4",
+            "refetches": 0,
+            "tokens_saved": 0
+          }
+        ],
+        "op": {
+          "args": [],
+          "op": "sql",
+          "sql": "SELECT ref, hidden, reason, mode, typeof(confidence) AS ct, confidence, tokens_saved, refetches FROM tool_visibility ORDER BY ref"
+        }
+      }
+    ]
+  },
+  {
+    "name": "snapshots-profiles-worktrees-checkpoints",
+    "ops": [
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_1",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_2",
+          "kind": "direct",
+          "lastTurnAt": null,
+          "memoryMode": "incognito",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "direct",
+            "memoryMode": "incognito",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "ok": {
+          "agentId": "bernd",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1000000,
+          "id": "ses_3",
+          "kind": "card",
+          "lastTurnAt": null,
+          "memoryMode": "remember",
+          "owner": "user:v1:alice",
+          "pinned": false,
+          "scope": "user",
+          "title": "",
+          "turnCount": 0,
+          "updatedAt": 1000000
+        },
+        "op": {
+          "input": {
+            "agentId": "bernd",
+            "kind": "card",
+            "owner": "user:v1:alice"
+          },
+          "op": "create"
+        }
+      },
+      {
+        "ok": "first memory",
+        "op": {
+          "op": "freezeMemory",
+          "sessionId": "ses_1",
+          "text": "first memory"
+        }
+      },
+      {
+        "ok": "first memory",
+        "op": {
+          "op": "freezeMemory",
+          "sessionId": "ses_1",
+          "text": "second memory"
+        }
+      },
+      {
+        "ok": "private",
+        "op": {
+          "op": "freezeMemory",
+          "sessionId": "ses_2",
+          "text": "private"
+        }
+      },
+      {
+        "ok": "private two",
+        "op": {
+          "op": "freezeMemory",
+          "sessionId": "ses_2",
+          "text": "private two"
+        }
+      },
+      {
+        "err": {
+          "code": "not-found",
+          "message": "session not found"
+        },
+        "op": {
+          "op": "freezeMemory",
+          "sessionId": "none",
+          "text": "x"
+        }
+      },
+      {
+        "ok": "cat A",
+        "op": {
+          "op": "freezeCatalogue",
+          "sessionId": "ses_1",
+          "text": "cat A"
+        }
+      },
+      {
+        "ok": "cat A",
+        "op": {
+          "op": "freezeCatalogue",
+          "sessionId": "ses_1",
+          "text": "cat B"
+        }
+      },
+      {
+        "ok": "cat C",
+        "op": {
+          "op": "freezeCatalogue",
+          "sessionId": "ses_2",
+          "text": "cat C"
+        }
+      },
+      {
+        "ok": [
+          {
+            "memory": "first memory",
+            "session_id": "ses_1"
+          }
+        ],
+        "op": {
+          "args": [],
+          "op": "sql",
+          "sql": "SELECT session_id, memory FROM prompt_snapshots"
+        }
+      },
+      {
+        "ok": [
+          {
+            "catalogue": "cat A",
+            "session_id": "ses_1"
+          }
+        ],
+        "op": {
+          "args": [],
+          "op": "sql",
+          "sql": "SELECT session_id, catalogue FROM skill_catalogue_snapshots"
+        }
+      },
+      {
+        "ok": {
+          "profile": null,
+          "revision": 0
+        },
+        "op": {
+          "op": "modelProfile",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "op": "modelReasoning",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "model switch preview is stale",
+          "reason": "stale-model-preview"
+        },
+        "op": {
+          "op": "setModelProfile",
+          "profile": "fast",
+          "revision": 1,
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": 1,
+        "op": {
+          "op": "setModelProfile",
+          "profile": "fast",
+          "revision": 0,
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": {
+          "profile": "fast",
+          "revision": 1
+        },
+        "op": {
+          "op": "modelProfile",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": 2,
+        "op": {
+          "details": {
+            "displayName": "Deep",
+            "effectiveReasoning": "high",
+            "model": "m-deep"
+          },
+          "op": "setModelProfile",
+          "person": "alice",
+          "profile": "deep",
+          "reasoning": "high",
+          "revision": 1,
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": 3,
+        "op": {
+          "op": "setModelProfile",
+          "profile": "deep2",
+          "revision": 2,
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": "high",
+        "op": {
+          "op": "modelReasoning",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": 4,
+        "op": {
+          "op": "setModelProfile",
+          "profile": "deep3",
+          "reasoning": null,
+          "revision": 3,
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "op": "modelReasoning",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": 5,
+        "op": {
+          "details": {
+            "displayName": "",
+            "effectiveReasoning": "",
+            "model": "m4"
+          },
+          "op": "setModelProfile",
+          "profile": "p4",
+          "revision": 4,
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "model switch requires an idle direct session",
+          "reason": "session-busy"
+        },
+        "op": {
+          "op": "setModelProfile",
+          "profile": "x",
+          "revision": 0,
+          "sessionId": "ses_3"
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "model switch requires an idle direct session",
+          "reason": "session-busy"
+        },
+        "op": {
+          "op": "setModelProfile",
+          "profile": "x",
+          "revision": 0,
+          "sessionId": "none"
+        }
+      },
+      {
+        "ok": [
+          {
+            "at": 1000000,
+            "data": {
+              "afterMessageSeq": 0,
+              "model": "fast",
+              "person": "user:v1:alice",
+              "profile": "fast",
+              "reasoning": "default",
+              "revision": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_1",
+            "turnId": null,
+            "type": "session.model.changed"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "afterMessageSeq": 0,
+              "displayName": "Deep",
+              "effectiveReasoning": "high",
+              "model": "m-deep",
+              "person": "alice",
+              "profile": "deep",
+              "reasoning": "high",
+              "revision": 2
+            },
+            "seq": 2,
+            "sessionId": "ses_1",
+            "turnId": null,
+            "type": "session.model.changed"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "afterMessageSeq": 0,
+              "model": "deep2",
+              "person": "user:v1:alice",
+              "profile": "deep2",
+              "reasoning": "high",
+              "revision": 3
+            },
+            "seq": 3,
+            "sessionId": "ses_1",
+            "turnId": null,
+            "type": "session.model.changed"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "afterMessageSeq": 0,
+              "model": "deep3",
+              "person": "user:v1:alice",
+              "profile": "deep3",
+              "reasoning": "default",
+              "revision": 4
+            },
+            "seq": 4,
+            "sessionId": "ses_1",
+            "turnId": null,
+            "type": "session.model.changed"
+          },
+          {
+            "at": 1000000,
+            "data": {
+              "afterMessageSeq": 0,
+              "model": "m4",
+              "person": "user:v1:alice",
+              "profile": "p4",
+              "reasoning": "default",
+              "revision": 5
+            },
+            "seq": 5,
+            "sessionId": "ses_1",
+            "turnId": null,
+            "type": "session.model.changed"
+          }
+        ],
+        "op": {
+          "op": "modelChanges",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": {
+          "profile": "p4",
+          "revision": 5
+        },
+        "op": {
+          "op": "modelProfile",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_5",
+              "turnId": "trn_4",
+              "turnSeq": 1
+            },
+            "seq": 6,
+            "sessionId": "ses_1",
+            "turnId": "trn_4",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_5",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_1",
+            "text": "busy",
+            "tokens": 1,
+            "turnId": "trn_4"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_4",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_1",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_1",
+          "text": "busy",
+          "tokens": 1
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "model switch requires an idle direct session",
+          "reason": "session-busy"
+        },
+        "op": {
+          "op": "setModelProfile",
+          "profile": "x",
+          "revision": 5,
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "worktree binding requires an idle active session"
+        },
+        "op": {
+          "binding": {
+            "cardId": "c",
+            "createdBy": "alice",
+            "projectId": "p",
+            "root": "/w",
+            "sessionId": "ses_1"
+          },
+          "op": "bindWorktree"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_6",
+              "turnId": "trn_4"
+            },
+            "seq": 7,
+            "sessionId": "ses_1",
+            "turnId": "trn_4",
+            "type": "turn.completed"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_6",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "ses_1",
+            "text": "ok",
+            "tokens": 1,
+            "turnId": "trn_4"
+          }
+        },
+        "op": {
+          "input": {
+            "text": "ok",
+            "tokens": 1
+          },
+          "op": "complete",
+          "turnId": "trn_4"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "op": "worktree",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "binding": {
+            "cardId": "c",
+            "createdBy": "alice",
+            "projectId": "p",
+            "root": "/w",
+            "sessionId": "ses_1"
+          },
+          "op": "bindWorktree"
+        }
+      },
+      {
+        "ok": {
+          "cardId": "c",
+          "createdAt": 1000000,
+          "createdBy": "alice",
+          "projectId": "p",
+          "root": "/w",
+          "sessionId": "ses_1"
+        },
+        "op": {
+          "op": "worktree",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "binding": {
+            "cardId": "c",
+            "createdBy": "alice",
+            "projectId": "p",
+            "root": "/w",
+            "sessionId": "ses_1"
+          },
+          "op": "bindWorktree"
+        }
+      },
+      {
+        "err": {
+          "code": "immutable",
+          "message": "worktree binding is immutable"
+        },
+        "op": {
+          "binding": {
+            "cardId": "c",
+            "createdBy": "alice",
+            "projectId": "p",
+            "root": "/other",
+            "sessionId": "ses_1"
+          },
+          "op": "bindWorktree"
+        }
+      },
+      {
+        "err": {
+          "code": "immutable",
+          "message": "worktree binding is immutable"
+        },
+        "op": {
+          "binding": {
+            "cardId": null,
+            "createdBy": "alice",
+            "projectId": null,
+            "root": "/w",
+            "sessionId": "ses_1"
+          },
+          "op": "bindWorktree"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "binding": {
+            "cardId": null,
+            "createdBy": "bob",
+            "projectId": null,
+            "root": "/w2",
+            "sessionId": "ses_2"
+          },
+          "op": "bindWorktree"
+        }
+      },
+      {
+        "ok": {
+          "cardId": null,
+          "createdAt": 1000000,
+          "createdBy": "bob",
+          "projectId": null,
+          "root": "/w2",
+          "sessionId": "ses_2"
+        },
+        "op": {
+          "op": "worktree",
+          "sessionId": "ses_2"
+        }
+      },
+      {
+        "err": {
+          "code": "not-found",
+          "message": "session not found"
+        },
+        "op": {
+          "binding": {
+            "cardId": null,
+            "createdBy": "bob",
+            "projectId": null,
+            "root": "/w",
+            "sessionId": "none"
+          },
+          "op": "bindWorktree"
+        }
+      },
+      {
+        "err": {
+          "message": "coding worktree bindings are immutable",
+          "name": "Error"
+        },
+        "op": {
+          "op": "sqlWrite",
+          "sql": "UPDATE session_worktrees SET root='/z'"
+        }
+      },
+      {
+        "err": {
+          "code": "storage",
+          "message": "CHECK constraint failed: (project_id IS NULL) = (card_id IS NULL)",
+          "reason": "sqlite"
+        },
+        "op": {
+          "binding": {
+            "cardId": null,
+            "createdBy": "bob",
+            "projectId": "p",
+            "root": "/w3",
+            "sessionId": "ses_3"
+          },
+          "op": "bindWorktree"
+        }
+      },
+      {
+        "ok": {
+          "event": {
+            "at": 1000000,
+            "data": {
+              "messageId": "msg_8",
+              "turnId": "trn_7",
+              "turnSeq": 1
+            },
+            "seq": 1,
+            "sessionId": "ses_3",
+            "turnId": "trn_7",
+            "type": "turn.started"
+          },
+          "message": {
+            "createdAt": 1000000,
+            "id": "msg_8",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "ses_3",
+            "text": "cp turn",
+            "tokens": 1,
+            "turnId": "trn_7"
+          },
+          "turn": {
+            "endedAt": null,
+            "error": null,
+            "id": "trn_7",
+            "incognito": false,
+            "seq": 1,
+            "sessionId": "ses_3",
+            "startedAt": 1000000,
+            "state": "running"
+          }
+        },
+        "op": {
+          "op": "begin",
+          "sessionId": "ses_3",
+          "text": "cp turn",
+          "tokens": 1
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "checkpoint": {
+            "cardId": "c",
+            "commitId": "c1",
+            "commonGitDir": "/w3/.git",
+            "projectId": "p",
+            "ref": "refs/x",
+            "root": "/w3",
+            "sessionId": "ses_3",
+            "tree": "t1",
+            "turnId": "trn_7"
+          },
+          "op": "recordCheckpoint"
+        }
+      },
+      {
+        "err": {
+          "code": "storage",
+          "message": "UNIQUE constraint failed: session_checkpoints.session_id, session_checkpoints.turn_id",
+          "reason": "sqlite"
+        },
+        "op": {
+          "checkpoint": {
+            "cardId": "c",
+            "commitId": "c2",
+            "commonGitDir": "/w3/.git",
+            "projectId": "p",
+            "ref": "refs/x",
+            "root": "/w3",
+            "sessionId": "ses_3",
+            "tree": "t1",
+            "turnId": "trn_7"
+          },
+          "op": "recordCheckpoint"
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "checkpoint turn is not running in the session",
+          "reason": "rewind-checkpoint"
+        },
+        "op": {
+          "checkpoint": {
+            "cardId": "c",
+            "commitId": "c",
+            "commonGitDir": "/g",
+            "projectId": "p",
+            "ref": "r",
+            "root": "/w3",
+            "sessionId": "ses_1",
+            "tree": "t",
+            "turnId": "trn_7"
+          },
+          "op": "recordCheckpoint"
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "checkpoint turn is not running in the session",
+          "reason": "rewind-checkpoint"
+        },
+        "op": {
+          "checkpoint": {
+            "cardId": "c",
+            "commitId": "c",
+            "commonGitDir": "/g",
+            "projectId": "p",
+            "ref": "r",
+            "root": "/w3",
+            "sessionId": "ses_3",
+            "tree": "t",
+            "turnId": "none"
+          },
+          "op": "recordCheckpoint"
+        }
+      },
+      {
+        "ok": true,
+        "op": {
+          "op": "hasCheckpoints"
+        }
+      },
+      {
+        "ok": {
+          "cardId": "c",
+          "commitId": "c1",
+          "commonGitDir": "/w3/.git",
+          "projectId": "p",
+          "ref": "refs/x",
+          "root": "/w3",
+          "sessionId": "ses_3",
+          "tree": "t1",
+          "turnId": "trn_7"
+        },
+        "op": {
+          "op": "checkpoint",
+          "sessionId": "ses_3",
+          "turnId": "trn_7"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "op": "checkpoint",
+          "sessionId": "ses_3",
+          "turnId": "none"
+        }
+      },
+      {
+        "ok": [
+          {
+            "cardId": "c",
+            "commitId": "c1",
+            "commonGitDir": "/w3/.git",
+            "projectId": "p",
+            "ref": "refs/x",
+            "root": "/w3",
+            "sessionId": "ses_3",
+            "tree": "t1",
+            "turnId": "trn_7",
+            "turnSeq": 1
+          }
+        ],
+        "op": {
+          "op": "checkpoints"
+        }
+      },
+      {
+        "ok": [
+          {
+            "cardId": "c",
+            "commitId": "c1",
+            "commonGitDir": "/w3/.git",
+            "projectId": "p",
+            "ref": "refs/x",
+            "root": "/w3",
+            "sessionId": "ses_3",
+            "tree": "t1",
+            "turnId": "trn_7",
+            "turnSeq": 1
+          }
+        ],
+        "op": {
+          "op": "checkpoints",
+          "sessionId": "ses_3"
+        }
+      },
+      {
+        "ok": [],
+        "op": {
+          "op": "checkpoints",
+          "sessionId": "ses_1"
+        }
+      },
+      {
+        "err": {
+          "message": "turn checkpoint is immutable",
+          "name": "Error"
+        },
+        "op": {
+          "op": "sqlWrite",
+          "sql": "UPDATE session_checkpoints SET tree='x'"
+        }
+      },
+      {
+        "ok": 1,
+        "op": {
+          "op": "latestTurnSeq",
+          "sessionId": "ses_3"
+        }
+      },
+      {
+        "ok": 0,
+        "op": {
+          "op": "latestTurnSeq",
+          "sessionId": "none"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "checkpoint": {
+            "cardId": "c",
+            "commitId": "other",
+            "commonGitDir": "/g",
+            "projectId": "p",
+            "ref": "r",
+            "root": "/w3",
+            "sessionId": "ses_3",
+            "tree": "t",
+            "turnId": "trn_7"
+          },
+          "op": "forgetCheckpoint"
+        }
+      },
+      {
+        "ok": true,
+        "op": {
+          "op": "hasCheckpoints"
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "checkpoint": {
+            "cardId": "c",
+            "commitId": "c1",
+            "commonGitDir": "/g",
+            "projectId": "p",
+            "ref": "r",
+            "root": "/w3",
+            "sessionId": "ses_3",
+            "tree": "t",
+            "turnId": "trn_7"
+          },
+          "op": "forgetCheckpoint"
+        }
+      },
+      {
+        "ok": false,
+        "op": {
+          "op": "hasCheckpoints"
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "session ses_3 has a running turn",
+          "reason": "turn-in-progress"
+        },
+        "op": {
+          "id": "ses_3",
+          "op": "archive"
+        }
+      },
+      {
+        "err": {
+          "code": "conflict",
+          "message": "erasure requires the session to be archived first (archive-first)",
+          "reason": "not-archived"
+        },
+        "op": {
+          "id": "ses_3",
+          "op": "erase",
+          "options": {
+            "actor": "a",
+            "reason": "r"
+          }
+        }
+      },
+      {
+        "ok": null,
+        "op": {
+          "op": "worktree",
+          "sessionId": "ses_3"
+        }
+      }
+    ]
+  }
+]

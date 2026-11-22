@@ -1,0 +1,4383 @@
+{
+  "defaults": [
+    {
+      "cfg": {
+        "hardRatio": 0.88,
+        "maxMessageTokens": 0,
+        "softRatio": 0.65,
+        "summaryMaxTokens": 0,
+        "windowTokens": 1
+      },
+      "window": 1
+    },
+    {
+      "cfg": {
+        "hardRatio": 0.88,
+        "maxMessageTokens": 0,
+        "softRatio": 0.65,
+        "summaryMaxTokens": 1,
+        "windowTokens": 7
+      },
+      "window": 7
+    },
+    {
+      "cfg": {
+        "hardRatio": 0.88,
+        "maxMessageTokens": 10,
+        "softRatio": 0.65,
+        "summaryMaxTokens": 15,
+        "windowTokens": 100
+      },
+      "window": 100
+    },
+    {
+      "cfg": {
+        "hardRatio": 0.88,
+        "maxMessageTokens": 99,
+        "softRatio": 0.65,
+        "summaryMaxTokens": 149,
+        "windowTokens": 999
+      },
+      "window": 999
+    },
+    {
+      "cfg": {
+        "hardRatio": 0.88,
+        "maxMessageTokens": 100,
+        "softRatio": 0.65,
+        "summaryMaxTokens": 150,
+        "windowTokens": 1000
+      },
+      "window": 1000
+    },
+    {
+      "cfg": {
+        "hardRatio": 0.88,
+        "maxMessageTokens": 819,
+        "softRatio": 0.65,
+        "summaryMaxTokens": 1228,
+        "windowTokens": 8192
+      },
+      "window": 8192
+    },
+    {
+      "cfg": {
+        "hardRatio": 0.88,
+        "maxMessageTokens": 10000,
+        "softRatio": 0.65,
+        "summaryMaxTokens": 15000,
+        "windowTokens": 100000
+      },
+      "window": 100000
+    }
+  ],
+  "digest": [
+    {
+      "digest": "",
+      "messages": []
+    },
+    {
+      "digest": {
+        "$cat": [
+          "user#1: a b c\nassistant#2: ",
+          {
+            "$rep": [
+              "z",
+              160
+            ]
+          }
+        ]
+      },
+      "messages": [
+        {
+          "role": "user",
+          "seq": 1,
+          "text": "a\n\n b   c"
+        },
+        {
+          "role": "assistant",
+          "seq": 2,
+          "text": {
+            "$cat": [
+              {
+                "$rep": [
+                  "z",
+                  1000
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "digest": "system#9: 😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "messages": [
+        {
+          "role": "system",
+          "seq": 9,
+          "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+        }
+      ]
+    },
+    {
+      "digest": {
+        "$u16": [
+          116,
+          111,
+          111,
+          108,
+          35,
+          51,
+          58,
+          32,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          55357
+        ]
+      },
+      "messages": [
+        {
+          "role": "tool",
+          "seq": 3,
+          "text": {
+            "$cat": [
+              {
+                "$rep": [
+                  "x",
+                  159
+                ]
+              },
+              "😀"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "digest": {
+        "$cat": [
+          "user#4: ",
+          {
+            "$rep": [
+              "x",
+              160
+            ]
+          },
+          "\nuser#5: ",
+          {
+            "$rep": [
+              "x",
+              160
+            ]
+          },
+          "\nuser#6: "
+        ]
+      },
+      "messages": [
+        {
+          "role": "user",
+          "seq": 4,
+          "text": {
+            "$cat": [
+              {
+                "$rep": [
+                  "x",
+                  160
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "role": "user",
+          "seq": 5,
+          "text": {
+            "$cat": [
+              {
+                "$rep": [
+                  "x",
+                  161
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "role": "user",
+          "seq": 6,
+          "text": "  \n\t "
+        }
+      ]
+    }
+  ],
+  "estimate": [
+    {
+      "text": "",
+      "tokens": 0
+    },
+    {
+      "text": "a",
+      "tokens": 1
+    },
+    {
+      "text": "abcd",
+      "tokens": 1
+    },
+    {
+      "text": "abcde",
+      "tokens": 2
+    },
+    {
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      },
+      "tokens": 10
+    },
+    {
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      },
+      "tokens": 11
+    },
+    {
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      },
+      "tokens": 100
+    },
+    {
+      "text": "line\nline\nline",
+      "tokens": 4
+    },
+    {
+      "text": "a\n\n b   c\t d",
+      "tokens": 3
+    },
+    {
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "tokens": 15
+    },
+    {
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀",
+      "tokens": 23
+    },
+    {
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      },
+      "tokens": 20
+    },
+    {
+      "text": "\n\n\n",
+      "tokens": 1
+    },
+    {
+      "text": " lead and trail ",
+      "tokens": 4
+    },
+    {
+      "text": "﻿ x　",
+      "tokens": 1
+    }
+  ],
+  "fitTail": [
+    {
+      "max": 0,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 1,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 2,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 3,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 5,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 8,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 10,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 12,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 13,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 14,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 20,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 40,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 60,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 100,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 1000,
+      "result": "",
+      "text": ""
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": "a"
+    },
+    {
+      "max": 1,
+      "result": "a",
+      "text": "a"
+    },
+    {
+      "max": 2,
+      "result": "a",
+      "text": "a"
+    },
+    {
+      "max": 3,
+      "result": "a",
+      "text": "a"
+    },
+    {
+      "max": 5,
+      "result": "a",
+      "text": "a"
+    },
+    {
+      "max": 8,
+      "result": "a",
+      "text": "a"
+    },
+    {
+      "max": 10,
+      "result": "a",
+      "text": "a"
+    },
+    {
+      "max": 12,
+      "result": "a",
+      "text": "a"
+    },
+    {
+      "max": 13,
+      "result": "a",
+      "text": "a"
+    },
+    {
+      "max": 14,
+      "result": "a",
+      "text": "a"
+    },
+    {
+      "max": 20,
+      "result": "a",
+      "text": "a"
+    },
+    {
+      "max": 40,
+      "result": "a",
+      "text": "a"
+    },
+    {
+      "max": 60,
+      "result": "a",
+      "text": "a"
+    },
+    {
+      "max": 100,
+      "result": "a",
+      "text": "a"
+    },
+    {
+      "max": 1000,
+      "result": "a",
+      "text": "a"
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": "abcd"
+    },
+    {
+      "max": 1,
+      "result": "abcd",
+      "text": "abcd"
+    },
+    {
+      "max": 2,
+      "result": "abcd",
+      "text": "abcd"
+    },
+    {
+      "max": 3,
+      "result": "abcd",
+      "text": "abcd"
+    },
+    {
+      "max": 5,
+      "result": "abcd",
+      "text": "abcd"
+    },
+    {
+      "max": 8,
+      "result": "abcd",
+      "text": "abcd"
+    },
+    {
+      "max": 10,
+      "result": "abcd",
+      "text": "abcd"
+    },
+    {
+      "max": 12,
+      "result": "abcd",
+      "text": "abcd"
+    },
+    {
+      "max": 13,
+      "result": "abcd",
+      "text": "abcd"
+    },
+    {
+      "max": 14,
+      "result": "abcd",
+      "text": "abcd"
+    },
+    {
+      "max": 20,
+      "result": "abcd",
+      "text": "abcd"
+    },
+    {
+      "max": 40,
+      "result": "abcd",
+      "text": "abcd"
+    },
+    {
+      "max": 60,
+      "result": "abcd",
+      "text": "abcd"
+    },
+    {
+      "max": 100,
+      "result": "abcd",
+      "text": "abcd"
+    },
+    {
+      "max": 1000,
+      "result": "abcd",
+      "text": "abcd"
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": "abcde"
+    },
+    {
+      "max": 1,
+      "result": "[… 1",
+      "text": "abcde"
+    },
+    {
+      "max": 2,
+      "result": "abcde",
+      "text": "abcde"
+    },
+    {
+      "max": 3,
+      "result": "abcde",
+      "text": "abcde"
+    },
+    {
+      "max": 5,
+      "result": "abcde",
+      "text": "abcde"
+    },
+    {
+      "max": 8,
+      "result": "abcde",
+      "text": "abcde"
+    },
+    {
+      "max": 10,
+      "result": "abcde",
+      "text": "abcde"
+    },
+    {
+      "max": 12,
+      "result": "abcde",
+      "text": "abcde"
+    },
+    {
+      "max": 13,
+      "result": "abcde",
+      "text": "abcde"
+    },
+    {
+      "max": 14,
+      "result": "abcde",
+      "text": "abcde"
+    },
+    {
+      "max": 20,
+      "result": "abcde",
+      "text": "abcde"
+    },
+    {
+      "max": 40,
+      "result": "abcde",
+      "text": "abcde"
+    },
+    {
+      "max": 60,
+      "result": "abcde",
+      "text": "abcde"
+    },
+    {
+      "max": 100,
+      "result": "abcde",
+      "text": "abcde"
+    },
+    {
+      "max": 1000,
+      "result": "abcde",
+      "text": "abcde"
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 1,
+      "result": "[… 1",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 2,
+      "result": "[… 1 ear",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 3,
+      "result": "[… 1 earlier",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 5,
+      "result": "[… 1 earlier lines e",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 8,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 10,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 12,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 13,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 14,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 20,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 40,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 60,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 100,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 1000,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 1,
+      "result": "[… 1",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 2,
+      "result": "[… 1 ear",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 3,
+      "result": "[… 1 earlier",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 5,
+      "result": "[… 1 earlier lines e",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 8,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 10,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 12,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 13,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 14,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 20,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 40,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 60,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 100,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 1000,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 1,
+      "result": "[… 1",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 2,
+      "result": "[… 1 ear",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 3,
+      "result": "[… 1 earlier",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 5,
+      "result": "[… 1 earlier lines e",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 8,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 10,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 12,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 13,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 14,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 20,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 40,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 60,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 100,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 1000,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 1,
+      "result": "[… 3",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 2,
+      "result": "[… 3 ear",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 3,
+      "result": "[… 3 earlier",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 5,
+      "result": "line\nline\nline",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 8,
+      "result": "line\nline\nline",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 10,
+      "result": "line\nline\nline",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 12,
+      "result": "line\nline\nline",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 13,
+      "result": "line\nline\nline",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 14,
+      "result": "line\nline\nline",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 20,
+      "result": "line\nline\nline",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 40,
+      "result": "line\nline\nline",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 60,
+      "result": "line\nline\nline",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 100,
+      "result": "line\nline\nline",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 1000,
+      "result": "line\nline\nline",
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 1,
+      "result": "[… 3",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 2,
+      "result": "[… 3 ear",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 3,
+      "result": "a\n\n b   c\t d",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 5,
+      "result": "a\n\n b   c\t d",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 8,
+      "result": "a\n\n b   c\t d",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 10,
+      "result": "a\n\n b   c\t d",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 12,
+      "result": "a\n\n b   c\t d",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 13,
+      "result": "a\n\n b   c\t d",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 14,
+      "result": "a\n\n b   c\t d",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 20,
+      "result": "a\n\n b   c\t d",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 40,
+      "result": "a\n\n b   c\t d",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 60,
+      "result": "a\n\n b   c\t d",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 100,
+      "result": "a\n\n b   c\t d",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 1000,
+      "result": "a\n\n b   c\t d",
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 1,
+      "result": "[… 1",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 2,
+      "result": "[… 1 ear",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 3,
+      "result": "[… 1 earlier",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 5,
+      "result": "[… 1 earlier lines e",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 8,
+      "result": "[… 1 earlier lines elided]",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 10,
+      "result": "[… 1 earlier lines elided]",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 12,
+      "result": "[… 1 earlier lines elided]",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 13,
+      "result": "[… 1 earlier lines elided]",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 14,
+      "result": "[… 1 earlier lines elided]",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 20,
+      "result": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 40,
+      "result": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 60,
+      "result": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 100,
+      "result": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 1000,
+      "result": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 1,
+      "result": "[… 1",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 2,
+      "result": "[… 1 ear",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 3,
+      "result": "[… 1 earlier",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 5,
+      "result": "[… 1 earlier lines e",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 8,
+      "result": "[… 1 earlier lines elided]",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 10,
+      "result": "[… 1 earlier lines elided]",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 12,
+      "result": "[… 1 earlier lines elided]",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 13,
+      "result": "[… 1 earlier lines elided]",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 14,
+      "result": "[… 1 earlier lines elided]",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 20,
+      "result": "[… 1 earlier lines elided]",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 40,
+      "result": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 60,
+      "result": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 100,
+      "result": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 1000,
+      "result": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀",
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 1,
+      "result": "[… 1",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 2,
+      "result": "[… 1 ear",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 3,
+      "result": "[… 1 earlier",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 5,
+      "result": "[… 1 earlier lines e",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 8,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 10,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 12,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 13,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 14,
+      "result": "[… 1 earlier lines elided]",
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 20,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 40,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 60,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 100,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 1000,
+      "result": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 1,
+      "result": "\n\n\n",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 2,
+      "result": "\n\n\n",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 3,
+      "result": "\n\n\n",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 5,
+      "result": "\n\n\n",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 8,
+      "result": "\n\n\n",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 10,
+      "result": "\n\n\n",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 12,
+      "result": "\n\n\n",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 13,
+      "result": "\n\n\n",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 14,
+      "result": "\n\n\n",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 20,
+      "result": "\n\n\n",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 40,
+      "result": "\n\n\n",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 60,
+      "result": "\n\n\n",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 100,
+      "result": "\n\n\n",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 1000,
+      "result": "\n\n\n",
+      "text": "\n\n\n"
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": " lead and trail "
+    },
+    {
+      "max": 1,
+      "result": "[… 1",
+      "text": " lead and trail "
+    },
+    {
+      "max": 2,
+      "result": "[… 1 ear",
+      "text": " lead and trail "
+    },
+    {
+      "max": 3,
+      "result": "[… 1 earlier",
+      "text": " lead and trail "
+    },
+    {
+      "max": 5,
+      "result": " lead and trail ",
+      "text": " lead and trail "
+    },
+    {
+      "max": 8,
+      "result": " lead and trail ",
+      "text": " lead and trail "
+    },
+    {
+      "max": 10,
+      "result": " lead and trail ",
+      "text": " lead and trail "
+    },
+    {
+      "max": 12,
+      "result": " lead and trail ",
+      "text": " lead and trail "
+    },
+    {
+      "max": 13,
+      "result": " lead and trail ",
+      "text": " lead and trail "
+    },
+    {
+      "max": 14,
+      "result": " lead and trail ",
+      "text": " lead and trail "
+    },
+    {
+      "max": 20,
+      "result": " lead and trail ",
+      "text": " lead and trail "
+    },
+    {
+      "max": 40,
+      "result": " lead and trail ",
+      "text": " lead and trail "
+    },
+    {
+      "max": 60,
+      "result": " lead and trail ",
+      "text": " lead and trail "
+    },
+    {
+      "max": 100,
+      "result": " lead and trail ",
+      "text": " lead and trail "
+    },
+    {
+      "max": 1000,
+      "result": " lead and trail ",
+      "text": " lead and trail "
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 1,
+      "result": "﻿ x　",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 2,
+      "result": "﻿ x　",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 3,
+      "result": "﻿ x　",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 5,
+      "result": "﻿ x　",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 8,
+      "result": "﻿ x　",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 10,
+      "result": "﻿ x　",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 12,
+      "result": "﻿ x　",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 13,
+      "result": "﻿ x　",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 14,
+      "result": "﻿ x　",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 20,
+      "result": "﻿ x　",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 40,
+      "result": "﻿ x　",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 60,
+      "result": "﻿ x　",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 100,
+      "result": "﻿ x　",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 1000,
+      "result": "﻿ x　",
+      "text": "﻿ x　"
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 1,
+      "result": "[… 4",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 2,
+      "result": "[… 40 ea",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 3,
+      "result": "[… 40 earlie",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 5,
+      "result": "[… 40 earlier lines ",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 8,
+      "result": "[… 40 earlier lines elided]",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 10,
+      "result": "[… 39 earlier lines elided]\nline 39",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 12,
+      "result": "[… 38 earlier lines elided]\nline 38\nline 39",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 13,
+      "result": "[… 37 earlier lines elided]\nline 37\nline 38\nline 39",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 14,
+      "result": "[… 37 earlier lines elided]\nline 37\nline 38\nline 39",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 20,
+      "result": "[… 34 earlier lines elided]\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 40,
+      "result": "[… 24 earlier lines elided]\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 60,
+      "result": "[… 14 earlier lines elided]\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 100,
+      "result": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 1000,
+      "result": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39",
+      "text": "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39"
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 1,
+      "result": "[… 1",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 2,
+      "result": "[… 12 ea",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 3,
+      "result": "\n\n\n\n\n\n\n\n\n\n\n",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 5,
+      "result": "\n\n\n\n\n\n\n\n\n\n\n",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 8,
+      "result": "\n\n\n\n\n\n\n\n\n\n\n",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 10,
+      "result": "\n\n\n\n\n\n\n\n\n\n\n",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 12,
+      "result": "\n\n\n\n\n\n\n\n\n\n\n",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 13,
+      "result": "\n\n\n\n\n\n\n\n\n\n\n",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 14,
+      "result": "\n\n\n\n\n\n\n\n\n\n\n",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 20,
+      "result": "\n\n\n\n\n\n\n\n\n\n\n",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 40,
+      "result": "\n\n\n\n\n\n\n\n\n\n\n",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 60,
+      "result": "\n\n\n\n\n\n\n\n\n\n\n",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 100,
+      "result": "\n\n\n\n\n\n\n\n\n\n\n",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 1000,
+      "result": "\n\n\n\n\n\n\n\n\n\n\n",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 1,
+      "result": "[… 2",
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 2,
+      "result": "[… 2 ear",
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 3,
+      "result": "[… 2 earlier",
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 5,
+      "result": "[… 2 earlier lines e",
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 8,
+      "result": "[… 2 earlier lines elided]",
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 10,
+      "result": "[… 2 earlier lines elided]",
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 12,
+      "result": "[… 2 earlier lines elided]",
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 13,
+      "result": "[… 2 earlier lines elided]",
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 14,
+      "result": "[… 2 earlier lines elided]",
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 20,
+      "result": "[… 2 earlier lines elided]",
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 40,
+      "result": "[… 2 earlier lines elided]",
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 60,
+      "result": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 100,
+      "result": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 1000,
+      "result": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      },
+      "text": {
+        "$cat": [
+          "xxxxxxxxxx\n",
+          {
+            "$rep": [
+              "y",
+              200
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 0,
+      "result": "",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    },
+    {
+      "max": 1,
+      "result": "[… 3",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    },
+    {
+      "max": 2,
+      "result": "[… 300 e",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    },
+    {
+      "max": 3,
+      "result": "[… 300 earli",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    },
+    {
+      "max": 5,
+      "result": "[… 300 earlier lines",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    },
+    {
+      "max": 8,
+      "result": "[… 300 earlier lines elided]",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    },
+    {
+      "max": 10,
+      "result": "[… 298 earlier lines elided]\nr298\nr299",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    },
+    {
+      "max": 12,
+      "result": "[… 296 earlier lines elided]\nr296\nr297\nr298\nr299",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    },
+    {
+      "max": 13,
+      "result": "[… 296 earlier lines elided]\nr296\nr297\nr298\nr299",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    },
+    {
+      "max": 14,
+      "result": "[… 295 earlier lines elided]\nr295\nr296\nr297\nr298\nr299",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    },
+    {
+      "max": 20,
+      "result": "[… 290 earlier lines elided]\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    },
+    {
+      "max": 40,
+      "result": "[… 274 earlier lines elided]\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    },
+    {
+      "max": 60,
+      "result": "[… 258 earlier lines elided]\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    },
+    {
+      "max": 100,
+      "result": "[… 226 earlier lines elided]\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    },
+    {
+      "max": 1000,
+      "result": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299",
+      "text": "r0\nr1\nr2\nr3\nr4\nr5\nr6\nr7\nr8\nr9\nr10\nr11\nr12\nr13\nr14\nr15\nr16\nr17\nr18\nr19\nr20\nr21\nr22\nr23\nr24\nr25\nr26\nr27\nr28\nr29\nr30\nr31\nr32\nr33\nr34\nr35\nr36\nr37\nr38\nr39\nr40\nr41\nr42\nr43\nr44\nr45\nr46\nr47\nr48\nr49\nr50\nr51\nr52\nr53\nr54\nr55\nr56\nr57\nr58\nr59\nr60\nr61\nr62\nr63\nr64\nr65\nr66\nr67\nr68\nr69\nr70\nr71\nr72\nr73\nr74\nr75\nr76\nr77\nr78\nr79\nr80\nr81\nr82\nr83\nr84\nr85\nr86\nr87\nr88\nr89\nr90\nr91\nr92\nr93\nr94\nr95\nr96\nr97\nr98\nr99\nr100\nr101\nr102\nr103\nr104\nr105\nr106\nr107\nr108\nr109\nr110\nr111\nr112\nr113\nr114\nr115\nr116\nr117\nr118\nr119\nr120\nr121\nr122\nr123\nr124\nr125\nr126\nr127\nr128\nr129\nr130\nr131\nr132\nr133\nr134\nr135\nr136\nr137\nr138\nr139\nr140\nr141\nr142\nr143\nr144\nr145\nr146\nr147\nr148\nr149\nr150\nr151\nr152\nr153\nr154\nr155\nr156\nr157\nr158\nr159\nr160\nr161\nr162\nr163\nr164\nr165\nr166\nr167\nr168\nr169\nr170\nr171\nr172\nr173\nr174\nr175\nr176\nr177\nr178\nr179\nr180\nr181\nr182\nr183\nr184\nr185\nr186\nr187\nr188\nr189\nr190\nr191\nr192\nr193\nr194\nr195\nr196\nr197\nr198\nr199\nr200\nr201\nr202\nr203\nr204\nr205\nr206\nr207\nr208\nr209\nr210\nr211\nr212\nr213\nr214\nr215\nr216\nr217\nr218\nr219\nr220\nr221\nr222\nr223\nr224\nr225\nr226\nr227\nr228\nr229\nr230\nr231\nr232\nr233\nr234\nr235\nr236\nr237\nr238\nr239\nr240\nr241\nr242\nr243\nr244\nr245\nr246\nr247\nr248\nr249\nr250\nr251\nr252\nr253\nr254\nr255\nr256\nr257\nr258\nr259\nr260\nr261\nr262\nr263\nr264\nr265\nr266\nr267\nr268\nr269\nr270\nr271\nr272\nr273\nr274\nr275\nr276\nr277\nr278\nr279\nr280\nr281\nr282\nr283\nr284\nr285\nr286\nr287\nr288\nr289\nr290\nr291\nr292\nr293\nr294\nr295\nr296\nr297\nr298\nr299"
+    }
+  ],
+  "pruneDefaults": {
+    "confidence": 0.7,
+    "prune": {
+      "batchSize": 16,
+      "decider": "laya",
+      "enabled": true,
+      "keepLastTurns": 3,
+      "maxMs": 100
+    }
+  },
+  "truncate": [
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": false
+      },
+      "text": ""
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": false
+      },
+      "text": ""
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": false
+      },
+      "text": ""
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": false
+      },
+      "text": ""
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": false
+      },
+      "text": ""
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": false
+      },
+      "text": ""
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": false
+      },
+      "text": ""
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": false
+      },
+      "text": ""
+    },
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": "a"
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "a",
+        "truncated": false
+      },
+      "text": "a"
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "a",
+        "truncated": false
+      },
+      "text": "a"
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "a",
+        "truncated": false
+      },
+      "text": "a"
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": "a",
+        "truncated": false
+      },
+      "text": "a"
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": "a",
+        "truncated": false
+      },
+      "text": "a"
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": "a",
+        "truncated": false
+      },
+      "text": "a"
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": "a",
+        "truncated": false
+      },
+      "text": "a"
+    },
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": "abcd"
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "abcd",
+        "truncated": false
+      },
+      "text": "abcd"
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "abcd",
+        "truncated": false
+      },
+      "text": "abcd"
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "abcd",
+        "truncated": false
+      },
+      "text": "abcd"
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": "abcd",
+        "truncated": false
+      },
+      "text": "abcd"
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": "abcd",
+        "truncated": false
+      },
+      "text": "abcd"
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": "abcd",
+        "truncated": false
+      },
+      "text": "abcd"
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": "abcd",
+        "truncated": false
+      },
+      "text": "abcd"
+    },
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": "abcde"
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[tr",
+        "truncated": true
+      },
+      "text": "abcde"
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "abcde",
+        "truncated": false
+      },
+      "text": "abcde"
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "abcde",
+        "truncated": false
+      },
+      "text": "abcde"
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": "abcde",
+        "truncated": false
+      },
+      "text": "abcde"
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": "abcde",
+        "truncated": false
+      },
+      "text": "abcde"
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": "abcde",
+        "truncated": false
+      },
+      "text": "abcde"
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": "abcde",
+        "truncated": false
+      },
+      "text": "abcde"
+    },
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[tr",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[trunca",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[truncated ",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[truncated 40 chars",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": {
+          "$cat": [
+            {
+              "$rep": [
+                "x",
+                40
+              ]
+            }
+          ]
+        },
+        "truncated": false
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": {
+          "$cat": [
+            {
+              "$rep": [
+                "x",
+                40
+              ]
+            }
+          ]
+        },
+        "truncated": false
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": {
+          "$cat": [
+            {
+              "$rep": [
+                "x",
+                40
+              ]
+            }
+          ]
+        },
+        "truncated": false
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              40
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[tr",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[trunca",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[truncated ",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[truncated 41 chars",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": "xxx\n[truncated 41 chars; see message m1]",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": {
+          "$cat": [
+            {
+              "$rep": [
+                "x",
+                41
+              ]
+            }
+          ]
+        },
+        "truncated": false
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": {
+          "$cat": [
+            {
+              "$rep": [
+                "x",
+                41
+              ]
+            }
+          ]
+        },
+        "truncated": false
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              41
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[tr",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[trunca",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[truncated ",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[truncated 400 char",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": "xx\n[truncated 400 chars; see message m1]",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": "xxxxxx\n[truncated 400 chars; see message m1]",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": {
+          "$cat": [
+            {
+              "$rep": [
+                "x",
+                400
+              ]
+            }
+          ]
+        },
+        "truncated": false
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "x",
+              400
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[tr",
+        "truncated": true
+      },
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[trunca",
+        "truncated": true
+      },
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[truncated ",
+        "truncated": true
+      },
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": "line\nline\nline",
+        "truncated": false
+      },
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": "line\nline\nline",
+        "truncated": false
+      },
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": "line\nline\nline",
+        "truncated": false
+      },
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": "line\nline\nline",
+        "truncated": false
+      },
+      "text": "line\nline\nline"
+    },
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[tr",
+        "truncated": true
+      },
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[trunca",
+        "truncated": true
+      },
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "a\n\n b   c\t d",
+        "truncated": false
+      },
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": "a\n\n b   c\t d",
+        "truncated": false
+      },
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": "a\n\n b   c\t d",
+        "truncated": false
+      },
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": "a\n\n b   c\t d",
+        "truncated": false
+      },
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": "a\n\n b   c\t d",
+        "truncated": false
+      },
+      "text": "a\n\n b   c\t d"
+    },
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[tr",
+        "truncated": true
+      },
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[trunca",
+        "truncated": true
+      },
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[truncated ",
+        "truncated": true
+      },
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[truncated 60 chars",
+        "truncated": true
+      },
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": {
+          "$u16": [
+            55357,
+            56832,
+            55357,
+            10,
+            91,
+            116,
+            114,
+            117,
+            110,
+            99,
+            97,
+            116,
+            101,
+            100,
+            32,
+            54,
+            48,
+            32,
+            99,
+            104,
+            97,
+            114,
+            115,
+            59,
+            32,
+            115,
+            101,
+            101,
+            32,
+            109,
+            101,
+            115,
+            115,
+            97,
+            103,
+            101,
+            32,
+            109,
+            49,
+            93
+          ]
+        },
+        "truncated": true
+      },
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": {
+          "$u16": [
+            55357,
+            56832,
+            55357,
+            56832,
+            55357,
+            56832,
+            55357,
+            10,
+            91,
+            116,
+            114,
+            117,
+            110,
+            99,
+            97,
+            116,
+            101,
+            100,
+            32,
+            54,
+            48,
+            32,
+            99,
+            104,
+            97,
+            114,
+            115,
+            59,
+            32,
+            115,
+            101,
+            101,
+            32,
+            109,
+            101,
+            115,
+            115,
+            97,
+            103,
+            101,
+            32,
+            109,
+            49,
+            93
+          ]
+        },
+        "truncated": true
+      },
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+        "truncated": false
+      },
+      "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[tr",
+        "truncated": true
+      },
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[trunca",
+        "truncated": true
+      },
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[truncated ",
+        "truncated": true
+      },
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[truncated 90 chars",
+        "truncated": true
+      },
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": "x😀\n[truncated 90 chars; see message m1]",
+        "truncated": true
+      },
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": "x😀x😀x\n[truncated 90 chars; see message m1]",
+        "truncated": true
+      },
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀",
+        "truncated": false
+      },
+      "text": "x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀x😀"
+    },
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[tr",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[trunca",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[truncated ",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[truncated 77 chars",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": "üüü\n[truncated 77 chars; see message m1]",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": "üüüüüüü\n[truncated 77 chars; see message m1]",
+        "truncated": true
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": {
+          "$cat": [
+            {
+              "$rep": [
+                "ü",
+                77
+              ]
+            }
+          ]
+        },
+        "truncated": false
+      },
+      "text": {
+        "$cat": [
+          {
+            "$rep": [
+              "ü",
+              77
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": "\n\n\n"
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n\n\n",
+        "truncated": false
+      },
+      "text": "\n\n\n"
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n\n\n",
+        "truncated": false
+      },
+      "text": "\n\n\n"
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n\n\n",
+        "truncated": false
+      },
+      "text": "\n\n\n"
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n\n\n",
+        "truncated": false
+      },
+      "text": "\n\n\n"
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n\n\n",
+        "truncated": false
+      },
+      "text": "\n\n\n"
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n\n\n",
+        "truncated": false
+      },
+      "text": "\n\n\n"
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n\n\n",
+        "truncated": false
+      },
+      "text": "\n\n\n"
+    },
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": " lead and trail "
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[tr",
+        "truncated": true
+      },
+      "text": " lead and trail "
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[trunca",
+        "truncated": true
+      },
+      "text": " lead and trail "
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "\n[truncated ",
+        "truncated": true
+      },
+      "text": " lead and trail "
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": " lead and trail ",
+        "truncated": false
+      },
+      "text": " lead and trail "
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": " lead and trail ",
+        "truncated": false
+      },
+      "text": " lead and trail "
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": " lead and trail ",
+        "truncated": false
+      },
+      "text": " lead and trail "
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": " lead and trail ",
+        "truncated": false
+      },
+      "text": " lead and trail "
+    },
+    {
+      "max": 0,
+      "pointer": "see message m1",
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": "﻿ x　"
+    },
+    {
+      "max": 1,
+      "pointer": "see message m1",
+      "result": {
+        "text": "﻿ x　",
+        "truncated": false
+      },
+      "text": "﻿ x　"
+    },
+    {
+      "max": 2,
+      "pointer": "see message m1",
+      "result": {
+        "text": "﻿ x　",
+        "truncated": false
+      },
+      "text": "﻿ x　"
+    },
+    {
+      "max": 3,
+      "pointer": "see message m1",
+      "result": {
+        "text": "﻿ x　",
+        "truncated": false
+      },
+      "text": "﻿ x　"
+    },
+    {
+      "max": 5,
+      "pointer": "see message m1",
+      "result": {
+        "text": "﻿ x　",
+        "truncated": false
+      },
+      "text": "﻿ x　"
+    },
+    {
+      "max": 10,
+      "pointer": "see message m1",
+      "result": {
+        "text": "﻿ x　",
+        "truncated": false
+      },
+      "text": "﻿ x　"
+    },
+    {
+      "max": 11,
+      "pointer": "see message m1",
+      "result": {
+        "text": "﻿ x　",
+        "truncated": false
+      },
+      "text": "﻿ x　"
+    },
+    {
+      "max": 100,
+      "pointer": "see message m1",
+      "result": {
+        "text": "﻿ x　",
+        "truncated": false
+      },
+      "text": "﻿ x　"
+    }
+  ],
+  "truncateNegative": [
+    {
+      "max": -1,
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": "hello world, a longer text than room"
+    },
+    {
+      "max": -100,
+      "result": {
+        "text": "",
+        "truncated": true
+      },
+      "text": "hello world, a longer text than room"
+    }
+  ]
+}

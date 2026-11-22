@@ -110,22 +110,32 @@ export function openBudgetDb(o: OpenStoreOptions): DatabaseSync {
 
 const userVersion = (db: DatabaseSync): number => Number((db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version);
 
-function migrate(db: DatabaseSync): void {
-  if (userVersion(db) === BUDGET_SCHEMA_VERSION) return;
+/** The migration steps in order, step `n` taking the schema to version `n` (exported so the parity tests can build a store at an older version). */
+export const BUDGET_MIGRATIONS: readonly string[] = Object.keys(MIGRATIONS).map(Number).sort((a, b) => a - b).map((v) => MIGRATIONS[v]!);
+
+/** Applies `steps` (a prefix of `BUDGET_MIGRATIONS` or all of it) under one write lock and returns the version reached. */
+export function migrateBudgetSteps(db: DatabaseSync, steps: readonly string[]): number {
+  const target = steps.length;
+  if (userVersion(db) === target) return target;
   db.exec("BEGIN IMMEDIATE");
   try {
     let v = userVersion(db); // re-read under the write lock: another process may have migrated meanwhile
-    if (v > BUDGET_SCHEMA_VERSION) throw new BudgetStoreError("newer-schema", `budget store schema ${v} is newer than this core's ${BUDGET_SCHEMA_VERSION}`);
-    while (v < BUDGET_SCHEMA_VERSION) {
+    if (v > target) throw new BudgetStoreError("newer-schema", `budget store schema ${v} is newer than this core's ${target}`);
+    while (v < target) {
       v += 1;
-      db.exec(MIGRATIONS[v]!);
+      db.exec(steps[v - 1]!);
       db.exec(`PRAGMA user_version = ${v}`);
     }
     db.exec("COMMIT");
+    return v;
   } catch (e) {
     try { db.exec("ROLLBACK"); } catch { /* nothing open */ }
     throw e;
   }
+}
+
+function migrate(db: DatabaseSync): void {
+  migrateBudgetSteps(db, BUDGET_MIGRATIONS);
 }
 
 /** Runs `fn` in an IMMEDIATE transaction (write lock up front, so two processes serialise instead of failing on upgrade). */

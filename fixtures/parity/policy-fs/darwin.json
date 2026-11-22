@@ -1,0 +1,4990 @@
+{
+  "base": [
+    {
+      "mkdir": "root/sub"
+    },
+    {
+      "mkdir": "outside"
+    },
+    {
+      "file": "root/file.txt",
+      "text": "inside"
+    },
+    {
+      "file": "root/sub/deep.txt",
+      "text": "deep"
+    },
+    {
+      "file": "outside/secret.txt",
+      "text": "outside-secret"
+    }
+  ],
+  "cases": [
+    {
+      "name": "existing-file",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/file.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "ok": true,
+          "text": "inside"
+        },
+        {
+          "detail": "canonicalised for read, opened for write",
+          "ok": false,
+          "reason": "unsupported-open"
+        },
+        {
+          "detail": "canonicalised for read, opened for write",
+          "ok": false,
+          "reason": "unsupported-open"
+        },
+        {
+          "detail": "canonicalised for read, opened for write",
+          "ok": false,
+          "reason": "unsupported-open"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "flags": [
+            "O_WRONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "flags": [
+            "O_RDWR"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "flags": [
+            "O_RDONLY",
+            "O_APPEND"
+          ],
+          "of": 0,
+          "op": "open"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "relative-cwd",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/sub/deep.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "relative path without a cwd",
+          "ok": false,
+          "reason": "relative-no-cwd"
+        },
+        {
+          "detail": "cwd: the real target is outside every root",
+          "ok": false,
+          "reason": "outside-root"
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/sub/deep.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/nope/x",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "cwd: relative path without a cwd",
+          "ok": false,
+          "reason": "relative-no-cwd"
+        }
+      ],
+      "steps": [
+        {
+          "input": "deep.txt",
+          "op": "canon",
+          "options": {
+            "cwd": "$ROOT/root/sub"
+          }
+        },
+        {
+          "input": "deep.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "x",
+          "op": "canon",
+          "options": {
+            "cwd": "$ROOT/outside"
+          }
+        },
+        {
+          "input": "./sub//deep.txt",
+          "op": "canon",
+          "options": {
+            "cwd": "$ROOT/root"
+          }
+        },
+        {
+          "input": "x",
+          "op": "canon",
+          "options": {
+            "cwd": "$ROOT/root/nope"
+          }
+        },
+        {
+          "input": "x",
+          "op": "canon",
+          "options": {
+            "cwd": "rel"
+          }
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "missing-tail",
+      "portable": true,
+      "results": [
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/sub/new/deeper/f.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "the target's parent does not exist",
+          "ok": false,
+          "reason": "not-found"
+        },
+        {
+          "names": [
+            "deep.txt"
+          ]
+        },
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/sub/new.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "ok": true,
+          "wrote": true
+        },
+        {
+          "text": "W"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/sub/new/deeper/f.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_CREAT"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "op": "list",
+          "path": "$ROOT/root/sub"
+        },
+        {
+          "input": "$ROOT/root/sub/new.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_CREAT"
+          ],
+          "of": 3,
+          "op": "open"
+        },
+        {
+          "op": "read",
+          "path": "$ROOT/root/sub/new.txt"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "dot-and-separators",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/sub/deep.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/sub",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/./sub//deep.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/sub/",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT//root",
+          "op": "canon",
+          "options": {}
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "outside-root",
+      "portable": true,
+      "results": [
+        {
+          "detail": "the real target is outside every root",
+          "ok": false,
+          "reason": "outside-root"
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/outside/secret.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": null,
+          "systemTree": false
+        },
+        {
+          "access": "write",
+          "canonical": "$ROOT/outside/new.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": null,
+          "systemTree": false
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/outside/secret.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/outside/secret.txt",
+          "op": "canon",
+          "options": {
+            "requireRoot": false
+          }
+        },
+        {
+          "input": "$ROOT/outside/new.txt",
+          "op": "canon",
+          "options": {
+            "access": "write",
+            "requireRoot": false
+          }
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "nested-roots",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/sub/deep.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "inner",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/file.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "outer",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/x",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "a",
+          "systemTree": false
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "outer",
+                "path": "$ROOT/root"
+              },
+              {
+                "id": "inner",
+                "path": "$ROOT/root/sub"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "inner",
+                "path": "$ROOT/root/sub"
+              },
+              {
+                "id": "outer",
+                "path": "$ROOT/root"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/x",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "a",
+                "path": "$ROOT/root"
+              },
+              {
+                "id": "b",
+                "path": "$ROOT/root/"
+              }
+            ]
+          }
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "file-as-directory",
+      "portable": true,
+      "results": [
+        {
+          "detail": "a path component is not a directory",
+          "ok": false,
+          "reason": "not-directory"
+        },
+        {
+          "detail": "a path component is not a directory",
+          "ok": false,
+          "reason": "not-directory"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/file.txt/x",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/file.txt/x/y",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "dangling-link",
+      "portable": true,
+      "results": [
+        {
+          "detail": "\"$ROOT/root/dangling\" is a link whose target does not exist",
+          "ok": false,
+          "reason": "dangling-link"
+        },
+        {
+          "detail": "\"$ROOT/root/dangling\" is a link whose target does not exist",
+          "ok": false,
+          "reason": "dangling-link"
+        },
+        {
+          "detail": "\"$ROOT/root/dangling\" is a link whose target does not exist",
+          "ok": false,
+          "reason": "dangling-link"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/dangling",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "input": "$ROOT/root/dangling",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/dangling/x",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        }
+      ],
+      "tree": [
+        {
+          "symlink": "root/dangling",
+          "target": "$ROOT/outside/does-not-exist"
+        }
+      ]
+    },
+    {
+      "name": "bad-roots",
+      "portable": true,
+      "results": [
+        {
+          "detail": "root \"x\" is a home, drive or system tree",
+          "ok": false,
+          "reason": "bad-root"
+        },
+        {
+          "detail": "root \"x\" was moved or replaced",
+          "ok": false,
+          "reason": "root-identity-changed"
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/file.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "x",
+          "systemTree": false
+        },
+        {
+          "detail": "root \"x\" does not exist",
+          "ok": false,
+          "reason": "bad-root"
+        },
+        {
+          "detail": "root \"x\" is not absolute",
+          "ok": false,
+          "reason": "bad-root"
+        },
+        {
+          "detail": "root \"x\": dot-dot",
+          "ok": false,
+          "reason": "bad-root"
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/file.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "x",
+          "systemTree": false
+        },
+        {
+          "detail": "the real target is outside every root",
+          "ok": false,
+          "reason": "outside-root"
+        },
+        {
+          "detail": "root \"x\" is a home, drive or system tree",
+          "ok": false,
+          "reason": "bad-root"
+        },
+        {
+          "detail": "root \"x\": bidi-control",
+          "ok": false,
+          "reason": "bad-root"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "x",
+                "path": "/"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "x",
+                "identity": {
+                  "dev": "1",
+                  "ino": "2"
+                },
+                "path": "$ROOT/root"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "x",
+                "identity": {
+                  "fromStep": 2
+                },
+                "path": "$ROOT/root"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "x",
+                "path": "$ROOT/missing"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "x",
+                "path": "root"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "x",
+                "path": "$ROOT/root/../root"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "x",
+                "path": "$ROOT/root/file.txt"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {
+            "roots": []
+          }
+        },
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/root",
+            "roots": [
+              {
+                "id": "x",
+                "path": "$ROOT/root"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "x",
+                "path": "$ROOT/root‮"
+              }
+            ]
+          }
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "deny-spelled-and-real",
+      "portable": true,
+      "results": [
+        {
+          "detail": "matches the credential deny-list",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "matches the credential deny-list",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "matches the credential deny-list",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "the real target matches the credential deny-list",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "the real target matches the credential deny-list",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/file.txt",
+          "denyGuarded": true,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "matches the credential deny-list",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "matches the credential deny-list",
+          "ok": false,
+          "reason": "deny-listed"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/.ssh/id",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/root/.ssh"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/.SSH/id",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/root/.ssh"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/.env",
+          "op": "canon",
+          "options": {
+            "access": "write",
+            "deny": [
+              {
+                "name": ".ENV"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/innocent/id",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/root/.ssh"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/innocent/id",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".ssh"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/root/.ssh"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/innocent/id",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/root/innocent"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/root"
+              }
+            ]
+          }
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/.ssh"
+        },
+        {
+          "file": "root/.ssh/id",
+          "text": "k"
+        },
+        {
+          "symlink": "root/innocent",
+          "target": "$ROOT/root/.ssh"
+        }
+      ]
+    },
+    {
+      "name": "hard-link-outside",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/hard.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": true,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "write to a hard-linked file (link count > 1)",
+          "ok": false,
+          "reason": "hard-link"
+        },
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/hard.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": true,
+          "ok": true,
+          "rootId": null,
+          "systemTree": false
+        },
+        {
+          "ok": true,
+          "text": "outside-secret"
+        },
+        {
+          "ok": true,
+          "wrote": true
+        },
+        {
+          "text": "Wutside-secret"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/hard.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/hard.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "input": "$ROOT/root/hard.txt",
+          "op": "canon",
+          "options": {
+            "access": "write",
+            "requireRoot": false
+          }
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "flags": [
+            "O_WRONLY"
+          ],
+          "of": 2,
+          "op": "open"
+        },
+        {
+          "op": "read",
+          "path": "$ROOT/outside/secret.txt"
+        }
+      ],
+      "tree": [
+        {
+          "link": "root/hard.txt",
+          "to": "outside/secret.txt"
+        }
+      ]
+    },
+    {
+      "name": "create-inside",
+      "portable": true,
+      "results": [
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/created.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "ok": true,
+          "wrote": true
+        },
+        {
+          "text": "W"
+        },
+        {
+          "detail": "the target appeared since it was checked",
+          "ok": false,
+          "reason": "identity-changed"
+        },
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/created.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "ok": true,
+          "wrote": true
+        },
+        {
+          "text": "W"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/created.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_CREAT"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "op": "read",
+          "path": "$ROOT/root/created.txt"
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_CREAT"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "input": "$ROOT/root/created.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_CREAT",
+            "O_TRUNC"
+          ],
+          "of": 4,
+          "op": "open"
+        },
+        {
+          "op": "read",
+          "path": "$ROOT/root/created.txt"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "write-existing",
+      "portable": true,
+      "results": [
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/w.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "ok": true,
+          "wrote": true
+        },
+        {
+          "text": "W"
+        },
+        {
+          "ok": true,
+          "wrote": true
+        },
+        {
+          "text": "WW"
+        },
+        {
+          "ok": true,
+          "text": "WW",
+          "wrote": true
+        },
+        {
+          "text": "WWW"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/w.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_TRUNC"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "op": "read",
+          "path": "$ROOT/root/w.txt"
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_APPEND"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "op": "read",
+          "path": "$ROOT/root/w.txt"
+        },
+        {
+          "flags": [
+            "O_RDWR"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "op": "read",
+          "path": "$ROOT/root/w.txt"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/w.txt",
+          "text": "before"
+        }
+      ]
+    },
+    {
+      "name": "directory-not-file",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/d",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "ok": true,
+          "readError": "EISDIR"
+        },
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/d",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "open failed (EISDIR)",
+          "ok": false,
+          "reason": "unresolvable"
+        },
+        {
+          "ok": true,
+          "readError": "EISDIR"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/d",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "input": "$ROOT/root/d",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "flags": [
+            "O_WRONLY"
+          ],
+          "of": 2,
+          "op": "open"
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 2,
+          "op": "open"
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/d"
+        }
+      ]
+    },
+    {
+      "name": "fifo",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/p",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/p",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "a path component is not a directory",
+          "ok": false,
+          "reason": "not-directory"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/p",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/p",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "input": "$ROOT/root/p/x",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        }
+      ],
+      "tree": [
+        {
+          "fifo": "root/p"
+        }
+      ]
+    },
+    {
+      "name": "dot-dot-escapes",
+      "portable": true,
+      "results": [
+        {
+          "detail": "'..' segment",
+          "ok": false,
+          "reason": "dot-dot"
+        },
+        {
+          "detail": "'..' segment",
+          "ok": false,
+          "reason": "dot-dot"
+        },
+        {
+          "detail": "'..' segment",
+          "ok": false,
+          "reason": "dot-dot"
+        },
+        {
+          "detail": "'..' segment",
+          "ok": false,
+          "reason": "dot-dot"
+        },
+        {
+          "detail": "'..' segment",
+          "ok": false,
+          "reason": "dot-dot"
+        },
+        {
+          "detail": "'..' segment",
+          "ok": false,
+          "reason": "dot-dot"
+        },
+        {
+          "detail": "'..' segment",
+          "ok": false,
+          "reason": "dot-dot"
+        },
+        {
+          "detail": "'..' segment",
+          "ok": false,
+          "reason": "dot-dot"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/../outside/secret.txt",
+          "op": "canon",
+          "options": {
+            "cwd": "$ROOT/root"
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/../../outside/secret.txt",
+          "op": "canon",
+          "options": {
+            "cwd": "$ROOT/root"
+          }
+        },
+        {
+          "input": "../outside/secret.txt",
+          "op": "canon",
+          "options": {
+            "cwd": "$ROOT/root"
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/..",
+          "op": "canon",
+          "options": {
+            "cwd": "$ROOT/root"
+          }
+        },
+        {
+          "input": "$ROOT/root/./..",
+          "op": "canon",
+          "options": {
+            "cwd": "$ROOT/root"
+          }
+        },
+        {
+          "input": "..",
+          "op": "canon",
+          "options": {
+            "cwd": "$ROOT/root"
+          }
+        },
+        {
+          "input": "$ROOT/root/linkdir/../file.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "linkdir/../../outside",
+          "op": "canon",
+          "options": {
+            "cwd": "$ROOT/root"
+          }
+        }
+      ],
+      "tree": [
+        {
+          "symlink": "root/linkdir",
+          "target": "$ROOT/root/sub"
+        }
+      ]
+    },
+    {
+      "name": "backslash-escapes",
+      "portable": true,
+      "results": [
+        {
+          "detail": "backslash in a POSIX path (RULING: ambiguous with a separator, refused)",
+          "ok": false,
+          "reason": "backslash"
+        },
+        {
+          "detail": "backslash in a POSIX path (RULING: ambiguous with a separator, refused)",
+          "ok": false,
+          "reason": "backslash"
+        },
+        {
+          "detail": "backslash in a POSIX path (RULING: ambiguous with a separator, refused)",
+          "ok": false,
+          "reason": "backslash"
+        },
+        {
+          "detail": "real target: backslash in a POSIX path (RULING: ambiguous with a separator, refused)",
+          "ok": false,
+          "reason": "backslash"
+        },
+        {
+          "detail": "real target: backslash in a POSIX path (RULING: ambiguous with a separator, refused)",
+          "ok": false,
+          "reason": "backslash"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root\\..\\outside\\secret.txt",
+          "op": "canon",
+          "options": {
+            "cwd": "$ROOT/root"
+          }
+        },
+        {
+          "input": "sub\\..\\..\\outside",
+          "op": "canon",
+          "options": {
+            "cwd": "$ROOT/root"
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/..\\..\\outside/secret.txt",
+          "op": "canon",
+          "options": {
+            "cwd": "$ROOT/root"
+          }
+        },
+        {
+          "input": "$ROOT/root/bs",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/bs",
+          "op": "canon",
+          "options": {
+            "requireRoot": false
+          }
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/a\\b",
+          "text": "bs"
+        },
+        {
+          "symlink": "root/bs",
+          "target": "$ROOT/root/a\\b"
+        }
+      ]
+    },
+    {
+      "name": "link-out-of-root",
+      "portable": true,
+      "results": [
+        {
+          "detail": "the real target is outside every root",
+          "ok": false,
+          "reason": "outside-root"
+        },
+        {
+          "detail": "the real target is outside every root",
+          "ok": false,
+          "reason": "outside-root"
+        },
+        {
+          "detail": "the real target is outside every root",
+          "ok": false,
+          "reason": "outside-root"
+        },
+        {
+          "names": [
+            "secret.txt"
+          ]
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/outside/secret.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": null,
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/outside",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": null,
+          "systemTree": false
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/link-file",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/link-dir/secret.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/link-dir/new.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "op": "list",
+          "path": "$ROOT/outside"
+        },
+        {
+          "input": "$ROOT/root/link-file",
+          "op": "canon",
+          "options": {
+            "requireRoot": false
+          }
+        },
+        {
+          "input": "$ROOT/root/link-dir",
+          "op": "canon",
+          "options": {
+            "requireRoot": false
+          }
+        }
+      ],
+      "tree": [
+        {
+          "symlink": "root/link-file",
+          "target": "$ROOT/outside/secret.txt"
+        },
+        {
+          "symlink": "root/link-dir",
+          "target": "$ROOT/outside"
+        }
+      ]
+    },
+    {
+      "name": "link-inside-root",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/sub/deep.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/sub/deep.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "ok": true,
+          "text": "deep"
+        },
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/sub/fresh.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "ok": true,
+          "wrote": true
+        },
+        {
+          "text": "W"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/sublink/deep.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/rel",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 1,
+          "op": "open"
+        },
+        {
+          "input": "$ROOT/root/sublink/fresh.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_CREAT"
+          ],
+          "of": 3,
+          "op": "open"
+        },
+        {
+          "op": "read",
+          "path": "$ROOT/root/sub/fresh.txt"
+        }
+      ],
+      "tree": [
+        {
+          "symlink": "root/sublink",
+          "target": "$ROOT/root/sub"
+        },
+        {
+          "symlink": "root/rel",
+          "target": "sub/deep.txt"
+        }
+      ]
+    },
+    {
+      "name": "chain-and-loop",
+      "portable": true,
+      "results": [
+        {
+          "detail": "symbolic link loop",
+          "ok": false,
+          "reason": "link-loop"
+        },
+        {
+          "detail": "symbolic link loop",
+          "ok": false,
+          "reason": "link-loop"
+        },
+        {
+          "detail": "the real target is outside every root",
+          "ok": false,
+          "reason": "outside-root"
+        },
+        {
+          "detail": "symbolic link loop",
+          "ok": false,
+          "reason": "link-loop"
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/file.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "ok": true,
+          "text": "inside"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/chain-a",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/chain-a/x",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "input": "$ROOT/root/hop1",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/self",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/in1",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 4,
+          "op": "open"
+        }
+      ],
+      "tree": [
+        {
+          "symlink": "root/chain-a",
+          "target": "$ROOT/root/chain-b"
+        },
+        {
+          "symlink": "root/chain-b",
+          "target": "$ROOT/root/chain-a"
+        },
+        {
+          "symlink": "root/hop2",
+          "target": "$ROOT/outside/secret.txt"
+        },
+        {
+          "symlink": "root/hop1",
+          "target": "$ROOT/root/hop2"
+        },
+        {
+          "symlink": "root/self",
+          "target": "self"
+        },
+        {
+          "symlink": "root/in2",
+          "target": "$ROOT/root/file.txt"
+        },
+        {
+          "symlink": "root/in1",
+          "target": "$ROOT/root/in2"
+        }
+      ]
+    },
+    {
+      "name": "relative-link-target",
+      "portable": true,
+      "results": [
+        {
+          "detail": "the real target is outside every root",
+          "ok": false,
+          "reason": "outside-root"
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/outside/secret.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": null,
+          "systemTree": false
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/link-dotdot/secret.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/link-dotdot/secret.txt",
+          "op": "canon",
+          "options": {
+            "requireRoot": false
+          }
+        }
+      ],
+      "tree": [
+        {
+          "symlink": "root/link-dotdot",
+          "target": "../outside"
+        }
+      ]
+    },
+    {
+      "name": "sibling-prefix",
+      "portable": true,
+      "results": [
+        {
+          "detail": "the real target is outside every root",
+          "ok": false,
+          "reason": "outside-root"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root-evil/f",
+          "op": "canon",
+          "options": {}
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root-evil"
+        },
+        {
+          "file": "root-evil/f",
+          "text": "x"
+        }
+      ]
+    },
+    {
+      "name": "homoglyph-roots",
+      "portable": true,
+      "results": [
+        {
+          "detail": "the real target is outside every root",
+          "ok": false,
+          "reason": "outside-root"
+        },
+        {
+          "detail": "root \"h\" does not exist",
+          "ok": false,
+          "reason": "bad-root"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/have",
+          "op": "canon",
+          "options": {
+            "access": "write",
+            "roots": [
+              {
+                "id": "h",
+                "path": "$ROOT/root/hаve"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/hаve/f",
+          "op": "canon",
+          "options": {
+            "access": "write",
+            "roots": [
+              {
+                "id": "h",
+                "path": "$ROOT/root/have"
+              }
+            ]
+          }
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/hаve"
+        }
+      ]
+    },
+    {
+      "name": "unicode-nfd",
+      "portable": false,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/café/x",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "c",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/café/x",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "c",
+          "systemTree": false
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/café/x",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "c",
+                "path": "$ROOT/root/café"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/café/x",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "c",
+                "path": "$ROOT/root/café"
+              }
+            ]
+          }
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/café"
+        },
+        {
+          "file": "root/café/x",
+          "text": "x"
+        }
+      ]
+    },
+    {
+      "name": "case-insensitive-volume",
+      "portable": false,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/Docs/Note.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/Docs/Note.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "d",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/Docs/Note.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "d",
+          "systemTree": false
+        },
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/Docs/new.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "ok": true,
+          "wrote": true
+        },
+        {
+          "names": [
+            "Note.txt",
+            "new.txt"
+          ]
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/file.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/docs/note.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/DOCS/NOTE.TXT",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "d",
+                "path": "$ROOT/root/Docs"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/Docs/Note.txt",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "d",
+                "path": "$ROOT/root/docs"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/docs/new.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_CREAT"
+          ],
+          "of": 3,
+          "op": "open"
+        },
+        {
+          "op": "list",
+          "path": "$ROOT/root/Docs"
+        },
+        {
+          "input": "$ROOT/ROOT/file.txt",
+          "op": "canon",
+          "options": {}
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/Docs"
+        },
+        {
+          "file": "root/Docs/Note.txt",
+          "text": "n"
+        }
+      ]
+    },
+    {
+      "name": "tricky-characters",
+      "portable": true,
+      "results": [
+        {
+          "detail": "Unicode bidirectional control",
+          "ok": false,
+          "reason": "bidi-control"
+        },
+        {
+          "detail": "NUL or control character",
+          "ok": false,
+          "reason": "control-char"
+        },
+        {
+          "detail": "NUL or control character",
+          "ok": false,
+          "reason": "control-char"
+        },
+        {
+          "detail": "NUL or control character",
+          "ok": false,
+          "reason": "control-char"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/file‮txt.exe",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/file.txt\u0000.png",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/ab",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/a\tb",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "long-names",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "segment longer than 255 bytes",
+          "ok": false,
+          "reason": "too-long"
+        },
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+          "text": "long"
+        }
+      ]
+    },
+    {
+      "name": "long-path",
+      "portable": false,
+      "results": [
+        {
+          "detail": "cannot resolve the path (ENAMETOOLONG)",
+          "ok": false,
+          "reason": "unresolvable"
+        },
+        {
+          "detail": "longer than 4096 bytes",
+          "ok": false,
+          "reason": "too-long"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/f",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "input": "$ROOT/root/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "op": "canon",
+          "options": {}
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "special-trees",
+      "portable": true,
+      "results": [
+        {
+          "detail": "/dev is reachable only through sys.*",
+          "ok": false,
+          "reason": "special-tree"
+        },
+        {
+          "detail": "the real target is under /dev",
+          "ok": false,
+          "reason": "special-tree"
+        },
+        {
+          "detail": "the real target is under /dev",
+          "ok": false,
+          "reason": "special-tree"
+        }
+      ],
+      "steps": [
+        {
+          "input": "/dev/null",
+          "op": "canon",
+          "options": {
+            "requireRoot": false
+          }
+        },
+        {
+          "input": "$ROOT/root/devlink",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/devlink",
+          "op": "canon",
+          "options": {
+            "requireRoot": false
+          }
+        }
+      ],
+      "tree": [
+        {
+          "symlink": "root/devlink",
+          "target": "/dev/null"
+        }
+      ]
+    },
+    {
+      "name": "swap-leaf-for-link",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/race-leaf.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the leaf is now a symbolic link",
+          "ok": false,
+          "reason": "link-swap"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/race-leaf.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "do": [
+            {
+              "rm": "root/race-leaf.txt"
+            },
+            {
+              "symlink": "root/race-leaf.txt",
+              "target": "$ROOT/outside/secret.txt"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/race-leaf.txt",
+          "text": "original"
+        }
+      ]
+    },
+    {
+      "name": "swap-leaf-for-file",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/race-ident.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the opened file is not the one that was checked",
+          "ok": false,
+          "reason": "identity-changed"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/race-ident.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "do": [
+            {
+              "rename": "root/race-ident.txt",
+              "to": "root/kept.txt"
+            },
+            {
+              "file": "root/race-ident.txt",
+              "text": "swapped-in"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/race-ident.txt",
+          "text": "original"
+        }
+      ]
+    },
+    {
+      "name": "swap-write-for-link",
+      "portable": true,
+      "results": [
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/race-write.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the leaf is now a symbolic link",
+          "ok": false,
+          "reason": "link-swap"
+        },
+        {
+          "text": "outside-secret"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/race-write.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "do": [
+            {
+              "rm": "root/race-write.txt"
+            },
+            {
+              "symlink": "root/race-write.txt",
+              "target": "$ROOT/outside/secret.txt"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_TRUNC"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "op": "read",
+          "path": "$ROOT/outside/secret.txt"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/race-write.txt",
+          "text": "original"
+        }
+      ]
+    },
+    {
+      "name": "swap-write-for-hard-link",
+      "portable": true,
+      "results": [
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/t.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the opened file is not the one that was checked",
+          "ok": false,
+          "reason": "identity-changed"
+        },
+        {
+          "text": "outside-secret"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/t.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "do": [
+            {
+              "rm": "root/t.txt"
+            },
+            {
+              "link": "root/t.txt",
+              "to": "outside/secret.txt"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_TRUNC"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "op": "read",
+          "path": "$ROOT/outside/secret.txt"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/t.txt",
+          "text": "original"
+        }
+      ]
+    },
+    {
+      "name": "late-hard-link-without-create",
+      "portable": true,
+      "results": [
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/late.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the target does not exist",
+          "ok": false,
+          "reason": "not-found"
+        },
+        {
+          "text": "outside-secret"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/late.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "do": [
+            {
+              "link": "root/late.txt",
+              "to": "outside/secret.txt"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_TRUNC"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "op": "read",
+          "path": "$ROOT/outside/secret.txt"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "late-file-read-without-create",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/late-read.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the target does not exist",
+          "ok": false,
+          "reason": "not-found"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/late-read.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "do": [
+            {
+              "file": "root/late-read.txt",
+              "text": "planted"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "planted-link-at-create",
+      "portable": true,
+      "results": [
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/race-create.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the target appeared since it was checked",
+          "ok": false,
+          "reason": "identity-changed"
+        },
+        {
+          "names": [
+            "secret.txt"
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/race-create.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "do": [
+            {
+              "symlink": "root/race-create.txt",
+              "target": "$ROOT/outside/planted.txt"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_CREAT"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "op": "list",
+          "path": "$ROOT/outside"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "planted-file-at-create",
+      "portable": true,
+      "results": [
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/race-file.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the target appeared since it was checked",
+          "ok": false,
+          "reason": "identity-changed"
+        },
+        {
+          "text": "planted"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/race-file.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "do": [
+            {
+              "file": "root/race-file.txt",
+              "text": "planted"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_CREAT"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "op": "read",
+          "path": "$ROOT/root/race-file.txt"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "swap-parent-for-link",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/swapdir/f.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the parent directory path now resolves elsewhere",
+          "ok": false,
+          "reason": "identity-changed"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/swapdir/f.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "do": [
+            {
+              "rename": "root/swapdir",
+              "to": "root/swapdir.old"
+            },
+            {
+              "symlink": "root/swapdir",
+              "target": "$ROOT/outside"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/swapdir"
+        },
+        {
+          "file": "root/swapdir/f.txt",
+          "text": "in"
+        },
+        {
+          "file": "outside/f.txt",
+          "text": "out"
+        }
+      ]
+    },
+    {
+      "name": "swap-parent-at-create",
+      "portable": true,
+      "results": [
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/swapnew/n.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the parent directory path now resolves elsewhere",
+          "ok": false,
+          "reason": "identity-changed"
+        },
+        {
+          "names": [
+            "secret.txt"
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/swapnew/n.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "do": [
+            {
+              "rename": "root/swapnew",
+              "to": "root/swapnew.old"
+            },
+            {
+              "symlink": "root/swapnew",
+              "target": "$ROOT/outside"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_CREAT"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "op": "list",
+          "path": "$ROOT/outside"
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/swapnew"
+        }
+      ]
+    },
+    {
+      "name": "swap-parent-for-directory",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/pd/f.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the parent directory was replaced",
+          "ok": false,
+          "reason": "identity-changed"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/pd/f.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "do": [
+            {
+              "rename": "root/pd",
+              "to": "root/pd.old"
+            },
+            {
+              "mkdir": "root/pd"
+            },
+            {
+              "file": "root/pd/f.txt",
+              "text": "other"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/pd"
+        },
+        {
+          "file": "root/pd/f.txt",
+          "text": "in"
+        }
+      ]
+    },
+    {
+      "name": "parent-gone",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/gone/f.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/gone/new.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the parent directory is gone",
+          "ok": false,
+          "reason": "identity-changed"
+        },
+        {
+          "detail": "the target's parent does not exist",
+          "ok": false,
+          "reason": "not-found"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/gone/f.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/gone/new.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "do": [
+            {
+              "rm": "root/gone"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_CREAT"
+          ],
+          "of": 1,
+          "op": "open"
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/gone"
+        },
+        {
+          "file": "root/gone/f.txt",
+          "text": "g"
+        }
+      ]
+    },
+    {
+      "name": "leaf-vanished",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/v.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the target or its parent vanished",
+          "ok": false,
+          "reason": "identity-changed"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/v.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "do": [
+            {
+              "rm": "root/v.txt"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/v.txt",
+          "text": "v"
+        }
+      ]
+    },
+    {
+      "name": "gains-hard-link",
+      "portable": true,
+      "results": [
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/race-hard.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/race-hard.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the file gained a hard link since it was checked",
+          "ok": false,
+          "reason": "hard-link"
+        },
+        {
+          "ok": true,
+          "text": "original"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/race-hard.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "input": "$ROOT/root/race-hard.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "do": [
+            {
+              "link": "outside/linkback.txt",
+              "to": "root/race-hard.txt"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_WRONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 1,
+          "op": "open"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/race-hard.txt",
+          "text": "original"
+        }
+      ]
+    },
+    {
+      "name": "deny-entry-through-link",
+      "portable": true,
+      "results": [
+        {
+          "detail": "matches the credential deny-list",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "matches the credential deny-list",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/realdeny/token",
+          "denyGuarded": true,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "matches the credential deny-list",
+          "ok": false,
+          "reason": "deny-listed"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/realdeny/token",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/alias-deny"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/realdeny/new",
+          "op": "canon",
+          "options": {
+            "access": "write",
+            "deny": [
+              {
+                "path": "$ROOT/alias-deny/new"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/realdeny/token",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/alias-deny/missing/deeper"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/realdeny/token",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$TMP/root/realdeny"
+              }
+            ]
+          }
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/realdeny"
+        },
+        {
+          "file": "root/realdeny/token",
+          "text": "t"
+        },
+        {
+          "symlink": "alias-deny",
+          "target": "$ROOT/root/realdeny"
+        }
+      ]
+    },
+    {
+      "name": "read-never-creates",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/missing-read.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "the target does not exist",
+          "ok": false,
+          "reason": "not-found"
+        },
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/missing-read.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "the target does not exist",
+          "ok": false,
+          "reason": "not-found"
+        },
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/no/such/dir/f",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "the target's parent does not exist",
+          "ok": false,
+          "reason": "not-found"
+        },
+        {
+          "names": [
+            "file.txt",
+            "sub"
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/missing-read.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "input": "$ROOT/root/missing-read.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "flags": [
+            "O_WRONLY"
+          ],
+          "of": 2,
+          "op": "open"
+        },
+        {
+          "input": "$ROOT/root/no/such/dir/f",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_CREAT"
+          ],
+          "of": 4,
+          "op": "open"
+        },
+        {
+          "op": "list",
+          "path": "$ROOT/root"
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "path-entry-alias",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/single-link.txt",
+          "denyGuarded": true,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "the target is a hard link to a deny-listed file",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "the target is a hard link to a deny-listed file",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/protected-alias.txt",
+          "denyGuarded": true,
+          "exists": true,
+          "hardLinked": true,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "hard-linked target while the deny-list scan was incomplete (fail closed)",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "hard-linked target while the deny-list scan was incomplete (fail closed)",
+          "ok": false,
+          "reason": "deny-listed"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/single-link.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/outside"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/protected-alias.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/outside"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/protected-alias.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/outside/secret.txt"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/protected-alias.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/root/sub"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/protected-alias.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/outside"
+              }
+            ],
+            "scanCap": 0
+          }
+        },
+        {
+          "input": "$ROOT/root/protected-alias.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/root/sub"
+              }
+            ],
+            "scanCap": 0
+          }
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/single-link.txt",
+          "text": "inside"
+        },
+        {
+          "link": "root/protected-alias.txt",
+          "to": "outside/secret.txt"
+        }
+      ]
+    },
+    {
+      "name": "gains-protected-alias",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/new-alias.txt",
+          "denyGuarded": true,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the file gained a hard link since it was checked",
+          "ok": false,
+          "reason": "hard-link"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/new-alias.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/outside"
+              }
+            ]
+          }
+        },
+        {
+          "do": [
+            {
+              "link": "outside/new-alias.txt",
+              "to": "root/new-alias.txt"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/new-alias.txt",
+          "text": "inside"
+        }
+      ]
+    },
+    {
+      "name": "name-entry-alias",
+      "portable": true,
+      "results": [
+        {
+          "detail": "the target is a hard link to a file protected by a deny-list name entry",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/nm/notes.txt",
+          "denyGuarded": true,
+          "exists": true,
+          "hardLinked": true,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/nm/notes.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": true,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "the target is a hard link to a file protected by a deny-list name entry",
+          "ok": false,
+          "reason": "deny-listed"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/nm/notes.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".env"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/nm/notes.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".npmrc"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/nm/notes.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$ROOT/root/nm/notes.txt",
+          "op": "canon",
+          "options": {
+            "access": "write",
+            "deny": [
+              {
+                "name": ".env"
+              }
+            ],
+            "requireRoot": false
+          }
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/nm"
+        },
+        {
+          "file": "root/nm/.env",
+          "text": "TOKEN=1"
+        },
+        {
+          "link": "root/nm/notes.txt",
+          "to": "root/nm/.env"
+        }
+      ]
+    },
+    {
+      "name": "name-entry-folded",
+      "portable": true,
+      "results": [
+        {
+          "detail": "the target is a hard link to a file protected by a deny-list name entry",
+          "ok": false,
+          "reason": "deny-listed"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/fold/plain.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".env"
+              }
+            ]
+          }
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/fold"
+        },
+        {
+          "file": "root/fold/.ENV",
+          "text": "TOKEN=2"
+        },
+        {
+          "link": "root/fold/plain.txt",
+          "to": "root/fold/.ENV"
+        }
+      ]
+    },
+    {
+      "name": "name-entry-directory",
+      "portable": true,
+      "results": [
+        {
+          "detail": "the target is a hard link to a file protected by a deny-list name entry",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "the target is a hard link to a file protected by a deny-list name entry",
+          "ok": false,
+          "reason": "deny-listed"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/keys/innocent.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".ssh"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/keys/innocent.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".SSH"
+              }
+            ]
+          }
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/keys/.ssh"
+        },
+        {
+          "file": "root/keys/.ssh/id_ed25519",
+          "text": "KEY"
+        },
+        {
+          "link": "root/keys/innocent.txt",
+          "to": "root/keys/.ssh/id_ed25519"
+        }
+      ]
+    },
+    {
+      "name": "name-entry-second-root",
+      "portable": true,
+      "results": [
+        {
+          "detail": "the target is a hard link to a file protected by a deny-list name entry",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/from-second.txt",
+          "denyGuarded": true,
+          "exists": true,
+          "hardLinked": true,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/from-second.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".env"
+              }
+            ],
+            "roots": [
+              {
+                "id": "ws",
+                "path": "$ROOT/root"
+              },
+              {
+                "id": "two",
+                "path": "$ROOT/second-root"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/from-second.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".env"
+              }
+            ]
+          }
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "second-root"
+        },
+        {
+          "file": "second-root/.env",
+          "text": "TOKEN=3"
+        },
+        {
+          "link": "root/from-second.txt",
+          "to": "second-root/.env"
+        }
+      ]
+    },
+    {
+      "name": "name-entry-via-symlink",
+      "portable": true,
+      "results": [
+        {
+          "detail": "the target is a hard link to a file protected by a deny-list name entry",
+          "ok": false,
+          "reason": "deny-listed"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/viasym/sym.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".env"
+              }
+            ]
+          }
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/viasym"
+        },
+        {
+          "file": "root/viasym/.env",
+          "text": "TOKEN=4"
+        },
+        {
+          "link": "root/viasym/real.txt",
+          "to": "root/viasym/.env"
+        },
+        {
+          "symlink": "root/viasym/sym.txt",
+          "target": "$ROOT/root/viasym/real.txt"
+        }
+      ]
+    },
+    {
+      "name": "name-entry-unprotected-links",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/plain-b.txt",
+          "denyGuarded": true,
+          "exists": true,
+          "hardLinked": true,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "ok": true,
+          "text": "x"
+        },
+        {
+          "detail": "write to a hard-linked file (link count > 1)",
+          "ok": false,
+          "reason": "hard-link"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/plain-b.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".env"
+              }
+            ]
+          }
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "input": "$ROOT/root/plain-b.txt",
+          "op": "canon",
+          "options": {
+            "access": "write",
+            "deny": [
+              {
+                "name": ".env"
+              }
+            ]
+          }
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/plain-a.txt",
+          "text": "x"
+        },
+        {
+          "link": "root/plain-b.txt",
+          "to": "root/plain-a.txt"
+        }
+      ]
+    },
+    {
+      "name": "name-scan-cap",
+      "portable": true,
+      "results": [
+        {
+          "detail": "hard-linked target while the name-entry scan was incomplete (fail closed)",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/capped/b",
+          "denyGuarded": true,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "cap",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/capped/a2",
+          "denyGuarded": true,
+          "exists": true,
+          "hardLinked": true,
+          "ok": true,
+          "rootId": "cap",
+          "systemTree": false
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/capped/a2",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".env"
+              }
+            ],
+            "roots": [
+              {
+                "id": "cap",
+                "path": "$ROOT/root/capped"
+              }
+            ],
+            "scanCap": 2
+          }
+        },
+        {
+          "input": "$ROOT/root/capped/b",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".env"
+              }
+            ],
+            "roots": [
+              {
+                "id": "cap",
+                "path": "$ROOT/root/capped"
+              }
+            ],
+            "scanCap": 2
+          }
+        },
+        {
+          "input": "$ROOT/root/capped/a2",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".env"
+              }
+            ],
+            "roots": [
+              {
+                "id": "cap",
+                "path": "$ROOT/root/capped"
+              }
+            ],
+            "scanCap": 5
+          }
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/capped"
+        },
+        {
+          "file": "root/capped/a",
+          "text": "a"
+        },
+        {
+          "file": "root/capped/b",
+          "text": "b"
+        },
+        {
+          "file": "root/capped/c",
+          "text": "c"
+        },
+        {
+          "link": "root/capped/a2",
+          "to": "root/capped/a"
+        }
+      ]
+    },
+    {
+      "name": "name-entry-root-below-protected",
+      "portable": true,
+      "results": [
+        {
+          "detail": "the target is a hard link to a file protected by a deny-list name entry",
+          "ok": false,
+          "reason": "deny-listed"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/from-ssh-root.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".ssh"
+              }
+            ],
+            "roots": [
+              {
+                "id": "ws",
+                "path": "$ROOT/root"
+              },
+              {
+                "id": "two",
+                "path": "$ROOT/holder/.ssh/second-root"
+              }
+            ]
+          }
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "holder/.ssh/second-root"
+        },
+        {
+          "file": "holder/.ssh/second-root/key",
+          "text": "KEY"
+        },
+        {
+          "link": "root/from-ssh-root.txt",
+          "to": "holder/.ssh/second-root/key"
+        }
+      ]
+    },
+    {
+      "name": "name-scan-unreadable",
+      "portable": false,
+      "results": [
+        {
+          "detail": "hard-linked target while the name-entry scan was incomplete (fail closed)",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "hard-linked target while the deny-list scan was incomplete (fail closed)",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        null
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/lk-b.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".env"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/lk-a.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/root/locked"
+              }
+            ]
+          }
+        },
+        {
+          "do": [
+            {
+              "chmod": "root/locked",
+              "mode": 493
+            }
+          ],
+          "op": "fs"
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "root/locked"
+        },
+        {
+          "file": "root/lk-a.txt",
+          "text": "x"
+        },
+        {
+          "link": "root/lk-b.txt",
+          "to": "root/lk-a.txt"
+        },
+        {
+          "chmod": "root/locked",
+          "mode": 0
+        }
+      ]
+    },
+    {
+      "name": "name-entry-gains-link",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/gain-name.txt",
+          "denyGuarded": true,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/gain-name.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the file gained a hard link since it was checked",
+          "ok": false,
+          "reason": "hard-link"
+        },
+        {
+          "ok": true,
+          "text": "g"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/gain-name.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".env"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/gain-name.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "do": [
+            {
+              "link": "root/gain-name.alias",
+              "to": "root/gain-name.txt"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 1,
+          "op": "open"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/gain-name.txt",
+          "text": "g"
+        }
+      ]
+    },
+    {
+      "name": "name-entry-swap-to-protected",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/swap-env.txt",
+          "denyGuarded": true,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        null,
+        {
+          "detail": "the opened file is not the one that was checked",
+          "ok": false,
+          "reason": "identity-changed"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/swap-env.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".env"
+              }
+            ]
+          }
+        },
+        {
+          "do": [
+            {
+              "rm": "root/swap-env.txt"
+            },
+            {
+              "link": "root/swap-env.txt",
+              "to": "root/.env"
+            }
+          ],
+          "op": "fs"
+        },
+        {
+          "flags": [
+            "O_RDONLY"
+          ],
+          "of": 0,
+          "op": "open"
+        }
+      ],
+      "tree": [
+        {
+          "file": "root/.env",
+          "text": "TOKEN=5"
+        },
+        {
+          "file": "root/swap-env.txt",
+          "text": "harmless"
+        }
+      ]
+    },
+    {
+      "name": "invalid-deny-entries",
+      "portable": true,
+      "results": [
+        {
+          "detail": "invalid deny-list entry (fail closed): #0 has a name that cannot equal a path segment",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "invalid deny-list entry (fail closed): #0 has a name that cannot equal a path segment",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "invalid deny-list entry (fail closed): #0 has a name that cannot equal a path segment",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "invalid deny-list entry (fail closed): #0 has a path that is not absolute",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "invalid deny-list entry (fail closed): #0 has a path that is not absolute",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "invalid deny-list entry (fail closed): #0 has a path with a '.' or '..' segment (it can never match a canonical path)",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "invalid deny-list entry (fail closed): #0 has a path with a '.' or '..' segment (it can never match a canonical path)",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "invalid deny-list entry (fail closed): #0 has a path with a '.' or '..' segment (it can never match a canonical path)",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "invalid deny-list entry (fail closed): #0 has a name that cannot equal a path segment",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "invalid deny-list entry (fail closed): #0 must have exactly one of name or path",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "invalid deny-list entry (fail closed): #0 is not an object",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "invalid deny-list entry (fail closed): #0 is not an object",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "detail": "invalid deny-list entry (fail closed): the deny-list is not an array",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/sub/deep.txt",
+          "denyGuarded": true,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/sub/deep.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".ssh/config"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ""
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".."
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": ""
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "~/.ssh"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "/srv/agents/../claude"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "C:\\agents\\..\\claude"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "/srv/./claude"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": 7
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "glob": "*.pem"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              null
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              ".env"
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": {
+              "name": ".env"
+            }
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "name": ".env"
+              },
+              {
+                "path": "$ROOT/elsewhere"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/root/sub/deep.txt",
+          "op": "canon",
+          "options": {
+            "deny": []
+          }
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "home-through-link",
+      "portable": true,
+      "results": [
+        {
+          "detail": "root \"h\" is a home, drive or system tree",
+          "ok": false,
+          "reason": "bad-root"
+        },
+        {
+          "detail": "root \"h\" is a home, drive or system tree",
+          "ok": false,
+          "reason": "bad-root"
+        },
+        {
+          "detail": "root \"h\" is a home, drive or system tree",
+          "ok": false,
+          "reason": "bad-root"
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/data/u/work/g.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "w",
+          "systemTree": false
+        },
+        {
+          "detail": "root \"h\" is a home, drive or system tree",
+          "ok": false,
+          "reason": "bad-root"
+        },
+        {
+          "detail": "root \"h\" is a home, drive or system tree",
+          "ok": false,
+          "reason": "bad-root"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/data/u/f.txt",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/home-u",
+            "roots": [
+              {
+                "id": "h",
+                "path": "$ROOT/data/u"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/data/u/f.txt",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/data/u",
+            "roots": [
+              {
+                "id": "h",
+                "path": "$ROOT/home-u"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/data/u/f.txt",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/home-u",
+            "roots": [
+              {
+                "id": "h",
+                "path": "$ROOT/home-u"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/home-u/work/g.txt",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/home-u",
+            "roots": [
+              {
+                "id": "w",
+                "path": "$ROOT/home-u/work"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/data/u/f.txt",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/data/u/",
+            "roots": [
+              {
+                "id": "h",
+                "path": "$ROOT/data/u"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/data/u/f.txt",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/data/u/work/..",
+            "roots": [
+              {
+                "id": "h",
+                "path": "$ROOT/data/u"
+              }
+            ]
+          }
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "data/u/work"
+        },
+        {
+          "file": "data/u/f.txt",
+          "text": "f"
+        },
+        {
+          "file": "data/u/work/g.txt",
+          "text": "g"
+        },
+        {
+          "symlink": "home-u",
+          "target": "$ROOT/data/u"
+        }
+      ]
+    },
+    {
+      "name": "system-tree-flag",
+      "portable": true,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/home/u",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": null,
+          "systemTree": true
+        },
+        {
+          "access": "read",
+          "canonical": "/",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": null,
+          "systemTree": true
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/home/u/newdir/x.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": null,
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/home/u/work/a.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": null,
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/home/u",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": null,
+          "systemTree": true
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/home/u",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": null,
+          "systemTree": true
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/home/u",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": null,
+          "systemTree": true
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/home/u",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/home/u",
+            "requireRoot": false,
+            "roots": [
+              {
+                "id": "ws",
+                "path": "$ROOT/home/u/work"
+              }
+            ]
+          }
+        },
+        {
+          "input": "/",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/home/u",
+            "requireRoot": false,
+            "roots": [
+              {
+                "id": "ws",
+                "path": "$ROOT/home/u/work"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/home/u/newdir/x.txt",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/home/u",
+            "requireRoot": false,
+            "roots": [
+              {
+                "id": "ws",
+                "path": "$ROOT/home/u/work"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/home/u/work/a.txt",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/home/u",
+            "requireRoot": false,
+            "roots": [
+              {
+                "id": "ws",
+                "path": "$ROOT/home/u/work"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/home/u",
+            "requireRoot": false,
+            "roots": [
+              {
+                "id": "ws",
+                "path": "$ROOT/home/u/work"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/homelink/u",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/home/u",
+            "requireRoot": false,
+            "roots": [
+              {
+                "id": "ws",
+                "path": "$ROOT/home/u/work"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/home/u",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/homelink/u",
+            "requireRoot": false,
+            "roots": [
+              {
+                "id": "ws",
+                "path": "$ROOT/home/u/work"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$ROOT/homelink/u",
+          "op": "canon",
+          "options": {
+            "home": "$ROOT/homelink/u",
+            "requireRoot": false,
+            "roots": [
+              {
+                "id": "ws",
+                "path": "$ROOT/home/u/work"
+              }
+            ]
+          }
+        }
+      ],
+      "tree": [
+        {
+          "mkdir": "home/u/work"
+        },
+        {
+          "symlink": "homelink",
+          "target": "$ROOT/home"
+        }
+      ]
+    },
+    {
+      "name": "system-tree-etc",
+      "portable": false,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "/private/etc",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": null,
+          "systemTree": true
+        },
+        {
+          "access": "write",
+          "canonical": "/private/etc/nonexistent-p4k/x",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": null,
+          "systemTree": true
+        }
+      ],
+      "steps": [
+        {
+          "input": "/etc",
+          "op": "canon",
+          "options": {
+            "requireRoot": false
+          }
+        },
+        {
+          "input": "/etc/nonexistent-p4k/x",
+          "op": "canon",
+          "options": {
+            "access": "write",
+            "requireRoot": false
+          }
+        }
+      ],
+      "tree": []
+    },
+    {
+      "name": "spelled-through-var",
+      "portable": false,
+      "results": [
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/file.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "v",
+          "systemTree": false
+        },
+        {
+          "access": "read",
+          "canonical": "$ROOT/root/file.txt",
+          "denyGuarded": false,
+          "exists": true,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "detail": "the real target matches the credential deny-list",
+          "ok": false,
+          "reason": "deny-listed"
+        },
+        {
+          "access": "write",
+          "canonical": "$ROOT/root/new.txt",
+          "denyGuarded": false,
+          "exists": false,
+          "hardLinked": false,
+          "ok": true,
+          "rootId": "ws",
+          "systemTree": false
+        },
+        {
+          "ok": true,
+          "wrote": true
+        },
+        {
+          "text": "W"
+        }
+      ],
+      "steps": [
+        {
+          "input": "$ROOT/root/file.txt",
+          "op": "canon",
+          "options": {
+            "roots": [
+              {
+                "id": "v",
+                "path": "$TMP/root"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$TMP/root/file.txt",
+          "op": "canon",
+          "options": {}
+        },
+        {
+          "input": "$TMP/root/file.txt",
+          "op": "canon",
+          "options": {
+            "deny": [
+              {
+                "path": "$ROOT/root/file.txt"
+              }
+            ]
+          }
+        },
+        {
+          "input": "$TMP/root/new.txt",
+          "op": "canon",
+          "options": {
+            "access": "write"
+          }
+        },
+        {
+          "flags": [
+            "O_WRONLY",
+            "O_CREAT"
+          ],
+          "of": 3,
+          "op": "open"
+        },
+        {
+          "op": "read",
+          "path": "$ROOT/root/new.txt"
+        }
+      ],
+      "tree": []
+    }
+  ],
+  "platform": "darwin"
+}

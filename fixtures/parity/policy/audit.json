@@ -1,0 +1,1048 @@
+{
+  "cases": [
+    {
+      "action": "policy.decision",
+      "detailKeys": [
+        "person",
+        "agentId",
+        "subjectKind",
+        "sessionId",
+        "taskId",
+        "tool",
+        "capability",
+        "effect",
+        "risk",
+        "outcome",
+        "via",
+        "rule",
+        "actionHash",
+        "surface",
+        "argsBytes",
+        "targets"
+      ],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "user:v1:christian"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "actionHash": "abababababababababababababababababababababababababababababababab",
+          "agentId": "bernd",
+          "argsBytes": 17,
+          "capability": "fs.read",
+          "effect": "read",
+          "outcome": "approval",
+          "person": "user:v1:christian",
+          "risk": "low",
+          "rule": "approval-class",
+          "sessionId": "s1",
+          "subjectKind": "agent",
+          "surface": 3,
+          "targets": [
+            "/work/a.txt"
+          ],
+          "taskId": "t1",
+          "tool": "fs.read",
+          "via": "ask"
+        },
+        "target": "tool:fs.read"
+      },
+      "fields": {
+        "actionHash": "abababababababababababababababababababababababababababababababab",
+        "agentId": "bernd",
+        "argsBytes": 17,
+        "capability": "fs.read",
+        "effect": "read",
+        "outcome": "approval",
+        "person": "user:v1:christian",
+        "risk": "low",
+        "rule": "approval-class",
+        "sessionId": "s1",
+        "subjectKind": "agent",
+        "surface": 3,
+        "targets": [
+          "/work/a.txt"
+        ],
+        "taskId": "t1",
+        "tool": "fs.read",
+        "via": "ask"
+      }
+    },
+    {
+      "action": "policy.outcome",
+      "detailKeys": [
+        "tool",
+        "resultCode",
+        "durationMs",
+        "resultBytes"
+      ],
+      "event": {
+        "action": "policy.outcome",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "durationMs": 1.5,
+          "resultBytes": 12,
+          "resultCode": "ok",
+          "tool": "fs.write"
+        },
+        "target": "tool:fs.write"
+      },
+      "fields": {
+        "args": {
+          "path": "/x"
+        },
+        "content": "the file body",
+        "diff": "+a",
+        "durationMs": 1.5,
+        "env": {
+          "HOME": "/h"
+        },
+        "resultBytes": 12,
+        "resultCode": "ok",
+        "tool": "fs.write"
+      }
+    },
+    {
+      "action": "grant.created",
+      "detailKeys": [
+        "person",
+        "grantId",
+        "grantScope",
+        "matchKind",
+        "scope",
+        "by",
+        "decisionSurface",
+        "expiresAt"
+      ],
+      "event": {
+        "action": "grant.created",
+        "actor": {
+          "host": "h1",
+          "user": "admin:1"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "by": "admin:1",
+          "decisionSurface": 3,
+          "expiresAt": 1800000000000,
+          "grantId": "g1",
+          "grantScope": "always",
+          "matchKind": "path",
+          "person": "",
+          "scope": "always"
+        },
+        "target": "grant:g1"
+      },
+      "fields": {
+        "by": "admin:1",
+        "decisionSurface": 3,
+        "expiresAt": 1800000000000,
+        "grantId": "g1",
+        "grantScope": "always",
+        "matchKind": "path",
+        "person": "",
+        "scope": "always"
+      }
+    },
+    {
+      "action": "grant.used",
+      "detailKeys": [],
+      "event": {
+        "action": "grant.used",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {},
+        "target": "grant:5"
+      },
+      "fields": {
+        "grantId": 5
+      }
+    },
+    {
+      "action": "grant.revoked",
+      "detailKeys": [],
+      "event": {
+        "action": "grant.revoked",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {},
+        "target": "grant:-"
+      },
+      "fields": {
+        "grantId": null
+      }
+    },
+    {
+      "action": "grant.ended",
+      "detailKeys": [],
+      "event": {
+        "action": "grant.ended",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {},
+        "target": "grant:[object Object]"
+      },
+      "fields": {
+        "grantId": {
+          "x": 1
+        }
+      }
+    },
+    {
+      "action": "grant.consumed",
+      "detailKeys": [],
+      "event": {
+        "action": "grant.consumed",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {},
+        "target": "grant:1,,a"
+      },
+      "fields": {
+        "grantId": [
+          1,
+          null,
+          "a"
+        ]
+      }
+    },
+    {
+      "action": "approval.requested",
+      "detailKeys": [
+        "person",
+        "requestId"
+      ],
+      "event": {
+        "action": "approval.requested",
+        "actor": {
+          "host": "h1",
+          "user": "p"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "person": "p",
+          "requestId": "r1"
+        },
+        "target": "approval:r1"
+      },
+      "fields": {
+        "person": "p",
+        "requestId": "r1"
+      }
+    },
+    {
+      "action": "attestation.result",
+      "detailKeys": [
+        "requestId",
+        "method",
+        "attestationOutcome",
+        "attestedVia"
+      ],
+      "event": {
+        "action": "attestation.result",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "attestationOutcome": "confirmed",
+          "attestedVia": "attested:touch-id",
+          "method": "touch-id",
+          "requestId": "r2"
+        },
+        "target": "approval:r2"
+      },
+      "fields": {
+        "attestationOutcome": "confirmed",
+        "attestedVia": "attested:touch-id",
+        "method": "touch-id",
+        "requestId": "r2"
+      }
+    },
+    {
+      "action": "approvals.integrity-failure",
+      "detailKeys": [
+        "failure",
+        "brokenAt"
+      ],
+      "event": {
+        "action": "approvals.integrity-failure",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "brokenAt": 7,
+          "failure": "hash-mismatch"
+        },
+        "target": "approvals"
+      },
+      "fields": {
+        "brokenAt": 7,
+        "failure": "hash-mismatch"
+      }
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [
+        "capability"
+      ],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "capability": "shell.exec"
+        },
+        "target": "tool:shell.exec"
+      },
+      "fields": {
+        "capability": "shell.exec"
+      }
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {},
+        "target": "tool:-"
+      },
+      "fields": {}
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [
+        "capability"
+      ],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "capability": "x"
+        },
+        "target": "tool:x"
+      },
+      "fields": {
+        "capability": "x",
+        "tool": null
+      }
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [
+        "targets",
+        "targetsTotal"
+      ],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "targets": [
+            "/t/0",
+            "/t/1",
+            "/t/2",
+            "/t/3",
+            "/t/4",
+            "/t/5",
+            "/t/6",
+            "/t/7",
+            "/t/8",
+            "/t/9",
+            "/t/10",
+            "/t/11",
+            "/t/12",
+            "/t/13",
+            "/t/14",
+            "/t/15",
+            "/t/16",
+            "/t/17",
+            "/t/18",
+            "/t/19"
+          ],
+          "targetsTotal": 25
+        },
+        "target": "tool:-"
+      },
+      "fields": {
+        "targets": [
+          "/t/0",
+          "/t/1",
+          "/t/2",
+          "/t/3",
+          "/t/4",
+          "/t/5",
+          "/t/6",
+          "/t/7",
+          "/t/8",
+          "/t/9",
+          "/t/10",
+          "/t/11",
+          "/t/12",
+          "/t/13",
+          "/t/14",
+          "/t/15",
+          "/t/16",
+          "/t/17",
+          "/t/18",
+          "/t/19",
+          "/t/20",
+          "/t/21",
+          "/t/22",
+          "/t/23",
+          "/t/24",
+          5,
+          null
+        ]
+      }
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [
+        "flags"
+      ],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "flags": {
+            "outsideRoots": true,
+            "systemTree": false
+          }
+        },
+        "target": "tool:-"
+      },
+      "fields": {
+        "flags": {
+          "denyListHit": "no",
+          "extra": true,
+          "outsideRoots": true,
+          "systemTree": false
+        },
+        "targets": "not-a-list"
+      }
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {},
+        "target": "tool:-"
+      },
+      "fields": {
+        "flags": [
+          "outsideRoots"
+        ]
+      }
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {},
+        "target": "tool:-"
+      },
+      "fields": {
+        "flags": null
+      }
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {},
+        "target": "tool:-"
+      },
+      "fields": {
+        "flags": {
+          "bogus": true
+        }
+      }
+    },
+    {
+      "action": "approvals.held-rejected",
+      "detailKeys": [
+        "rejected"
+      ],
+      "event": {
+        "action": "approvals.held-rejected",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "rejected": [
+            {
+              "id": "a",
+              "reason": "unknown"
+            },
+            {
+              "id": "[REDACTED:pattern]",
+              "reason": "task-mismatch"
+            }
+          ]
+        },
+        "target": "approvals"
+      },
+      "fields": {
+        "rejected": [
+          {
+            "id": "a",
+            "reason": "unknown"
+          },
+          {
+            "id": "b",
+            "reason": "bogus"
+          },
+          {
+            "id": 5,
+            "reason": "revoked"
+          },
+          null,
+          {
+            "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "reason": "task-mismatch"
+          }
+        ]
+      }
+    },
+    {
+      "action": "approvals.held-rejected",
+      "detailKeys": [
+        "rejected"
+      ],
+      "event": {
+        "action": "approvals.held-rejected",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "rejected": [
+            {
+              "id": "id0",
+              "reason": "revoked"
+            },
+            {
+              "id": "id1",
+              "reason": "revoked"
+            },
+            {
+              "id": "id2",
+              "reason": "revoked"
+            },
+            {
+              "id": "id3",
+              "reason": "revoked"
+            },
+            {
+              "id": "id4",
+              "reason": "revoked"
+            },
+            {
+              "id": "id5",
+              "reason": "revoked"
+            },
+            {
+              "id": "id6",
+              "reason": "revoked"
+            },
+            {
+              "id": "id7",
+              "reason": "revoked"
+            },
+            {
+              "id": "id8",
+              "reason": "revoked"
+            },
+            {
+              "id": "id9",
+              "reason": "revoked"
+            },
+            {
+              "id": "id10",
+              "reason": "revoked"
+            },
+            {
+              "id": "id11",
+              "reason": "revoked"
+            },
+            {
+              "id": "id12",
+              "reason": "revoked"
+            },
+            {
+              "id": "id13",
+              "reason": "revoked"
+            },
+            {
+              "id": "id14",
+              "reason": "revoked"
+            },
+            {
+              "id": "id15",
+              "reason": "revoked"
+            },
+            {
+              "id": "id16",
+              "reason": "revoked"
+            },
+            {
+              "id": "id17",
+              "reason": "revoked"
+            },
+            {
+              "id": "id18",
+              "reason": "revoked"
+            },
+            {
+              "id": "id19",
+              "reason": "revoked"
+            }
+          ]
+        },
+        "target": "approvals"
+      },
+      "fields": {
+        "rejected": [
+          {
+            "id": "id0",
+            "reason": "revoked"
+          },
+          {
+            "id": "id1",
+            "reason": "revoked"
+          },
+          {
+            "id": "id2",
+            "reason": "revoked"
+          },
+          {
+            "id": "id3",
+            "reason": "revoked"
+          },
+          {
+            "id": "id4",
+            "reason": "revoked"
+          },
+          {
+            "id": "id5",
+            "reason": "revoked"
+          },
+          {
+            "id": "id6",
+            "reason": "revoked"
+          },
+          {
+            "id": "id7",
+            "reason": "revoked"
+          },
+          {
+            "id": "id8",
+            "reason": "revoked"
+          },
+          {
+            "id": "id9",
+            "reason": "revoked"
+          },
+          {
+            "id": "id10",
+            "reason": "revoked"
+          },
+          {
+            "id": "id11",
+            "reason": "revoked"
+          },
+          {
+            "id": "id12",
+            "reason": "revoked"
+          },
+          {
+            "id": "id13",
+            "reason": "revoked"
+          },
+          {
+            "id": "id14",
+            "reason": "revoked"
+          },
+          {
+            "id": "id15",
+            "reason": "revoked"
+          },
+          {
+            "id": "id16",
+            "reason": "revoked"
+          },
+          {
+            "id": "id17",
+            "reason": "revoked"
+          },
+          {
+            "id": "id18",
+            "reason": "revoked"
+          },
+          {
+            "id": "id19",
+            "reason": "revoked"
+          },
+          {
+            "id": "id20",
+            "reason": "revoked"
+          },
+          {
+            "id": "id21",
+            "reason": "revoked"
+          },
+          {
+            "id": "id22",
+            "reason": "revoked"
+          },
+          {
+            "id": "id23",
+            "reason": "revoked"
+          },
+          {
+            "id": "id24",
+            "reason": "revoked"
+          },
+          {
+            "id": "id25",
+            "reason": "revoked"
+          },
+          {
+            "id": "id26",
+            "reason": "revoked"
+          },
+          {
+            "id": "id27",
+            "reason": "revoked"
+          },
+          {
+            "id": "id28",
+            "reason": "revoked"
+          },
+          {
+            "id": "id29",
+            "reason": "revoked"
+          }
+        ]
+      }
+    },
+    {
+      "action": "approvals.held-rejected",
+      "detailKeys": [],
+      "event": {
+        "action": "approvals.held-rejected",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {},
+        "target": "approvals"
+      },
+      "fields": {
+        "rejected": "none"
+      }
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [
+        "reason"
+      ],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "reason": "Authorization: [REDACTED:key]"
+        },
+        "target": "tool:-"
+      },
+      "fields": {
+        "reason": {
+          "parts": [
+            "Authorization: Bearer ",
+            "gh",
+            "p_",
+            "AAAAAAAAAAAAAAAAAA",
+            "AAAAAAAAAAAAAAAAAA"
+          ]
+        }
+      }
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [
+        "reason"
+      ],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "reason": "authorization: [REDACTED:key]"
+        },
+        "target": "tool:-"
+      },
+      "fields": {
+        "reason": {
+          "parts": [
+            "authorization: basic ",
+            "dXNlcjpw",
+            "YXNzd29yZA=="
+          ]
+        }
+      }
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [
+        "outcome",
+        "via",
+        "rule",
+        "reason"
+      ],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "outcome": "[REDACTED:pattern]",
+          "reason": "[REDACTED:pattern]",
+          "rule": "x[REDACTED:pattern]",
+          "via": "[REDACTED:pattern]"
+        },
+        "target": "tool:-"
+      },
+      "fields": {
+        "outcome": "Bearer abcdefgh",
+        "reason": "bearer short",
+        "rule": "xbearer abcdefghij",
+        "via": "BEARER\tabcdefgh"
+      }
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [
+        "tool",
+        "reason"
+      ],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "reason": "key [REDACTED:pattern] and [REDACTED:pattern]",
+          "tool": "https://host.example/x"
+        },
+        "target": "tool:https://host.example/x"
+      },
+      "fields": {
+        "reason": {
+          "parts": [
+            "key ",
+            "sk",
+            "-pro",
+            "j-",
+            "FFFFFFFFFFFF",
+            "FFFFFFFFFFFF",
+            " and ",
+            "gh",
+            "p_",
+            "AAAAAAAAAAAAAAAAAA",
+            "AAAAAAAAAAAAAAAAAA"
+          ]
+        },
+        "tool": {
+          "parts": [
+            "https://u:",
+            "pw@",
+            "host.example/x"
+          ]
+        }
+      }
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [
+        "rule",
+        "reason",
+        "failure"
+      ],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "failure": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "reason": "[REDACTED:pattern]",
+          "rule": "[REDACTED:pattern]"
+        },
+        "target": "tool:-"
+      },
+      "fields": {
+        "failure": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa Bearer abcdefghij",
+        "reason": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "rule": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      }
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [
+        "argsBytes",
+        "durationMs",
+        "payloadBytes"
+      ],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "core"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "argsBytes": 0,
+          "durationMs": 1e+21,
+          "payloadBytes": 0.1
+        },
+        "target": "tool:-"
+      },
+      "fields": {
+        "argsBytes": 0,
+        "durationMs": 1e+21,
+        "payloadBytes": 0.1,
+        "surface": "3"
+      }
+    },
+    {
+      "action": "policy.decision",
+      "detailKeys": [
+        "person",
+        "agentId",
+        "reason"
+      ],
+      "event": {
+        "action": "policy.decision",
+        "actor": {
+          "host": "h1",
+          "user": "über ✓"
+        },
+        "at": 1791288000000,
+        "detail": {
+          "agentId": "😀",
+          "person": "über ✓",
+          "reason": "line\nbreak"
+        },
+        "target": "tool:-"
+      },
+      "fields": {
+        "agentId": "😀",
+        "person": "über ✓",
+        "reason": "line\nbreak"
+      }
+    }
+  ],
+  "hashes": [
+    {
+      "bytes": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "text": ""
+    },
+    {
+      "bytes": 3,
+      "hash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      "text": "abc"
+    },
+    {
+      "bytes": 5,
+      "hash": "b51c854170449c382397a108bc58403e78fb72c80a1b2b0674b30ea3b88a19f0",
+      "text": "über"
+    },
+    {
+      "bytes": 4,
+      "hash": "f0443a342c5ef54783a111b51ba56c938e474c32324d90c3a60c9c8e3a37e2d9",
+      "text": "😀"
+    },
+    {
+      "bytes": 1000,
+      "hash": "41edece42d63e8d9bf515a9ba6932e1c20cbc9f5a5d134645adb5db1b9737ea3",
+      "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}

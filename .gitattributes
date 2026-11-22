@@ -36,6 +36,12 @@ crates/plur1bus/tests/fixtures/code_tui/*.txt text eol=lf
 # Job prompt templates are compiled into the engine with include_str! and their bytes are part of the prompt,
 # its recorded hash and the LLM cache key; a Windows autocrlf checkout must not turn them into CRLF.
 crates/plur1bus-engine/src/jobs/prompts/templates/** text eol=lf
+# P4-K compares the SQLite schema text and counts tokens from the exact prompt bytes.
+crates/plur1bus-core/src/dreams/**/*.sql text eol=lf
+crates/plur1bus-core/src/dreams/learn/prompts/*.md text eol=lf
+packages/core/src/dreams/learn/prompts/*.md text eol=lf
+# The legacy LearnStore round-trip driver reads the original migrations from this source file.
+packages/core/src/dreams/learn/store.ts text eol=lf
 # The engine embeds these capture tables. The recorders hash the recorded vocabulary bytes.
 crates/plur1bus-engine/src/capture/quality-unicode17.json text eol=lf
 crates/plur1bus-engine/src/capture/critical-data.json text eol=lf

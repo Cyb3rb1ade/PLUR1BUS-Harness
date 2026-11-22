@@ -66,7 +66,7 @@ impl HostCaptureSummary {
                 role: MessageRole::User,
                 content,
             }],
-            max_tokens: Some(((max_chars as f64 / 3.0).round() as u64).into()),
+            max_tokens: Some(crate::jobs::llm::summary_max_tokens(max_chars).into()),
             temperature: Some(0.into()),
             model: self.model.clone(),
         })

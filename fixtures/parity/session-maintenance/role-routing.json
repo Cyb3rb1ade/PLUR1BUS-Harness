@@ -1,0 +1,2534 @@
+{
+  "keyOrder": [
+    {
+      "keys": [
+        "b",
+        "10",
+        "a",
+        "2"
+      ],
+      "order": [
+        "2",
+        "10",
+        "b",
+        "a"
+      ]
+    },
+    {
+      "keys": [
+        "x"
+      ],
+      "order": [
+        "x"
+      ]
+    },
+    {
+      "keys": [],
+      "order": []
+    },
+    {
+      "keys": [
+        "01",
+        "1",
+        "0",
+        "-1",
+        "1.5",
+        "4294967294",
+        "4294967295",
+        "b"
+      ],
+      "order": [
+        "0",
+        "1",
+        "4294967294",
+        "01",
+        "-1",
+        "1.5",
+        "4294967295",
+        "b"
+      ]
+    },
+    {
+      "keys": [
+        "z",
+        "y",
+        "2",
+        "1"
+      ],
+      "order": [
+        "1",
+        "2",
+        "z",
+        "y"
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "p/main"
+            ],
+            "summarize": [
+              "p/cheap",
+              "q/cheaper"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "summarize-profile",
+      "spec": {
+        "options": {
+          "profiles": {
+            "default": [
+              {
+                "model": "main",
+                "provider": "p"
+              }
+            ],
+            "summarize": [
+              {
+                "model": "cheap",
+                "provider": "p"
+              },
+              {
+                "model": "cheaper",
+                "provider": "q"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default",
+          "summarize"
+        ],
+        "roles": {},
+        "summaryMaxTokens": 400
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": [
+            {
+              "model": "cheap",
+              "provider": "p"
+            },
+            {
+              "model": "cheaper",
+              "provider": "q"
+            }
+          ],
+          "op": {
+            "op": "roleModels"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "ok": [
+            "default",
+            "summarize"
+          ],
+          "op": {
+            "op": "modelProfiles"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "ok": "default",
+          "op": {
+            "agentId": "a",
+            "op": "defaultModelProfile"
+          },
+          "requests": []
+        },
+        {
+          "created": [
+            {
+              "classify": false,
+              "maxRounds": 1,
+              "maxTokens": 400,
+              "profile": "summarize",
+              "profileForClass": "summarize",
+              "profiles": {
+                "default": [
+                  "p/main"
+                ],
+                "summarize": [
+                  "p/cheap",
+                  "q/cheaper"
+                ]
+              },
+              "selected": [
+                "p/cheap",
+                "q/cheaper"
+              ]
+            }
+          ],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/cheap",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": null,
+            "wireMax": null
+          },
+          "requests": [
+            {
+              "maxTokens": 400
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/cheap",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 50,
+            "wireMax": 1000
+          },
+          "requests": [
+            {
+              "maxTokens": 50
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/cheap",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 50,
+            "wireMax": 20
+          },
+          "requests": [
+            {
+              "maxTokens": 20
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/cheap",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 5000,
+            "wireMax": 20
+          },
+          "requests": [
+            {
+              "maxTokens": 20
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/cheap",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 5000,
+            "wireMax": null
+          },
+          "requests": [
+            {
+              "maxTokens": 400
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/cheap",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 400,
+            "wireMax": 400
+          },
+          "requests": [
+            {
+              "maxTokens": 400
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/cheap",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 0,
+            "wireMax": 0
+          },
+          "requests": [
+            {
+              "maxTokens": 0
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 18,
+                  "inputTokens": 100,
+                  "model": "p/cheap",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "messages": [
+              {
+                "content": "ü😀\"q\"\n",
+                "role": "user"
+              }
+            ],
+            "op": "summarize",
+            "requestMax": 10,
+            "tools": [
+              {
+                "description": "d",
+                "name": "t"
+              }
+            ],
+            "wireMax": 10
+          },
+          "requests": [
+            {
+              "maxTokens": 10
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 2,
+                  "inputTokens": 100,
+                  "model": "p/cheap",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "messages": [],
+            "op": "summarize",
+            "requestMax": 10,
+            "tools": [],
+            "wireMax": 10
+          },
+          "requests": [
+            {
+              "maxTokens": 10
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 10,
+            "usage": "none",
+            "wireMax": 10
+          },
+          "requests": [
+            {
+              "maxTokens": 10
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 10,
+            "usage": "partial",
+            "wireMax": 10
+          },
+          "requests": [
+            {
+              "maxTokens": 10
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 21,
+                  "inputTokens": 100,
+                  "model": "p/main",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/main",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "messages": [
+              {
+                "content": {
+                  "$cat": [
+                    {
+                      "$rep": [
+                        "x",
+                        40
+                      ]
+                    }
+                  ]
+                },
+                "role": "user"
+              }
+            ],
+            "op": "foreground",
+            "tools": [
+              {
+                "a": 1
+              }
+            ],
+            "wireMax": 10
+          },
+          "requests": [
+            {
+              "maxTokens": 10
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/cheap",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 1000,
+            "wireMax": 1.5
+          },
+          "requests": [
+            {
+              "maxTokens": 1.5
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/main",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/main",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "foreground",
+            "wireMax": 99999
+          },
+          "requests": [
+            {
+              "maxTokens": 99999
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "big": [
+              "x/a",
+              "p/m",
+              "y/b",
+              "p/m"
+            ],
+            "default": [
+              "p/main"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "role-names-a-model",
+      "spec": {
+        "options": {
+          "profiles": {
+            "big": [
+              {
+                "model": "a",
+                "provider": "x"
+              },
+              {
+                "model": "m",
+                "provider": "p"
+              },
+              {
+                "model": "b",
+                "provider": "y"
+              },
+              {
+                "model": "m",
+                "provider": "p"
+              }
+            ],
+            "default": [
+              {
+                "model": "main",
+                "provider": "p"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default",
+          "big"
+        ],
+        "roles": {
+          "summarize": "p/m"
+        },
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": [
+            {
+              "model": "m",
+              "provider": "p"
+            },
+            {
+              "model": "m",
+              "provider": "p"
+            },
+            {
+              "model": "a",
+              "provider": "x"
+            },
+            {
+              "model": "b",
+              "provider": "y"
+            }
+          ],
+          "op": {
+            "op": "roleModels"
+          },
+          "requests": []
+        },
+        {
+          "created": [
+            {
+              "classify": false,
+              "maxRounds": 1,
+              "maxTokens": 300,
+              "profile": "big",
+              "profileForClass": "big",
+              "profiles": {
+                "big": [
+                  "p/m",
+                  "p/m",
+                  "x/a",
+                  "y/b"
+                ],
+                "default": [
+                  "p/main"
+                ]
+              },
+              "selected": [
+                "p/m",
+                "p/m",
+                "x/a",
+                "y/b"
+              ]
+            }
+          ],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/m",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/m",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 500,
+            "wireMax": 500
+          },
+          "requests": [
+            {
+              "maxTokens": 300
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "p/main"
+            ],
+            "fast": [
+              "a/1",
+              "b/2"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "role-names-a-profile",
+      "spec": {
+        "options": {
+          "profiles": {
+            "default": [
+              {
+                "model": "main",
+                "provider": "p"
+              }
+            ],
+            "fast": [
+              {
+                "model": "1",
+                "provider": "a"
+              },
+              {
+                "model": "2",
+                "provider": "b"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default",
+          "fast"
+        ],
+        "roles": {
+          "summarize": "fast"
+        },
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": [
+            {
+              "model": "1",
+              "provider": "a"
+            },
+            {
+              "model": "2",
+              "provider": "b"
+            }
+          ],
+          "op": {
+            "op": "roleModels"
+          },
+          "requests": []
+        },
+        {
+          "created": [
+            {
+              "classify": false,
+              "maxRounds": 1,
+              "maxTokens": 300,
+              "profile": "fast",
+              "profileForClass": "fast",
+              "profiles": {
+                "default": [
+                  "p/main"
+                ],
+                "fast": [
+                  "a/1",
+                  "b/2"
+                ]
+              },
+              "selected": [
+                "a/1",
+                "b/2"
+              ]
+            }
+          ],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "a/1",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "a/1",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 100,
+            "wireMax": 100
+          },
+          "requests": [
+            {
+              "maxTokens": 100
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "p/main"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "role-unknown",
+      "spec": {
+        "options": {
+          "profiles": {
+            "default": [
+              {
+                "model": "main",
+                "provider": "p"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default"
+        ],
+        "roles": {
+          "summarize": "nobody/here"
+        },
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": [],
+          "op": {
+            "op": "roleModels"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "err": "summary-model-unavailable",
+          "op": {
+            "op": "summarize",
+            "requestMax": 100,
+            "wireMax": 100
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "p/main"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "no-role",
+      "spec": {
+        "options": {
+          "profiles": {
+            "default": [
+              {
+                "model": "main",
+                "provider": "p"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default"
+        ],
+        "roles": {},
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": [],
+          "op": {
+            "op": "roleModels"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "err": "summary-model-unavailable",
+          "op": {
+            "op": "summarize",
+            "requestMax": 100,
+            "wireMax": 100
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "p/main"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "empty-role",
+      "spec": {
+        "options": {
+          "profiles": {
+            "default": [
+              {
+                "model": "main",
+                "provider": "p"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default"
+        ],
+        "roles": {
+          "summarize": ""
+        },
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": [],
+          "op": {
+            "op": "roleModels"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "err": "summary-model-unavailable",
+          "op": {
+            "op": "summarize",
+            "requestMax": 100,
+            "wireMax": 100
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "p/main"
+            ],
+            "summarize": []
+          },
+          "selected": null
+        }
+      ],
+      "name": "empty-summarize-profile",
+      "spec": {
+        "options": {
+          "profiles": {
+            "default": [
+              {
+                "model": "main",
+                "provider": "p"
+              }
+            ],
+            "summarize": []
+          }
+        },
+        "profileOrder": [
+          "default",
+          "summarize"
+        ],
+        "roles": {},
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": [],
+          "op": {
+            "op": "roleModels"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "err": "summary-model-unavailable",
+          "op": {
+            "op": "summarize",
+            "requestMax": 100,
+            "wireMax": 100
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "ok": [
+            "default"
+          ],
+          "op": {
+            "op": "modelProfiles"
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "2": [
+              "p/m"
+            ],
+            "10": [
+              "p/m"
+            ],
+            "a": [
+              "p/m"
+            ],
+            "b": [
+              "p/x"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "integer-like-profile-names",
+      "spec": {
+        "options": {
+          "profiles": {
+            "2": [
+              {
+                "model": "m",
+                "provider": "p"
+              }
+            ],
+            "10": [
+              {
+                "model": "m",
+                "provider": "p"
+              }
+            ],
+            "a": [
+              {
+                "model": "m",
+                "provider": "p"
+              }
+            ],
+            "b": [
+              {
+                "model": "x",
+                "provider": "p"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "2",
+          "10",
+          "b",
+          "a"
+        ],
+        "roles": {
+          "summarize": "p/m"
+        },
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": [
+            {
+              "model": "m",
+              "provider": "p"
+            }
+          ],
+          "op": {
+            "op": "roleModels"
+          },
+          "requests": []
+        },
+        {
+          "created": [
+            {
+              "classify": false,
+              "maxRounds": 1,
+              "maxTokens": 300,
+              "profile": "2",
+              "profileForClass": "2",
+              "profiles": {
+                "2": [
+                  "p/m"
+                ],
+                "10": [
+                  "p/m"
+                ],
+                "a": [
+                  "p/m"
+                ],
+                "b": [
+                  "p/x"
+                ]
+              },
+              "selected": [
+                "p/m"
+              ]
+            }
+          ],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/m",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/m",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 100,
+            "wireMax": 100
+          },
+          "requests": [
+            {
+              "maxTokens": 100
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            "2",
+            "10",
+            "b",
+            "a"
+          ],
+          "op": {
+            "op": "modelProfiles"
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "p/main"
+            ],
+            "summarize": [
+              "p/cheap"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "reuse-and-key-change",
+      "spec": {
+        "options": {
+          "profiles": {
+            "default": [
+              {
+                "model": "main",
+                "provider": "p"
+              }
+            ],
+            "summarize": [
+              {
+                "model": "cheap",
+                "provider": "p"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default",
+          "summarize"
+        ],
+        "roles": {},
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [
+            {
+              "classify": false,
+              "maxRounds": 1,
+              "maxTokens": 300,
+              "profile": "summarize",
+              "profileForClass": "summarize",
+              "profiles": {
+                "default": [
+                  "p/main"
+                ],
+                "summarize": [
+                  "p/cheap"
+                ]
+              },
+              "selected": [
+                "p/cheap"
+              ]
+            }
+          ],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/cheap",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 100,
+            "wireMax": 100
+          },
+          "requests": [
+            {
+              "maxTokens": 100
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/cheap",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 100,
+            "wireMax": 100
+          },
+          "requests": [
+            {
+              "maxTokens": 100
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": null,
+          "op": {
+            "candidates": [
+              {
+                "model": "cheap",
+                "provider": "p"
+              }
+            ],
+            "name": "summarize",
+            "op": "setProfile"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/cheap",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 100,
+            "wireMax": 100
+          },
+          "requests": [
+            {
+              "maxTokens": 100
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": null,
+          "op": {
+            "candidates": [
+              {
+                "model": "other",
+                "provider": "p"
+              }
+            ],
+            "name": "summarize",
+            "op": "setProfile"
+          },
+          "requests": []
+        },
+        {
+          "created": [
+            {
+              "classify": false,
+              "maxRounds": 1,
+              "maxTokens": 300,
+              "profile": "summarize",
+              "profileForClass": "summarize",
+              "profiles": {
+                "default": [
+                  "p/main"
+                ],
+                "summarize": [
+                  "p/other"
+                ]
+              },
+              "selected": [
+                "p/other"
+              ]
+            }
+          ],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/other",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/other",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 100,
+            "wireMax": 100
+          },
+          "requests": [
+            {
+              "maxTokens": 100
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/other",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/other",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 100,
+            "wireMax": 100
+          },
+          "requests": [
+            {
+              "maxTokens": 100
+            }
+          ]
+        },
+        {
+          "created": [],
+          "ok": null,
+          "op": {
+            "candidates": [],
+            "name": "summarize",
+            "op": "setProfile"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "err": "summary-model-unavailable",
+          "op": {
+            "op": "summarize",
+            "requestMax": 100,
+            "wireMax": 100
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "ok": null,
+          "op": {
+            "candidates": [
+              {
+                "model": "cheap",
+                "provider": "p"
+              }
+            ],
+            "name": "summarize",
+            "op": "setProfile"
+          },
+          "requests": []
+        },
+        {
+          "created": [
+            {
+              "classify": false,
+              "maxRounds": 1,
+              "maxTokens": 300,
+              "profile": "summarize",
+              "profileForClass": "summarize",
+              "profiles": {
+                "default": [
+                  "p/main"
+                ],
+                "summarize": [
+                  "p/cheap"
+                ]
+              },
+              "selected": [
+                "p/cheap"
+              ]
+            }
+          ],
+          "ok": [
+            {
+              "text": "x",
+              "type": "delta"
+            },
+            {
+              "inputTokens": 1,
+              "measurements": [
+                {
+                  "estimatedInputTokens": 10,
+                  "inputTokens": 100,
+                  "model": "p/cheap",
+                  "outputTokens": 7
+                }
+              ],
+              "model": "p/cheap",
+              "outputTokens": 2,
+              "type": "usage"
+            }
+          ],
+          "op": {
+            "op": "summarize",
+            "requestMax": 100,
+            "wireMax": 100
+          },
+          "requests": [
+            {
+              "maxTokens": 100
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": "other",
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "p/m"
+            ],
+            "empty": [],
+            "other": [
+              "q/n"
+            ]
+          },
+          "selected": [
+            "q/n"
+          ]
+        }
+      ],
+      "name": "model-profiles-filter",
+      "spec": {
+        "options": {
+          "profile": "other",
+          "profiles": {
+            "default": [
+              {
+                "model": "m",
+                "provider": "p"
+              }
+            ],
+            "empty": [],
+            "other": [
+              {
+                "model": "n",
+                "provider": "q"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default",
+          "empty",
+          "other"
+        ],
+        "roles": {},
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": [
+            "default",
+            "other"
+          ],
+          "op": {
+            "op": "modelProfiles"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "ok": "other",
+          "op": {
+            "agentId": "x",
+            "op": "defaultModelProfile"
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "p/m"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "default-profile-order",
+      "spec": {
+        "options": {
+          "profileForAgent": {
+            "bernd": "agentprof",
+            "empty": ""
+          },
+          "profiles": {
+            "default": [
+              {
+                "model": "m",
+                "provider": "p"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default"
+        ],
+        "roles": {},
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": "agentprof",
+          "op": {
+            "agentId": "bernd",
+            "op": "defaultModelProfile"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "ok": "",
+          "op": {
+            "agentId": "empty",
+            "op": "defaultModelProfile"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "ok": "default",
+          "op": {
+            "agentId": "other",
+            "op": "defaultModelProfile"
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": "chosen",
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "p/m"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "default-profile-from-options",
+      "spec": {
+        "options": {
+          "profile": "chosen",
+          "profiles": {
+            "default": [
+              {
+                "model": "m",
+                "provider": "p"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default"
+        ],
+        "roles": {},
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": "chosen",
+          "op": {
+            "agentId": "other",
+            "op": "defaultModelProfile"
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": "small",
+          "profiles": {
+            "default": [
+              "p/main",
+              "p/fb"
+            ],
+            "frontier": [
+              "f/top"
+            ],
+            "large": [
+              "l/huge",
+              "p/main"
+            ],
+            "routed": [
+              "r/x"
+            ],
+            "small": [
+              "s/tiny"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "context-models",
+      "spec": {
+        "options": {
+          "classProfiles": {
+            "frontier": "frontier",
+            "large": "large",
+            "small": "small"
+          },
+          "contextProfiles": {
+            "bernd": [
+              "routed",
+              "missing",
+              "default"
+            ]
+          },
+          "profiles": {
+            "default": [
+              {
+                "model": "main",
+                "provider": "p"
+              },
+              {
+                "model": "fb",
+                "provider": "p"
+              }
+            ],
+            "frontier": [
+              {
+                "model": "top",
+                "provider": "f"
+              }
+            ],
+            "large": [
+              {
+                "model": "huge",
+                "provider": "l"
+              },
+              {
+                "model": "main",
+                "provider": "p"
+              }
+            ],
+            "routed": [
+              {
+                "model": "x",
+                "provider": "r"
+              }
+            ],
+            "small": [
+              {
+                "model": "tiny",
+                "provider": "s"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default",
+          "small",
+          "large",
+          "frontier",
+          "routed"
+        ],
+        "roles": {},
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": [
+            {
+              "model": "main",
+              "provider": "p"
+            },
+            {
+              "model": "fb",
+              "provider": "p"
+            },
+            {
+              "model": "tiny",
+              "provider": "s"
+            },
+            {
+              "model": "huge",
+              "provider": "l"
+            },
+            {
+              "model": "top",
+              "provider": "f"
+            }
+          ],
+          "op": {
+            "op": "contextModels",
+            "text": "hi"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "model": "tiny",
+              "provider": "s"
+            }
+          ],
+          "op": {
+            "op": "contextModels",
+            "profile": "small",
+            "text": "hi"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "ok": [],
+          "op": {
+            "op": "contextModels",
+            "profile": "nope",
+            "text": "hi"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "model": "main",
+              "provider": "p"
+            },
+            {
+              "model": "fb",
+              "provider": "p"
+            },
+            {
+              "model": "tiny",
+              "provider": "s"
+            },
+            {
+              "model": "huge",
+              "provider": "l"
+            },
+            {
+              "model": "top",
+              "provider": "f"
+            }
+          ],
+          "op": {
+            "op": "contextModels",
+            "profile": "",
+            "text": "hi"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "model": "main",
+              "provider": "p"
+            },
+            {
+              "model": "fb",
+              "provider": "p"
+            },
+            {
+              "model": "x",
+              "provider": "r"
+            },
+            {
+              "model": "tiny",
+              "provider": "s"
+            },
+            {
+              "model": "huge",
+              "provider": "l"
+            },
+            {
+              "model": "top",
+              "provider": "f"
+            }
+          ],
+          "op": {
+            "op": "contextModels",
+            "scope": "bernd",
+            "text": "x"
+          },
+          "requests": []
+        },
+        {
+          "created": [],
+          "ok": [
+            {
+              "model": "main",
+              "provider": "p"
+            },
+            {
+              "model": "fb",
+              "provider": "p"
+            },
+            {
+              "model": "tiny",
+              "provider": "s"
+            },
+            {
+              "model": "huge",
+              "provider": "l"
+            },
+            {
+              "model": "top",
+              "provider": "f"
+            }
+          ],
+          "op": {
+            "op": "contextModels",
+            "scope": "other",
+            "text": "x"
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": "small",
+          "profiles": {
+            "default": [
+              "p/main"
+            ],
+            "large": [
+              "l/huge"
+            ],
+            "small": [
+              "s/tiny"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "context-models-class-errors",
+      "spec": {
+        "options": {
+          "classProfiles": {
+            "frontier": "",
+            "large": "large",
+            "medium": "$throw",
+            "small": "small"
+          },
+          "profiles": {
+            "default": [
+              {
+                "model": "main",
+                "provider": "p"
+              }
+            ],
+            "large": [
+              {
+                "model": "huge",
+                "provider": "l"
+              }
+            ],
+            "small": [
+              {
+                "model": "tiny",
+                "provider": "s"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default",
+          "small",
+          "large"
+        ],
+        "roles": {},
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": [
+            {
+              "model": "main",
+              "provider": "p"
+            },
+            {
+              "model": "tiny",
+              "provider": "s"
+            },
+            {
+              "model": "huge",
+              "provider": "l"
+            }
+          ],
+          "op": {
+            "op": "contextModels",
+            "text": "hi"
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "a/b/c",
+              "a/b/c",
+              "d/e"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "context-models-key-collision",
+      "spec": {
+        "options": {
+          "profiles": {
+            "default": [
+              {
+                "model": "c",
+                "provider": "a/b"
+              },
+              {
+                "model": "b/c",
+                "provider": "a"
+              },
+              {
+                "model": "e",
+                "provider": "d"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default"
+        ],
+        "roles": {},
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": [
+            {
+              "model": "b/c",
+              "provider": "a"
+            },
+            {
+              "model": "e",
+              "provider": "d"
+            }
+          ],
+          "op": {
+            "op": "contextModels",
+            "text": "hi"
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": "main",
+          "profileForClass": "extra",
+          "profiles": {
+            "extra": [
+              "e/x"
+            ],
+            "main": [
+              "p/main"
+            ]
+          },
+          "selected": [
+            "p/main"
+          ]
+        }
+      ],
+      "name": "context-models-profile-option",
+      "spec": {
+        "options": {
+          "classProfiles": {
+            "small": "extra"
+          },
+          "profile": "main",
+          "profiles": {
+            "extra": [
+              {
+                "model": "x",
+                "provider": "e"
+              }
+            ],
+            "main": [
+              {
+                "model": "main",
+                "provider": "p"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "main",
+          "extra"
+        ],
+        "roles": {},
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": [
+            {
+              "model": "main",
+              "provider": "p"
+            },
+            {
+              "model": "x",
+              "provider": "e"
+            }
+          ],
+          "op": {
+            "op": "contextModels",
+            "text": "hi"
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": true,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "p/m"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "classifier-wiring",
+      "spec": {
+        "options": {
+          "profiles": {
+            "default": [
+              {
+                "model": "m",
+                "provider": "p"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default"
+        ],
+        "roles": {
+          "decision": "p/m"
+        },
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": null,
+          "op": {
+            "op": "createOptions"
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": true,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "p/m"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "classifier-wiring-require",
+      "spec": {
+        "options": {
+          "profiles": {
+            "default": [
+              {
+                "model": "m",
+                "provider": "p"
+              }
+            ]
+          },
+          "requireTriage": true
+        },
+        "profileOrder": [
+          "default"
+        ],
+        "roles": {},
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": null,
+          "op": {
+            "op": "createOptions"
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "p/m"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "classifier-wiring-none",
+      "spec": {
+        "options": {
+          "profiles": {
+            "default": [
+              {
+                "model": "m",
+                "provider": "p"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default"
+        ],
+        "roles": {},
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": null,
+          "op": {
+            "op": "createOptions"
+          },
+          "requests": []
+        }
+      ]
+    },
+    {
+      "created": [
+        {
+          "classify": false,
+          "maxRounds": null,
+          "maxTokens": null,
+          "profile": null,
+          "profileForClass": null,
+          "profiles": {
+            "default": [
+              "p/m"
+            ]
+          },
+          "selected": null
+        }
+      ],
+      "name": "classifier-wiring-empty-decision",
+      "spec": {
+        "options": {
+          "profiles": {
+            "default": [
+              {
+                "model": "m",
+                "provider": "p"
+              }
+            ]
+          }
+        },
+        "profileOrder": [
+          "default"
+        ],
+        "roles": {
+          "decision": ""
+        },
+        "summaryMaxTokens": 300
+      },
+      "steps": [
+        {
+          "created": [],
+          "ok": null,
+          "op": {
+            "op": "createOptions"
+          },
+          "requests": []
+        }
+      ]
+    }
+  ]
+}

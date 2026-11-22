@@ -124,17 +124,60 @@ pub fn list_log_files(dir: &Path, stream: Stream) -> Vec<LogFileRef> {
     out
 }
 
-/// Who a name points to now: the device and inode (the creation time on Windows).
-fn identity(meta: &fs::Metadata) -> String {
+type Identity = (u64, u64);
+
+#[cfg(unix)]
+fn regular_identity(meta: &fs::Metadata) -> Option<Identity> {
+    use std::os::unix::fs::MetadataExt;
+    meta.is_file().then(|| (meta.dev(), meta.ino()))
+}
+
+#[cfg(windows)]
+fn regular_identity(info: crate::policy::fs_windows::Info) -> Option<Identity> {
+    (info.disk && !info.directory && !info.reparse && info.index != 0)
+        .then_some((info.volume, info.index))
+}
+
+fn file_identity(file: &File) -> io::Result<Option<Identity>> {
+    #[cfg(unix)]
+    return file.metadata().map(|meta| regular_identity(&meta));
+    #[cfg(windows)]
+    return crate::policy::fs_windows::info(file).map(regular_identity);
+}
+
+fn named_identity(path: &Path) -> Option<Identity> {
+    #[cfg(unix)]
+    return fs::symlink_metadata(path)
+        .ok()
+        .as_ref()
+        .and_then(regular_identity);
+    #[cfg(windows)]
+    return crate::policy::fs_windows::lstat(path)
+        .ok()
+        .and_then(regular_identity);
+}
+
+fn open_regular_candidate(path: &Path) -> io::Result<File> {
     #[cfg(unix)]
     {
-        use std::os::unix::fs::MetadataExt;
-        format!("{}:{}", meta.dev(), meta.ino())
+        use std::os::unix::fs::OpenOptionsExt;
+        fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+            .open(path)
     }
     #[cfg(windows)]
     {
-        use std::os::windows::fs::MetadataExt;
-        format!("{}:{}", meta.creation_time(), meta.file_size())
+        use crate::policy::fs_windows::{open_leaf, LeafOpen};
+        open_leaf(
+            path,
+            LeafOpen {
+                read: true,
+                write: false,
+                append: false,
+                create_new: false,
+            },
+        )
     }
 }
 
@@ -149,8 +192,8 @@ pub struct OpenOptions<'a> {
 
 /// Opens every file of the stream and keeps the descriptors, so a rotation during the scan (a rename never changes what an
 /// open descriptor reads) cannot make one file be read twice or skipped. The set is verified after opening: when a name
-/// now points at another file, or the set of names changed, the open is retried (at most `retries` times; after that the
-/// descriptors held are used as they are, each still a consistent file). A symlink or a non-regular file is skipped.
+/// now points at another file, or the set of names changed, the open is retried at most `retries` times. If the set
+/// continues to change, the query must retry instead of reading an unverified snapshot. Only regular files are opened.
 pub fn open_log_files(
     dir: &Path,
     stream: Stream,
@@ -163,27 +206,28 @@ pub fn open_log_files(
         if let Some(on_listed) = options.on_listed {
             on_listed();
         }
-        let mut opened: Vec<(OpenLogFile, String)> = Vec::new();
-        for file_ref in refs.iter() {
-            // rotated away between the listing and now
-            let Ok(lstat) = fs::symlink_metadata(&file_ref.path) else {
+        let mut opened = Vec::new();
+        let mut changed = false;
+        for file_ref in &refs {
+            let Some(named) = named_identity(&file_ref.path) else {
                 continue;
             };
-            // a symlink in the log directory is never followed
-            if !lstat.is_file() {
+            let Ok(file) = open_regular_candidate(&file_ref.path) else {
+                changed |= named_identity(&file_ref.path) != Some(named);
+                continue;
+            };
+            if file_identity(&file)? != Some(named) {
+                changed = true;
                 continue;
             }
-            let Ok(file) = File::open(&file_ref.path) else {
-                continue;
-            };
-            let meta = file.metadata()?;
+            let size = file.metadata()?.len();
             opened.push((
                 OpenLogFile {
                     file_ref: file_ref.clone(),
                     file,
-                    size: meta.len(),
+                    size,
                 },
-                identity(&meta),
+                named,
             ));
         }
         let names_now: Vec<PathBuf> = list_log_files(dir, stream)
@@ -191,14 +235,19 @@ pub fn open_log_files(
             .map(|r| r.path)
             .collect();
         let names_then: Vec<PathBuf> = refs.iter().map(|r| r.path.clone()).collect();
-        let stable = names_now == names_then
-            && opened.iter().all(|(f, id)| {
-                fs::symlink_metadata(&f.file_ref.path)
-                    .map(|m| identity(&m) == *id)
-                    .unwrap_or(false)
-            });
-        if stable || attempt >= retries {
+        let stable = !changed
+            && names_now == names_then
+            && opened
+                .iter()
+                .all(|(f, id)| named_identity(&f.file_ref.path) == Some(*id));
+        if stable {
             return Ok(opened.into_iter().map(|(f, _)| f).collect());
+        }
+        if attempt >= retries {
+            return Err(io::Error::new(
+                io::ErrorKind::WouldBlock,
+                "log rotation in progress",
+            ));
         }
         attempt += 1;
     }
@@ -318,6 +367,33 @@ mod tests {
             got,
             [("core.log.1".to_string(), 2), ("core.log".to_string(), 5)]
         );
+    }
+
+    #[test]
+    fn an_unstable_rotation_at_the_retry_limit_refuses_the_snapshot() {
+        let d = tempfile::tempdir().unwrap();
+        fs::write(d.path().join("core.log"), "previous").unwrap();
+        let attempt = std::cell::Cell::new(0);
+        let rotate_after_listing = || {
+            let next = attempt.get() + 1;
+            attempt.set(next);
+            fs::rename(
+                d.path().join("core.log"),
+                d.path().join(format!("core.log.{next}")),
+            )
+            .unwrap();
+            fs::write(d.path().join("core.log"), "current").unwrap();
+        };
+        let result = open_log_files(
+            d.path(),
+            Stream::Diagnostic,
+            &OpenOptions {
+                retries: Some(1),
+                on_listed: Some(&rotate_after_listing),
+            },
+        );
+        assert_eq!(attempt.get(), 2);
+        assert!(matches!(result, Err(error) if error.kind() == io::ErrorKind::WouldBlock));
     }
 
     /// A rotation between the listing and the open: the set is verified and re-opened, so no file is read twice or skipped.

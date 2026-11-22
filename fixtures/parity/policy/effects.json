@@ -1,0 +1,1082 @@
+{
+  "ext": [
+    {
+      "effect": "read",
+      "network": "none",
+      "result": "read"
+    },
+    {
+      "effect": "read",
+      "network": "declared",
+      "result": "read"
+    },
+    {
+      "effect": "read",
+      "network": null,
+      "result": "read"
+    },
+    {
+      "effect": "read",
+      "network": "bogus",
+      "result": "read"
+    },
+    {
+      "effect": "write",
+      "network": "none",
+      "result": "local-write"
+    },
+    {
+      "effect": "write",
+      "network": "declared",
+      "result": "external"
+    },
+    {
+      "effect": "write",
+      "network": null,
+      "result": "external"
+    },
+    {
+      "effect": "write",
+      "network": "bogus",
+      "result": "external"
+    },
+    {
+      "effect": "destructive",
+      "network": "none",
+      "result": "local-destructive"
+    },
+    {
+      "effect": "destructive",
+      "network": "declared",
+      "result": "external"
+    },
+    {
+      "effect": "destructive",
+      "network": null,
+      "result": "external"
+    },
+    {
+      "effect": "destructive",
+      "network": "bogus",
+      "result": "external"
+    },
+    {
+      "effect": "bogus",
+      "network": "none",
+      "result": "external"
+    },
+    {
+      "effect": "bogus",
+      "network": "declared",
+      "result": "external"
+    },
+    {
+      "effect": "bogus",
+      "network": null,
+      "result": "external"
+    },
+    {
+      "effect": "bogus",
+      "network": "bogus",
+      "result": "external"
+    },
+    {
+      "effect": "WRITE",
+      "network": "none",
+      "result": "external"
+    },
+    {
+      "effect": "WRITE",
+      "network": "declared",
+      "result": "external"
+    },
+    {
+      "effect": "WRITE",
+      "network": null,
+      "result": "external"
+    },
+    {
+      "effect": "WRITE",
+      "network": "bogus",
+      "result": "external"
+    }
+  ],
+  "is": [
+    {
+      "isEffect": true,
+      "value": "read"
+    },
+    {
+      "isEffect": true,
+      "value": "local-write"
+    },
+    {
+      "isEffect": true,
+      "value": "local-destructive"
+    },
+    {
+      "isEffect": true,
+      "value": "external"
+    },
+    {
+      "isEffect": true,
+      "value": "network.a2a"
+    },
+    {
+      "isEffect": true,
+      "value": "money"
+    },
+    {
+      "isEffect": false,
+      "value": "bogus"
+    },
+    {
+      "isEffect": false,
+      "value": ""
+    },
+    {
+      "isEffect": false,
+      "value": "READ"
+    },
+    {
+      "isEffect": false,
+      "value": null
+    },
+    {
+      "isEffect": false,
+      "value": 3
+    }
+  ],
+  "mcp": [
+    {
+      "annotations": {},
+      "declared": "read",
+      "declaredAbsent": false,
+      "effect": "read"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "declared": "read",
+      "declaredAbsent": false,
+      "effect": "read"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true
+      },
+      "declared": "read",
+      "declaredAbsent": false,
+      "effect": "local-destructive"
+    },
+    {
+      "annotations": {
+        "openWorldHint": true
+      },
+      "declared": "read",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "declared": "read",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": "true"
+      },
+      "declared": "read",
+      "declaredAbsent": false,
+      "effect": "read"
+    },
+    {
+      "annotations": {
+        "openWorldHint": 1
+      },
+      "declared": "read",
+      "declaredAbsent": false,
+      "effect": "read"
+    },
+    {
+      "annotations": {},
+      "declared": "local-write",
+      "declaredAbsent": false,
+      "effect": "local-write"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "declared": "local-write",
+      "declaredAbsent": false,
+      "effect": "local-write"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true
+      },
+      "declared": "local-write",
+      "declaredAbsent": false,
+      "effect": "local-destructive"
+    },
+    {
+      "annotations": {
+        "openWorldHint": true
+      },
+      "declared": "local-write",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "declared": "local-write",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": "true"
+      },
+      "declared": "local-write",
+      "declaredAbsent": false,
+      "effect": "local-write"
+    },
+    {
+      "annotations": {
+        "openWorldHint": 1
+      },
+      "declared": "local-write",
+      "declaredAbsent": false,
+      "effect": "local-write"
+    },
+    {
+      "annotations": {},
+      "declared": "local-destructive",
+      "declaredAbsent": false,
+      "effect": "local-destructive"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "declared": "local-destructive",
+      "declaredAbsent": false,
+      "effect": "local-destructive"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true
+      },
+      "declared": "local-destructive",
+      "declaredAbsent": false,
+      "effect": "local-destructive"
+    },
+    {
+      "annotations": {
+        "openWorldHint": true
+      },
+      "declared": "local-destructive",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "declared": "local-destructive",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": "true"
+      },
+      "declared": "local-destructive",
+      "declaredAbsent": false,
+      "effect": "local-destructive"
+    },
+    {
+      "annotations": {
+        "openWorldHint": 1
+      },
+      "declared": "local-destructive",
+      "declaredAbsent": false,
+      "effect": "local-destructive"
+    },
+    {
+      "annotations": {},
+      "declared": "external",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "declared": "external",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true
+      },
+      "declared": "external",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "openWorldHint": true
+      },
+      "declared": "external",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "declared": "external",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": "true"
+      },
+      "declared": "external",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "openWorldHint": 1
+      },
+      "declared": "external",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {},
+      "declared": "network.a2a",
+      "declaredAbsent": false,
+      "effect": "network.a2a"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "declared": "network.a2a",
+      "declaredAbsent": false,
+      "effect": "network.a2a"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true
+      },
+      "declared": "network.a2a",
+      "declaredAbsent": false,
+      "effect": "network.a2a"
+    },
+    {
+      "annotations": {
+        "openWorldHint": true
+      },
+      "declared": "network.a2a",
+      "declaredAbsent": false,
+      "effect": "network.a2a"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "declared": "network.a2a",
+      "declaredAbsent": false,
+      "effect": "network.a2a"
+    },
+    {
+      "annotations": {
+        "destructiveHint": "true"
+      },
+      "declared": "network.a2a",
+      "declaredAbsent": false,
+      "effect": "network.a2a"
+    },
+    {
+      "annotations": {
+        "openWorldHint": 1
+      },
+      "declared": "network.a2a",
+      "declaredAbsent": false,
+      "effect": "network.a2a"
+    },
+    {
+      "annotations": {},
+      "declared": "money",
+      "declaredAbsent": false,
+      "effect": "money"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "declared": "money",
+      "declaredAbsent": false,
+      "effect": "money"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true
+      },
+      "declared": "money",
+      "declaredAbsent": false,
+      "effect": "money"
+    },
+    {
+      "annotations": {
+        "openWorldHint": true
+      },
+      "declared": "money",
+      "declaredAbsent": false,
+      "effect": "money"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "declared": "money",
+      "declaredAbsent": false,
+      "effect": "money"
+    },
+    {
+      "annotations": {
+        "destructiveHint": "true"
+      },
+      "declared": "money",
+      "declaredAbsent": false,
+      "effect": "money"
+    },
+    {
+      "annotations": {
+        "openWorldHint": 1
+      },
+      "declared": "money",
+      "declaredAbsent": false,
+      "effect": "money"
+    },
+    {
+      "annotations": {},
+      "declared": "bogus",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "declared": "bogus",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true
+      },
+      "declared": "bogus",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "openWorldHint": true
+      },
+      "declared": "bogus",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "declared": "bogus",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": "true"
+      },
+      "declared": "bogus",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "openWorldHint": 1
+      },
+      "declared": "bogus",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {},
+      "declared": "",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "declared": "",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true
+      },
+      "declared": "",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "openWorldHint": true
+      },
+      "declared": "",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "declared": "",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": "true"
+      },
+      "declared": "",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "openWorldHint": 1
+      },
+      "declared": "",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {},
+      "declared": "READ",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "declared": "READ",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true
+      },
+      "declared": "READ",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "openWorldHint": true
+      },
+      "declared": "READ",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "declared": "READ",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": "true"
+      },
+      "declared": "READ",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "openWorldHint": 1
+      },
+      "declared": "READ",
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {},
+      "declared": null,
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "declared": null,
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true
+      },
+      "declared": null,
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "openWorldHint": true
+      },
+      "declared": null,
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "declared": null,
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": "true"
+      },
+      "declared": null,
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "openWorldHint": 1
+      },
+      "declared": null,
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {},
+      "declared": 3,
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "declared": 3,
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true
+      },
+      "declared": 3,
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "openWorldHint": true
+      },
+      "declared": 3,
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "declared": 3,
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": "true"
+      },
+      "declared": 3,
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "openWorldHint": 1
+      },
+      "declared": 3,
+      "declaredAbsent": false,
+      "effect": "external"
+    },
+    {
+      "annotations": {},
+      "declared": null,
+      "declaredAbsent": true,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "declared": null,
+      "declaredAbsent": true,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true
+      },
+      "declared": null,
+      "declaredAbsent": true,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "openWorldHint": true
+      },
+      "declared": null,
+      "declaredAbsent": true,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "declared": null,
+      "declaredAbsent": true,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "destructiveHint": "true"
+      },
+      "declared": null,
+      "declaredAbsent": true,
+      "effect": "external"
+    },
+    {
+      "annotations": {
+        "openWorldHint": 1
+      },
+      "declared": null,
+      "declaredAbsent": true,
+      "effect": "external"
+    }
+  ],
+  "pairs": [
+    {
+      "a": "read",
+      "b": "read",
+      "max": "read"
+    },
+    {
+      "a": "read",
+      "b": "local-write",
+      "max": "local-write"
+    },
+    {
+      "a": "read",
+      "b": "local-destructive",
+      "max": "local-destructive"
+    },
+    {
+      "a": "read",
+      "b": "external",
+      "max": "external"
+    },
+    {
+      "a": "read",
+      "b": "network.a2a",
+      "max": "network.a2a"
+    },
+    {
+      "a": "read",
+      "b": "money",
+      "max": "money"
+    },
+    {
+      "a": "local-write",
+      "b": "read",
+      "max": "local-write"
+    },
+    {
+      "a": "local-write",
+      "b": "local-write",
+      "max": "local-write"
+    },
+    {
+      "a": "local-write",
+      "b": "local-destructive",
+      "max": "local-destructive"
+    },
+    {
+      "a": "local-write",
+      "b": "external",
+      "max": "external"
+    },
+    {
+      "a": "local-write",
+      "b": "network.a2a",
+      "max": "network.a2a"
+    },
+    {
+      "a": "local-write",
+      "b": "money",
+      "max": "money"
+    },
+    {
+      "a": "local-destructive",
+      "b": "read",
+      "max": "local-destructive"
+    },
+    {
+      "a": "local-destructive",
+      "b": "local-write",
+      "max": "local-destructive"
+    },
+    {
+      "a": "local-destructive",
+      "b": "local-destructive",
+      "max": "local-destructive"
+    },
+    {
+      "a": "local-destructive",
+      "b": "external",
+      "max": "external"
+    },
+    {
+      "a": "local-destructive",
+      "b": "network.a2a",
+      "max": "network.a2a"
+    },
+    {
+      "a": "local-destructive",
+      "b": "money",
+      "max": "money"
+    },
+    {
+      "a": "external",
+      "b": "read",
+      "max": "external"
+    },
+    {
+      "a": "external",
+      "b": "local-write",
+      "max": "external"
+    },
+    {
+      "a": "external",
+      "b": "local-destructive",
+      "max": "external"
+    },
+    {
+      "a": "external",
+      "b": "external",
+      "max": "external"
+    },
+    {
+      "a": "external",
+      "b": "network.a2a",
+      "max": "external"
+    },
+    {
+      "a": "external",
+      "b": "money",
+      "max": "money"
+    },
+    {
+      "a": "network.a2a",
+      "b": "read",
+      "max": "network.a2a"
+    },
+    {
+      "a": "network.a2a",
+      "b": "local-write",
+      "max": "network.a2a"
+    },
+    {
+      "a": "network.a2a",
+      "b": "local-destructive",
+      "max": "network.a2a"
+    },
+    {
+      "a": "network.a2a",
+      "b": "external",
+      "max": "network.a2a"
+    },
+    {
+      "a": "network.a2a",
+      "b": "network.a2a",
+      "max": "network.a2a"
+    },
+    {
+      "a": "network.a2a",
+      "b": "money",
+      "max": "money"
+    },
+    {
+      "a": "money",
+      "b": "read",
+      "max": "money"
+    },
+    {
+      "a": "money",
+      "b": "local-write",
+      "max": "money"
+    },
+    {
+      "a": "money",
+      "b": "local-destructive",
+      "max": "money"
+    },
+    {
+      "a": "money",
+      "b": "external",
+      "max": "money"
+    },
+    {
+      "a": "money",
+      "b": "network.a2a",
+      "max": "money"
+    },
+    {
+      "a": "money",
+      "b": "money",
+      "max": "money"
+    }
+  ],
+  "ranks": [
+    {
+      "effect": "read",
+      "rank": 0
+    },
+    {
+      "effect": "local-write",
+      "rank": 1
+    },
+    {
+      "effect": "local-destructive",
+      "rank": 2
+    },
+    {
+      "effect": "external",
+      "rank": 3
+    },
+    {
+      "effect": "network.a2a",
+      "rank": 3
+    },
+    {
+      "effect": "money",
+      "rank": 4
+    }
+  ],
+  "side": [
+    {
+      "effect": "read",
+      "irreversible": false,
+      "side": "none"
+    },
+    {
+      "effect": "read",
+      "irreversible": true,
+      "side": "none"
+    },
+    {
+      "effect": "local-write",
+      "irreversible": false,
+      "side": "local"
+    },
+    {
+      "effect": "local-destructive",
+      "irreversible": true,
+      "side": "local"
+    },
+    {
+      "effect": "external",
+      "irreversible": false,
+      "side": "external"
+    },
+    {
+      "effect": "external",
+      "irreversible": true,
+      "side": "external"
+    },
+    {
+      "effect": "money",
+      "irreversible": false,
+      "side": "money"
+    },
+    {
+      "effect": "money",
+      "irreversible": true,
+      "side": "money"
+    },
+    {
+      "effect": "external",
+      "irreversible": false,
+      "side": "bogus"
+    },
+    {
+      "effect": "external",
+      "irreversible": true,
+      "side": "bogus"
+    },
+    {
+      "effect": "external",
+      "irreversible": false,
+      "side": "LOCAL"
+    },
+    {
+      "effect": "external",
+      "irreversible": true,
+      "side": "LOCAL"
+    }
+  ]
+}

@@ -1,0 +1,212 @@
+[
+  {
+    "name": "completed",
+    "result": {
+      "breakerState": "closed",
+      "calls": [
+        {
+          "dueId": "due:4000",
+          "job": "rem-dream"
+        },
+        {
+          "dueId": "due:4000",
+          "job": "discover-semantic-links"
+        }
+      ],
+      "capturesAcc": 0,
+      "claimed": true,
+      "counts": {
+        "jobs": 2,
+        "llmSessions": 1
+      },
+      "outcome": "completed",
+      "reason": null,
+      "tokensIn": 10,
+      "tokensOut": 2
+    }
+  },
+  {
+    "name": "primary skipped",
+    "result": {
+      "breakerState": "closed",
+      "calls": [
+        {
+          "dueId": "due:4000",
+          "job": "rem-dream"
+        },
+        {
+          "dueId": "due:4000",
+          "job": "discover-semantic-links"
+        }
+      ],
+      "capturesAcc": 3,
+      "claimed": false,
+      "counts": {
+        "jobs": 2,
+        "llmSessions": 0
+      },
+      "outcome": "skipped",
+      "reason": "no_llm_route",
+      "tokensIn": 10,
+      "tokensOut": 2
+    }
+  },
+  {
+    "name": "job failed",
+    "result": {
+      "breakerState": "closed",
+      "calls": [
+        {
+          "dueId": "due:4000",
+          "job": "rem-dream"
+        }
+      ],
+      "capturesAcc": 3,
+      "claimed": false,
+      "counts": {
+        "jobs": 1,
+        "llmSessions": 1
+      },
+      "outcome": "failed",
+      "reason": "fixture_failure",
+      "tokensIn": 5,
+      "tokensOut": 2
+    }
+  },
+  {
+    "name": "incomplete",
+    "result": {
+      "breakerState": "closed",
+      "calls": [
+        {
+          "dueId": "due:4000",
+          "job": "rem-dream"
+        }
+      ],
+      "capturesAcc": 3,
+      "claimed": false,
+      "counts": {
+        "jobs": 1,
+        "llmSessions": 1
+      },
+      "outcome": "failed",
+      "reason": "incomplete:fixture_pending",
+      "tokensIn": 5,
+      "tokensOut": 2
+    }
+  },
+  {
+    "name": "diary failed",
+    "result": {
+      "breakerState": "closed",
+      "calls": [
+        {
+          "dueId": "due:4000",
+          "job": "rem-dream"
+        },
+        {
+          "dueId": "due:4000",
+          "job": "discover-semantic-links"
+        }
+      ],
+      "capturesAcc": 3,
+      "claimed": false,
+      "counts": {
+        "jobs": 2,
+        "llmSessions": 1
+      },
+      "outcome": "failed",
+      "reason": "diary_not_written",
+      "tokensIn": 10,
+      "tokensOut": 2
+    }
+  },
+  {
+    "name": "diary missing",
+    "result": {
+      "breakerState": "closed",
+      "calls": [
+        {
+          "dueId": "due:4000",
+          "job": "rem-dream"
+        },
+        {
+          "dueId": "due:4000",
+          "job": "discover-semantic-links"
+        }
+      ],
+      "capturesAcc": 3,
+      "claimed": false,
+      "counts": {
+        "jobs": 2,
+        "llmSessions": 1
+      },
+      "outcome": "failed",
+      "reason": "diary_not_written",
+      "tokensIn": 10,
+      "tokensOut": 2
+    }
+  },
+  {
+    "name": "missing route",
+    "result": {
+      "breakerState": "closed",
+      "calls": [],
+      "capturesAcc": 3,
+      "claimed": false,
+      "counts": {},
+      "outcome": "skipped",
+      "reason": "no_llm_route",
+      "tokensIn": null,
+      "tokensOut": null
+    }
+  },
+  {
+    "name": "breaker cap",
+    "result": {
+      "breakerState": "open",
+      "calls": [],
+      "capturesAcc": 3,
+      "claimed": false,
+      "counts": {
+        "jobs": 0,
+        "llmSessions": 0
+      },
+      "outcome": "aborted",
+      "reason": "breaker_sessions",
+      "tokensIn": null,
+      "tokensOut": null
+    }
+  },
+  {
+    "name": "cancelled",
+    "result": {
+      "breakerState": "closed",
+      "calls": [],
+      "capturesAcc": 3,
+      "claimed": false,
+      "counts": {
+        "jobs": 0,
+        "llmSessions": 0
+      },
+      "outcome": "aborted",
+      "reason": "cancelled",
+      "tokensIn": null,
+      "tokensOut": null
+    }
+  },
+  {
+    "name": "idempotent",
+    "result": {
+      "breakerState": "closed",
+      "calls": [],
+      "capturesAcc": 3,
+      "claimed": false,
+      "counts": {},
+      "outcome": "skipped",
+      "reason": "idempotent",
+      "tokensIn": null,
+      "tokensOut": null
+    }
+  }
+]

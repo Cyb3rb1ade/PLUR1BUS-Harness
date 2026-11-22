@@ -1,0 +1,5267 @@
+{
+  "scenarios": [
+    {
+      "name": "recall-rides-volatile-then-folds",
+      "open": {
+        "agentId": "bernd",
+        "memorySnapshot": {
+          "$t": 2
+        },
+        "model": "claude-sonnet-5-5",
+        "system": [
+          {
+            "$t": 1
+          },
+          "Safety preamble. Operating instructions."
+        ],
+        "tools": {
+          "$v": 19
+        }
+      },
+      "ops": [
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q0"
+            }
+          }
+        },
+        {
+          "digest": "e3304021cdcada05512d82d95713128bbeee36b97849bf2816ffba545c5e0f74",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              6,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 7,
+          "segments": {
+            "$v": 3
+          },
+          "segmentsDigest": "2712840217aa0ecb3d5b008a5aa95a14e277a5cad6d7703afefad2b5ebb9ba7c",
+          "summary": {
+            "$v": 2
+          }
+        },
+        {
+          "emitted": [],
+          "events": [],
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 20,
+                  "droppable": true,
+                  "name": "memories",
+                  "text": "- the user likes tea"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "digest": "e760ef3ad3aa39fc80e368eb0aedad673d572849d795dff4625c3e5d9bed22c3",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              6,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 8,
+          "segments": {
+            "$v": 6
+          },
+          "segmentsDigest": "8dc8f7b2cc2db77900c940e399c2c6fedb4e24eabaa4a24809a8760262edcef5",
+          "summary": {
+            "$v": 5
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a0"
+            }
+          }
+        },
+        {
+          "digest": "c155f01fcecabfa6f0d4be4a9545bf52004da1ca5c3c501d44bed7586486d0cf",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              8,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 9,
+          "segments": {
+            "$v": 10
+          },
+          "segmentsDigest": "0fbcbe4e5f504973f8a4e462102bc5fb2a3c56f0f40840b052038e81534e8401",
+          "summary": {
+            "$v": 9
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q1"
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "events": [],
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 8,
+                  "droppable": true,
+                  "name": "memories",
+                  "text": "- second"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "digest": "96f890f09b9c4b76dc1fc7139eb9d667ab8f3042bcd18441cd0f8c1e3822410a",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              9,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 11,
+          "segments": {
+            "$v": 14
+          },
+          "segmentsDigest": "0549e4aeeb4787695947c0824669d17078930264fa80dc6f624064b6610071c4",
+          "summary": {
+            "$v": 13
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a1"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q2"
+            }
+          }
+        },
+        {
+          "digest": "d9ec864df32624a53c5143533a238cea96ce2f6842a51f58b4462f25bf91b5e8",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              12,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 13,
+          "segments": {
+            "$v": 18
+          },
+          "segmentsDigest": "073db7da3f1233d650750072e58b1a0bf430e01b3cce756c6c85e62023b4a9d6",
+          "summary": {
+            "$v": 17
+          }
+        }
+      ]
+    },
+    {
+      "name": "tool-invoked-recall",
+      "open": {
+        "agentId": "bernd",
+        "memorySnapshot": {
+          "$t": 2
+        },
+        "model": "claude-sonnet-5-5",
+        "system": [
+          {
+            "$t": 1
+          },
+          "Safety preamble. Operating instructions."
+        ],
+        "tools": {
+          "$v": 19
+        }
+      },
+      "ops": [
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q0"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "id": "tu_1",
+              "kind": "tool_use",
+              "role": "assistant",
+              "text": "{}"
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "events": [],
+          "op": {
+            "delivery": "tool_result",
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 9,
+                  "droppable": true,
+                  "name": "memories",
+                  "text": "- by tool"
+                }
+              ]
+            },
+            "toolUseId": "tu_1"
+          }
+        },
+        {
+          "digest": "f83bcfaa9fd92142a256c606d2888097aab96fcfc78ed195f37f1e81429ca6b1",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              7,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 9,
+          "segments": {
+            "$v": 23
+          },
+          "segmentsDigest": "73dbabeec68c265dc41ac96977aab81bbfd8a522dd3f2dd83cc6441c1175251a",
+          "summary": {
+            "$v": 22
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a0"
+            }
+          }
+        },
+        {
+          "digest": "a4c405484ef697ad7e16801a2ced36239cb1c22947ad1e8666693dfbb8622b12",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              9,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 10,
+          "segments": {
+            "$v": 27
+          },
+          "segmentsDigest": "981d25dd839c3bad9d83aba81f33effc9655e965406485ae7fa538cc28d8e77b",
+          "summary": {
+            "$v": 26
+          }
+        }
+      ]
+    },
+    {
+      "name": "latest-recall-wins-at-an-anchor",
+      "open": {
+        "agentId": "bernd",
+        "memorySnapshot": {
+          "$t": 2
+        },
+        "model": "claude-sonnet-5-5",
+        "system": [
+          {
+            "$t": 1
+          },
+          "Safety preamble. Operating instructions."
+        ],
+        "tools": {
+          "$v": 19
+        }
+      },
+      "ops": [
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q0"
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "events": [],
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 7,
+                  "droppable": true,
+                  "name": "memories",
+                  "text": "- first"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "events": [],
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 8,
+                  "droppable": true,
+                  "name": "memories",
+                  "text": "- second"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "digest": "56585225b60d66c5d100ff91746b120bd63af9c1564b7b31802a7a533dd58c9e",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              6,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 8,
+          "segments": {
+            "$v": 30
+          },
+          "segmentsDigest": "9fc96e6f420857b1052ab15d7c39878b3d1386a0cdad7c0038b7224cf3b8d806",
+          "summary": {
+            "$v": 29
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a0"
+            }
+          }
+        },
+        {
+          "digest": "252c750e69a8dd76dedc605441b7b06379f4992da27fafbb008859641e858a06",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              8,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 9,
+          "segments": {
+            "$v": 34
+          },
+          "segmentsDigest": "7c858222afea167945ca2ee86d18ee020d883897a70c33842aa4a71da3c3de82",
+          "summary": {
+            "$v": 33
+          }
+        },
+        {
+          "emitted": [],
+          "events": [],
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 7,
+                  "droppable": true,
+                  "name": "memories",
+                  "text": "- third"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "events": [],
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 0,
+                  "droppable": true,
+                  "name": "memories",
+                  "text": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "digest": "252c750e69a8dd76dedc605441b7b06379f4992da27fafbb008859641e858a06",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              8,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 9,
+          "segments": {
+            "$v": 34
+          },
+          "segmentsDigest": "7c858222afea167945ca2ee86d18ee020d883897a70c33842aa4a71da3c3de82",
+          "summary": {
+            "$v": 33
+          }
+        }
+      ]
+    },
+    {
+      "name": "clip-reported-once",
+      "open": {
+        "agentId": "bernd",
+        "memorySnapshot": {
+          "$t": 2
+        },
+        "model": "claude-sonnet-5-5",
+        "system": [
+          {
+            "$t": 1
+          },
+          "Safety preamble. Operating instructions."
+        ],
+        "tools": {
+          "$v": 19
+        }
+      },
+      "ops": [
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q0"
+            }
+          }
+        },
+        {
+          "emitted": [
+            {
+              "agentId": "bernd",
+              "block": "memories",
+              "from": 50,
+              "model": "claude-sonnet-5-5",
+              "reason": "global-cap",
+              "to": 18,
+              "type": "prompt.block-clipped"
+            }
+          ],
+          "events": [
+            {
+              "agentId": "bernd",
+              "block": "memories",
+              "from": 50,
+              "model": "claude-sonnet-5-5",
+              "reason": "global-cap",
+              "to": 18,
+              "type": "prompt.block-clipped"
+            }
+          ],
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 50,
+                  "droppable": true,
+                  "name": "memories",
+                  "text": "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM"
+                },
+                {
+                  "chars": 10,
+                  "droppable": false,
+                  "name": "soul",
+                  "text": "SSSSSSSSSS"
+                }
+              ],
+              "capChars": 30
+            }
+          }
+        },
+        {
+          "digest": "a839992ba19ec9579dc4ef08ff2d55eb350c862cdd997516d0297dcb0f7e8c7d",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              6,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 8,
+          "segments": {
+            "$v": 37
+          },
+          "segmentsDigest": "65cf21d2d22bf117049afcb23c5d259bdf5a39fbb31742c232bf1b99577de06d",
+          "summary": {
+            "$v": 36
+          }
+        },
+        {
+          "digest": "3e53ca3f2fdbb8253a1c93a942deeb04179c061bb860fc9e69b0b2599744d505",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              6,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 8,
+          "segments": {
+            "$v": 37
+          },
+          "segmentsDigest": "65cf21d2d22bf117049afcb23c5d259bdf5a39fbb31742c232bf1b99577de06d",
+          "summary": {
+            "$v": 38
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a0"
+            }
+          }
+        },
+        {
+          "digest": "0803f3fac3efebeb241df41787eeaa0fac5a56adcc7cdea2c6c24fcf85e0b844",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              8,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 9,
+          "segments": {
+            "$v": 42
+          },
+          "segmentsDigest": "1c2cabe3ac89c4fb3402af1e6612bfb91d40e4447d12094da6bfbf2ef6be78ad",
+          "summary": {
+            "$v": 41
+          }
+        }
+      ]
+    },
+    {
+      "name": "refused-items-and-recalls",
+      "open": {
+        "agentId": "bernd",
+        "memorySnapshot": {
+          "$t": 2
+        },
+        "model": "claude-sonnet-5-5",
+        "system": [
+          {
+            "$t": 1
+          },
+          "Safety preamble. Operating instructions."
+        ],
+        "tools": {
+          "$v": 19
+        }
+      },
+      "ops": [
+        {
+          "emitted": [],
+          "error": "conversation tool_result must have the user role",
+          "errorType": "TypeError",
+          "op": {
+            "append": {
+              "id": "x",
+              "kind": "tool_result",
+              "role": "assistant",
+              "text": "t"
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "error": "conversation tool_use must have the assistant role",
+          "errorType": "TypeError",
+          "op": {
+            "append": {
+              "id": "x",
+              "kind": "tool_use",
+              "role": "user",
+              "text": "t"
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "error": "conversation tool_use needs an id",
+          "errorType": "TypeError",
+          "op": {
+            "append": {
+              "kind": "tool_use",
+              "role": "assistant",
+              "text": "t"
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "error": "volatile tool_result delivery needs toolUseId",
+          "errorType": "TypeError",
+          "op": {
+            "delivery": "tool_result",
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 3,
+                  "droppable": true,
+                  "name": "memories",
+                  "text": "- x"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "error": "volatile capChars must be a nonnegative number (Infinity for uncapped)",
+          "errorType": "TypeError",
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 1,
+                  "droppable": true,
+                  "name": "a",
+                  "text": "x"
+                }
+              ],
+              "capChars": {
+                "$num": "NaN"
+              }
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "error": "volatile capChars must be a nonnegative number (Infinity for uncapped)",
+          "errorType": "TypeError",
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 1,
+                  "droppable": true,
+                  "name": "a",
+                  "text": "x"
+                }
+              ],
+              "capChars": -1
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "events": [],
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 1,
+                  "droppable": true,
+                  "name": "a",
+                  "text": "x"
+                }
+              ],
+              "capChars": {
+                "$num": "Infinity"
+              }
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q0"
+            }
+          }
+        },
+        {
+          "digest": "46fb0a89eb616ffcff73b01685884f799814291409a6cdbb09a4635e93fc7619",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              7,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 8,
+          "segments": {
+            "$v": 46
+          },
+          "segmentsDigest": "a3c191eac0f52dce8b4b6b2ac053c9b219cfebc8a095279a48511307086c9464",
+          "summary": {
+            "$v": 45
+          }
+        }
+      ]
+    },
+    {
+      "name": "refresh-and-model-change",
+      "open": {
+        "agentId": "bernd",
+        "cacheTtl": "1h",
+        "memorySnapshot": {
+          "$t": 2
+        },
+        "model": "claude-sonnet-5-5",
+        "sessionId": "s1",
+        "system": [
+          {
+            "$t": 1
+          },
+          "Safety preamble. Operating instructions."
+        ],
+        "tools": {
+          "$v": 19
+        },
+        "zoneCaps": {
+          "memory": 9000
+        }
+      },
+      "ops": [
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q0"
+            }
+          }
+        },
+        {
+          "digest": "6d68bcc2a8d7819976d6286fdb02ba9f88ec0574935e387e9bdeff9c51038246",
+          "marked": [
+            [
+              4,
+              "1h"
+            ],
+            [
+              5,
+              "1h"
+            ],
+            [
+              6,
+              "5m"
+            ]
+          ],
+          "op": {
+            "at": 0,
+            "render": true
+          },
+          "segmentCount": 7,
+          "segments": {
+            "$v": 49
+          },
+          "segmentsDigest": "5194e82d3839f91206287c6c21755d4fe5c3d8f28c7e2d0711fa81cd6f0483fe",
+          "summary": {
+            "$v": 48
+          }
+        },
+        {
+          "op": {
+            "refresh": {
+              "$t": 2
+            }
+          },
+          "snapshotSha256": "17e9c302235b8e962745ae4992d46c0e030f1eac989ed86f8795c22e83412134"
+        },
+        {
+          "digest": "d0e1b45f731bae1e259cf62821ec2f0d05ca21e76d94de14ea2dba187959ce4f",
+          "marked": [
+            [
+              4,
+              "1h"
+            ],
+            [
+              5,
+              "1h"
+            ],
+            [
+              6,
+              "5m"
+            ]
+          ],
+          "op": {
+            "at": 10,
+            "render": true
+          },
+          "segmentCount": 7,
+          "segments": {
+            "$v": 49
+          },
+          "segmentsDigest": "5194e82d3839f91206287c6c21755d4fe5c3d8f28c7e2d0711fa81cd6f0483fe",
+          "summary": {
+            "$v": 50
+          }
+        },
+        {
+          "op": {
+            "refresh": {
+              "$t": 3
+            }
+          },
+          "snapshotSha256": "e7b6ad5176742314de5854486c55701a470119a92cc99bec373aa37669eb4af2"
+        },
+        {
+          "digest": "4e7d476a145e5ec0894d0a7e4cf02db8c4adf6a9607f64f9453bcfa2a9bd8bd6",
+          "marked": [
+            [
+              4,
+              "1h"
+            ],
+            [
+              5,
+              "1h"
+            ],
+            [
+              6,
+              "5m"
+            ]
+          ],
+          "op": {
+            "at": 20,
+            "render": true
+          },
+          "segmentCount": 7,
+          "segments": {
+            "$v": 54
+          },
+          "segmentsDigest": "3ad84bc13dc02dd01d95556e10eb7c2e9f7d85660cfbaa1036a5e460ca9164d9",
+          "summary": {
+            "$v": 53
+          }
+        },
+        {
+          "digest": "e81b86fa55fab4f5eff8a85e91b4eb41be63a962944d1a9b2fa08a0436887fb1",
+          "marked": [
+            [
+              4,
+              "1h"
+            ],
+            [
+              5,
+              "1h"
+            ],
+            [
+              6,
+              "5m"
+            ]
+          ],
+          "op": {
+            "at": 30,
+            "render": true
+          },
+          "segmentCount": 7,
+          "segments": {
+            "$v": 54
+          },
+          "segmentsDigest": "3ad84bc13dc02dd01d95556e10eb7c2e9f7d85660cfbaa1036a5e460ca9164d9",
+          "summary": {
+            "$v": 55
+          }
+        },
+        {
+          "model": "claude-opus-4-5",
+          "op": {
+            "setModel": "claude-opus-4-5"
+          }
+        },
+        {
+          "digest": "cf3ba7fe835cc748abe9486b32dfb571df52395635d13646b25ee6881e0d1e06",
+          "marked": [],
+          "op": {
+            "at": 40,
+            "render": true
+          },
+          "segmentCount": 7,
+          "segments": {
+            "$v": 57
+          },
+          "segmentsDigest": "11fba50fd550eaa96a50b8911b457365f25af73159df59b6f3e3776399f43f4d",
+          "summary": {
+            "$v": 56
+          }
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "op": {
+            "setModel": "claude-sonnet-5-5"
+          }
+        },
+        {
+          "digest": "d466c3bc2286c3cb09f5065be3b9abe09e88c786900a8310b35e8a8efabc11b2",
+          "marked": [
+            [
+              4,
+              "1h"
+            ],
+            [
+              5,
+              "1h"
+            ],
+            [
+              6,
+              "5m"
+            ]
+          ],
+          "op": {
+            "at": 50,
+            "render": true
+          },
+          "segmentCount": 7,
+          "segments": {
+            "$v": 54
+          },
+          "segmentsDigest": "3ad84bc13dc02dd01d95556e10eb7c2e9f7d85660cfbaa1036a5e460ca9164d9",
+          "summary": {
+            "$v": 58
+          }
+        },
+        {
+          "op": {
+            "refresh": "short"
+          },
+          "snapshotSha256": "f9b0078b5df596d2ea19010c001bbd009e651de2c57e8fb7e355f31eb9d3f739"
+        },
+        {
+          "op": {
+            "refresh": {
+              "$t": 3
+            }
+          },
+          "snapshotSha256": "e7b6ad5176742314de5854486c55701a470119a92cc99bec373aa37669eb4af2"
+        },
+        {
+          "digest": "e81b86fa55fab4f5eff8a85e91b4eb41be63a962944d1a9b2fa08a0436887fb1",
+          "marked": [
+            [
+              4,
+              "1h"
+            ],
+            [
+              5,
+              "1h"
+            ],
+            [
+              6,
+              "5m"
+            ]
+          ],
+          "op": {
+            "at": 60,
+            "render": true
+          },
+          "segmentCount": 7,
+          "segments": {
+            "$v": 54
+          },
+          "segmentsDigest": "3ad84bc13dc02dd01d95556e10eb7c2e9f7d85660cfbaa1036a5e460ca9164d9",
+          "summary": {
+            "$v": 55
+          }
+        }
+      ]
+    },
+    {
+      "name": "long-session-snapshot-frozen",
+      "open": {
+        "agentId": "bernd",
+        "memorySnapshot": {
+          "$t": 2
+        },
+        "model": "claude-sonnet-5-5",
+        "system": [
+          {
+            "$t": 1
+          },
+          "Safety preamble. Operating instructions."
+        ],
+        "tools": {
+          "$v": 19
+        }
+      },
+      "ops": [
+        {
+          "digest": "7d132241edf332fdad1726aca1ce4103cf0cac8a7d13a4c7e9b60a61d7e2c1a0",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ]
+          ],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 6,
+          "segments": {
+            "$v": 62
+          },
+          "segmentsDigest": "a1ee5a13b13cf9522e1d9e6ff5ed1bc85beb628cbda0c279326ca65513323ff5",
+          "summary": {
+            "$v": 61
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q0"
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "events": [],
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 8,
+                  "droppable": true,
+                  "name": "memories",
+                  "text": "- fact 0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a0"
+            }
+          }
+        },
+        {
+          "digest": "224a8e2a036482445f4f7890984a25222f13853146919236eec1664323d20b95",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              8,
+              "5m"
+            ]
+          ],
+          "op": {
+            "at": 0,
+            "render": true
+          },
+          "segmentCount": 9,
+          "segments": {
+            "$v": 66
+          },
+          "segmentsDigest": "375454f46f2be0898c5bb472f2a6e30a2d2760f0fa136538265bb3b1c826972f",
+          "summary": {
+            "$v": 65
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q1"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a1"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q2"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a2"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q3"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a3"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q4"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a4"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q5"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a5"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q6"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a6"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q7"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a7"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q8"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a8"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q9"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a9"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q10"
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "events": [],
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 9,
+                  "droppable": true,
+                  "name": "memories",
+                  "text": "- fact 10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a10"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q11"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a11"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q12"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a12"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q13"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a13"
+            }
+          }
+        },
+        {
+          "digest": "f05f7a2ff91e85c176aad9e022a03cc9931d7ce8e020df69bbd2099b7d715830",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              20,
+              "5m"
+            ],
+            [
+              35,
+              "5m"
+            ]
+          ],
+          "op": {
+            "at": 13000,
+            "render": true
+          },
+          "segmentCount": 36,
+          "segmentsDigest": "2dd7eb850970f26bc0a57b9958b53c195dcb08278dee21970583d45f415dfebd",
+          "summary": {
+            "$v": 69
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q14"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a14"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q15"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a15"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q16"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a16"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q17"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a17"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q18"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a18"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q19"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a19"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q20"
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "events": [],
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 9,
+                  "droppable": true,
+                  "name": "memories",
+                  "text": "- fact 20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a20"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q21"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a21"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q22"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a22"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q23"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a23"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q24"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a24"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q25"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a25"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q26"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a26"
+            }
+          }
+        },
+        {
+          "digest": "8573a8dfe9ab8eca86266b11bcebdd421bf7725d4de6632d327db4cd42b34165",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              47,
+              "5m"
+            ],
+            [
+              62,
+              "5m"
+            ]
+          ],
+          "op": {
+            "at": 26000,
+            "render": true
+          },
+          "segmentCount": 63,
+          "segmentsDigest": "2fc491e092084f2f0038856811e5a81a9a6a19d65b91f36f8740ae431b211c9d",
+          "summary": {
+            "$v": 72
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q27"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a27"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q28"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a28"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q29"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a29"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q30"
+            }
+          }
+        },
+        {
+          "emitted": [],
+          "events": [],
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 9,
+                  "droppable": true,
+                  "name": "memories",
+                  "text": "- fact 30"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a30"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q31"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a31"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q32"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a32"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q33"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a33"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q34"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a34"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q35"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a35"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q36"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a36"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q37"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a37"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q38"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a38"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "user",
+              "text": "q39"
+            }
+          }
+        },
+        {
+          "op": {
+            "append": {
+              "role": "assistant",
+              "text": "a39"
+            }
+          }
+        },
+        {
+          "digest": "be6f7ec90080d6777fa10c6ae6be1405ddfa85ee56b309650ebfe470dac101f6",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              74,
+              "5m"
+            ],
+            [
+              89,
+              "5m"
+            ]
+          ],
+          "op": {
+            "at": 39000,
+            "render": true
+          },
+          "segmentCount": 90,
+          "segmentsDigest": "73daf683169c5072b3954329f5b672331307beb88357181555f29d723eeffcde",
+          "summary": {
+            "$v": 75
+          }
+        },
+        {
+          "digest": "7f80e9d0df6216034dfe6af15cee74f9a45ba831a2f0beb990d1781e52312a77",
+          "marked": [
+            [
+              4,
+              "5m"
+            ],
+            [
+              5,
+              "5m"
+            ],
+            [
+              74,
+              "5m"
+            ],
+            [
+              89,
+              "5m"
+            ]
+          ],
+          "op": {
+            "at": 50000,
+            "render": true
+          },
+          "segmentCount": 90,
+          "segmentsDigest": "73daf683169c5072b3954329f5b672331307beb88357181555f29d723eeffcde",
+          "summary": {
+            "$v": 76
+          }
+        }
+      ]
+    },
+    {
+      "name": "empty-session",
+      "open": {
+        "agentId": "a",
+        "memorySnapshot": "",
+        "model": "vendor/unknown",
+        "system": [],
+        "tools": []
+      },
+      "ops": [
+        {
+          "digest": "ac29605fcc208443d64bb4e878e1e35ae5cb100255399850991bd0a9fd842a9d",
+          "marked": [],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 0,
+          "segments": [],
+          "segmentsDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "summary": {
+            "$v": 78
+          }
+        },
+        {
+          "emitted": [],
+          "events": [],
+          "op": {
+            "recall": {
+              "blocks": [
+                {
+                  "chars": 13,
+                  "droppable": true,
+                  "name": "memories",
+                  "text": "- only recall"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "digest": "cb609d79ad8db054c492697668deae7b5f83405e40ac5a592cfc8be9135360b8",
+          "marked": [],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 1,
+          "segments": [
+            {
+              "kind": "context",
+              "role": "user",
+              "text": "- only recall",
+              "zone": "volatile"
+            }
+          ],
+          "segmentsDigest": "042a152670438c96d0ca9b951115886ad2bd7c40e89ba5643e1dbaacf4747c0f",
+          "summary": {
+            "$v": 80
+          }
+        },
+        {
+          "digest": "cb609d79ad8db054c492697668deae7b5f83405e40ac5a592cfc8be9135360b8",
+          "marked": [],
+          "op": {
+            "render": true
+          },
+          "segmentCount": 1,
+          "segments": [
+            {
+              "kind": "context",
+              "role": "user",
+              "text": "- only recall",
+              "zone": "volatile"
+            }
+          ],
+          "segmentsDigest": "042a152670438c96d0ca9b951115886ad2bd7c40e89ba5643e1dbaacf4747c0f",
+          "summary": {
+            "$v": 80
+          }
+        }
+      ]
+    }
+  ],
+  "texts": [
+    "{\"description\":\"Recall memories.\",\"inputSchema\":{\"properties\":{\"limit\":{\"minimum\":1,\"type\":\"integer\"},\"query\":{\"type\":\"string\"}},\"required\":[\"query\"],\"type\":\"object\"},\"name\":\"memory_recall\"}",
+    "You are bernd.\nRule 0000: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0001: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0002: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0003: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0004: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0005: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0006: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0007: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0008: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0009: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0010: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0011: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0012: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0013: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0014: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0015: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0016: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0017: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0018: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0019: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0020: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0021: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0022: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0023: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0024: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0025: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0026: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0027: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0028: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0029: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0030: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0031: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0032: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0033: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0034: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0035: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0036: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0037: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0038: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0039: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0040: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0041: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0042: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0043: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0044: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0045: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0046: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0047: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0048: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0049: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0050: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0051: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0052: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0053: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0054: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0055: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0056: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0057: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0058: the quick brown fox jumps over the lazy dog, éè 日本語.\nRule 0059: the quick brown fox jumps over the lazy dog, éè 日本語.",
+    "Fact 0000: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0001: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0002: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0003: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0004: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0005: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0006: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0007: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0008: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0009: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0010: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0011: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0012: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0013: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0014: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0015: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0016: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0017: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0018: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0019: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0020: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0021: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0022: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0023: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0024: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0025: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0026: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0027: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0028: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0029: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0030: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0031: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0032: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0033: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0034: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0035: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0036: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0037: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0038: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0039: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0040: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0041: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0042: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0043: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0044: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0045: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0046: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0047: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0048: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0049: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0050: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0051: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0052: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0053: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0054: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0055: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0056: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0057: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0058: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0059: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0060: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0061: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0062: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0063: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0064: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0065: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0066: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0067: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0068: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0069: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0070: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0071: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0072: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0073: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0074: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0075: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0076: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0077: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0078: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0079: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0080: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0081: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0082: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0083: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0084: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0085: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0086: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0087: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0088: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0089: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0090: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0091: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0092: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0093: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0094: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0095: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0096: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0097: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0098: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0099: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0100: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0101: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0102: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0103: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0104: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0105: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0106: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0107: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0108: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0109: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0110: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0111: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0112: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0113: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0114: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0115: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0116: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0117: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0118: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0119: the quick brown fox jumps over the lazy dog, éè 日本語.",
+    "Fact 0000: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0001: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0002: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0003: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0004: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0005: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0006: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0007: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0008: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0009: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0010: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0011: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0012: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0013: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0014: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0015: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0016: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0017: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0018: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0019: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0020: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0021: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0022: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0023: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0024: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0025: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0026: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0027: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0028: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0029: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0030: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0031: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0032: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0033: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0034: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0035: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0036: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0037: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0038: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0039: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0040: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0041: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0042: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0043: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0044: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0045: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0046: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0047: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0048: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0049: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0050: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0051: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0052: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0053: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0054: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0055: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0056: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0057: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0058: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0059: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0060: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0061: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0062: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0063: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0064: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0065: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0066: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0067: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0068: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0069: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0070: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0071: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0072: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0073: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0074: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0075: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0076: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0077: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0078: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0079: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0080: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0081: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0082: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0083: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0084: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0085: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0086: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0087: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0088: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0089: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0090: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0091: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0092: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0093: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0094: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0095: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0096: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0097: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0098: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0099: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0100: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0101: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0102: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0103: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0104: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0105: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0106: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0107: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0108: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0109: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0110: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0111: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0112: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0113: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0114: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0115: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0116: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0117: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0118: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact 0119: the quick brown fox jumps over the lazy dog, éè 日本語.\nFact new"
+  ],
+  "values": [
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "5m",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13494,
+        "hash": "ae4413d16c844fcdb8ba452ee7164c981571f06b8b8a0453cd2d4234fa59f37e",
+        "kind": "trailing",
+        "segment": 6,
+        "tokenEstimate": 3014,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "4f24508914a7994fecd3e8498da29d31c9d34a821d02ee7042285c77bfc23361",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": {
+        "$v": 0
+      },
+      "cache": {
+        "ageMs": null,
+        "eligible": true,
+        "expected": "cold",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "cold"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 1
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13494,
+          1
+        ],
+        [
+          13494,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "4f24508914a7994fecd3e8498da29d31c9d34a821d02ee7042285c77bfc23361",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "eab33513c5912d3cbe4bd031a1d9134730ece6ac447715e0026a96c2b1840f45"
+    },
+    {
+      "breakpoints": {
+        "$v": 0
+      },
+      "cache": {
+        "ageMs": 0,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 4
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13494,
+          1
+        ],
+        [
+          13514,
+          5
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      },
+      {
+        "kind": "context",
+        "role": "user",
+        "text": "- the user likes tea",
+        "zone": "volatile"
+      }
+    ],
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "5m",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13516,
+        "hash": "1eaefb7754498ed52281cea40acef61d07a36f25ffd74231e097effeb877a58b",
+        "kind": "trailing",
+        "segment": 8,
+        "tokenEstimate": 3019,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "26aab75d4a97f98b7e2694aca2746e79d88af447d05f5a6c67549158fd7ec7fd",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": {
+        "$v": 7
+      },
+      "cache": {
+        "ageMs": 0,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 8
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13516,
+          6
+        ],
+        [
+          13516,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      },
+      {
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      },
+      {
+        "kind": "context",
+        "role": "user",
+        "text": "- the user likes tea",
+        "zone": "conversation"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "text",
+        "role": "assistant",
+        "text": "a0",
+        "zone": "conversation"
+      }
+    ],
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "5m",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13518,
+        "hash": "63c4e022afa637e11d69cb135a160ec47c0cfe23d12c80479b6e0aa99d100925",
+        "kind": "trailing",
+        "segment": 9,
+        "tokenEstimate": 3020,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "8d90f23bef04bec37f4829c12b0b20274c4a1b371f90e24bb3fece4957511dbf",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "7974d2a072ca5ff987d95d95dad5b224039deda9d43791e94e4478e23c03c1ce"
+    },
+    {
+      "breakpoints": {
+        "$v": 11
+      },
+      "cache": {
+        "ageMs": 0,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 12
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13518,
+          7
+        ],
+        [
+          13526,
+          2
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      },
+      {
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      },
+      {
+        "kind": "context",
+        "role": "user",
+        "text": "- the user likes tea",
+        "zone": "conversation"
+      },
+      {
+        "kind": "text",
+        "role": "assistant",
+        "text": "a0",
+        "zone": "conversation"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "text",
+        "role": "user",
+        "text": "q1",
+        "zone": "conversation"
+      },
+      {
+        "kind": "context",
+        "role": "user",
+        "text": "- second",
+        "zone": "volatile"
+      }
+    ],
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "5m",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13530,
+        "hash": "24bdbd496a1a21ead3db8fa354e997f678374233efdd909b5eae63f8d21f0b26",
+        "kind": "trailing",
+        "segment": 12,
+        "tokenEstimate": 3023,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "1dcc4ad4e5a0f20b88ee2b40c475f7674eb64462ae2e7a6cd3f40038a858885b",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": {
+        "$v": 15
+      },
+      "cache": {
+        "ageMs": 0,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 16
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13530,
+          10
+        ],
+        [
+          13530,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      },
+      {
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      },
+      {
+        "kind": "context",
+        "role": "user",
+        "text": "- the user likes tea",
+        "zone": "conversation"
+      },
+      {
+        "kind": "text",
+        "role": "assistant",
+        "text": "a0",
+        "zone": "conversation"
+      },
+      {
+        "kind": "text",
+        "role": "user",
+        "text": "q1",
+        "zone": "conversation"
+      },
+      {
+        "kind": "context",
+        "role": "user",
+        "text": "- second",
+        "zone": "conversation"
+      },
+      {
+        "kind": "text",
+        "role": "assistant",
+        "text": "a1",
+        "zone": "conversation"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "text",
+        "role": "user",
+        "text": "q2",
+        "zone": "conversation"
+      }
+    ],
+    [
+      {
+        "description": "Recall memories.",
+        "inputSchema": {
+          "properties": {
+            "limit": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "query": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "type": "object"
+        },
+        "name": "memory_recall"
+      },
+      {
+        "description": "Read a file.",
+        "inputSchema": {
+          "properties": {
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        },
+        "name": "file_read"
+      },
+      {
+        "description": "Run a command.",
+        "inputSchema": {
+          "properties": {
+            "cmd": {
+              "type": "string"
+            },
+            "timeoutMs": {
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
+        "name": "shell"
+      }
+    ],
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "5m",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13496,
+        "hash": "db7177ce678b8070da8e9cfffde79b95ac57560a11d4d2f6c21e47b438686070",
+        "kind": "trailing",
+        "segment": 7,
+        "tokenEstimate": 3014,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "7cc64d16cb2128704ffde89601f4f838adfe2058ad327fdc61ee07deab5fad45",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "54c9af6ba5ae20d515ebdaa464b19479840d20890584b694e26883856bed519a"
+    },
+    {
+      "breakpoints": {
+        "$v": 20
+      },
+      "cache": {
+        "ageMs": null,
+        "eligible": true,
+        "expected": "cold",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "cold"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 21
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13496,
+          1
+        ],
+        [
+          13505,
+          3
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      },
+      {
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "id": "tu_1",
+        "kind": "tool_use",
+        "role": "assistant",
+        "text": "{}",
+        "zone": "conversation"
+      },
+      {
+        "id": "tu_1",
+        "kind": "tool_result",
+        "role": "user",
+        "text": "- by tool",
+        "zone": "volatile"
+      }
+    ],
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "5m",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13507,
+        "hash": "88b61c56dd8232c4f149b7e1f3c5c735982417ce6d470ef8b0909c02709e511f",
+        "kind": "trailing",
+        "segment": 9,
+        "tokenEstimate": 3017,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "35f6e4bd5a2db8b057d77602aa53c314dc71cf7ab526c43f888f8d0226274692",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": {
+        "$v": 24
+      },
+      "cache": {
+        "ageMs": 0,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 25
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13507,
+          4
+        ],
+        [
+          13507,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      },
+      {
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      },
+      {
+        "id": "tu_1",
+        "kind": "tool_use",
+        "role": "assistant",
+        "text": "{}",
+        "zone": "conversation"
+      },
+      {
+        "id": "tu_1",
+        "kind": "tool_result",
+        "role": "user",
+        "text": "- by tool",
+        "zone": "conversation"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "text",
+        "role": "assistant",
+        "text": "a0",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "4f24508914a7994fecd3e8498da29d31c9d34a821d02ee7042285c77bfc23361",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "7974d2a072ca5ff987d95d95dad5b224039deda9d43791e94e4478e23c03c1ce"
+    },
+    {
+      "breakpoints": {
+        "$v": 0
+      },
+      "cache": {
+        "ageMs": null,
+        "eligible": true,
+        "expected": "cold",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "cold"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 28
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13494,
+          1
+        ],
+        [
+          13502,
+          2
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      },
+      {
+        "kind": "context",
+        "role": "user",
+        "text": "- second",
+        "zone": "volatile"
+      }
+    ],
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "5m",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13504,
+        "hash": "bf8eec8a293b0a202f80e5a07191fa0e0810090493920f3340f334221318f9b7",
+        "kind": "trailing",
+        "segment": 8,
+        "tokenEstimate": 3016,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "4ad0208252cece865cf9f77e3101a04974224e91f8065091336d7c21a321c117",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": {
+        "$v": 31
+      },
+      "cache": {
+        "ageMs": 0,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 32
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13504,
+          3
+        ],
+        [
+          13504,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      },
+      {
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      },
+      {
+        "kind": "context",
+        "role": "user",
+        "text": "- second",
+        "zone": "conversation"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "text",
+        "role": "assistant",
+        "text": "a0",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "4f24508914a7994fecd3e8498da29d31c9d34a821d02ee7042285c77bfc23361",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "c3793aebe4c445cdb2aeb0050febdb53c880f2ff458f6735d5d2a1a6fc0a7119"
+    },
+    {
+      "breakpoints": {
+        "$v": 0
+      },
+      "cache": {
+        "ageMs": null,
+        "eligible": true,
+        "expected": "cold",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "cold"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 35
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13494,
+          1
+        ],
+        [
+          13524,
+          8
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      },
+      {
+        "kind": "context",
+        "role": "user",
+        "text": "MMMMMMMMMMMMMMMMMM\n\nSSSSSSSSSS",
+        "zone": "volatile"
+      }
+    ],
+    {
+      "breakpoints": {
+        "$v": 0
+      },
+      "cache": {
+        "ageMs": 0,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 35
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13494,
+          1
+        ],
+        [
+          13524,
+          8
+        ]
+      ]
+    },
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "5m",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13526,
+        "hash": "74ba4e52da346d9f6f573f8904ef7afbba0d9b5221783295b5e6f7eb7060a36f",
+        "kind": "trailing",
+        "segment": 8,
+        "tokenEstimate": 3022,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "2ad837959850c45c5d2f9b240cc5db1ab16ae823792d0fdcf49d07e5e1dedc55",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": {
+        "$v": 39
+      },
+      "cache": {
+        "ageMs": 0,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 40
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13526,
+          9
+        ],
+        [
+          13526,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      },
+      {
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      },
+      {
+        "kind": "context",
+        "role": "user",
+        "text": "MMMMMMMMMMMMMMMMMM\n\nSSSSSSSSSS",
+        "zone": "conversation"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "text",
+        "role": "assistant",
+        "text": "a0",
+        "zone": "conversation"
+      }
+    ],
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "5m",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13495,
+        "hash": "5085855849184e696359b3187ddd57dce58e1931b303e72d9872ab9a0003bacb",
+        "kind": "trailing",
+        "segment": 7,
+        "tokenEstimate": 3014,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "066f08980256a78ef04c380165a7ded5862ba83cb3ccb0b530bdb99ea4367c3c",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": {
+        "$v": 43
+      },
+      "cache": {
+        "ageMs": null,
+        "eligible": true,
+        "expected": "cold",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "cold"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 44
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13495,
+          1
+        ],
+        [
+          13495,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      },
+      {
+        "kind": "context",
+        "role": "user",
+        "text": "x",
+        "zone": "conversation"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      }
+    ],
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "1h",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "1h",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13494,
+        "hash": "ae4413d16c844fcdb8ba452ee7164c981571f06b8b8a0453cd2d4234fa59f37e",
+        "kind": "trailing",
+        "segment": 6,
+        "tokenEstimate": 3014,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "breakpoints": {
+        "$v": 47
+      },
+      "cache": {
+        "ageMs": null,
+        "eligible": true,
+        "expected": "cold",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "1h",
+        "ttlMs": 3600000
+      },
+      "events": [],
+      "prefix": {
+        "status": "cold"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 1
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13494,
+          1
+        ],
+        [
+          13494,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "1h"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "1h"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "breakpoints": {
+        "$v": 47
+      },
+      "cache": {
+        "ageMs": 10,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "1h",
+        "ttlMs": 3600000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 1
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13494,
+          1
+        ],
+        [
+          13494,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "1h",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13501,
+        "hash": "0898fbabf4522e0605eb017e25eed86924f911d66da31a08628b5b68d797620a",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3016,
+        "ttl": "1h",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13503,
+        "hash": "70d8d3f9cd15d78a69690e737042b7fc09431845c099d901cf2f29bfd35d3086",
+        "kind": "trailing",
+        "segment": 6,
+        "tokenEstimate": 3016,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "4f24508914a7994fecd3e8498da29d31c9d34a821d02ee7042285c77bfc23361",
+      "memory": "4f3c20429cabd69c30672ce1628728e308e4ad68fd21da996f13be5a4d50678d",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": {
+        "$v": 51
+      },
+      "cache": {
+        "ageMs": 10,
+        "eligible": true,
+        "expected": "cold",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "1h",
+        "ttlMs": 3600000
+      },
+      "events": [
+        {
+          "agentId": "bernd",
+          "from": "memory",
+          "model": "claude-sonnet-5-5",
+          "reason": "memory-refresh",
+          "type": "prompt.prefix-invalidated"
+        }
+      ],
+      "prefix": {
+        "changedFrom": "memory",
+        "status": "invalidated"
+      },
+      "prefixHashes": {
+        "memory": "733a7b6e853f8261e30363eac0dad5a8f4e126e86eda129f3214e2ec322c2001",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3016,
+      "zoneHashes": {
+        "$v": 52
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13501,
+          1922
+        ],
+        [
+          13503,
+          1
+        ],
+        [
+          13503,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "1h"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "1h"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 3
+        },
+        "zone": "memory"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "breakpoints": {
+        "$v": 51
+      },
+      "cache": {
+        "ageMs": 10,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "1h",
+        "ttlMs": 3600000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "733a7b6e853f8261e30363eac0dad5a8f4e126e86eda129f3214e2ec322c2001",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3016,
+      "zoneHashes": {
+        "$v": 52
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13501,
+          1922
+        ],
+        [
+          13503,
+          1
+        ],
+        [
+          13503,
+          0
+        ]
+      ]
+    },
+    {
+      "breakpoints": [],
+      "cache": {
+        "ageMs": null,
+        "eligible": false,
+        "expected": "cold",
+        "mechanism": "explicit",
+        "minimumTokens": 4096,
+        "provider": "anthropic",
+        "reason": "below-minimum",
+        "ttl": "1h",
+        "ttlMs": 3600000
+      },
+      "events": [
+        {
+          "agentId": "bernd",
+          "minTokens": 4096,
+          "model": "claude-opus-4-5",
+          "tokensEstimate": 3016,
+          "type": "prompt.below-minimum"
+        },
+        {
+          "agentId": "bernd",
+          "model": "claude-opus-4-5",
+          "previousModel": "claude-sonnet-5-5",
+          "reason": "model-changed",
+          "type": "prompt.prefix-invalidated"
+        }
+      ],
+      "prefix": {
+        "status": "cold"
+      },
+      "prefixHashes": {
+        "memory": "733a7b6e853f8261e30363eac0dad5a8f4e126e86eda129f3214e2ec322c2001",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3016,
+      "zoneHashes": {
+        "$v": 52
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13501,
+          1922
+        ],
+        [
+          13503,
+          1
+        ],
+        [
+          13503,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "kind": "memory",
+        "text": {
+          "$t": 3
+        },
+        "zone": "memory"
+      },
+      {
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "breakpoints": {
+        "$v": 51
+      },
+      "cache": {
+        "ageMs": 20,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "1h",
+        "ttlMs": 3600000
+      },
+      "events": [
+        {
+          "agentId": "bernd",
+          "model": "claude-sonnet-5-5",
+          "previousModel": "claude-opus-4-5",
+          "reason": "model-changed",
+          "type": "prompt.prefix-invalidated"
+        }
+      ],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "733a7b6e853f8261e30363eac0dad5a8f4e126e86eda129f3214e2ec322c2001",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3016,
+      "zoneHashes": {
+        "$v": 52
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13501,
+          1922
+        ],
+        [
+          13503,
+          1
+        ],
+        [
+          13503,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "5m",
+        "zone": "memory"
+      }
+    ],
+    {
+      "conversation": "898cb3c2d64558d4c6cec08ff190abdc9c8bd2467070add042007573678aec35",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": {
+        "$v": 59
+      },
+      "cache": {
+        "ageMs": null,
+        "eligible": true,
+        "expected": "cold",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "cold"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 60
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13492,
+          0
+        ],
+        [
+          13492,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      }
+    ],
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "5m",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13504,
+        "hash": "74bdbd6b340cb22d9dc8bbe0f528f50063cf6a59c0b268810a9f03f19e5cd00d",
+        "kind": "trailing",
+        "segment": 8,
+        "tokenEstimate": 3016,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "0a9a75b5adc19a15f7103006ed3d8091fdb1da86e0ddd807317c308df5256e37",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": {
+        "$v": 63
+      },
+      "cache": {
+        "ageMs": 0,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 64
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13504,
+          3
+        ],
+        [
+          13504,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Read a file.\",\"inputSchema\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"name\":\"file_read\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": {
+          "$t": 0
+        },
+        "zone": "tools"
+      },
+      {
+        "kind": "tool_def",
+        "text": "{\"description\":\"Run a command.\",\"inputSchema\":{\"properties\":{\"cmd\":{\"type\":\"string\"},\"timeoutMs\":{\"type\":\"number\"}},\"type\":\"object\"},\"name\":\"shell\"}",
+        "zone": "tools"
+      },
+      {
+        "kind": "system",
+        "text": {
+          "$t": 1
+        },
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "system",
+        "text": "Safety preamble. Operating instructions.",
+        "zone": "system"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "memory",
+        "text": {
+          "$t": 2
+        },
+        "zone": "memory"
+      },
+      {
+        "kind": "text",
+        "role": "user",
+        "text": "q0",
+        "zone": "conversation"
+      },
+      {
+        "kind": "context",
+        "role": "user",
+        "text": "- fact 0",
+        "zone": "conversation"
+      },
+      {
+        "cache": {
+          "ttl": "5m"
+        },
+        "kind": "text",
+        "role": "assistant",
+        "text": "a0",
+        "zone": "conversation"
+      }
+    ],
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "5m",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13528,
+        "hash": "49e0f1bdf401a9737a61d2edc30c7852c62c05afa74625f2668dabeeb68d9284",
+        "kind": "interior",
+        "segment": 20,
+        "tokenEstimate": 3022,
+        "ttl": "5m",
+        "zone": "conversation"
+      },
+      {
+        "byteOffset": 13573,
+        "hash": "9ff416ed732d44c7af1b75b3d03252f0dc3673e339b309bc593bd6bd8af9614a",
+        "kind": "trailing",
+        "segment": 35,
+        "tokenEstimate": 3034,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "1b3b26a73dfc7120370c1eddac94abcc4f6454f9034ac40cb9691cc6fe8e9df5",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": {
+        "$v": 67
+      },
+      "cache": {
+        "ageMs": 13000,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 68
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13573,
+          21
+        ],
+        [
+          13573,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "5m",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13609,
+        "hash": "d65b62e94799dca3173a87b69a8a315beaf245260aeefef82b0c764a25bb4f07",
+        "kind": "interior",
+        "segment": 47,
+        "tokenEstimate": 3043,
+        "ttl": "5m",
+        "zone": "conversation"
+      },
+      {
+        "byteOffset": 13660,
+        "hash": "bbc2ad598393c06250b15a9693085f83042c87153526b7b35254c02266c89c73",
+        "kind": "trailing",
+        "segment": 62,
+        "tokenEstimate": 3055,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "f81e68eeacf1a5655d91f84fc8e2bc57953b7a4defec26fed555933f6f245895",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": {
+        "$v": 70
+      },
+      "cache": {
+        "ageMs": 13000,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 71
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13660,
+          42
+        ],
+        [
+          13660,
+          0
+        ]
+      ]
+    },
+    [
+      {
+        "byteOffset": 4853,
+        "hash": "a3a8a26adce535b2dfdd6463514386de36e850e8f7cec583ad184b2bd8c14392",
+        "kind": "zone",
+        "segment": 4,
+        "tokenEstimate": 1094,
+        "ttl": "5m",
+        "zone": "system"
+      },
+      {
+        "byteOffset": 13492,
+        "hash": "cbae1d9978fa54c124940bb6a083c36398c0aaa20ec43c5f3bb3370584067bdf",
+        "kind": "zone",
+        "segment": 5,
+        "tokenEstimate": 3013,
+        "ttl": "5m",
+        "zone": "memory"
+      },
+      {
+        "byteOffset": 13702,
+        "hash": "3ef48b35105f734a4c2f787c1f0d9b74d908dc22fee76b62baf641d503fbef42",
+        "kind": "interior",
+        "segment": 74,
+        "tokenEstimate": 3066,
+        "ttl": "5m",
+        "zone": "conversation"
+      },
+      {
+        "byteOffset": 13747,
+        "hash": "fb7d0ae4c217ee0b2903367a2b4f073dbeedec030f1ebb719797408b8dc0be65",
+        "kind": "trailing",
+        "segment": 89,
+        "tokenEstimate": 3077,
+        "ttl": "5m",
+        "zone": "conversation"
+      }
+    ],
+    {
+      "conversation": "172ed2e4661cdee2edeb467dfba0f0142fff7618bc25d1f2717cdc4963717c3d",
+      "memory": "bbc68a9ed78ac96457b11e7a1a46c6c7f3e22297538cbf1364571ff5baa7f521",
+      "system": "c0404441fa7123315f35476e4bf4f67c94368c27689c27fb3606467ed75eeb29",
+      "tools": "4f99f2e22cdd5df94e83fe47b3ae6a821ec120bee9c6060cec8202bad093c601",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": {
+        "$v": 73
+      },
+      "cache": {
+        "ageMs": 13000,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 74
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13747,
+          64
+        ],
+        [
+          13747,
+          0
+        ]
+      ]
+    },
+    {
+      "breakpoints": {
+        "$v": 73
+      },
+      "cache": {
+        "ageMs": 11000,
+        "eligible": true,
+        "expected": "warm",
+        "mechanism": "explicit",
+        "minimumTokens": 512,
+        "provider": "anthropic",
+        "reason": "eligible",
+        "ttl": "5m",
+        "ttlMs": 300000
+      },
+      "events": [],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "1ce42289ebe8c430b0c9a571e735da086b0d7aa0b8ee78a50bc5a79e2964122f",
+        "system": "651c6bc169784486eca1a8e4265d66a1a508e87eef87955a6633404645615de7",
+        "tools": "67a9d6092a073cd04ce0b1e8e336c0f7c596a5626e25722589902e6a6100d3fe"
+      },
+      "stableTokensEstimate": 3013,
+      "zoneHashes": {
+        "$v": 74
+      },
+      "zones": [
+        [
+          479,
+          120
+        ],
+        [
+          4853,
+          974
+        ],
+        [
+          13492,
+          1920
+        ],
+        [
+          13747,
+          64
+        ],
+        [
+          13747,
+          0
+        ]
+      ]
+    },
+    {
+      "conversation": "898cb3c2d64558d4c6cec08ff190abdc9c8bd2467070add042007573678aec35",
+      "memory": "25bb5f92ab88edb66de4b946979e01189c669983517dca92f82ac6353e5200e7",
+      "system": "385edb7e6007b7a77751fd624e6311613ddcafeaf6ac7a664192fc5641850b2f",
+      "tools": "62f27c5a39d12fef558df51106e925a880419f5e8d1affec501549a17db054c8",
+      "volatile": "f43259af3007353ea30c040aaba4976883277dc60f6e619f978b41298835eeff"
+    },
+    {
+      "breakpoints": [],
+      "cache": {
+        "ageMs": null,
+        "eligible": false,
+        "expected": "cold",
+        "mechanism": "none",
+        "minimumTokens": 6144,
+        "provider": "unknown",
+        "reason": "unknown-model",
+        "ttl": null,
+        "ttlMs": null
+      },
+      "events": [
+        {
+          "agentId": "a",
+          "model": "vendor/unknown",
+          "type": "prompt.unknown-model"
+        }
+      ],
+      "prefix": {
+        "status": "cold"
+      },
+      "prefixHashes": {
+        "memory": "c73a44245b9451b9dea0fedc8520e6520508ae9e2502d4155b39dd1bca1b15ae",
+        "system": "79b06e2a011c4a89512e1c2e3ae7e3ddfa808864845a055e2c98558a61631ef8",
+        "tools": "de55a7d67ffd67da14866b9ae62145c0161a19d30af0dbc088341f39e3f3e2f7"
+      },
+      "stableTokensEstimate": 0,
+      "zoneHashes": {
+        "$v": 77
+      },
+      "zones": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "conversation": "898cb3c2d64558d4c6cec08ff190abdc9c8bd2467070add042007573678aec35",
+      "memory": "25bb5f92ab88edb66de4b946979e01189c669983517dca92f82ac6353e5200e7",
+      "system": "385edb7e6007b7a77751fd624e6311613ddcafeaf6ac7a664192fc5641850b2f",
+      "tools": "62f27c5a39d12fef558df51106e925a880419f5e8d1affec501549a17db054c8",
+      "volatile": "1a28ea56cd7e275b6f8a2982bbf2526a124287022b696fc76724aafe63491b8f"
+    },
+    {
+      "breakpoints": [],
+      "cache": {
+        "ageMs": 0,
+        "eligible": false,
+        "expected": "cold",
+        "mechanism": "none",
+        "minimumTokens": 6144,
+        "provider": "unknown",
+        "reason": "unknown-model",
+        "ttl": null,
+        "ttlMs": null
+      },
+      "events": [
+        {
+          "agentId": "a",
+          "model": "vendor/unknown",
+          "type": "prompt.unknown-model"
+        }
+      ],
+      "prefix": {
+        "status": "warm"
+      },
+      "prefixHashes": {
+        "memory": "c73a44245b9451b9dea0fedc8520e6520508ae9e2502d4155b39dd1bca1b15ae",
+        "system": "79b06e2a011c4a89512e1c2e3ae7e3ddfa808864845a055e2c98558a61631ef8",
+        "tools": "de55a7d67ffd67da14866b9ae62145c0161a19d30af0dbc088341f39e3f3e2f7"
+      },
+      "stableTokensEstimate": 0,
+      "zoneHashes": {
+        "$v": 79
+      },
+      "zones": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          13,
+          4
+        ]
+      ]
+    }
+  ]
+}

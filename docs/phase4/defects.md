@@ -56,8 +56,6 @@ Paket T uses the reserved numbers P4D-40, P4D-43, P4D-44 and P4D-45. P4-K K12 al
 | P4D-43 | File mutation must wait for handle verification | `packages/core/src/policy/paths.ts` | security (file integrity) | P4-21 | fixed in TypeScript under the owner exception |
 | P4D-44 | RSA signing keys must meet the verifier's minimum requirements | `packages/core/src/openai-auth/identity.ts` | security (identity verification) | P4-21 | fixed in TypeScript under the owner exception |
 | P4D-45 | Login listeners must handle unreadable request targets | `packages/core/src/auth/login.ts`, `packages/core/src/openai-auth/loopback.ts` | security (availability) | P4-21 | fixed in TypeScript under the owner exception |
-| P4D-195 | Provider error redaction can miss normalized header values | `packages/providers/src/client.ts` | low (provider error with affected header spelling) | P4-41 | open in TypeScript, Rust redacts both spellings |
-| P4D-196 | Invalid catalog descriptors can produce ill-typed reasoning directives | `packages/providers/src/reasoning.ts` | low (invalid catalog shapes before adapter validation) | P4-41 | Rust handles malformed fields explicitly |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -1022,37 +1020,264 @@ release.
 Tests: `native::secret_tests::started_for_an_import_maintenance_nothing_is_served_here`,
 `tests/front_door.rs` `started_for_an_import_maintenance_the_front_door_serves_nothing_itself`.
 
-
 ## P4D-40 — bodyless HTTP responses
 
 The provider and A2A adapters used a stream as the body of a Fetch response even when its status
 required an absent body. They now construct a response with a null body for 204 and 205. The A2A
 adapter does the same for 304. The provider transport continues to refuse 304 through its existing
 redirect policy. Adapter tests cover the statuses, response headers and the provider refusal.
-P4-W records all three statuses through the Core bridge and pins the corresponding Rust error
-contracts. A missing SSE body has a distinct error from a stream that ends without an event.
-See the [wire inventory](p4-w-inventory.md#p4d-40-http-wrapper).
+
+<a id="p4d-43"></a>
 
 ## P4D-43 — verified file opens
 
 The path policy now verifies the open file handle before applying a truncation request. A target that
 was absent at the check is refused unless the caller asked to create it. The path tests cover both
-conditions. This is K2-D5 (TS-1) from P4-K.
+conditions. This is K2-D5 (TS-1) from P4-K, numbered [P4D-52](#p4d-52) in the P4-K table. The P4-K
+`policy-fs` vectors record the shared answer since the package took in PR #937, including a target
+that appeared after the check and is opened without a create.
 
+<a id="p4d-44"></a>
 
 ## P4D-44 — RSA keys in OIDC verification
 
 The ID-token verifier requires an allowed string algorithm and the corresponding key member types.
 RS256 requires a modulus of at least 2048 bits and an odd exponent greater than one before signature
 verification. Rejection uses the existing `id-token-invalid` error. The tests cover key and algorithm
-types, the exponent rule and the 2047/2048-bit boundary. This is K4-D5 (T-C1) from P4-K.
+types, the exponent rule and the 2047/2048-bit boundary. This is K4-D5 (T-C1) from P4-K,
+numbered [P4D-67](#p4d-67), and it also closes K4-D6 ([P4D-68](#p4d-68), an `alg` that is an array).
+A key's own `alg` member now matches only when it is absent or equal to the header's algorithm; the
+Rust verifier of P4-K follows that rule. K4-D7 ([P4D-69](#p4d-69)) is not affected.
 
+<a id="p4d-45"></a>
 
 ## P4D-45 — unreadable login callback targets
 
 The login-port and ChatGPT Plan listeners answer an unreadable request target with the existing
 404 for an unknown route. The listener stays open for the legitimate callback. Both listener tests
-cover this sequence. This is K4-D3 and K4-D4 (T-1) from P4-K.
+cover this sequence. This is K4-D3 and K4-D4 (T-1) from P4-K, numbered [P4D-65](#p4d-65) and
+[P4D-66](#p4d-66).
+
+## P4-K findings and decisions
+
+K12 assigns the identifiers below to the package's library findings and documented decisions. A Rust status describes the
+library. The listed owner still owns the production flip. The [P4-K inventory](p4-k-inventory.md) records the parity fixtures
+and host ports for each milestone. K12 starts at P4D-46.
+
+A historical label explicitly left unassigned remains searchable here with that status. K6c findings that had shared K6a labels
+now use K6-D27 through K6-D29. The early calendar boundary formerly labeled K7-D7 uses K7-D14. K7-D4 identifies schema
+refusal and K7-D5 identifies the calendar difference.
+
+### P4-K K1
+
+| Id | Package label | MODULE-MAP owner and component | Severity | Status | Observed behavior or proof |
+|---|---|---|---|---|---|
+| <a id="p4d-46"></a>P4D-46 | K1-D1 | [P4-24](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-24) · `packages/core/src/budget/` | info | flip | A subagent preview formatted through a parsed Rust value can reorder object members and render numbers differently from the original JavaScript preview. Preserve the rendered text at the flip. |
+| <a id="p4d-47"></a>P4D-47 | K1-D2 | [P4-24](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-24) · `packages/core/src/budget/` | info | open | The pinned Rust tzdb and the Node ICU tzdb can compute different budget period boundaries after a rule change. Pin results against each release rather than treating different releases as identical. |
+
+### P4-K K2
+
+| Id | Package label | MODULE-MAP owner and component | Severity | Status | Observed behavior or proof |
+|---|---|---|---|---|---|
+| <a id="p4d-48"></a>P4D-48 | K2-D1 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/egress/` | low | in parity | An invalid null model-download configuration raises TypeError and permits no request. The model vector records the refusal. |
+| <a id="p4d-49"></a>P4D-49 | K2-D2 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/policy/` | info | Rust strict | A policy audit field capped at 256 UTF-16 units can end inside a surrogate pair. Rust stops before that pair. |
+| <a id="p4d-50"></a>P4D-50 | K2-D3 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/policy/` | info | in parity | An ill-typed last-job timestamp can follow JavaScript addition and coercion in grant expiry. The real grant store supplies numbers. |
+| <a id="p4d-51"></a>P4D-51 | K2-D4 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/egress/` | low | Rust strict | The egress host parser rejects invalid IDNA labels accepted by Node. The URL and gate vectors record the separate outcomes. |
+| <a id="p4d-52"></a>P4D-52 | K2-D5 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/policy/paths.ts` | security | in parity | Closed in TypeScript by [P4D-43](#p4d-43) (PR #937): both sides truncate only after the opened descriptor passed the identity check, and refuse a target missing at the check unless the open creates it. The policy-fs vectors record the shared answers. Keep the checked descriptor through the flip. |
+| <a id="p4d-53"></a>P4D-53 | K2-D6 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/policy/paths.ts` | low | Rust strict | A FIFO can block the legacy open. Rust opens without blocking and refuses descriptors other than files and directories. |
+| <a id="p4d-54"></a>P4D-54 | K2-D7 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/policy/paths.ts` | low | Rust strict | Detection of a changed parent during file creation differs by platform. Rust compares the created descriptor with the entry at the checked location before accepting it. |
+| <a id="p4d-55"></a>P4D-55 | K2-D8 | [P4-21](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-21) · `packages/core/src/policy/` | low | Rust strict | An invalid configuration object can throw during JavaScript policy coercion. Rust refuses the value at the affected boundary, as recorded by the policy vectors. |
+
+### P4-K K3
+
+| Id | Package label | MODULE-MAP owner and component | Severity | Status | Observed behavior or proof |
+|---|---|---|---|---|---|
+| <a id="p4d-56"></a>P4D-56 | K3-D1 | [P4-22](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-22) · `packages/core/src/approvals/` | low | in parity | An ill-formed approval-chain tag can have the expected UTF-16 length and the wrong byte length. The chain comparison fails closed with an error. |
+| <a id="p4d-57"></a>P4D-57 | K3-D2 | [P4-22](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-22) · `packages/core/src/approvals/` | security | flip | A legacy approval-chain verified-view cache can outlive a rolled-back write. Rust only publishes committed state. Keep rollback coverage at the flip. |
+| <a id="p4d-58"></a>P4D-58 | K3-D3 | [P4-22](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-22) · `packages/core/src/approvals/` | info | open | The approval verifier supports legacy unsigned evidence and accepts an unpinned signing key when the caller supplies no verifier pin. The HMAC chain remains authoritative. |
+| <a id="p4d-59"></a>P4D-59 | K3-D4 | [P4-22](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-22) · `packages/core/src/channel-handoff/` | info | Rust strict | Clipping a delivery-adjacent inbox field or hand-off context can leave a lone surrogate in TypeScript. Rust drops that half at the boundary, as shown by the UTF-16 vectors. |
+| <a id="p4d-60"></a>P4D-60 | K3-D5 | [P4-22](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-22) · `packages/core/src/approvals/` | low | Rust strict | The Ed25519 SPKI reader requires the supported DER encoding. Approval and JWKS fixture members cover BER encodings accepted by Node. |
+| <a id="p4d-61"></a>P4D-61 | K3-D6 | [P4-22](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-22) · `packages/core/src/approvals/` | low | Rust strict | The approval signing key reader refuses unsupported PKCS #8 encodings and a public member inconsistent with its private seed. |
+| <a id="p4d-62"></a>P4D-62 | K3-D7 | [P4-22](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-22) · `packages/core/src/approvals/` | info | unassigned | The review B ledger explicitly left this label unassigned. No defect was recorded under it. |
+
+### P4-K K4
+
+| Id | Package label | MODULE-MAP owner and component | Severity | Status | Observed behavior or proof |
+|---|---|---|---|---|---|
+| <a id="p4d-63"></a>P4D-63 | K4-D1 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/auth/` | info | in parity | An ill-typed extra_headers member can be enumerated as JavaScript object entries. Rust reproduces the legacy profile validation in the vectors. |
+| <a id="p4d-64"></a>P4D-64 | K4-D2 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/auth/` | info | Rust port | The login callback rate limit reads wall time in TypeScript. Rust reads its injected clock. |
+| <a id="p4d-65"></a>P4D-65 | K4-D3 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/auth/` | low | in parity | Closed in TypeScript by [P4D-45](#p4d-45) (PR #937): a malformed loopback login request target gets 404 on both sides, and the listener continues to accept callbacks. The login vector records the shared answer. |
+| <a id="p4d-66"></a>P4D-66 | K4-D4 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | low | in parity | Closed in TypeScript by [P4D-45](#p4d-45) (PR #937): the plan OAuth loopback answers a malformed target after method and host checks with 404 on both sides. The listener vector records the shared answer. |
+| <a id="p4d-67"></a>P4D-67 | K4-D5 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | security | Rust strict | Since [P4D-44](#p4d-44) (PR #937) both verifiers reject RSA keys below 2048 bits and an exponent that is 1 or even; the JWKS members fixture records the shared refusals. Rust stays stricter only at the limits of `ring`: a modulus above 8192 bits or an exponent of 2^33 or more is refused where TypeScript accepts it. No vector covers these limits. |
+| <a id="p4d-68"></a>P4D-68 | K4-D6 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | low | in parity | Closed in TypeScript by [P4D-44](#p4d-44) (PR #937): both verifiers require a string alg member. The JWKS members fixture records the shared refusal of an array. |
+| <a id="p4d-69"></a>P4D-69 | K4-D7 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | security | Rust strict | The verifier rejects a key set entry containing private-key material. The adopted JWK contract is public verification keys only. |
+| <a id="p4d-70"></a>P4D-70 | K4-D8 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | low | Rust strict | The service-account PEM reader rejects malformed leading or trailing bytes that OpenSSL can accept. The PEM vectors pin both sides. |
+| <a id="p4d-71"></a>P4D-71 | K4-D9 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | low | Rust strict | Malformed or unrepresentable identity JSON is refused by the Rust reader. This includes a lone surrogate, an out-of-range number or excessive nesting. |
+| <a id="p4d-72"></a>P4D-72 | K4-D10 | [P4-23](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-23) · `packages/core/src/openai-auth/` | low | Rust port | The loopback listener caps open connections at 64, checks existing sockets at capacity and bounds admission. The TypeScript application sets no such cap. |
+
+### P4-K K5
+
+| Id | Package label | MODULE-MAP owner and component | Severity | Status | Observed behavior or proof |
+|---|---|---|---|---|---|
+| <a id="p4d-73"></a>P4D-73 | K5-D1 | [P4-40](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-40) · `packages/core/src/session/` | info | Rust port | Session store statements map SQLite errors to the storage/sqlite envelope. A two-statement visibility update is transactional in Rust. |
+| <a id="p4d-74"></a>P4D-74 | K5-D2 | [P4-40](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-40) · `packages/core/src/session/` | low | in parity | The legacy constraint mapping reports turn-in-progress for the matching session UNIQUE error. The Rust error mapping preserves it. |
+| <a id="p4d-75"></a>P4D-75 | K5-D3 | [P4-40](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-40) · `packages/core/src/session/` | low | flip | Invalid trigger, summary-state and event values are outside the Rust closed types. The future RPC boundary must return invalid for unrecognized inputs. |
+| <a id="p4d-76"></a>P4D-76 | K5-D4 | [P4-40](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-40) · `packages/core/src/session/` | info | in parity | Session titles cut inside a surrogate pair are stored with a replacement character. The fixture representation also covers lone UTF-16 units. |
+| <a id="p4d-77"></a>P4D-77 | K5-D5 | [P4-40](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-40) · `packages/core/src/session/` | info | toolchain | Exported vectors can change when run with an unpinned Node/ICU release. Record and check with Node 24.21.0. |
+| <a id="p4d-78"></a>P4D-78 | K5-D6 | [P4-40](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-40) · `packages/core/src/session/` | info | unassigned | The session-maintenance comparison found no difference and explicitly left this label unassigned. |
+| <a id="p4d-79"></a>P4D-79 | K5-D7 | [P4-40](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-40) · `packages/core/src/session/` | info | test tolerance | SQLite FTS BM25 scores can vary in their last digits. The replay tolerates only the rank column, and verifies hit order and all other values exactly. |
+| <a id="p4d-80"></a>P4D-80 | K5-D8 | [P4-40](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-40) · `packages/core/src/session/` | security | flip | Rewind consumes approval and then checks the working tree, index and untracked targets again. An atomic Git port or exclusive writer is still needed after that check. |
+| <a id="p4d-81"></a>P4D-81 | K5-D9 | [P4-40](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-40) · `packages/core/src/session/` | low | Rust port | A disk-backed session holds a per-session advisory rewind lease. Its release is tested with independent store connections. |
+| <a id="p4d-82"></a>P4D-82 | K5-D10 | [P4-40](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-40) · `packages/core/src/session/` | info | Rust port | New erasure tombstones store a canonical actor principal and a catalog reason. Imported history retains its recorded shape. |
+
+### P4-K K6
+
+| Id | Package label | MODULE-MAP owner and component | Severity | Status | Observed behavior or proof |
+|---|---|---|---|---|---|
+| <a id="p4d-83"></a>P4D-83 | K6-D1 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | security | flip | Collaboration refuses readable trace, task and export views when the redaction port is missing. The host must provide it. |
+| <a id="p4d-84"></a>P4D-84 | K6-D2 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | info | Rust port | Trace and span identifiers come from the explicit CollabIds port so the fixture can script the same edges. |
+| <a id="p4d-85"></a>P4D-85 | K6-D3 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | info | flip | A consultation is start and finish with a shared cancellation flag. The host owns scheduling and the equivalent promise lifetime. |
+| <a id="p4d-86"></a>P4D-86 | K6-D4 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | low | Rust strict | Stored non-object collaboration settings do not get JavaScript object-spread behavior. Invalid JSON and null still produce a storage error. |
+| <a id="p4d-87"></a>P4D-87 | K6-D5 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | info | Rust port | A failure in the task-grant end port contributes the warning text without the exception object. |
+| <a id="p4d-88"></a>P4D-88 | K6-D6 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | info | Rust port | SQLite constraint failures in raw collaboration operations carry the Rust raw marker. The vectors compare failure, with no dependence on exception spelling. |
+| <a id="p4d-89"></a>P4D-89 | K6-D7 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | low | in parity | Ill-typed collaboration token budgets resolve to zero. An absent or null cap remains unlimited. |
+| <a id="p4d-90"></a>P4D-90 | K6-D8 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | low | Rust port | Collaboration reserves work budget atomically until it is counted. The legacy budget checker is synchronous within one owner. |
+| <a id="p4d-91"></a>P4D-91 | K6-D9 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | low | Rust port | A consumed reservation remains attributed to its run. Finish requires an established receiver phase. |
+| <a id="p4d-92"></a>P4D-92 | K6-D10 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | low | Rust strict | The Windows harness-home exclusion uses the same path spelling normalization as the deny policy. |
+| <a id="p4d-93"></a>P4D-93 | K6-D11 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | security | flip | Collaboration stores redacted artifact text and refuses usable delegations when a required redaction port is absent. |
+| <a id="p4d-94"></a>P4D-94 | K6-D12 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | info | flip | The host drives the shutdown clock, progress and join. The collaboration library contains no shutdown timer. |
+| <a id="p4d-95"></a>P4D-95 | K6-D13 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | low | flip | If an admission callback fails synchronously, the legacy registered delegate can lack a terminal result. Make registration and callback completion consistent at the flip. |
+| <a id="p4d-96"></a>P4D-96 | K6-D14 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/coding/` | security | flip | Network requests require both manifest and host-policy authority. The current coding snapshot requires two independent local reviewers. |
+| <a id="p4d-97"></a>P4D-97 | K6-D15 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/coding/` | security | flip | A Coding Done effect binds the writer, canonical worktree and snapshot and requires the audit and final verification. |
+| <a id="p4d-98"></a>P4D-98 | K6-D16 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/coding/` | low | flip | Promotion replay rechecks source and target rights and the effect port deduplicates the preview. Native process-loss recovery belongs to the target adapter. |
+| <a id="p4d-99"></a>P4D-99 | K6-D17 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/external-turn/` | security | flip | External ACP prepare binds live connection, D109 scope, owner and agent. Background roles receive only the permitted project context. |
+| <a id="p4d-100"></a>P4D-100 | K6-D18 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/coding/` | security | flip | The Git view validates metadata, hashes and output and uses a separate temporary index. The adapter must validate object roots and alternates. |
+| <a id="p4d-101"></a>P4D-101 | K6-D19 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/coding/` | low | Rust strict | The human check counts output bytes before and after redaction against the same 65,536-byte limit. |
+| <a id="p4d-102"></a>P4D-102 | K6-D20 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/external-turn/` | security | legacy open | External-turn ownership in the legacy library can differ from the authenticated caller. Static review confirmed the trust boundary. Rust denial tests use isolated identities. Exposure through a shipped transport remains unconfirmed. |
+| <a id="p4d-103"></a>P4D-103 | K6-D21 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | low | Rust port | Collaboration repeat counters are scoped to the project. Earlier global state does not carry across the new scope. |
+| <a id="p4d-104"></a>P4D-104 | K6-D22 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | security | flip | Task grants end before the cancellation commits. The grant port must be idempotent and must avoid re-entering the held collaboration store. |
+| <a id="p4d-105"></a>P4D-105 | K6-D23 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | low | Rust port | The file-backed collaboration store claims writer slots under the same SQLite transaction as admission. Separate instances observe the same application capacity. |
+| <a id="p4d-106"></a>P4D-106 | K6-D24 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/collab/` | security | flip | R-K-25: stored ancestry and live parent state bind delegation. Tool scope, fan-out, budget and dispatch bindings remain enforceable at the adapter. |
+| <a id="p4d-107"></a>P4D-107 | K6-D25 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/external-turn/` | security | flip | R-K-26: person and token owner namespaces derive from the verified subject. The binding also covers continuation, status and dispatch. Existing owner data needs a flip strategy. |
+| <a id="p4d-108"></a>P4D-108 | K6-D26 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/coding/` | security | flip | A coding review binds the card, snapshot, canonical worktree and completing agent. Earlier review keys lacking those bindings are refused. |
+| <a id="p4d-109"></a>P4D-109 | K6-D27 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/external-turn/` | security | flip | An external turn claim is single-use and tied to its authorized session, origin and live turn. The host supplies cancellation, readiness and deadlines. Historical K6c label K6-D21. |
+| <a id="p4d-110"></a>P4D-110 | K6-D28 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/external-turn/` | security | flip | External-turn memory follows the original and current exposure and discards stale recall. Only the active path and authorized rewind lessons enter the model context. Historical K6c label K6-D22. |
+| <a id="p4d-111"></a>P4D-111 | K6-D29 | [P4-50](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-50) · `packages/core/src/federation/` | security | flip | Federation validates mission, peers, lease, project and terminal evidence in a deterministic model. A later adapter supplies verified transport and credential lifecycle. Historical K6c label K6-D23. |
+
+### P4-K K7
+
+| Id | Package label | MODULE-MAP owner and component | Severity | Status | Observed behavior or proof |
+|---|---|---|---|---|---|
+| <a id="p4d-112"></a>P4D-112 | K7-D1 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | info | in parity | A recurring job can still run after its creator loses manage while retaining use. Rights derive from the current principal at execution. |
+| <a id="p4d-113"></a>P4D-113 | K7-D2 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | low | Rust port | Ordinary edits preserve runAs. The Rust takeover operation uses current rights, a conditional update and an audited transfer. |
+| <a id="p4d-114"></a>P4D-114 | K7-D3 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | info | in parity | A manual user-job run requires agent use. Editing and takeover retain their separate manage checks. |
+| <a id="p4d-115"></a>P4D-115 | K7-D4 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | low | Rust strict | The unversioned user-jobs store rejects nonzero user_version before altering the journal or schema. |
+| <a id="p4d-116"></a>P4D-116 | K7-D5 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | info | known difference | The supported calendar vector currently pins six 2100 DST differences. Sampled summer 2040 and 2099 agree. |
+| <a id="p4d-117"></a>P4D-117 | K7-D6 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | info | known difference | The pinned tzdb releases disagree around the Sep 2026 permanent UTC transition for Casablanca and El Aaiun. The fixtures pin the affected dates. |
+| <a id="p4d-118"></a>P4D-118 | K7-D7 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | low | Rust port | A user-job claim rechecks and advances the same scheduled definition inside the write transaction, so a competing connection cannot dispatch the same slot. |
+| <a id="p4d-119"></a>P4D-119 | K7-D8 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | low | Rust strict | Calendar wall years below 100 are refused. JavaScript Date.UTC maps them to 19xx. |
+| <a id="p4d-120"></a>P4D-120 | K7-D9 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | low | Rust strict | An invalid job request that throws at a JavaScript type boundary receives a structured invalid response in Rust. |
+| <a id="p4d-121"></a>P4D-121 | K7-D10 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | info | in parity | The interrupted-run reconciliation preserves the legacy coercion and allows a negative duration when the stored start is in the future. |
+| <a id="p4d-122"></a>P4D-122 | K7-D11 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | info | Rust port | A user-jobs parent created by Rust has mode 0700. On Unix the file is 0600 in both implementations. |
+| <a id="p4d-123"></a>P4D-123 | K7-D12 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | info | known difference | A user-job definition with a lone surrogate cannot be represented in the Rust JSON string type. |
+| <a id="p4d-124"></a>P4D-124 | K7-D13 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | info | in parity | The combined jobs/history paths preserve JavaScript spread behavior, including string code points and rejection of a number. |
+| <a id="p4d-125"></a>P4D-125 | K7-D14 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | info | known difference | Rust refuses instants within a day of the earliest JavaScript Date. The original calendar ledger used K7-D7 for this boundary. |
+| <a id="p4d-126"></a>P4D-126 | K7-D20 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/dreams/` | low | Rust strict | A dreaming run may claim only its original key. Completion requires the claim and a terminal row remains terminal. |
+| <a id="p4d-127"></a>P4D-127 | K7-D21 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/dreams/` | info | Rust port | Dream planning only reads the schedule. Lifecycle and admission own schedule synchronization and breaker normalization. |
+| <a id="p4d-128"></a>P4D-128 | K7-D22 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/dreams/` | low | Rust port | Claim, quota and ledger start are atomic. Completion consumes only the observed corpus so later captures remain available. |
+| <a id="p4d-129"></a>P4D-129 | K7-D23 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/dreams/` | security | flip | Learn transcript selection verifies current source and target rights, session identity, memory mode and exposure before and after loading. |
+| <a id="p4d-130"></a>P4D-130 | K7-D24 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/dreams/` | low | flip | The dream scheduler returns due hints to the host and uses conditional advances bound to the observed activation, cron and zone. |
+| <a id="p4d-131"></a>P4D-131 | K7-D25 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/dreams/` | security | Rust strict | Invalidating a learn run hides its checkpoints and clears associated sensitive material. Historical migration fixtures remain a separate proof. |
+| <a id="p4d-132"></a>P4D-132 | K7-D26 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/dreams/` | security | flip | Promotion requires live rights, an agent envelope and batch-bound receipts. A diagnostic hash cannot stand in for a memory record id. |
+| <a id="p4d-133"></a>P4D-133 | K7-D27 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/dreams/` | low | Rust port | The last shared REM or deep slot is claimed atomically. A crash charges an unconfirmed call and a confirmed skip releases it. |
+| <a id="p4d-134"></a>P4D-134 | K7-D28 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/dreams/` | security | flip | Accepting a learn proposal requires a journaled, revision-bound action and complete evidence. Pending effects block conflicting changes. |
+| <a id="p4d-135"></a>P4D-135 | K7-D29 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/dreams/` | security | flip | The evidence review path validates repository-relative file references and repeats authentication around reads. The host must bind the actual root and resolved files. |
+| <a id="p4d-136"></a>P4D-136 | K7-D30 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/dreams/` | security | flip | The learn runner claims each target, reserves budget, rechecks rights and binds publication to the current selection digest. |
+| <a id="p4d-137"></a>P4D-137 | K7-D31 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/dreams/` | info | Rust port | Learn installation reports bounded structural tool errors. The first stored revision uses the existing default of 1. |
+| <a id="p4d-138"></a>P4D-138 | K7-D40 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/skill-mining/` | security | Rust strict | A workflow evidence key accepts only identical replay. The TypeScript internal writer can replace the existing row. |
+| <a id="p4d-139"></a>P4D-139 | K7-D41 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/skill-mining/` | security | Rust strict | Mining requires ordered events, one session and turn, bound provenance and an unambiguous tool registry. The workflow artifact holds no arguments or results. |
+| <a id="p4d-140"></a>P4D-140 | K7-D42 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/skill-mining/` | security | flip | A skill review requires live person and agent rights and one content-bound approval. Publication compares the current snapshot and receipt to the approved values. |
+| <a id="p4d-141"></a>P4D-141 | K7-D43 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/skill-mining/` | security | flip | Artifact provenance binds its root, path and checksum. The sole dispatcher owns file effects and current owner authority. |
+| <a id="p4d-142"></a>P4D-142 | K7-D44 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/knowledge/` | security | flip | Knowledge file writes and rollback bind the agent home, current person authority and backup integrity and require a host lock and atomic CAS. |
+| <a id="p4d-143"></a>P4D-143 | K7-D45 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/knowledge/` | security | flip | The knowledge job checks original and current jobs.run and agent.use. The host owns the persistent timestamp, timer and dispatch. |
+| <a id="p4d-144"></a>P4D-144 | K7-D46 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/media-search/` | security | flip | Media reference reads enforce current scope, and mutations require exact ownership. A stale or revoked write ticket cannot publish. |
+| <a id="p4d-145"></a>P4D-145 | K7-D47 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/media-search/` | security | flip | Cloud media encoding requires confirmed function and endpoint plus reserved budget. A route change cancels before dispatch. |
+| <a id="p4d-146"></a>P4D-146 | K7-D48 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/media-search/` | security | flip | Per-frame caption calls bind authority, route, budget and response identity. A dispatched call with unknown usage is settled at its reserved limit. |
+| <a id="p4d-147"></a>P4D-147 | K7-D49 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/media-search/` | low | flip | Backfill advances by a CAS scoped to file and owner. Disabled or user-paused indexes never resume automatically. |
+| <a id="p4d-148"></a>P4D-148 | K7-D50 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/media-search/` | security | flip | Codec tests use a fake process with the recorded arguments. A native adapter must preserve the verified file identity through bounded output collection. |
+| <a id="p4d-149"></a>P4D-149 | K7-D51 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/media-search/` | security | flip | Media intake is a scoped queue. Upload records discard the generation prompt, and deletion invalidates inactive as well as active jobs. |
+| <a id="p4d-150"></a>P4D-150 | K7-D52 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/media-search/` | info | flip | The media-model catalog checks capability, dimensions, licensing and privacy from the shared schema. Legacy fallback is limited to loading. |
+
+### P4-K K8
+
+| Id | Package label | MODULE-MAP owner and component | Severity | Status | Observed behavior or proof |
+|---|---|---|---|---|---|
+| <a id="p4d-151"></a>P4D-151 | K8-D1 | [P4-71](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-71) · `packages/core/src/acp/` | info | known difference | An unpaired surrogate in an ACP JSON value becomes U+FFFD in the Rust reader. |
+| <a id="p4d-152"></a>P4D-152 | K8-D2 | [P4-71](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-71) · `packages/core/src/acp/` | info | known difference | Rust replies in arrival order for requests pipelined in the same chunk. Microtask depth can change the order in TypeScript. |
+| <a id="p4d-153"></a>P4D-153 | K8-D3 | [P4-71](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-71) · `packages/core/src/acp/` | low | Rust port | An ACP output failure marks the reader lost immediately. The legacy server can continue writes until its stream event. |
+| <a id="p4d-154"></a>P4D-154 | K8-D4 | [P4-71](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-71) · `packages/core/src/acp/` | low | Rust strict | A non-string session id from the Core is treated as an internal error instead of being echoed. |
+| <a id="p4d-155"></a>P4D-155 | K8-D5 | [P4-71](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-71) · `packages/core/src/acp/` | low | Rust strict | An outbound value deeper than 2,000 levels is refused with output-error. |
+| <a id="p4d-156"></a>P4D-156 | K8-D6 | [P4-71](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-71) · `packages/core/src/acp/` | low | Rust port | A connection bounds incomplete ACP work to 128 requests by default. The host can configure the per-connection cap. |
+| <a id="p4d-157"></a>P4D-157 | K8-D7 | [P4-71](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-71) · `packages/core/src/acp/` | low | Rust port | ACP applies its 1 MiB UTF-8 line cap to responses and notifications as well as input. |
+
+### P4-K K9a
+
+| Id | Package label | MODULE-MAP owner and component | Severity | Status | Observed behavior or proof |
+|---|---|---|---|---|---|
+| <a id="p4d-158"></a>P4D-158 | K9a-D1 | [P4-42](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-42) · `packages/core/src/prompt/` | info | known difference | A JavaScript slice can produce an isolated surrogate in a query or skill description. Rust preserves length with U+FFFD. |
+| <a id="p4d-159"></a>P4D-159 | K9a-D2 | [P4-42](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-42) · `packages/core/src/decision/` | security | flip | Legacy model output can supply a decision revision if no trusted provider completion is present. Rust accepts revision provenance only from the provider event. |
+| <a id="p4d-160"></a>P4D-160 | K9a-D3 | [P4-42](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-42) · `packages/core/src/decision/` | low | Rust strict | An invalid numeric setting can throw during JavaScript coercion. Rust applies the documented decision-config fallback. |
+| <a id="p4d-161"></a>P4D-161 | K9a-D6 | [P4-42](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-42) · `packages/core/src/triage/` | low | Rust strict | An externally supplied classification is refused above 32 tasks before copying or validation. |
+| <a id="p4d-162"></a>P4D-162 | K9a-D7 | [P4-42](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-42) · `packages/core/src/prompt/` | low | Rust port | The prompt prefix, session-model and last-render caches retain at most 1,024 entries each, evicting in insertion order. |
+
+### P4-K K9b
+
+| Id | Package label | MODULE-MAP owner and component | Severity | Status | Observed behavior or proof |
+|---|---|---|---|---|---|
+| <a id="p4d-163"></a>P4D-163 | K9b-D1 | [P4-42](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-42) · `packages/core/src/toolcall/` | info | known difference | The platform-specific Node Math.log implementation can change the last rank bit. The test locates a real rank difference and compares tie order exactly. |
+| <a id="p4d-164"></a>P4D-164 | K9b-D2 | [P4-42](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-42) · `packages/core/src/toolcall/` | low | Rust strict | Schema patterns and pattern inputs have 256 and 1,024 UTF-16 unit caps respectively. |
+| <a id="p4d-165"></a>P4D-165 | K9b-D3 | [P4-42](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-42) · `packages/core/src/toolcall/` | security | flip | A Windows skill path is refused until the adapter can verify identity against the opened file handle. |
+
+### P4-K K10
+
+| Id | Package label | MODULE-MAP owner and component | Severity | Status | Observed behavior or proof |
+|---|---|---|---|---|---|
+| <a id="p4d-166"></a>P4D-166 | K10-D1 | [P4-30](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-30) · `packages/core/src/tools/` | security | Rust strict | The temporary file of a write is created private. The TypeScript path narrows its mode after creating it. |
+| <a id="p4d-167"></a>P4D-167 | K10-D2 | [P4-30](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-30) · `packages/core/src/tools/` | low | Rust port | Write cleanup uses the held directory descriptor, so a rename of the parent does not redirect the cleanup. |
+| <a id="p4d-168"></a>P4D-168 | K10-D3 | [P4-30](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-30) · `packages/core/src/tools/` | low | in parity | An audit append failure after exec can make the response describe a pre-execution failure. Preserve evidence that retry may repeat the effect. |
+| <a id="p4d-169"></a>P4D-169 | K10-D4 | [P4-30](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-30) · `packages/core/src/policy/paths.ts` | security | flip | Rust stat and list use verified handles. Legacy path-based reads merit review at the flip. The difference was derived from code, without a live reproduction. |
+| <a id="p4d-170"></a>P4D-170 | K10-D5 | [P4-30](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-30) · `packages/core/src/tools/` | security | Rust strict | A file tool rechecks its approved target at execution. A changed binding refuses before invoking the effect. |
+| <a id="p4d-171"></a>P4D-171 | K10-D6 | [P4-30](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-30) · `packages/core/src/tools/` | low | Rust strict | The argument allowlist implements a subset of JavaScript pattern syntax. Unsupported patterns fail closed. |
+| <a id="p4d-172"></a>P4D-172 | K10-D7 | [P4-30](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-30) · `packages/core/src/tools/` | info | known difference | Member order in a malformed environment can change which rejected name is reported. The environment is still refused. |
+| <a id="p4d-173"></a>P4D-173 | K10-D8 | [P4-30](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-30) · `packages/core/src/tools/` | security | fixed in library | The Unicode regex allowlist had accepted an invalid JavaScript escape. The same pattern now authorizes nothing, with vector coverage. |
+| <a id="p4d-174"></a>P4D-174 | K10-D9 | [P4-30](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-30) · `packages/core/src/policy/paths.ts` | security | legacy open | Legacy path resolution and open do not hold the same directory identity throughout the operation. Rust checks through a verified descriptor. Static finding D129. |
+| <a id="p4d-175"></a>P4D-175 | K10-D10 | [P4-30](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-30) · `packages/core/src/policy/paths.ts` | security | Rust strict | A previously absent target may only be opened through its creation path. A pre-existing replacement is refused. |
+| <a id="p4d-176"></a>P4D-176 | K10-D11 | [P4-30](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-30) · `packages/core/src/tools/` | security | Rust strict | The approval gate denies a policy context that identifies a different person, agent or session than its authorized caller. |
+| <a id="p4d-177"></a>P4D-177 | K10-D12 | [P4-30](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-30) · `packages/core/src/tools/` | info | candidate | The Windows program-name deny list and its user-facing scope remain a review candidate. The gate must retain the actual authority and target checks. |
+| <a id="p4d-178"></a>P4D-178 | K10-D13 | [P4-30](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-30) · `packages/core/src/policy/paths.ts` | security | Rust strict | Verified stat compares type, length, link count and available timestamps. Platforms without change time use the additional available identity evidence. |
+| <a id="p4d-179"></a>P4D-179 | K10-D14 | [P4-31](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-31) · `packages/hostctl/src/` | info | Rust port | Host tools check bounds before native effects and record approved action and target hashes. The audit excludes clipboard, command, URL and file contents. |
+| <a id="p4d-180"></a>P4D-180 | K10-D15 | [P4-31](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-31) · `packages/hostctl/src/` | security | Rust strict | Host shell use requires opt-in and approval. Hard argument checks and wrapper exclusions continue to apply to the supported literal grammar. |
+| <a id="p4d-181"></a>P4D-181 | K10-D16 | [P4-31](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-31) · `packages/hostctl/src/` | security | flip | Host publication must be exclusive and native effects must retain verified identity. A move permits only supported same-filesystem sources. |
+| <a id="p4d-182"></a>P4D-182 | K10-D21 | [P4-11](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-11) · `crates/plur1bus-core/src/logs/` | security | Rust strict | Log readers verify opened regular-file identity and refuse replaced leaves. Watchers revalidate before accepting new lines. |
+| <a id="p4d-183"></a>P4D-183 | K10-D22 | [P4-31](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-31) · `packages/hostctl/src/` | security | Rust strict | Host document opening refuses the legacy launchable file classes plus additional platform launcher and configuration types. The vectors preserve both outcomes. |
+| <a id="p4d-197"></a>P4D-197 | K10-D23 | [P4-31](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-31) · `packages/hostctl/src/` | security | Rust strict | R-K-31 requires ASCII program names in direct calls and at the program position of shell commands. The flip must use the same admission rule. |
+| <a id="p4d-198"></a>P4D-198 | K10-D24 | [P4-31](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-31) · `packages/hostctl/src/` | security | flip blocker | RE-6 and R-K-30 require a private receipt when an effect precedes result or audit failure, and confirmed stop or continued management of a newly started process. |
+
+### P4-K K11
+
+| Id | Package label | MODULE-MAP owner and component | Severity | Status | Observed behavior or proof |
+|---|---|---|---|---|---|
+| <a id="p4d-184"></a>P4D-184 | K11-D1 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | info | Rust design | The receipt format v1 has closed triage, routing and tools use cases. New use cases require an intentional format extension. |
+| <a id="p4d-185"></a>P4D-185 | K11-D2 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | security | flip | Receipts admit bounded identifiers only. The capture adapter must map content-like option ids before writing. |
+| <a id="p4d-186"></a>P4D-186 | K11-D3 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | security | Rust design | An authorized owner or administrator can list. Replay and adoption require a person, and a scoped person token needs the separate right for each action. |
+| <a id="p4d-187"></a>P4D-187 | K11-D4 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | info | Rust design | Retention keeps a receipt at exactly 30 days and prunes when older. Count retention keeps exactly the configured maximum. |
+| <a id="p4d-188"></a>P4D-188 | K11-D5 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | low | flip | Retention is enforced when the host calls prune. Without host scheduling the configured count cannot bound disk use. |
+| <a id="p4d-189"></a>P4D-189 | K11-D6 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | security | flip | Replay refuses before loading cases if any required gate fails. Local-only requires a locally supported decision backend. |
+| <a id="p4d-190"></a>P4D-190 | K11-D7 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | security | Rust design | Adoption validates final report kind, disjoint case ids and report hash. The authorized person selects the baseline. |
+| <a id="p4d-191"></a>P4D-191 | K11-D8 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | low | Rust port | K11-R1 superseded the original receipt adoption write order. A durable pending row reconciles the exact calibration version on restart. |
+| <a id="p4d-192"></a>P4D-192 | K11-D9 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | info | flip | The D2 golden test compares capability counters for identical events. The dispatch path that produces those events in a live turn still needs wiring. |
+| <a id="p4d-193"></a>P4D-193 | K11-D10 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | info | Rust design | The Rust-owned receipt database uses WAL. Marker checks cover the database and sidecars for accidental content. |
+| <a id="p4d-194"></a>P4D-194 | K11-D11 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | info | Rust design | A receipt records the injected clock at write time rather than trusting a host-supplied data timestamp. |
 
 <a id="p4d-195"></a>
 
