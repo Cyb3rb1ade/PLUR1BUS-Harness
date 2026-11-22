@@ -1352,3 +1352,14 @@ to 500 Ki UTF-16 code units to the parser. The Rust parser rejects a complete
 body over 500 KiB of UTF-8 bytes. Its eventual fetch port must limit decoded
 bytes before parsing and map overflow to a denied crawl, keeping an incomplete
 policy out of the crawler's cache.
+
+<a id="p4d-208"></a>
+
+## P4D-208 — stdio MCP bridge HTTP replies
+
+The local stdio server calls `fetch` and buffers the API's response with
+`Response.text()`. This forwarding path has no explicit body byte ceiling
+or deadline. The Rust JSON reader enforces 1 MiB on decoded replies and uses
+the request's absolute deadline for every read. Rejected HTTP statuses return
+only their numeric code. The host connection must enforce the deadline while
+blocked in a read and release the body after a failure.

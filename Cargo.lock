@@ -6232,6 +6232,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "plur1bus-mcp"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "plur1bus-media"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,4 @@
+//! MCP protocol boundaries for host-owned transports.
+#![forbid(unsafe_code)]
+
+pub mod bridge_body;

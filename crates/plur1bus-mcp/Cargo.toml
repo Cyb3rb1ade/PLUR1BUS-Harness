@@ -1,0 +1,13 @@
+[package]
+name = "plur1bus-mcp"
+description = "MCP wire protocol and host transport boundaries"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde_json.workspace = true

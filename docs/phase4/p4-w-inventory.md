@@ -287,6 +287,11 @@ Crawl scheduling, extraction, redirects, HTTP and search are open.
 - **Lücken.** stdio-Fake, Transport-Fallback, Session-/SSE-Fehler, Auth-Antworten, Wiederverbindung,
   Umgebungs- und Redaction-Verträge. Response-Bounds stehen unter den Abhängigkeitsauflagen.
 
+**W7 local partial delivery.** The stdio bridge's JSON reply reader records
+normal replies and notifications from the TypeScript forwarder. It applies
+[P4D-208](defects.md#p4d-208) on its decoded body port. The rmcp client/server,
+SSE and stdio process transports, auth and registration remain open.
+
 ### W8 · A2A (P4-72)
 
 - **Dateien.** [A2A](../../packages/core/src/a2a) mit Cards, Handler, Parts, Events, Push-/Status-
