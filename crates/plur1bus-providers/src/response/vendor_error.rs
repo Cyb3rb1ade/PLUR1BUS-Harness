@@ -156,6 +156,11 @@ fn retry_after(headers: &HeaderMap, now: SystemTime) -> Option<u64> {
     if let Some(n) = integer(value) {
         return Some(millis(n * 1000.0));
     }
+    retry_after_date_ms(value, now)
+}
+
+/// Interpret the three standard HTTP-date spellings used by Retry-After.
+pub fn retry_after_date_ms(value: &str, now: SystemTime) -> Option<u64> {
     let date = if value.ends_with(" GMT") && value.contains(", ") {
         if value.contains('-') {
             jiff::Timestamp::strptime(

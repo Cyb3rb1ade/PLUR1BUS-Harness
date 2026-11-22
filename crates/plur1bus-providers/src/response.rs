@@ -10,6 +10,7 @@ mod codex;
 mod gemini;
 mod vendor_error;
 pub(crate) use vendor_error::http_error;
+pub use vendor_error::retry_after_date_ms;
 use vendor_error::vendor_error;
 
 type Result<T> = std::result::Result<T, ProviderError>;

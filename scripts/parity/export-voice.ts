@@ -144,6 +144,57 @@ async function captureSocketSynthesis() {
   }
 }
 
+async function captureRetry() {
+  const nowMs = Date.parse("Sun, 22 Nov 2026 12:00:00 GMT");
+  const cases = [
+    [
+      { status: 429, after: "0.250" },
+      { status: 503, after: "Sun, 22 Nov 2026 12:00:02 GMT" },
+      { status: 200 },
+    ],
+    [
+      { status: 503, after: "90" },
+      { status: 503 },
+      { status: 429, after: "99999" },
+    ],
+  ];
+  const scenarios = [];
+  for (const replies of cases) {
+    let next = 0;
+    const waits: number[] = [];
+    const stub = await startStub((_request, response) => {
+      const reply = replies[next++]!;
+      response.writeHead(reply.status, { "content-type": "application/json",
+        ...(reply.after === undefined ? {} : { "retry-after": reply.after }) });
+      response.end(JSON.stringify(reply.status === 200 ? [] : { error: "fixture refused" }));
+    });
+    try {
+      const provider = createElevenLabs({
+        baseUrl: stub.baseUrl, apiKeyRef: "fixture", getSecret: async () => fixtureKey,
+        sleep: async ms => { waits.push(ms); }, now: () => nowMs,
+      });
+      let expected;
+      try {
+        expected = { models: await provider.tts.listModels!() };
+      } catch (error) {
+        if (!(error instanceof VoiceProviderError)) throw error;
+        expected = { code: error.code, retryAfterMs: error.retryAfterMs };
+      }
+      if (next !== replies.length) throw new Error("Unexpected number of retry attempts");
+      scenarios.push({ expected, waits, exchanges: stub.requests.map((request, i) => ({
+        request: { method: request.method, path: request.url,
+          headers: { "xi-api-key": String(request.headers["xi-api-key"]).replaceAll(fixtureKey, "<credential>") } },
+        response: { status: replies[i]!.status,
+          headers: replies[i]!.after === undefined ? {} : { "retry-after": replies[i]!.after },
+          body: replies[i]!.status === 200 ? [] : { error: "fixture refused" } },
+      })) });
+    } finally {
+      await stub.close();
+    }
+  }
+  return { schema: "plur1bus.parity-wire/1", exporter: "scripts/parity/export-voice.ts", nowMs, scenarios };
+}
+
 async function captureTranscription() {
   const pcm = Uint8Array.from([1, 0, 2, 0, 3, 0]);
   const sampleRate = 16000;
@@ -266,6 +317,7 @@ export async function buildVoiceFixtures() {
     "synthesis-http-stream": await captureSynthesis(true),
     "synthesis-ws-stream": await captureSocketSynthesis(),
     polly: await capturePolly(),
+    "http-retry": await captureRetry(),
     "grok-realtime": await captureRealtime("grok"),
     "gemini-realtime": await captureRealtime("gemini"),
     "eleven-asr-realtime": await captureRealtime("eleven-asr"),

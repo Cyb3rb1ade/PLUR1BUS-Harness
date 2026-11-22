@@ -1,11 +1,11 @@
 //! Bounded HTTP response processing for the cloud voice providers.
-use plur1bus_providers::pinned_http_agent;
+use plur1bus_providers::{pinned_http_agent, retry_after_date_ms};
 use serde_json::Value;
 use std::{
     fmt,
     io::{self, Read},
     net::SocketAddr,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
 use ureq::http::{HeaderValue, Request};
 use url::{Host, Url};
@@ -23,14 +23,39 @@ pub trait Ports {
     fn cancelled(&self) -> bool {
         false
     }
+
+    fn wall_time(&self) -> SystemTime {
+        SystemTime::now()
+    }
+
+    /// The host can replace the blocking delay for tests or cancellable scheduling.
+    fn wait_retry(&self, delay: Duration, deadline: Instant) -> Result<(), Error> {
+        let until = (Instant::now() + delay).min(deadline);
+        loop {
+            if self.cancelled() {
+                return Err(Error::Aborted);
+            }
+            let remaining = until.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return if Instant::now() < deadline {
+                    Ok(())
+                } else {
+                    Err(Error::Timeout)
+                };
+            }
+            std::thread::sleep(remaining.min(Duration::from_millis(50)));
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Error {
     Auth,
     RateLimited,
+    RateLimitedAfter(u64),
     Timeout,
     Overloaded,
+    OverloadedAfter(u64),
     InvalidRequest,
     Unsupported,
     UpstreamProtocol,
@@ -44,9 +69,9 @@ impl Error {
     pub fn code(self) -> &'static str {
         match self {
             Self::Auth => "auth",
-            Self::RateLimited => "rate_limited",
+            Self::RateLimited | Self::RateLimitedAfter(_) => "rate_limited",
             Self::Timeout => "timeout",
-            Self::Overloaded => "overloaded",
+            Self::Overloaded | Self::OverloadedAfter(_) => "overloaded",
             Self::InvalidRequest => "invalid_request",
             Self::Unsupported => "unsupported",
             Self::UpstreamProtocol => "upstream_protocol",
@@ -60,16 +85,28 @@ impl Error {
     pub fn retryable(self) -> bool {
         matches!(
             self,
-            Self::RateLimited | Self::Timeout | Self::Overloaded | Self::Network
+            Self::RateLimited
+                | Self::RateLimitedAfter(_)
+                | Self::Timeout
+                | Self::Overloaded
+                | Self::OverloadedAfter(_)
+                | Self::Network
         )
     }
 
-    fn status(status: u16) -> Self {
+    pub fn retry_after_ms(self) -> Option<u64> {
+        match self {
+            Self::RateLimitedAfter(ms) | Self::OverloadedAfter(ms) => Some(ms),
+            _ => None,
+        }
+    }
+
+    fn status(status: u16, hint: Option<u64>) -> Self {
         match status {
             401 | 403 => Self::Auth,
-            429 => Self::RateLimited,
+            429 => hint.map_or(Self::RateLimited, Self::RateLimitedAfter),
             408 | 504 => Self::Timeout,
-            500..=599 => Self::Overloaded,
+            500..=599 => hint.map_or(Self::Overloaded, Self::OverloadedAfter),
             400 | 404 | 413 | 422 => Self::InvalidRequest,
             _ => Self::BadResponse,
         }
@@ -87,6 +124,7 @@ impl std::error::Error for Error {}
 pub struct Client<'a> {
     ports: &'a dyn Ports,
     allow_loopback_http: bool,
+    retries: u8,
 }
 
 impl<'a> Client<'a> {
@@ -94,12 +132,18 @@ impl<'a> Client<'a> {
         Self {
             ports,
             allow_loopback_http: false,
+            retries: 2,
         }
     }
 
     /// Permit cleartext only when the supplied pin is a loopback address.
     pub fn with_loopback_http(mut self) -> Self {
         self.allow_loopback_http = true;
+        self
+    }
+
+    pub fn with_retries(mut self, retries: u8) -> Self {
+        self.retries = retries;
         self
     }
 
@@ -181,6 +225,31 @@ impl<'a> Client<'a> {
         request: &[u8],
         deadline: Instant,
     ) -> Result<ureq::http::Response<ureq::Body>, Error> {
+        for attempt in 0..self.retries {
+            let failure = match self.request_once(endpoint, method, headers, request, deadline) {
+                Err(error) if error.retryable() => error,
+                outcome => return outcome,
+            };
+            check(self.ports, deadline)?;
+            let backoff = 500 * (1_u64 << attempt.min(6));
+            let delay =
+                Duration::from_millis(failure.retry_after_ms().unwrap_or(backoff).min(30_000));
+            if delay >= deadline.saturating_duration_since(Instant::now()) {
+                return Err(Error::Timeout);
+            }
+            self.ports.wait_retry(delay, deadline)?;
+        }
+        self.request_once(endpoint, method, headers, request, deadline)
+    }
+
+    fn request_once(
+        &self,
+        endpoint: &Url,
+        method: &str,
+        headers: &[(&str, &str)],
+        request: &[u8],
+        deadline: Instant,
+    ) -> Result<ureq::http::Response<ureq::Body>, Error> {
         let insecure = endpoint.scheme() == "http" && self.allow_loopback_http;
         if (endpoint.scheme() != "https" && !insecure)
             || !endpoint.username().is_empty()
@@ -247,7 +316,12 @@ impl<'a> Client<'a> {
         let status = response.status();
         if !status.is_success() {
             // Provider diagnostics are neither consumed nor surfaced.
-            return Err(Error::status(status.as_u16()));
+            let hint = response
+                .headers()
+                .get("retry-after")
+                .and_then(|raw| raw.to_str().ok())
+                .and_then(|value| retry_after_ms(value, self.ports.wall_time()));
+            return Err(Error::status(status.as_u16(), hint));
         }
         if let Some(encoding) = response.headers().get("content-encoding") {
             if response
@@ -265,6 +339,21 @@ impl<'a> Client<'a> {
         }
         Ok(response)
     }
+}
+
+fn retry_after_ms(value: &str, now: SystemTime) -> Option<u64> {
+    let value = value.trim();
+    let digits = |text: &str| !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit());
+    if value.split_once('.').map_or_else(
+        || digits(value),
+        |(head, tail)| digits(head) && digits(tail),
+    ) {
+        return value
+            .parse::<f64>()
+            .ok()
+            .map(|seconds| (seconds * 1000.).round().min(3_600_000.) as u64);
+    }
+    retry_after_date_ms(value, now).map(|ms| ms.min(3_600_000))
 }
 
 pub(crate) fn deadline(timeout: Duration) -> Instant {
