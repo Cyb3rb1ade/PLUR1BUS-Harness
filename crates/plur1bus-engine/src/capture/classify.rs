@@ -29,9 +29,9 @@ use std::{
 };
 
 /// Native host composition binds the actual feature route to this caller's authority and lease.
-/// The returned callback owns model routing and disableThinking at the host;
-/// the native capture wrapper supplies the contract's 300-token cap and no temperature.
-/// and must observe Cancel. None means genuinely unavailable, never a synthetic empty provider.
+/// The host owns model selection and must observe cancellation. The native capture
+/// wrapper supplies the 450-token T3 cap and omits temperature. The current host
+/// contract has no per-call thinking field. None means the route is unavailable.
 pub trait CaptureEmotionRoutes: Send + Sync {
     /// Resolve a new caller-owned route. It is released after this one classification call.
     fn bind(
@@ -43,7 +43,7 @@ pub trait CaptureEmotionRoutes: Send + Sync {
 struct EmotionCompletion(Arc<dyn LlmPort>);
 impl LlmPort for EmotionCompletion {
     fn complete(&self, mut params: LlmParams, cancel: &Cancel) -> Result<LlmResult, HostError> {
-        params.max_tokens = Some(300.into());
+        params.max_tokens = Some(crate::jobs::llm::Purpose::EmotionRefine.max_tokens().into());
         params.temperature = None;
         self.0.complete(params, cancel)
     }

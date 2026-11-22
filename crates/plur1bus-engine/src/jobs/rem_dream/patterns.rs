@@ -231,3 +231,11 @@ fn similarity(left: &Value, right: &Value) -> f64 {
     };
     field("relatedTopics") * 0.6 + field("participants") * 0.4
 }
+
+#[cfg(test)]
+mod cutoff_tests {
+    #[test]
+    fn an_unfinished_pattern_object_does_not_supply_a_pattern() {
+        assert!(super::parse(r#"{"patternName":"Gar"#).is_none());
+    }
+}

@@ -51,8 +51,21 @@ impl contract::LlmPort for RecordedLlm {
             .get(hash)
             .expect("actual Node message prompt hash must exist");
         assert_eq!(messages_json, fixture["messagesJson"].as_str().unwrap());
+        // This capture uses 32 characters. Check its current wire limit, then replay
+        // the remaining byte-level request against the earlier Node recording.
         assert_eq!(
-            pipeline::HostCaptureSummary::contract_params_json(&params).unwrap(),
+            params
+                .max_tokens
+                .as_ref()
+                .and_then(serde_json::Number::as_u64),
+            Some(16)
+        );
+        let recorded = contract::LlmParams {
+            max_tokens: Some(11.into()),
+            ..params
+        };
+        assert_eq!(
+            pipeline::HostCaptureSummary::contract_params_json(&recorded).unwrap(),
             fixture["contractParamsJson"].as_str().unwrap()
         );
         if !fixture["error"].is_null() {
@@ -789,13 +802,48 @@ impl contract::LlmPort for BoundaryLlm {
         let safe: serde_json::Value =
             serde_json::from_str(&self.node_messages_json.replace("\\ud83d", "")).unwrap();
         assert_eq!(params.messages[0].content, safe[0]["content"]);
-        assert_eq!(params.max_tokens.unwrap().as_u64(), Some(11));
+        assert_eq!(params.max_tokens.unwrap().as_u64(), Some(16));
         Ok(contract::LlmResult {
             text: "A synthetic summary with sufficient length.".into(),
             model: None,
             usage: None,
         })
     }
+}
+
+#[test]
+fn a_cut_off_capture_summary_preserves_the_source_prefix() {
+    use pipeline::CaptureSummary;
+    struct PartialSummary;
+    impl contract::LlmPort for PartialSummary {
+        fn complete(
+            &self,
+            params: contract::LlmParams,
+            _: &Cancel,
+        ) -> Result<contract::LlmResult, contract::HostError> {
+            assert_eq!(params.max_tokens.unwrap().as_u64(), Some(17));
+            Ok(contract::LlmResult {
+                text: "A partial".into(),
+                model: None,
+                usage: None,
+            })
+        }
+    }
+    let root = physical_temp();
+    let fixture = BoundaryFixture::configured(
+        root.path(),
+        "",
+        serde_json::json!({}),
+        Some(Arc::new(PartialSummary)),
+    );
+    let summary = pipeline::HostCaptureSummary::new(fixture.host, None);
+    let input = JsString::from("The original fixture text is long enough for this summary.");
+    assert_eq!(
+        summary
+            .summarize(&input, 33, &fixture.context, &Cancel::never())
+            .unwrap(),
+        input.utf16_slice(0, 33)
+    );
 }
 
 #[test]
