@@ -5267,7 +5267,7 @@ DEALINGS IN THE SOFTWARE.
 ============================================================
 
 SHA256 20c7855c364d57ea4c97889a5e8d98470a9952dade37bd9248b9a54431670e5e
-cargo:form_urlencoded@1.2.2/LICENSE-MIT
+cargo:form_urlencoded@1.2.3/LICENSE-MIT
 
 Copyright (c) 2013-2016 The rust-url developers
 
@@ -30559,7 +30559,7 @@ cargo:find-msvc-tools@0.1.14/LICENSE-APACHE
 cargo:fixedbitset@0.5.7/LICENSE-APACHE
 cargo:flate2@1.1.10/LICENSE-APACHE
 cargo:fnv@1.0.7/LICENSE-APACHE
-cargo:form_urlencoded@1.2.2/LICENSE-APACHE
+cargo:form_urlencoded@1.2.3/LICENSE-APACHE
 cargo:fraction@0.15.4/LICENSE-APACHE
 cargo:fs4@0.8.4/LICENSE-APACHE
 cargo:futures-lite@2.6.1/LICENSE-APACHE
@@ -30703,7 +30703,7 @@ cargo:unicode-normalization-alignments@0.1.12/LICENSE-APACHE
 cargo:unicode-segmentation@1.13.3/LICENSE-APACHE
 cargo:unicode-truncate@2.0.1/LICENSE-APACHE
 cargo:unicode-width@0.2.2/LICENSE-APACHE
-cargo:url@2.5.8/LICENSE-APACHE
+cargo:url@2.5.9/LICENSE-APACHE
 cargo:uuid@1.26.1/LICENSE-APACHE
 cargo:version_check@0.9.5/LICENSE-APACHE
 cargo:wait-timeout@0.2.1/LICENSE-APACHE
@@ -33618,7 +33618,7 @@ THIS SOFTWARE.
 SHA256 b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5
 cargo:idna@1.1.0/LICENSE-MIT
 cargo:percent-encoding@2.3.2/LICENSE-MIT
-cargo:url@2.5.8/LICENSE-MIT
+cargo:url@2.5.9/LICENSE-MIT
 
 Copyright (c) 2013-2025 The rust-url developers
 
