@@ -91,44 +91,35 @@ impl PartialEq for V {
 
 impl Clone for V {
     fn clone(&self) -> V {
-        enum Task<'a> {
-            Copy(&'a V),
-            Array(usize),
-            Object(&'a [(String, V)]),
+        let mut copy = V::Null;
+        let mut pending = vec![(self, &mut copy)];
+        while let Some((source, destination)) = pending.pop() {
+            match source {
+                V::Null => {}
+                V::Bool(b) => *destination = V::Bool(*b),
+                V::Num(n) => *destination = V::Num(*n),
+                V::Str(s) => *destination = V::Str(s.clone()),
+                V::Arr(elements) => {
+                    *destination = V::Arr(elements.iter().map(|_| V::Null).collect());
+                    if let V::Arr(slots) = destination {
+                        pending.extend(elements.iter().zip(slots));
+                    }
+                }
+                V::Obj(members) => {
+                    *destination =
+                        V::Obj(members.iter().map(|(k, _)| (k.clone(), V::Null)).collect());
+                    if let V::Obj(slots) = destination {
+                        pending.extend(
+                            members
+                                .iter()
+                                .zip(slots)
+                                .map(|((_, v), (_, slot))| (v, slot)),
+                        );
+                    }
+                }
+            }
         }
-        let mut pending = vec![Task::Copy(self)];
-        let mut copies = Vec::new();
-        while let Some(task) = pending.pop() {
-            let copy = match task {
-                Task::Copy(V::Null) => V::Null,
-                Task::Copy(V::Bool(b)) => V::Bool(*b),
-                Task::Copy(V::Num(n)) => V::Num(*n),
-                Task::Copy(V::Str(s)) => V::Str(s.clone()),
-                Task::Copy(V::Arr(elements)) => {
-                    pending.push(Task::Array(elements.len()));
-                    pending.extend(elements.iter().rev().map(Task::Copy));
-                    continue;
-                }
-                Task::Copy(V::Obj(members)) => {
-                    pending.push(Task::Object(members));
-                    pending.extend(members.iter().rev().map(|(_, v)| Task::Copy(v)));
-                    continue;
-                }
-                Task::Array(len) => V::Arr(copies.split_off(copies.len() - len)),
-                Task::Object(members) => {
-                    let children = copies.drain(copies.len() - members.len()..);
-                    V::Obj(
-                        members
-                            .iter()
-                            .map(|(k, _)| k.clone())
-                            .zip(children)
-                            .collect(),
-                    )
-                }
-            };
-            copies.push(copy);
-        }
-        copies.pop().expect("one root value")
+        copy
     }
 }
 
