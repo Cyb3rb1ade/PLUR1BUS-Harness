@@ -1074,16 +1074,31 @@ fn reopening_a_chain_restores_the_persisted_root_pair_count() {
         .svc
         .start_consult(&input(&o, &project_id, "a", "b", "Read the summary"))
         .unwrap();
-    let project = h.svc.live_project(&project_id).unwrap();
-    h.svc.st().chains.remove(&start.trace_id);
-    let restored = h
-        .svc
-        .get_chain(Some(&start.trace_id), &project, "a")
-        .unwrap();
+    for text in [
+        "Read the appendix",
+        "Verify the date",
+        "Check the references",
+    ] {
+        let mut call = input(&o, &project_id, "a", "b", text);
+        call.trace_id = Some(&start.trace_id);
+        h.svc.start_consult(&call).unwrap();
+    }
+    let ids = Arc::new(Seq::default());
+    ids.1.store(1_000, Ordering::Relaxed);
+    let store = CollabStore::open_with_permissions(
+        &h.dir.path().join("collab.sqlite"),
+        StoreOptions::new(
+            Arc::new(Clk(Arc::new(AtomicI64::new(1_000_100)))),
+            ids.clone(),
+        ),
+        crate::private_store::fixture_owner_hook(),
+    )
+    .unwrap();
+    let reopened = CollabService::new(store, Ports::default(), ids);
+    let mut next = input(&o, &project_id, "a", "b", "Check the final page");
+    next.trace_id = Some(&start.trace_id);
     assert_eq!(
-        restored
-            .pair_counts
-            .get(&pair_key(&CollabService::turn_key("a", None), "b")),
-        Some(&1)
+        reopened.start_consult(&next).unwrap_err().guardrail,
+        Some(GuardrailReason::PairLimit)
     );
 }
