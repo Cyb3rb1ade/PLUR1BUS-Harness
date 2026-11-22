@@ -165,7 +165,7 @@ impl DreamStore {
 
     fn open_file(path: &Path, secure: Option<&dyn Fn(&Path) -> bool>) -> R<Self> {
         if path != Path::new(":memory:") {
-            private_store::prepare_owner_only(path, secure).map_err(|err| {
+            private_store::prepare_versioned(path, secure).map_err(|err| {
                 let message = match err {
                     private_store::PrepareError::Io(_) => "cannot prepare dreaming store",
                     private_store::PrepareError::Permissions => "cannot protect dreaming store",
@@ -184,7 +184,15 @@ impl DreamStore {
             create: true,
         };
         Ok(Self {
-            db: Store::open_owner(path, &spec)?,
+            db: private_store::open_versioned(path, &spec, || -> R<()> {
+                if !private_store::protect_compatible(path, secure) {
+                    return Err(CollabError::new(
+                        C::Storage,
+                        "cannot protect dreaming store",
+                    ));
+                }
+                Ok(())
+            })?,
         })
     }
 

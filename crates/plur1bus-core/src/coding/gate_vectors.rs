@@ -317,7 +317,11 @@ fn coding_review_round_trips_between_stores() {
         clock: &FixedClock,
         audit: &mut sink,
     };
-    let from_ts = CodingGate::open(&dir.path().join("from-ts.sqlite")).unwrap();
+    let from_ts = CodingGate::open_with_permissions(
+        &dir.path().join("from-ts.sqlite"),
+        crate::private_store::fixture_owner_hook(),
+    )
+    .unwrap();
     let snapshot = from_ts.snapshot(ROOT, &ports).unwrap();
     assert!(!from_ts
         .has_review("project/card", &snapshot, "writer", &ports)
@@ -329,7 +333,11 @@ fn coding_review_round_trips_between_stores() {
         .has_review("from-rust", &snapshot, "writer", &ports)
         .unwrap());
     drop(from_ts);
-    let rust = CodingGate::open(&dir.path().join("from-rust.sqlite")).unwrap();
+    let rust = CodingGate::open_with_permissions(
+        &dir.path().join("from-rust.sqlite"),
+        crate::private_store::fixture_owner_hook(),
+    )
+    .unwrap();
     rust.record_review("new-rust", &snapshot, "reviewer", "writer", &mut ports)
         .unwrap();
     drop(rust);

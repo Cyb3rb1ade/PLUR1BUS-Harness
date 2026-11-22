@@ -1264,6 +1264,7 @@ refusal and K7-D5 identifies the calendar difference.
 | <a id="p4d-198"></a>P4D-198 | K10-D24 | [P4-31](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-31) · `packages/hostctl/src/` | security | flip blocker | RE-6 and R-K-30 require a private receipt when an effect precedes result or audit failure, and confirmed stop or continued management of a newly started process. |
 | <a id="p4d-199"></a>P4D-199 | K5-D11 | [P4-40](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-40) · `packages/core/src/session/` | security | Rust strict | R-K-28 requires an exclusive host writer lease through the file restore, including the final comparison. |
 | <a id="p4d-200"></a>P4D-200 | K9a-D8 | [P4-42](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-42) · `packages/core/src/triage/` | low | Rust strict | R-K-29 requires a nonempty string for each external task summary. The runtime uses its rule fallback on a segmentation error. |
+| <a id="p4d-201"></a>P4D-201 | K7-D53 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | security | Rust strict | R-K-32 requires refusal on an explicit negative permission verdict even on Unix. |
 
 ### P4-K K11
 

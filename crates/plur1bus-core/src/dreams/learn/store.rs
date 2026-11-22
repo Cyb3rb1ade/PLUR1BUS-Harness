@@ -260,19 +260,33 @@ impl LearnStore {
 
     /// Open with an owner-only permission port; mode is 0700 for directory and 0600 for database.
     pub fn open_with_permissions(path: &Path, secure: &dyn Fn(&Path, u32) -> bool) -> R<Self> {
+        Self::open_private(path, secure, secure)
+    }
+
+    /// The non-Unix attestation is read-only and covers the file or its future
+    /// inherited ACL. Unix applies the requested modes after schema validation.
+    fn open_private(
+        path: &Path,
+        attest: &dyn Fn(&Path, u32) -> bool,
+        secure: &dyn Fn(&Path, u32) -> bool,
+    ) -> R<Self> {
         let memory = path == Path::new(":memory:");
         let directory = if memory {
             None
         } else {
-            let dir = path
-                .parent()
-                .filter(|p| !p.as_os_str().is_empty())
-                .ok_or_else(|| invalid("learning database requires a private parent directory"))?;
-            private_store::prepare(path)
-                .map_err(|_| storage("cannot prepare learning database"))?;
-            Some(dir)
+            Some(
+                path.parent()
+                    .filter(|dir| !dir.as_os_str().is_empty())
+                    .ok_or_else(|| {
+                        invalid("learning database requires a private parent directory")
+                    })?,
+            )
         };
-        let db = Store::open_owner_before_configure(
+        let verify =
+            |file: &Path| directory.is_some_and(|dir| attest(dir, 0o700) && attest(file, 0o600));
+        private_store::prepare_versioned(path, Some(&verify))
+            .map_err(|_| storage("cannot protect learning database"))?;
+        let db = private_store::open_versioned(
             path,
             &OwnerSpec {
                 store: StoreSpec {
@@ -287,9 +301,11 @@ impl LearnStore {
                 schema: Schema::Unversioned,
                 create: true,
             },
-            |conn| -> R<()> {
-                migrations::checked_version(conn)?;
-                if directory.is_some_and(|dir| !secure(dir, 0o700) || !secure(path, 0o600)) {
+            || -> R<()> {
+                let apply = |file: &Path| {
+                    directory.is_some_and(|dir| secure(dir, 0o700) && secure(file, 0o600))
+                };
+                if !private_store::protect_compatible(path, Some(&apply)) {
                     return Err(storage("cannot protect learning database"));
                 }
                 Ok(())
