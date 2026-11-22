@@ -1235,7 +1235,7 @@ refusal and K7-D5 identifies the calendar difference.
 | Id | Package label | MODULE-MAP owner and component | Severity | Status | Observed behavior or proof |
 |---|---|---|---|---|---|
 | <a id="p4d-163"></a>P4D-163 | K9b-D1 | [P4-42](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-42) · `packages/core/src/toolcall/` | info | known difference | The platform-specific Node Math.log implementation can change the last rank bit. The test locates a real rank difference and compares tie order exactly. |
-| <a id="p4d-164"></a>P4D-164 | K9b-D2 | [P4-42](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-42) · `packages/core/src/toolcall/` | low | Rust strict | Schema patterns and pattern inputs have 256 and 1,024 UTF-16 unit caps respectively. |
+| <a id="p4d-164"></a>P4D-164 | K9b-D2 | [P4-42](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-42) · `packages/core/src/toolcall/` | low | Rust strict | Schema patterns and inputs have 256 and 1,024 UTF-16 unit caps. R-K-33b adds a 1,000,000-step budget to each match. Exhaustion fails the rule. |
 | <a id="p4d-165"></a>P4D-165 | K9b-D3 | [P4-42](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-42) · `packages/core/src/toolcall/` | security | flip | A Windows skill path is refused until the adapter can verify identity against the opened file handle. |
 
 ### P4-K K10

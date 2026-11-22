@@ -28,6 +28,21 @@ use {
 
 pub use parse::Error;
 
+/// A match was stopped before it could produce a result.
+#[cfg(feature = "utf16")]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MatchBudgetExceeded;
+
+#[cfg(feature = "utf16")]
+impl fmt::Display for MatchBudgetExceeded {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("regular expression match exhausted its step budget")
+    }
+}
+
+#[cfg(feature = "utf16")]
+impl core::error::Error for MatchBudgetExceeded {}
+
 /// Flags used to control regex parsing.
 /// The default flags are case-sensitive, not-multiline, and optimizing.
 #[derive(Debug, Copy, Clone, Default)]
@@ -466,6 +481,26 @@ impl Regex {
             ),
             start,
         )
+    }
+
+    /// Test for a match from a UTF-16 code unit offset with a shared work budget.
+    ///
+    /// Exhaustion is independent of the match result. The budget is charged
+    /// across search starts, nested assertions, instructions, backtracks and
+    /// string comparison or repetition work.
+    #[cfg(feature = "utf16")]
+    pub fn test_utf16_with_budget(
+        &self,
+        text: &[u16],
+        start: usize,
+        steps: usize,
+    ) -> Result<bool, MatchBudgetExceeded> {
+        let input = Utf16Input::new(text, self.cr.flags.unicode);
+        classicalbacktrack::BacktrackExecutor::new(
+            input,
+            MatchAttempter::new(&self.cr, input.left_end()),
+        )
+        .test_with_budget(start, steps)
     }
 
     /// Returns an iterator for matches found in 'text' starting at index `start`.
@@ -954,4 +989,60 @@ pub fn escape(text: &str) -> String {
     }
 
     result
+}
+
+#[cfg(all(test, feature = "utf16"))]
+mod budget_tests {
+    use super::{MatchBudgetExceeded, Regex};
+
+    #[test]
+    fn budget_counts_ordinary_search_starts_and_loop_steps() {
+        for (pattern, text) in [
+            ("report", "monthly report"),
+            ("[a-z]+", "catalogue"),
+            ("[a-z]+?s", "notes"),
+            ("^([a-z][0-9]){2}$", "a1c3"),
+            ("^(?=book)book$", "book"),
+        ] {
+            let regex = Regex::with_flags(pattern, "u").unwrap();
+            let units: Vec<_> = text.encode_utf16().collect();
+            assert_eq!(
+                regex.test_utf16_with_budget(&units, 0, 2),
+                Err(MatchBudgetExceeded),
+                "{pattern}"
+            );
+            assert_eq!(
+                regex.test_utf16_with_budget(&units, 0, 256),
+                Ok(true),
+                "{pattern}"
+            );
+        }
+    }
+
+    #[test]
+    fn budget_is_distinct_from_no_match_and_preserves_unicode() {
+        let input: Vec<_> = "a𐐀".encode_utf16().collect();
+        let regex = Regex::with_flags("^a.$", "u").unwrap();
+        assert_eq!(regex.test_utf16_with_budget(&input, 0, 32), Ok(true));
+        let regex = Regex::with_flags("^b", "u").unwrap();
+        assert_eq!(regex.test_utf16_with_budget(&input, 0, 32), Ok(false));
+        assert_eq!(
+            regex.test_utf16_with_budget(&input, 0, 0),
+            Err(MatchBudgetExceeded)
+        );
+        assert!(regex.find_from_utf16(&input, 0).next().is_none());
+        let regex = Regex::with_flags(r"^\uD800$", "u").unwrap();
+        assert_eq!(regex.test_utf16_with_budget(&[0xd800], 0, 32), Ok(true));
+    }
+
+    #[test]
+    fn a_negated_assertion_does_not_treat_exhaustion_as_a_non_match() {
+        let regex = Regex::with_flags("^(?!main)backup$", "u").unwrap();
+        let input: Vec<_> = "backup".encode_utf16().collect();
+        assert_eq!(
+            regex.test_utf16_with_budget(&input, 0, 2),
+            Err(MatchBudgetExceeded)
+        );
+        assert_eq!(regex.test_utf16_with_budget(&input, 0, 32), Ok(true));
+    }
 }

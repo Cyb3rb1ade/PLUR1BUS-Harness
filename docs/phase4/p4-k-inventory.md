@@ -963,7 +963,8 @@ builder, the decision service and triage are K9a.
   Both operations require identity verification against the opened handle before Windows can enable them.
   A failing registry inside the lexical port gives no lexical score instead of an exception. A thrown `TypeError` is compared by name.
   **K9b-D2 (K9b-R2)**: schema patterns are capped at 256 UTF-16 units and their input at 1,024 units.
-  The regex library has no step budget. The length limits do not guarantee a linear match.
+  R-K-33b gives each tool-schema match 1,000,000 steps across search, instructions,
+  backtracking and repeated character work. Budget exhaustion is treated as a failed pattern rule.
 - *Ports for the flip:* the model repair port, the secret matcher, the full-result store and the idempotency store of `results`, the
   clock (`budget::Clock`), `EmbeddingPort`, `LexicalPort` and `PriorPort` of the index, `LocalEmbedding`, `SkillSource`,
   `ExtensionFeed` and `CalibrationSource` of the live index, `skill_tools::Cancelled`, and the process's home directory and its

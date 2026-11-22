@@ -249,6 +249,7 @@ const MAX_VALUE_DEPTH: usize = 64;
 const MAX_SCHEMA_DEPTH: usize = 32;
 const MAX_SCHEMA_PATTERN_UNITS: usize = 256;
 const MAX_PATTERN_INPUT_UNITS: usize = 1024;
+const MATCH_STEP_BUDGET: usize = 1_000_000;
 
 /// `pointer(p, key)`: one more JSON pointer segment, `~` and `/` escaped.
 pub fn pointer(p: &JsStr, key: &JsStr) -> JsStr {
@@ -280,8 +281,8 @@ pub(super) fn unicode_regex(pattern: &JsStr) -> Result<regress::Regex, Thrown> {
 }
 
 /// `regex.test(text)` over code units.
-pub(super) fn regex_test(regex: &regress::Regex, text: &[u16]) -> bool {
-    regex.find_from_utf16(text, 0).next().is_some()
+fn regex_test(regex: &regress::Regex, text: &[u16], step_budget: usize) -> bool {
+    regex.test_utf16_with_budget(text, 0, step_budget) == Ok(true)
 }
 
 fn is_safe_integer(n: f64) -> bool {
@@ -581,13 +582,14 @@ impl Checker<'_> {
                     );
                 }
                 if let Some(pattern) = s.get("pattern").and_then(V::as_js) {
-                    // The compiled ECMAScript matcher has no step budget. Bound the input before matching.
+                    // Keep the length guard and the matcher budget independent. Exhaustion refuses the rule.
                     let too_long = string.units().len() > MAX_PATTERN_INPUT_UNITS;
                     let refused = if too_long {
                         // The existing length issue already refuses the value.
                         over_schema_limit.is_none()
                     } else {
-                        !unicode_regex(pattern).is_ok_and(|re| regex_test(&re, string.units()))
+                        !unicode_regex(pattern)
+                            .is_ok_and(|re| regex_test(&re, string.units(), MATCH_STEP_BUDGET))
                     };
                     if refused {
                         self.issue(v, path, out, JsStr::from("pattern ").plus_js(pattern), None);
@@ -928,4 +930,18 @@ pub fn prepare_call(
         repair_rounds,
         outcome,
     })
+}
+
+#[cfg(test)]
+mod budget_tests {
+    use super::{regex_test, MATCH_STEP_BUDGET};
+    use regress::Regex;
+
+    #[test]
+    fn tool_schema_rule_refuses_when_the_match_budget_is_empty() {
+        let regex = Regex::with_flags("^[a-z]+$", "u").unwrap();
+        let text: Vec<_> = "catalogue".encode_utf16().collect();
+        assert!(!regex_test(&regex, &text, 2));
+        assert!(regex_test(&regex, &text, MATCH_STEP_BUDGET));
+    }
 }
