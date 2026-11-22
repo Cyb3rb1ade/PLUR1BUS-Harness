@@ -133,3 +133,17 @@ pub fn list_voices(host: &dyn SignedRequests, budget: Duration) -> Result<Vec<Va
     }
     Ok(result)
 }
+
+/// Polly publishes engines through the voice catalog, not a separate API.
+pub fn list_models(host: &dyn SignedRequests, budget: Duration) -> Result<Vec<Value>, Error> {
+    let voices = list_voices(host, budget)?;
+    let engines: std::collections::BTreeSet<_> = voices
+        .iter()
+        .flat_map(|voice| voice["engines"].as_array().into_iter().flatten())
+        .filter_map(Value::as_str)
+        .collect();
+    Ok(engines
+        .into_iter()
+        .map(|id| json!({"id": id, "name": id, "capabilities": ["tts"]}))
+        .collect())
+}

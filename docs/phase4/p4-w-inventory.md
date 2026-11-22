@@ -198,6 +198,8 @@ ElevenLabs catalogs and buffered TTS/ASR, Gemini/XAI catalog discovery, Polly
 buffered synthesis and list projection through a signed-request port, and
 blocking Grok, Gemini and ElevenLabs ASR readiness and audio exchange. The
 exporter records actual TypeScript calls and frames for HTTP and WebSocket.
+Polly records synthesis, list pagination and model derivation through the
+TypeScript SDK client seam.
 
 The flip must supply authorized pins, TLS for WebSocket, resolved credentials,
 Polly signing, request deadlines and the ASR multipart boundary. R-W-12/R-W-13
