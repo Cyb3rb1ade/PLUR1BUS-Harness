@@ -1342,3 +1342,13 @@ deadlines. The runtime delivers decoded events on demand.
 The Rust Gemini handshake accepts only the header form of the credential.
 The TypeScript gateway fallback can put credentials in a URL query. The
 Rust host can use a gateway that forwards the credential header.
+
+<a id="p4d-207"></a>
+
+## P4D-207 — robots.txt byte ceiling
+
+The TypeScript crawl path limits the fetched body to 512 KiB and passes up
+to 500 Ki UTF-16 code units to the parser. The Rust parser rejects a complete
+body over 500 KiB of UTF-8 bytes. Its eventual fetch port must limit decoded
+bytes before parsing and map overflow to a denied crawl, keeping an incomplete
+policy out of the crawler's cache.
