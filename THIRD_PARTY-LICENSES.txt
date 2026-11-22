@@ -13884,7 +13884,7 @@ SOFTWARE.
 ============================================================
 
 SHA256 3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8
-npm:zod@4.6.6/LICENSE
+npm:zod@4.6.7/LICENSE
 
 MIT License
 
@@ -37178,7 +37178,7 @@ cargo:utf8_iter@1.0.4/LICENSE-APACHE
 cargo:write16@1.0.0/LICENSE-APACHE
 cargo:zeroize@1.9.0/LICENSE-APACHE
 npm:@a2a-js/sdk@1.3.0/LICENSE
-npm:@huggingface/transformers@4.3.1/LICENSE
+npm:@huggingface/transformers@4.3.2/LICENSE
 npm:flatbuffers@24.12.23/LICENSE
 npm:flatbuffers@25.9.23/LICENSE
 npm:long@5.3.2/LICENSE
