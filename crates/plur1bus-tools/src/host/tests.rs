@@ -315,7 +315,7 @@ fn hostctl_gate_binding_and_begin_audit_precede_the_effect() {
         ..Default::default()
     };
     let mut host = Hostctl {
-        receipts: &mut super::receipts::MemoryReceipts::default(),
+        receipts: &mut receipts::MemoryReceipts::default(),
         config: &config,
         policy: &policy,
         clock: &clock,
@@ -330,7 +330,7 @@ fn hostctl_gate_binding_and_begin_audit_precede_the_effect() {
 
     let mut audit = MemoryAudit::default();
     let mut host = Hostctl {
-        receipts: &mut super::receipts::MemoryReceipts::default(),
+        receipts: &mut receipts::MemoryReceipts::default(),
         config: &config,
         policy: &policy,
         clock: &clock,
@@ -370,7 +370,7 @@ fn hostctl_gate_binding_and_begin_audit_precede_the_effect() {
     }
     let mut slow = SlowAudit(&clock);
     let mut host = Hostctl {
-        receipts: &mut super::receipts::MemoryReceipts::default(),
+        receipts: &mut receipts::MemoryReceipts::default(),
         config: &config,
         policy: &policy,
         clock: &clock,
@@ -545,7 +545,7 @@ fn hostctl_verified_file_operations_reuse_the_gate_and_path_executor() {
         )
         .unwrap_or_else(|error| panic!("{name}: {error:?}"));
         Hostctl {
-            receipts: &mut super::receipts::MemoryReceipts::default(),
+            receipts: &mut receipts::MemoryReceipts::default(),
             config: &config,
             policy: &policy,
             clock: &clock,
@@ -813,7 +813,7 @@ fn hostctl_native_clipboard_and_urls_use_typed_ports() {
         )
         .unwrap();
         Hostctl {
-            receipts: &mut super::receipts::MemoryReceipts::default(),
+            receipts: &mut receipts::MemoryReceipts::default(),
             config: &config,
             policy: &policy,
             clock: &clock,
@@ -968,7 +968,7 @@ fn hostctl_process_port_receives_only_owned_ids_and_bounded_input() {
         )
         .unwrap();
         Hostctl {
-            receipts: &mut super::receipts::MemoryReceipts::default(),
+            receipts: &mut receipts::MemoryReceipts::default(),
             config: &config,
             policy: &policy,
             clock: &clock,
@@ -1113,7 +1113,7 @@ impl<'a> HostReviewFixture<'a> {
         effects: &mut dyn Effects,
     ) -> Result<Value, Failure> {
         Hostctl {
-            receipts: &mut super::receipts::MemoryReceipts::default(),
+            receipts: &mut receipts::MemoryReceipts::default(),
             config: &self.config,
             policy: &self.policy,
             clock: &self.clock,
@@ -1414,7 +1414,7 @@ fn recovery_survives_failed_delivery_and_preserves_unconfirmed_processes() {
             audit.failing.push("hostctl.end".into());
         }
         let mut processes = ProcessSessions::default();
-        let mut receipts = super::receipts::MemoryReceipts::default();
+        let mut receipts = receipts::MemoryReceipts::default();
         let mut native = Native {
             oversized,
             confirmed_stop: stopped,
