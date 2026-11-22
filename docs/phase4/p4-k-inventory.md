@@ -1126,7 +1126,7 @@ unchanged). K10b uses this gate and the same path and process layers.
   The host must preserve this check when wiring both process adapters. The shell deny patterns cover the actual launcher and arguments.
 - **K10-D24 (RE-6, R-K-30, P4D-198):** A native effect may complete before audit delivery or result validation fails.
   The flip requires an authenticated operation ID before dispatch, a private bounded receipt without output and a stop port for started processes.
-  A process with unconfirmed termination must remain registered. Implementation and durable host storage are pending.
+  Rust reserves an output-free receipt bound to principal, agent and session before invoking the native port. A failed delivery returns the operation ID. A newly started process remains managed unless the stop port confirms termination. The flip must supply durable bounded storage and wire the native stop and authenticated lookup ports.
 - **K10-D16:** Rust requires exclusive publication for copy and move. There is no path-based fallback for native trash,
   directory creation or no-replace movement. A move is limited to a singly linked file on one filesystem. Local application
   opening is limited to verified document types and directories; an adapter must preserve the held identity.

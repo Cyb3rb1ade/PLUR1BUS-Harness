@@ -10,6 +10,8 @@ pub mod filesystem;
 pub mod native;
 mod policy;
 mod processes;
+mod receipts;
+pub use receipts::{Receipt, ReceiptOwner, Receipts};
 mod search;
 
 #[cfg(test)]
@@ -39,6 +41,8 @@ pub struct Failure {
     pub code: &'static str,
     /// A short, safe explanation.
     pub hint: String,
+    /// Private recovery handle when the effect was invoked.
+    pub operation_id: Option<Uuid>,
 }
 
 impl Failure {
@@ -46,6 +50,7 @@ impl Failure {
         Self {
             code,
             hint: hint.into(),
+            operation_id: None,
         }
     }
     fn invalid(hint: impl Into<String>) -> Self {
@@ -63,13 +68,18 @@ impl Failure {
 
     /// Encode the Hostctl wire failure.
     pub fn to_result(&self) -> Value {
-        json!({"ok":false,"error":{"code":self.code,"hint":self.hint}})
+        let mut result = json!({"ok":false,"error":{"code":self.code,"hint":self.hint}});
+        if let Some(id) = self.operation_id {
+            result["error"]["operationId"] = json!(id.to_string());
+        }
+        result
     }
 }
 
 /// A redeemed operation and its canonical targets. The effect port must use the
 /// provided path capability and the shared path layer when opening a file.
 pub struct Invocation<'a> {
+    operation_id: Uuid,
     /// Catalogued operation name.
     name: &'static str,
     /// Closed, validated arguments.
@@ -95,6 +105,10 @@ pub struct Invocation<'a> {
 }
 
 impl<'a> Invocation<'a> {
+    /// Stable ID reserved in the recovery port before the effect.
+    pub fn operation_id(&self) -> Uuid {
+        self.operation_id
+    }
     /// The registered operation.
     pub fn name(&self) -> &'static str {
         self.name
@@ -145,6 +159,10 @@ impl<'a> Invocation<'a> {
 pub trait Effects {
     /// The real harness process identity, checked before a foreign signal can be delegated.
     fn process_identity(&self) -> ProcessIdentity;
+    /// Stop a newly started managed process after a delivery failure. Return true only after confirmed termination.
+    fn stop_after_failure(&mut self, _id: Uuid) -> bool {
+        false
+    }
     /// Apply only the operation named by the invocation. A process start uses the
     /// supplied ID, and an error from a start leaves no running child.
     fn apply(&mut self, call: Invocation<'_>) -> Result<Value, Failure>;
@@ -164,6 +182,8 @@ pub struct Hostctl<'a, F> {
     pub audit: &'a mut dyn AuditPort,
     /// The platform effect port.
     pub effects: &'a mut dyn Effects,
+    /// Private, capacity-limited operation receipts.
+    pub receipts: &'a mut dyn Receipts,
     /// Process ownership and admission shared by callers of this executor.
     pub processes: &'a mut ProcessSessions,
     /// Cancellation before, during and after the operation.
@@ -222,9 +242,13 @@ impl<F: PathFs> Hostctl<'_, F> {
                 self.clock,
             )
             .map_err(|_| Failure::new("CHANGED", "The approved operation changed or expired."))?;
+        let owner = ReceiptOwner::of(who);
+        let mut bytes = [0; 16];
+        self.random.fill(&mut bytes);
+        let id = uuid::Builder::from_random_bytes(bytes).into_uuid();
         let audit_fields = |code| {
             let mut fields = json!({
-                "operation": spec.name, "code": code, "actionHash": action_hash,
+                "operation": spec.name, "operationId": id.to_string(), "code": code, "actionHash": action_hash,
                 "agentId": who.agent_id, "principal": who.principal, "sessionId": who.session_id
             });
             if !targets.is_empty() || prepared.url.is_some() {
@@ -249,7 +273,8 @@ impl<F: PathFs> Hostctl<'_, F> {
         self.audit
             .record("hostctl.begin", &audit_fields("START"))
             .map_err(|_| denied())?;
-        let result = (|| {
+        let mut recovery = None;
+        let mut result = (|| {
             if (self.aborted)() {
                 return Err(Failure::new("ABORTED", "Cancelled."));
             }
@@ -292,7 +317,20 @@ impl<F: PathFs> Hostctl<'_, F> {
             } else {
                 Vec::new()
             };
+            let receipt = Receipt {
+                id,
+                confirmed: false,
+                process: process_id.filter(|_| spec.operation == O::Start),
+                stopped: false,
+            };
+            if !self.receipts.reserve(owner, receipt) {
+                if let Some(id) = process_id.filter(|_| starting) {
+                    self.processes.forget(id);
+                }
+                return Err(Failure::new("IO_ERROR", "Recovery storage is unavailable."));
+            }
             let applied = self.effects.apply(Invocation {
+                operation_id: id,
                 name: spec.name,
                 args: input,
                 paths: &current.paths,
@@ -310,6 +348,10 @@ impl<F: PathFs> Hostctl<'_, F> {
                 aborted: self.aborted,
                 process_id,
                 visible_processes: &visible_processes,
+            });
+            recovery = Some(Receipt {
+                confirmed: applied.is_ok(),
+                ..receipt
             });
             if let Some(id) = process_id {
                 if starting && applied.is_err() {
@@ -350,9 +392,34 @@ impl<F: PathFs> Hostctl<'_, F> {
         let code = result
             .as_ref()
             .map_or_else(|error: &Failure| error.code, |_| "OK");
-        self.audit
+        if self
+            .audit
             .record("hostctl.end", &audit_fields(code))
-            .map_err(|_| Failure::new("IO_ERROR", "The operation result could not be recorded."))?;
+            .is_err()
+        {
+            result = Err(Failure::new(
+                "IO_ERROR",
+                "The operation result could not be recorded.",
+            ));
+        }
+        if let Some(mut receipt) = recovery {
+            if !self.receipts.finish(owner, receipt) {
+                result = Err(Failure::new(
+                    "IO_ERROR",
+                    "The recovery record could not be completed.",
+                ));
+            }
+            if let Err(error) = &mut result {
+                error.operation_id = Some(id);
+                if let Some(process) = receipt.process.filter(|_| receipt.confirmed) {
+                    if self.effects.stop_after_failure(process) {
+                        self.processes.finished(process);
+                        receipt.stopped = true;
+                        self.receipts.finish(owner, receipt);
+                    }
+                }
+            }
+        }
         result
     }
 }
