@@ -708,6 +708,7 @@ fn hostctl_shell_refuses_wrapper_builtins() {
     assert!(admit("printf fixture").is_ok());
     for wrapper in [
         "eval",
+        "let",
         "builtin",
         "coproc",
         "source",

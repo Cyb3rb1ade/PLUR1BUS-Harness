@@ -1281,3 +1281,11 @@ refusal and K7-D5 identifies the calendar difference.
 | <a id="p4d-192"></a>P4D-192 | K11-D9 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | info | flip | The D2 golden test compares capability counters for identical events. The dispatch path that produces those events in a live turn still needs wiring. |
 | <a id="p4d-193"></a>P4D-193 | K11-D10 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | info | Rust design | The Rust-owned receipt database uses WAL. Marker checks cover the database and sidecars for accidental content. |
 | <a id="p4d-194"></a>P4D-194 | K11-D11 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | info | Rust design | A receipt records the injected clock at write time rather than trusting a host-supplied data timestamp. |
+
+<a id="p4d-203"></a>
+
+## P4D-203 — Hostctl shell control inputs (R-K-34)
+
+Rust excludes BASHOPTS, SHELLOPTS and PS4 from inherited and requested Hostctl
+environment values. The literal proc.shell subset excludes the arithmetic
+assignment builtin. The TypeScript admission policy has the earlier rules.

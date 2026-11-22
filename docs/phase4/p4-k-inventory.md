@@ -1125,6 +1125,7 @@ unchanged). K10b uses this gate and the same path and process layers.
   The environment inherits only the approved names, and callers cannot replace the program lookup path.
 - **K10-D23 (R-K-31, P4D-197):** Hostctl requires ASCII program names for direct execution and at the program position of a shell command.
   The host must preserve this check when wiring both process adapters. The shell deny patterns cover the actual launcher and arguments.
+- **K10-D25 (R-K-34, [P4D-203](defects.md#p4d-203)):** The process environment excludes BASHOPTS, SHELLOPTS and PS4, and the shell literal subset excludes arithmetic assignment through the shell builtin.
 - **K10-D24 (RE-6, R-K-30, P4D-198):** A native effect may complete before audit delivery or result validation fails.
   The flip requires an authenticated operation ID before dispatch, a private bounded receipt without output and a stop port for started processes.
   Rust reserves an output-free receipt bound to principal, agent and session before invoking the native port. A failed delivery returns the operation ID. A newly started process remains managed unless the stop port confirms termination. The flip must supply durable bounded storage and wire the native stop and authenticated lookup ports.
@@ -1247,3 +1248,10 @@ is absent or denies access. The coding gate, chat promotions and Learn also requ
 The collaboration adapter must derive the parent and stored ancestry from the authenticated delegation before dispatch. A delegated caller with omitted metadata must never acquire a new root scope. At the flip the Doctor must report data directories on filesystems without a usable birth time. Regular-file verification continues to refuse those files pending an owner decision on any fallback.
 
 The store owners now share the write-reservation primitive exercised by the two-process tests. At the flip, the native macOS file-opening adapter must check package status on the held directory identity before opening it.
+
+
+### Host obligations from follow-up review N3 and D137
+
+The Windows Doctor must identify a rejected configured root as a bad root and
+report its reason. When the host LLM path flips to Rust, its authenticated
+provider adapter must disable thinking for Haiku background jobs (R-D137-2).
