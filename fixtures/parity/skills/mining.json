@@ -1,0 +1,5099 @@
+[
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": [
+        {
+          "author": "agent",
+          "enabled": false,
+          "kind": "skill",
+          "name": "mined-workflow-bcf14c57eddc4f54",
+          "reason": "2 approved tool steps succeeded in 2 completed sessions in the same scope.",
+          "schema": "plur1bus.skill-candidate/1",
+          "sessionIds": [
+            "s1",
+            "s2"
+          ],
+          "skillMd": "---\nname: mined-workflow-bcf14c57eddc4f54\ndescription: Repeat a reviewed sequence of approved tool operations.\n---\n\n# Reviewed workflow\n\nBefore each step, derive arguments from the current authorized request. Preserve every dispatcher policy check and approval. Do not reuse session arguments, paths, output, secrets or identities.\n\n1. Invoke file.read through the central dispatcher and verify its result.\n2. Invoke file.list through the central dispatcher and verify its result.\n",
+          "workflowHash": "bcf14c57eddc4f54e19895ffbd6287c418c2f3ffa052141d97c2186dba1c73dc"
+        }
+      ]
+    },
+    "name": "valid",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "wrong session scope",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "other",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "other owner",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "wrong",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "other agent",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "other",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "incognito session",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "incognito",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "active session",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "incognito turn",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": true,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "unfinished",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": null,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "elsewhere",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "error": "E_STORAGE"
+    },
+    "name": "foreign event",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 0,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "error": "E_STORAGE"
+    },
+    "name": "nonadvancing",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "other.tool"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "unregistered",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":true}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "known failure",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "Everything worked"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "prose success",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "duplicate call",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "shared result",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "unexpected",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "wrong result",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.list"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.read"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "order changes",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "wrong proof version",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "candidates": []
+    },
+    "name": "unverified",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": false,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": false,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 1,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "error": "E_INVALID_PARAMS"
+    },
+    "name": "invalid config",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 3,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "error": "E_NOT_AVAILABLE"
+    },
+    "name": "event cap",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  },
+  {
+    "config": {
+      "maxEvents": 20000,
+      "maxSessions": 200,
+      "maxSteps": 20,
+      "minSessions": 2,
+      "minSteps": 2
+    },
+    "events": {
+      "s1": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s1",
+          "turnId": "turn-1",
+          "type": "tool.result"
+        }
+      ],
+      "s2": [
+        {
+          "at": 8,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-0",
+            "name": "file.read"
+          },
+          "seq": 1,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 9,
+          "data": {
+            "id": "call-0",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 2,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        },
+        {
+          "at": 9,
+          "data": {
+            "args": [
+              "fixture-private-value"
+            ],
+            "id": "call-1",
+            "name": "file.list"
+          },
+          "seq": 3,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.call"
+        },
+        {
+          "at": 10,
+          "data": {
+            "id": "call-1",
+            "output": "{\"isError\":false,\"visible\":\"fixture-private-output\"}"
+          },
+          "seq": 4,
+          "sessionId": "s2",
+          "turnId": "turn-0",
+          "type": "tool.result"
+        }
+      ]
+    },
+    "expected": {
+      "error": "E_NOT_AVAILABLE"
+    },
+    "name": "session cap",
+    "recorded": [
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-0",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s2",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-0",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-0",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-1",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "agentId": "alpha",
+        "callId": "call-1",
+        "owner": "fixture-owner",
+        "sessionId": "s1",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-1",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "scope": {
+      "agentId": "alpha",
+      "owner": "fixture-owner",
+      "scope": "workspace"
+    },
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": 21,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 19,
+        "memoryMode": "remember",
+        "owner": "fixture-owner",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "fixture private title",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ],
+    "tools": [
+      {
+        "name": "file.read",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "name": "file.list",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "turns": [
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-0",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s2",
+        "startedAt": 8,
+        "state": "completed"
+      },
+      {
+        "endedAt": 14,
+        "error": null,
+        "id": "turn-1",
+        "incognito": false,
+        "seq": 1,
+        "sessionId": "s1",
+        "startedAt": 8,
+        "state": "completed"
+      }
+    ]
+  }
+]

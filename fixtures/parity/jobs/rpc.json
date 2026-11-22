@@ -1,0 +1,6755 @@
+[
+  {
+    "final": {
+      "ids": [
+        "user:eee389b1-b271-95af-4b34-6104a7232181",
+        "user:186ddc6d-c220-1899-712a-965f26cb1204"
+      ],
+      "schema": [
+        {
+          "name": "user_job_runs",
+          "sql": "CREATE TABLE user_job_runs(id TEXT PRIMARY KEY, job_id TEXT NOT NULL, record TEXT NOT NULL)",
+          "tbl_name": "user_job_runs",
+          "type": "table"
+        },
+        {
+          "name": "user_jobs",
+          "sql": "CREATE TABLE user_jobs(id TEXT PRIMARY KEY, definition TEXT NOT NULL)",
+          "tbl_name": "user_jobs",
+          "type": "table"
+        }
+      ],
+      "tables": {
+        "user_job_runs": [
+          [
+            "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+            "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            {
+              "agentId": "other",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Other",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "failed",
+              "runAs": "olga",
+              "runAsDisplayName": "Olga",
+              "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          ]
+        ],
+        "user_jobs": [
+          [
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "createdAt": 1780300800000,
+              "createdBy": "mel",
+              "enabled": true,
+              "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "name": "Daily",
+              "needsLlm": true,
+              "nextRunAt": 1780470000000,
+              "prompt": "Summarize",
+              "runAs": "mel",
+              "schedule": {
+                "cron": "0 9 * * *",
+                "timezone": "Europe/Berlin"
+              },
+              "singleton": true,
+              "updatedAt": 1780300800000
+            }
+          ],
+          [
+            "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            {
+              "agentId": "other",
+              "createdAt": 1780300800000,
+              "createdBy": "olga",
+              "enabled": true,
+              "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "name": "Other",
+              "needsLlm": true,
+              "nextRunAt": 1780470000000,
+              "prompt": "Summarize",
+              "runAs": "olga",
+              "schedule": {
+                "cron": "0 9 * * *",
+                "timezone": "Europe/Berlin"
+              },
+              "singleton": true,
+              "updatedAt": 1780300800000
+            }
+          ]
+        ]
+      }
+    },
+    "name": "rpc-list",
+    "ops": [
+      {
+        "audit": [
+          {
+            "action": "jobs.created",
+            "at": 1780300800000,
+            "detail": {
+              "agentId": "main",
+              "runAs": "mel"
+            },
+            "host": "core",
+            "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "user": "mel"
+          }
+        ],
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "input": {
+            "agentId": "main",
+            "enabled": true,
+            "name": "Daily",
+            "prompt": "Summarize",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            }
+          },
+          "op": "create"
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "createdAt": 1780300800000,
+            "createdBy": "mel",
+            "enabled": true,
+            "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "kind": "user",
+            "name": "Daily",
+            "needsLlm": true,
+            "nextRunAt": 1780383600000,
+            "prompt": "Summarize",
+            "runAs": "mel",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            },
+            "singleton": true,
+            "updatedAt": 1780300800000
+          }
+        }
+      },
+      {
+        "audit": [
+          {
+            "action": "jobs.created",
+            "at": 1780300800000,
+            "detail": {
+              "agentId": "other",
+              "runAs": "olga"
+            },
+            "host": "core",
+            "target": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            "user": "olga"
+          }
+        ],
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "input": {
+            "agentId": "other",
+            "enabled": true,
+            "name": "Other",
+            "prompt": "Summarize",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            }
+          },
+          "op": "create"
+        },
+        "out": {
+          "ok": {
+            "agentId": "other",
+            "createdAt": 1780300800000,
+            "createdBy": "olga",
+            "enabled": true,
+            "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            "kind": "user",
+            "name": "Other",
+            "needsLlm": true,
+            "nextRunAt": 1780383600000,
+            "prompt": "Summarize",
+            "runAs": "olga",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            },
+            "singleton": true,
+            "updatedAt": 1780300800000
+          }
+        }
+      },
+      {
+        "op": {
+          "ms": 86400000,
+          "op": "advance"
+        },
+        "out": {
+          "ok": 1780387200000
+        }
+      },
+      {
+        "op": {
+          "op": "submit",
+          "steps": [
+            {},
+            {
+              "outcome": "failed"
+            }
+          ]
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "events": [
+          {
+            "turn": {
+              "job": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "person": "mel",
+              "role": "member",
+              "runAs": "mel"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          },
+          {
+            "turn": {
+              "job": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "person": "olga",
+              "role": "owner",
+              "runAs": "olga"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "other",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Other",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "failed",
+              "runAs": "olga",
+              "runAsDisplayName": "Olga",
+              "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          }
+        ],
+        "op": {
+          "op": "tick"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "ms": 60000,
+          "op": "advance"
+        },
+        "out": {
+          "ok": 1780387260000
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "agentId": "other",
+                "createdAt": 1780300800000,
+                "createdBy": "olga",
+                "enabled": true,
+                "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "name": "Other",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "olga",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              },
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            "manageableAgents": [
+              "main",
+              "other",
+              "helper"
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              },
+              {
+                "agentId": "other",
+                "createdAt": 1780300800000,
+                "createdBy": "olga",
+                "enabled": true,
+                "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "name": "Other",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "olga",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              },
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            "manageableAgents": [
+              "main",
+              "other",
+              "helper"
+            ],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "admin",
+            "userId": "adam"
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "agentId": "other",
+                "createdAt": 1780300800000,
+                "createdBy": "olga",
+                "enabled": true,
+                "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "name": "Other",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "olga",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              },
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            "manageableAgents": [
+              "main",
+              "other",
+              "helper"
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "admin",
+            "userId": "adam"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              },
+              {
+                "agentId": "other",
+                "createdAt": 1780300800000,
+                "createdBy": "olga",
+                "enabled": true,
+                "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "name": "Other",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "olga",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              },
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            "manageableAgents": [
+              "main",
+              "other",
+              "helper"
+            ],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "operator",
+            "userId": "otto"
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [],
+            "manageableAgents": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "operator",
+            "userId": "otto"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "manageableAgents": [],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "member",
+            "userId": "mia"
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [],
+            "manageableAgents": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "member",
+            "userId": "mia"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "manageableAgents": [],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            "manageableAgents": [
+              "main"
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              },
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            "manageableAgents": [
+              "main"
+            ],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "use"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mu"
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            "manageableAgents": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "use"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mu"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              },
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            "manageableAgents": [],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "viewer",
+            "userId": "vera"
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            "manageableAgents": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "viewer",
+            "userId": "vera"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              },
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            "manageableAgents": [],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "agent",
+            "role": "owner",
+            "userId": "bot"
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_DENIED",
+            "message": "user jobs are human-only"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "agent",
+            "role": "owner",
+            "userId": "bot"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "role": "owner",
+            "userId": "nokind"
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_DENIED",
+            "message": "user jobs are human-only"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "role": "owner",
+            "userId": "nokind"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": null,
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_UNAUTHORIZED",
+            "message": "authentication required"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": null,
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc"
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {}
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "system"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "USER"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": [
+              "user"
+            ]
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": null
+        },
+        "out": {
+          "err": {
+            "message": "Cannot read properties of null (reading 'kind')",
+            "name": "TypeError"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": "user"
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": []
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "id": "engine:one"
+              },
+              {
+                "id": "system:two"
+              }
+            ],
+            "schedulerOk": true
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "jobs": [],
+            "manageableAgents": [
+              "x"
+            ],
+            "z": 1
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            "manageableAgents": [
+              "main"
+            ],
+            "z": 1
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "z": 1
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "err": {
+            "message": "old.jobs is not iterable",
+            "name": "TypeError"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "jobs": "no"
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "jobs": [
+              "n",
+              "o",
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            "manageableAgents": [
+              "main"
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "legacy": {
+            "1": 2,
+            "2": 1,
+            "a": 0,
+            "jobs": []
+          },
+          "method": "jobs.list",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "1": 2,
+            "2": 1,
+            "a": 0,
+            "jobs": [
+              {
+                "agentId": "other",
+                "createdAt": 1780300800000,
+                "createdBy": "olga",
+                "enabled": true,
+                "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "name": "Other",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "olga",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              },
+              {
+                "agentId": "main",
+                "createdAt": 1780300800000,
+                "createdBy": "mel",
+                "enabled": true,
+                "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "name": "Daily",
+                "needsLlm": true,
+                "nextRunAt": 1780470000000,
+                "prompt": "Summarize",
+                "runAs": "mel",
+                "schedule": {
+                  "cron": "0 9 * * *",
+                  "timezone": "Europe/Berlin"
+                },
+                "singleton": true,
+                "updatedAt": 1780300800000
+              }
+            ],
+            "manageableAgents": [
+              "main",
+              "other",
+              "helper"
+            ]
+          }
+        }
+      }
+    ],
+    "world": {
+      "agentList": null,
+      "agents": [
+        "main",
+        "other",
+        "helper"
+      ],
+      "blocked": [],
+      "deliveryOk": [
+        "chan:ok"
+      ],
+      "displayNames": {
+        "mel": "Mel",
+        "olga": "Olga"
+      },
+      "now": 1780300800000,
+      "principals": {
+        "adam": {
+          "kind": "person",
+          "role": "admin"
+        },
+        "bot": {
+          "kind": "agent",
+          "role": "owner"
+        },
+        "mel": {
+          "agentRights": {
+            "main": "manage"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "mia": {
+          "kind": "person",
+          "role": "member"
+        },
+        "mon": {
+          "agentRights": {
+            "main": "use",
+            "other": "manage"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "mu": {
+          "agentRights": {
+            "main": "use"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "nokind": {
+          "role": "owner"
+        },
+        "olga": {
+          "kind": "person",
+          "role": "owner"
+        },
+        "otto": {
+          "kind": "person",
+          "role": "operator"
+        },
+        "vera": {
+          "agentRights": {
+            "main": "manage"
+          },
+          "kind": "person",
+          "role": "viewer"
+        }
+      },
+      "validate": true
+    }
+  },
+  {
+    "final": {
+      "ids": [
+        "user:eee389b1-b271-95af-4b34-6104a7232181",
+        "user:186ddc6d-c220-1899-712a-965f26cb1204"
+      ],
+      "schema": [
+        {
+          "name": "user_job_runs",
+          "sql": "CREATE TABLE user_job_runs(id TEXT PRIMARY KEY, job_id TEXT NOT NULL, record TEXT NOT NULL)",
+          "tbl_name": "user_job_runs",
+          "type": "table"
+        },
+        {
+          "name": "user_jobs",
+          "sql": "CREATE TABLE user_jobs(id TEXT PRIMARY KEY, definition TEXT NOT NULL)",
+          "tbl_name": "user_jobs",
+          "type": "table"
+        }
+      ],
+      "tables": {
+        "user_job_runs": [
+          [
+            "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+            "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            {
+              "agentId": "other",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Other",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "failed",
+              "runAs": "olga",
+              "runAsDisplayName": "Olga",
+              "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          ]
+        ],
+        "user_jobs": [
+          [
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "createdAt": 1780300800000,
+              "createdBy": "mel",
+              "enabled": true,
+              "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "name": "Daily",
+              "needsLlm": true,
+              "nextRunAt": 1780470000000,
+              "prompt": "Summarize",
+              "runAs": "mel",
+              "schedule": {
+                "cron": "0 9 * * *",
+                "timezone": "Europe/Berlin"
+              },
+              "singleton": true,
+              "updatedAt": 1780300800000
+            }
+          ],
+          [
+            "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            {
+              "agentId": "other",
+              "createdAt": 1780300800000,
+              "createdBy": "olga",
+              "enabled": true,
+              "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "name": "Other",
+              "needsLlm": true,
+              "nextRunAt": 1780470000000,
+              "prompt": "Summarize",
+              "runAs": "olga",
+              "schedule": {
+                "cron": "0 9 * * *",
+                "timezone": "Europe/Berlin"
+              },
+              "singleton": true,
+              "updatedAt": 1780300800000
+            }
+          ]
+        ]
+      }
+    },
+    "name": "rpc-history",
+    "ops": [
+      {
+        "audit": [
+          {
+            "action": "jobs.created",
+            "at": 1780300800000,
+            "detail": {
+              "agentId": "main",
+              "runAs": "mel"
+            },
+            "host": "core",
+            "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "user": "mel"
+          }
+        ],
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "input": {
+            "agentId": "main",
+            "enabled": true,
+            "name": "Daily",
+            "prompt": "Summarize",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            }
+          },
+          "op": "create"
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "createdAt": 1780300800000,
+            "createdBy": "mel",
+            "enabled": true,
+            "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "kind": "user",
+            "name": "Daily",
+            "needsLlm": true,
+            "nextRunAt": 1780383600000,
+            "prompt": "Summarize",
+            "runAs": "mel",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            },
+            "singleton": true,
+            "updatedAt": 1780300800000
+          }
+        }
+      },
+      {
+        "audit": [
+          {
+            "action": "jobs.created",
+            "at": 1780300800000,
+            "detail": {
+              "agentId": "other",
+              "runAs": "olga"
+            },
+            "host": "core",
+            "target": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            "user": "olga"
+          }
+        ],
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "input": {
+            "agentId": "other",
+            "enabled": true,
+            "name": "Other",
+            "prompt": "Summarize",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            }
+          },
+          "op": "create"
+        },
+        "out": {
+          "ok": {
+            "agentId": "other",
+            "createdAt": 1780300800000,
+            "createdBy": "olga",
+            "enabled": true,
+            "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            "kind": "user",
+            "name": "Other",
+            "needsLlm": true,
+            "nextRunAt": 1780383600000,
+            "prompt": "Summarize",
+            "runAs": "olga",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            },
+            "singleton": true,
+            "updatedAt": 1780300800000
+          }
+        }
+      },
+      {
+        "op": {
+          "ms": 86400000,
+          "op": "advance"
+        },
+        "out": {
+          "ok": 1780387200000
+        }
+      },
+      {
+        "op": {
+          "op": "submit",
+          "steps": [
+            {},
+            {
+              "outcome": "failed"
+            }
+          ]
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "events": [
+          {
+            "turn": {
+              "job": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "person": "mel",
+              "role": "member",
+              "runAs": "mel"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          },
+          {
+            "turn": {
+              "job": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "person": "olga",
+              "role": "owner",
+              "runAs": "olga"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "other",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Other",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "failed",
+              "runAs": "olga",
+              "runAsDisplayName": "Olga",
+              "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          }
+        ],
+        "op": {
+          "op": "tick"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "ms": 60000,
+          "op": "advance"
+        },
+        "out": {
+          "ok": 1780387260000
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              },
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "admin",
+            "userId": "adam"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "admin",
+            "userId": "adam"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              },
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "operator",
+            "userId": "otto"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "operator",
+            "userId": "otto"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "member",
+            "userId": "mia"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "member",
+            "userId": "mia"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "use"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mu"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "use"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mu"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "viewer",
+            "userId": "vera"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "viewer",
+            "userId": "vera"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "agent",
+            "role": "owner",
+            "userId": "bot"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_DENIED",
+            "message": "user jobs are human-only"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "agent",
+            "role": "owner",
+            "userId": "bot"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_DENIED",
+            "message": "user jobs are human-only"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "role": "owner",
+            "userId": "nokind"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_DENIED",
+            "message": "user jobs are human-only"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "role": "owner",
+            "userId": "nokind"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_DENIED",
+            "message": "user jobs are human-only"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": null,
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_UNAUTHORIZED",
+            "message": "authentication required"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": null,
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "all"
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_UNAUTHORIZED",
+            "message": "authentication required"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "job": "user:nope"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "job": "other:x"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "job": "other:x",
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {}
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc"
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "job": null
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "job": ""
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "job": 5
+          }
+        },
+        "out": {
+          "err": {
+            "message": "p.job?.startsWith is not a function",
+            "name": "TypeError"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "job": 5,
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "job": true,
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "job": 0,
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "job": [
+              "user:x"
+            ]
+          }
+        },
+        "out": {
+          "err": {
+            "message": "p.job?.startsWith is not a function",
+            "name": "TypeError"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "jobNth": 0,
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "jobNth": 1,
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "limit": 1
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "limit": 0
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "limit": 1.5
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "limit": "1"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "limit": "abc"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "limit": null
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "limit": true
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "limit": [
+              2
+            ]
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "limit": {}
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "limit": -3
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "limit": 1000000000
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": 0
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": 1
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": 2
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": 3
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": 1780387200000
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": 1780387200001
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": "1780387200000"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": "1780387200001"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": "1780300800000"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": "x"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": null
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": false
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": true
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": [
+              1780300800000
+            ]
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": {}
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": 1e+300
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user",
+            "since": -1
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "agentId": "main",
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "agentId": "other",
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "agentId": "Main",
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "agentId": null,
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "agentId": 5,
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "agentId": [
+              "main"
+            ],
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "agentId": "",
+            "kind": "user"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": []
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "all",
+            "since": 2
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              },
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "all",
+            "since": 99999999999999
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "all",
+            "limit": 1
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "agentId": "other",
+            "kind": "all"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              },
+              {
+                "agentId": "other",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Other",
+                "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+                "kind": "user",
+                "outcome": "failed",
+                "runAs": "olga",
+                "runAsDisplayName": "Olga",
+                "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              },
+              {
+                "agentId": "main",
+                "durationMs": 0,
+                "finishedAt": 1780387200000,
+                "job": "Daily",
+                "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+                "kind": "user",
+                "outcome": "completed",
+                "runAs": "mel",
+                "runAsDisplayName": "Mel",
+                "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+                "startedAt": 1780387200000,
+                "trigger": "recurring"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": {
+            "kind": "system"
+          }
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": null
+        },
+        "out": {
+          "err": {
+            "message": "Cannot read properties of null (reading 'kind')",
+            "name": "TypeError"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "legacy": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          },
+          "method": "jobs.history",
+          "op": "rpc",
+          "params": "user:x"
+        },
+        "out": {
+          "ok": {
+            "runs": [
+              {
+                "runId": "old-1",
+                "startedAt": 1
+              },
+              {
+                "runId": "old-2",
+                "startedAt": 2
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "world": {
+      "agentList": null,
+      "agents": [
+        "main",
+        "other",
+        "helper"
+      ],
+      "blocked": [],
+      "deliveryOk": [
+        "chan:ok"
+      ],
+      "displayNames": {
+        "mel": "Mel",
+        "olga": "Olga"
+      },
+      "now": 1780300800000,
+      "principals": {
+        "adam": {
+          "kind": "person",
+          "role": "admin"
+        },
+        "bot": {
+          "kind": "agent",
+          "role": "owner"
+        },
+        "mel": {
+          "agentRights": {
+            "main": "manage"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "mia": {
+          "kind": "person",
+          "role": "member"
+        },
+        "mon": {
+          "agentRights": {
+            "main": "use",
+            "other": "manage"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "mu": {
+          "agentRights": {
+            "main": "use"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "nokind": {
+          "role": "owner"
+        },
+        "olga": {
+          "kind": "person",
+          "role": "owner"
+        },
+        "otto": {
+          "kind": "person",
+          "role": "operator"
+        },
+        "vera": {
+          "agentRights": {
+            "main": "manage"
+          },
+          "kind": "person",
+          "role": "viewer"
+        }
+      },
+      "validate": true
+    }
+  },
+  {
+    "final": {
+      "ids": [
+        "user:eee389b1-b271-95af-4b34-6104a7232181",
+        "user:186ddc6d-c220-1899-712a-965f26cb1204"
+      ],
+      "schema": [
+        {
+          "name": "user_job_runs",
+          "sql": "CREATE TABLE user_job_runs(id TEXT PRIMARY KEY, job_id TEXT NOT NULL, record TEXT NOT NULL)",
+          "tbl_name": "user_job_runs",
+          "type": "table"
+        },
+        {
+          "name": "user_jobs",
+          "sql": "CREATE TABLE user_jobs(id TEXT PRIMARY KEY, definition TEXT NOT NULL)",
+          "tbl_name": "user_jobs",
+          "type": "table"
+        }
+      ],
+      "tables": {
+        "user_job_runs": [
+          [
+            "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+            "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            {
+              "agentId": "other",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Other",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "failed",
+              "runAs": "olga",
+              "runAsDisplayName": "Olga",
+              "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "e5df153c-f88f-e060-11c0-f01b80c2188f",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "e5df153c-f88f-e060-11c0-f01b80c2188f",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "a932ad74-aee5-204f-76f3-a1b506003428",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mu",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "a932ad74-aee5-204f-76f3-a1b506003428",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "3b3cc4ed-9736-a28d-461e-af3c66b06ccc",
+            "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            {
+              "agentId": "other",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Other",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "olga",
+              "runAs": "olga",
+              "runAsDisplayName": "Olga",
+              "runId": "3b3cc4ed-9736-a28d-461e-af3c66b06ccc",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "04647385-5618-7aaa-81c2-578d7d007487",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "04647385-5618-7aaa-81c2-578d7d007487",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "ce7e0a83-d49d-cefc-549d-2ed98d21e8c4",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "ce7e0a83-d49d-cefc-549d-2ed98d21e8c4",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "e9fad936-3530-2aa8-3c7d-e3cf876ed00f",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "e9fad936-3530-2aa8-3c7d-e3cf876ed00f",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            }
+          ],
+          [
+            "3a30c0cb-bb04-c83a-5569-20aaad050f57",
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "3a30c0cb-bb04-c83a-5569-20aaad050f57",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            }
+          ]
+        ],
+        "user_jobs": [
+          [
+            "user:eee389b1-b271-95af-4b34-6104a7232181",
+            {
+              "agentId": "main",
+              "createdAt": 1780300800000,
+              "createdBy": "mel",
+              "enabled": true,
+              "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "name": "Daily",
+              "needsLlm": true,
+              "nextRunAt": 1780470000000,
+              "prompt": "Summarize",
+              "runAs": "mel",
+              "schedule": {
+                "cron": "0 9 * * *",
+                "timezone": "Europe/Berlin"
+              },
+              "singleton": true,
+              "updatedAt": 1780300800000
+            }
+          ],
+          [
+            "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            {
+              "agentId": "other",
+              "createdAt": 1780300800000,
+              "createdBy": "olga",
+              "enabled": true,
+              "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "name": "Other",
+              "needsLlm": true,
+              "nextRunAt": 1780470000000,
+              "prompt": "Summarize",
+              "runAs": "olga",
+              "schedule": {
+                "cron": "0 9 * * *",
+                "timezone": "Europe/Berlin"
+              },
+              "singleton": true,
+              "updatedAt": 1780300800000
+            }
+          ]
+        ]
+      }
+    },
+    "name": "rpc-run",
+    "ops": [
+      {
+        "audit": [
+          {
+            "action": "jobs.created",
+            "at": 1780300800000,
+            "detail": {
+              "agentId": "main",
+              "runAs": "mel"
+            },
+            "host": "core",
+            "target": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "user": "mel"
+          }
+        ],
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "input": {
+            "agentId": "main",
+            "enabled": true,
+            "name": "Daily",
+            "prompt": "Summarize",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            }
+          },
+          "op": "create"
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "createdAt": 1780300800000,
+            "createdBy": "mel",
+            "enabled": true,
+            "id": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "kind": "user",
+            "name": "Daily",
+            "needsLlm": true,
+            "nextRunAt": 1780383600000,
+            "prompt": "Summarize",
+            "runAs": "mel",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            },
+            "singleton": true,
+            "updatedAt": 1780300800000
+          }
+        }
+      },
+      {
+        "audit": [
+          {
+            "action": "jobs.created",
+            "at": 1780300800000,
+            "detail": {
+              "agentId": "other",
+              "runAs": "olga"
+            },
+            "host": "core",
+            "target": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            "user": "olga"
+          }
+        ],
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "input": {
+            "agentId": "other",
+            "enabled": true,
+            "name": "Other",
+            "prompt": "Summarize",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            }
+          },
+          "op": "create"
+        },
+        "out": {
+          "ok": {
+            "agentId": "other",
+            "createdAt": 1780300800000,
+            "createdBy": "olga",
+            "enabled": true,
+            "id": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            "kind": "user",
+            "name": "Other",
+            "needsLlm": true,
+            "nextRunAt": 1780383600000,
+            "prompt": "Summarize",
+            "runAs": "olga",
+            "schedule": {
+              "cron": "0 9 * * *",
+              "timezone": "Europe/Berlin"
+            },
+            "singleton": true,
+            "updatedAt": 1780300800000
+          }
+        }
+      },
+      {
+        "op": {
+          "ms": 86400000,
+          "op": "advance"
+        },
+        "out": {
+          "ok": 1780387200000
+        }
+      },
+      {
+        "op": {
+          "op": "submit",
+          "steps": [
+            {},
+            {
+              "outcome": "failed"
+            }
+          ]
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "events": [
+          {
+            "turn": {
+              "job": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "person": "mel",
+              "role": "member",
+              "runAs": "mel"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          },
+          {
+            "turn": {
+              "job": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "person": "olga",
+              "role": "owner",
+              "runAs": "olga"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "other",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Other",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "failed",
+              "runAs": "olga",
+              "runAsDisplayName": "Olga",
+              "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          }
+        ],
+        "op": {
+          "op": "tick"
+        },
+        "out": {
+          "ok": null
+        }
+      },
+      {
+        "op": {
+          "ms": 60000,
+          "op": "advance"
+        },
+        "out": {
+          "ok": 1780387260000
+        }
+      },
+      {
+        "events": [
+          {
+            "turn": {
+              "job": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "person": "mel",
+              "role": "member",
+              "runAs": "mel"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "e5df153c-f88f-e060-11c0-f01b80c2188f",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            }
+          }
+        ],
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {}
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "durationMs": 0,
+            "finishedAt": 1780387260000,
+            "job": "Daily",
+            "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "kind": "user",
+            "outcome": "completed",
+            "requestedBy": "mel",
+            "runAs": "mel",
+            "runAsDisplayName": "Mel",
+            "runId": "e5df153c-f88f-e060-11c0-f01b80c2188f",
+            "startedAt": 1780387260000,
+            "trigger": "recurring"
+          }
+        }
+      },
+      {
+        "events": [
+          {
+            "turn": {
+              "job": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "person": "mel",
+              "role": "member",
+              "runAs": "mel"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mu",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "a932ad74-aee5-204f-76f3-a1b506003428",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            }
+          }
+        ],
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "use"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mu"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {}
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "durationMs": 0,
+            "finishedAt": 1780387260000,
+            "job": "Daily",
+            "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "kind": "user",
+            "outcome": "completed",
+            "requestedBy": "mu",
+            "runAs": "mel",
+            "runAsDisplayName": "Mel",
+            "runId": "a932ad74-aee5-204f-76f3-a1b506003428",
+            "startedAt": 1780387260000,
+            "trigger": "recurring"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "member",
+            "userId": "mia"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {}
+        },
+        "out": {
+          "err": {
+            "code": "E_DENIED",
+            "message": "user job operation denied"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "viewer",
+            "userId": "vera"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {}
+        },
+        "out": {
+          "err": {
+            "code": "E_DENIED",
+            "message": "user job operation denied"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "agent",
+            "role": "owner",
+            "userId": "bot"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {}
+        },
+        "out": {
+          "err": {
+            "code": "E_DENIED",
+            "message": "user jobs are human-only"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": null,
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {}
+        },
+        "out": {
+          "err": {
+            "code": "E_UNAUTHORIZED",
+            "message": "authentication required"
+          }
+        }
+      },
+      {
+        "events": [
+          {
+            "turn": {
+              "job": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "person": "olga",
+              "role": "owner",
+              "runAs": "olga"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "other",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Other",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "olga",
+              "runAs": "olga",
+              "runAsDisplayName": "Olga",
+              "runId": "3b3cc4ed-9736-a28d-461e-af3c66b06ccc",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            }
+          }
+        ],
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "jobNth": 1,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {}
+        },
+        "out": {
+          "ok": {
+            "agentId": "other",
+            "durationMs": 0,
+            "finishedAt": 1780387260000,
+            "job": "Other",
+            "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+            "kind": "user",
+            "outcome": "completed",
+            "requestedBy": "olga",
+            "runAs": "olga",
+            "runAsDisplayName": "Olga",
+            "runId": "3b3cc4ed-9736-a28d-461e-af3c66b06ccc",
+            "startedAt": 1780387260000,
+            "trigger": "recurring"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "dryRun": true
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_INVALID_PARAMS",
+            "message": "user jobs do not accept dryRun or args"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "dryRun": 1
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_INVALID_PARAMS",
+            "message": "user jobs do not accept dryRun or args"
+          }
+        }
+      },
+      {
+        "events": [
+          {
+            "turn": {
+              "job": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "person": "mel",
+              "role": "member",
+              "runAs": "mel"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "04647385-5618-7aaa-81c2-578d7d007487",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            }
+          }
+        ],
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "dryRun": false
+          }
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "durationMs": 0,
+            "finishedAt": 1780387260000,
+            "job": "Daily",
+            "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "kind": "user",
+            "outcome": "completed",
+            "requestedBy": "mel",
+            "runAs": "mel",
+            "runAsDisplayName": "Mel",
+            "runId": "04647385-5618-7aaa-81c2-578d7d007487",
+            "startedAt": 1780387260000,
+            "trigger": "recurring"
+          }
+        }
+      },
+      {
+        "events": [
+          {
+            "turn": {
+              "job": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "person": "mel",
+              "role": "member",
+              "runAs": "mel"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "ce7e0a83-d49d-cefc-549d-2ed98d21e8c4",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            }
+          }
+        ],
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "dryRun": ""
+          }
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "durationMs": 0,
+            "finishedAt": 1780387260000,
+            "job": "Daily",
+            "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "kind": "user",
+            "outcome": "completed",
+            "requestedBy": "mel",
+            "runAs": "mel",
+            "runAsDisplayName": "Mel",
+            "runId": "ce7e0a83-d49d-cefc-549d-2ed98d21e8c4",
+            "startedAt": 1780387260000,
+            "trigger": "recurring"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "dryRun": []
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_INVALID_PARAMS",
+            "message": "user jobs do not accept dryRun or args"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "args": {}
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_INVALID_PARAMS",
+            "message": "user jobs do not accept dryRun or args"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "args": null
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_INVALID_PARAMS",
+            "message": "user jobs do not accept dryRun or args"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "args": 0
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_INVALID_PARAMS",
+            "message": "user jobs do not accept dryRun or args"
+          }
+        }
+      },
+      {
+        "events": [
+          {
+            "turn": {
+              "job": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "person": "mel",
+              "role": "member",
+              "runAs": "mel"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "e9fad936-3530-2aa8-3c7d-e3cf876ed00f",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            }
+          }
+        ],
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "agentId": "main"
+          }
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "durationMs": 0,
+            "finishedAt": 1780387260000,
+            "job": "Daily",
+            "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "kind": "user",
+            "outcome": "completed",
+            "requestedBy": "mel",
+            "runAs": "mel",
+            "runAsDisplayName": "Mel",
+            "runId": "e9fad936-3530-2aa8-3c7d-e3cf876ed00f",
+            "startedAt": 1780387260000,
+            "trigger": "recurring"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "agentId": "other"
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_INVALID_PARAMS",
+            "message": "agentId does not match the job"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "agentId": null
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_INVALID_PARAMS",
+            "message": "agentId does not match the job"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "agentId": [
+              "main"
+            ]
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_INVALID_PARAMS",
+            "message": "agentId does not match the job"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "job": "user:nope"
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_NOT_FOUND",
+            "message": "user job not found",
+            "reason": "job-not-found"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "job": "user:"
+          }
+        },
+        "out": {
+          "err": {
+            "code": "E_NOT_FOUND",
+            "message": "user job not found",
+            "reason": "job-not-found"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "job": "system:x"
+          }
+        },
+        "out": {
+          "ok": {
+            "legacy": true,
+            "p": {
+              "job": "system:x"
+            }
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "args": {},
+            "dryRun": true,
+            "job": "approvals.integrity"
+          }
+        },
+        "out": {
+          "ok": {
+            "legacy": true,
+            "p": {
+              "args": {},
+              "dryRun": true,
+              "job": "approvals.integrity"
+            }
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {}
+        },
+        "out": {
+          "ok": {
+            "legacy": true,
+            "p": {}
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "job": null
+          }
+        },
+        "out": {
+          "ok": {
+            "legacy": true,
+            "p": {
+              "job": null
+            }
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "job": 5
+          }
+        },
+        "out": {
+          "err": {
+            "message": "p.job?.startsWith is not a function",
+            "name": "TypeError"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "job": [
+              "user:x"
+            ]
+          }
+        },
+        "out": {
+          "err": {
+            "message": "p.job?.startsWith is not a function",
+            "name": "TypeError"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {
+            "job": {
+              "startsWith": 1
+            }
+          }
+        },
+        "out": {
+          "err": {
+            "message": "p.job?.startsWith is not a function",
+            "name": "TypeError"
+          }
+        }
+      },
+      {
+        "events": [
+          {
+            "turn": {
+              "job": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "person": "mel",
+              "role": "member",
+              "runAs": "mel"
+            }
+          },
+          {
+            "recorded": {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "3a30c0cb-bb04-c83a-5569-20aaad050f57",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            }
+          }
+        ],
+        "op": {
+          "caller": {
+            "agentRights": {
+              "main": "manage"
+            },
+            "kind": "person",
+            "role": "member",
+            "userId": "mel"
+          },
+          "jobNth": 0,
+          "method": "jobs.run",
+          "op": "rpc",
+          "params": {}
+        },
+        "out": {
+          "ok": {
+            "agentId": "main",
+            "durationMs": 0,
+            "finishedAt": 1780387260000,
+            "job": "Daily",
+            "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+            "kind": "user",
+            "outcome": "completed",
+            "requestedBy": "mel",
+            "runAs": "mel",
+            "runAsDisplayName": "Mel",
+            "runId": "3a30c0cb-bb04-c83a-5569-20aaad050f57",
+            "startedAt": 1780387260000,
+            "trigger": "recurring"
+          }
+        }
+      },
+      {
+        "op": {
+          "caller": {
+            "kind": "person",
+            "role": "owner",
+            "userId": "olga"
+          },
+          "op": "history"
+        },
+        "out": {
+          "ok": [
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "3a30c0cb-bb04-c83a-5569-20aaad050f57",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            },
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "e9fad936-3530-2aa8-3c7d-e3cf876ed00f",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            },
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "ce7e0a83-d49d-cefc-549d-2ed98d21e8c4",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            },
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "04647385-5618-7aaa-81c2-578d7d007487",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            },
+            {
+              "agentId": "other",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Other",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "olga",
+              "runAs": "olga",
+              "runAsDisplayName": "Olga",
+              "runId": "3b3cc4ed-9736-a28d-461e-af3c66b06ccc",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            },
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mu",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "a932ad74-aee5-204f-76f3-a1b506003428",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            },
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387260000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "requestedBy": "mel",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "e5df153c-f88f-e060-11c0-f01b80c2188f",
+              "startedAt": 1780387260000,
+              "trigger": "recurring"
+            },
+            {
+              "agentId": "other",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Other",
+              "jobId": "user:186ddc6d-c220-1899-712a-965f26cb1204",
+              "kind": "user",
+              "outcome": "failed",
+              "runAs": "olga",
+              "runAsDisplayName": "Olga",
+              "runId": "2605de90-0e99-fd7e-932c-bb22b096f7c4",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            },
+            {
+              "agentId": "main",
+              "durationMs": 0,
+              "finishedAt": 1780387200000,
+              "job": "Daily",
+              "jobId": "user:eee389b1-b271-95af-4b34-6104a7232181",
+              "kind": "user",
+              "outcome": "completed",
+              "runAs": "mel",
+              "runAsDisplayName": "Mel",
+              "runId": "68e8980c-fd79-66ea-be14-0e9f2be7df0a",
+              "startedAt": 1780387200000,
+              "trigger": "recurring"
+            }
+          ]
+        }
+      }
+    ],
+    "world": {
+      "agentList": null,
+      "agents": [
+        "main",
+        "other",
+        "helper"
+      ],
+      "blocked": [],
+      "deliveryOk": [
+        "chan:ok"
+      ],
+      "displayNames": {
+        "mel": "Mel",
+        "olga": "Olga"
+      },
+      "now": 1780300800000,
+      "principals": {
+        "adam": {
+          "kind": "person",
+          "role": "admin"
+        },
+        "bot": {
+          "kind": "agent",
+          "role": "owner"
+        },
+        "mel": {
+          "agentRights": {
+            "main": "manage"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "mia": {
+          "kind": "person",
+          "role": "member"
+        },
+        "mon": {
+          "agentRights": {
+            "main": "use",
+            "other": "manage"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "mu": {
+          "agentRights": {
+            "main": "use"
+          },
+          "kind": "person",
+          "role": "member"
+        },
+        "nokind": {
+          "role": "owner"
+        },
+        "olga": {
+          "kind": "person",
+          "role": "owner"
+        },
+        "otto": {
+          "kind": "person",
+          "role": "operator"
+        },
+        "vera": {
+          "agentRights": {
+            "main": "manage"
+          },
+          "kind": "person",
+          "role": "viewer"
+        }
+      },
+      "validate": true
+    }
+  }
+]

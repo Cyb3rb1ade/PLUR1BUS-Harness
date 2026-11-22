@@ -1,0 +1,1472 @@
+[
+  {
+    "name": "confirmed",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "confirmed",
+              "method": "touch-id",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "at": 1794981600000,
+          "method": "touch-id",
+          "ok": true
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "at-before-issue-minus-skew",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "mismatch",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "mismatch"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981597999,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "at-at-issue-minus-skew",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "confirmed",
+              "method": "touch-id",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "at": 1794981598000,
+          "method": "touch-id",
+          "ok": true
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981598000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "at-at-now-plus-skew",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "confirmed",
+              "method": "touch-id",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "at": 1794981602000,
+          "method": "touch-id",
+          "ok": true
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981602000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "at-after-now-plus-skew",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "mismatch",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "mismatch"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981602001,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "at-string",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "mismatch",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "mismatch"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": "1794981600000",
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "at-missing",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "mismatch",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "mismatch"
+        }
+      }
+    ],
+    "template": {
+      "$omit": [
+        "at"
+      ],
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "at-fraction",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "confirmed",
+              "method": "touch-id",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "at": 1794981600000.5,
+          "method": "touch-id",
+          "ok": true
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000.5,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "method-upper",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "failed",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "failed"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "Touch-ID",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "method-empty",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "failed",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "failed"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "method-32",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "confirmed",
+              "method": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "at": 1794981600000,
+          "method": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "ok": true
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "method-33",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "failed",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "failed"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "method-dash-first",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "failed",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "failed"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "-x",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "method-number",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "failed",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "failed"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": 7,
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "nonce-other",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "mismatch",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "mismatch"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "other",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "nonce-missing",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "mismatch",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "mismatch"
+        }
+      }
+    ],
+    "template": {
+      "$omit": [
+        "nonce"
+      ],
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "nonce-number",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "mismatch",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "mismatch"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": 5,
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "cancelled",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "cancelled",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "cancelled"
+        }
+      }
+    ],
+    "template": {
+      "nonce": "$nonce",
+      "ok": false,
+      "reason": "cancelled",
+      "v": 1
+    }
+  },
+  {
+    "name": "unavailable",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "unavailable",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "unavailable"
+        }
+      }
+    ],
+    "template": {
+      "nonce": "$nonce",
+      "ok": false,
+      "reason": "unavailable",
+      "v": 1
+    }
+  },
+  {
+    "name": "timeout",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "timeout",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "timeout"
+        }
+      }
+    ],
+    "template": {
+      "ok": false,
+      "reason": "timeout",
+      "v": 1
+    }
+  },
+  {
+    "name": "other-reason",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "failed",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "failed"
+        }
+      }
+    ],
+    "template": {
+      "nonce": "$nonce",
+      "ok": false,
+      "reason": "boom",
+      "v": 1
+    }
+  },
+  {
+    "name": "ok-string",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "failed",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "failed"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": "true",
+      "v": 1
+    }
+  },
+  {
+    "name": "not-ok-other-nonce",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "mismatch",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "mismatch"
+        }
+      }
+    ],
+    "template": {
+      "nonce": "zzz",
+      "ok": false,
+      "reason": "cancelled",
+      "v": 1
+    }
+  },
+  {
+    "name": "version-2",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "failed",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "failed"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 2
+    }
+  },
+  {
+    "name": "version-string",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "failed",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "failed"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": "1"
+    }
+  },
+  {
+    "name": "version-missing",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "failed",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "failed"
+        }
+      }
+    ],
+    "template": {
+      "$omit": [
+        "v"
+      ],
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "hash-other",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "mismatch",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "mismatch"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "cd00000000000000000000000000000000000000000000000000000000000000",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "hash-missing",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "mismatch",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "mismatch"
+        }
+      }
+    ],
+    "template": {
+      "$omit": [
+        "actionHash"
+      ],
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "replay",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "confirmed",
+              "method": "touch-id",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "at": 1794981600000,
+          "method": "touch-id",
+          "ok": true
+        }
+      },
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "replay",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "replay"
+        }
+      },
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "person": "christian"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "replay",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "replay"
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "n1",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "audit-fields",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.requested",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "agentId": "bernd",
+              "requestId": "r1",
+              "scope": "session"
+            }
+          },
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "agentId": "bernd",
+              "attestationOutcome": "confirmed",
+              "method": "touch-id",
+              "requestId": "r1",
+              "scope": "session"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "agentId": "bernd",
+          "person": "",
+          "requestId": "r1",
+          "scope": "session",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "at": 1794981600000,
+          "method": "touch-id",
+          "ok": true
+        }
+      }
+    ],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "no-helper",
+    "now": 1794981600000,
+    "steps": [
+      {
+        "audit": [
+          {
+            "action": "attestation.result",
+            "fields": {
+              "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+              "attestationOutcome": "unavailable",
+              "person": "christian"
+            }
+          }
+        ],
+        "input": {
+          "actionHash": "ab00000000000000000000000000000000000000000000000000000000000000",
+          "person": "christian",
+          "text": "Allow agent bernd to run shell.exec for this session"
+        },
+        "result": {
+          "ok": false,
+          "reason": "unavailable"
+        }
+      }
+    ],
+    "template": null
+  },
+  {
+    "name": "probe-default",
+    "now": 1794981600000,
+    "probe": {
+      "available": true,
+      "method": "scripted"
+    },
+    "steps": [],
+    "template": {
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "probe-unavailable",
+    "now": 1794981600000,
+    "probe": {
+      "available": false,
+      "reason": "unavailable"
+    },
+    "steps": [],
+    "template": {
+      "$probe": {
+        "available": false,
+        "v": 1
+      },
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "probe-bad-method",
+    "now": 1794981600000,
+    "probe": {
+      "available": false,
+      "reason": "unavailable"
+    },
+    "steps": [],
+    "template": {
+      "$probe": {
+        "available": true,
+        "method": "Bad",
+        "v": 1
+      },
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "probe-version",
+    "now": 1794981600000,
+    "probe": {
+      "available": false,
+      "reason": "unavailable"
+    },
+    "steps": [],
+    "template": {
+      "$probe": {
+        "available": true,
+        "method": "polkit",
+        "v": 2
+      },
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  },
+  {
+    "name": "probe-ok",
+    "now": 1794981600000,
+    "probe": {
+      "available": true,
+      "method": "windows-hello"
+    },
+    "steps": [],
+    "template": {
+      "$probe": {
+        "available": true,
+        "method": "windows-hello",
+        "v": 1
+      },
+      "actionHash": "$hash",
+      "at": 1794981600000,
+      "method": "touch-id",
+      "nonce": "$nonce",
+      "ok": true,
+      "v": 1
+    }
+  }
+]

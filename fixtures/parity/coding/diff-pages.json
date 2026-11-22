@@ -1,0 +1,153 @@
+[
+  {
+    "limit": 2,
+    "name": "utf16 boundary",
+    "offset": 0,
+    "output": "{\"diff\":\"α🙂hello\\nsecond\"}",
+    "result": {
+      "ok": {
+        "diff": "α🙂",
+        "nextOffset": 3,
+        "offset": 0,
+        "sessionId": "session",
+        "source": "call"
+      }
+    }
+  },
+  {
+    "limit": 15,
+    "name": "returns tail",
+    "offset": 3,
+    "output": "{\"diff\":\"α🙂hello\\nsecond\"}",
+    "result": {
+      "ok": {
+        "diff": "hello\nsecond",
+        "nextOffset": null,
+        "offset": 3,
+        "sessionId": "session",
+        "source": "call"
+      }
+    }
+  },
+  {
+    "limit": 2,
+    "name": "split offset",
+    "offset": 2,
+    "output": "{\"diff\":\"α🙂hello\\nsecond\"}",
+    "result": {
+      "err": {
+        "code": "E_INVALID_PARAMS",
+        "message": "diff offset must not split a Unicode code point",
+        "reason": null
+      }
+    }
+  },
+  {
+    "limit": 2,
+    "name": "offset negative",
+    "offset": -1,
+    "output": "{\"diff\":\"α🙂hello\\nsecond\"}",
+    "result": {
+      "err": {
+        "code": "E_INVALID_PARAMS",
+        "message": "invalid diff page",
+        "reason": null
+      }
+    }
+  },
+  {
+    "limit": 0,
+    "name": "limit zero",
+    "offset": 0,
+    "output": "{\"diff\":\"α🙂hello\\nsecond\"}",
+    "result": {
+      "err": {
+        "code": "E_INVALID_PARAMS",
+        "message": "invalid diff page",
+        "reason": null
+      }
+    }
+  },
+  {
+    "limit": 65537,
+    "name": "limit too large",
+    "offset": 0,
+    "output": "{\"diff\":\"α🙂hello\\nsecond\"}",
+    "result": {
+      "err": {
+        "code": "E_INVALID_PARAMS",
+        "message": "invalid diff page",
+        "reason": null
+      }
+    }
+  },
+  {
+    "limit": 2,
+    "name": "missing",
+    "offset": 0,
+    "output": null,
+    "result": {
+      "err": {
+        "code": "E_NOT_FOUND",
+        "message": "tool result not found",
+        "reason": null
+      }
+    }
+  },
+  {
+    "limit": 3,
+    "name": "wrapped",
+    "offset": 0,
+    "output": "{\"value\":{\"data\":{\"result\":{\"unifiedDiff\":\"α🙂hello\\nsecond\"}}}}",
+    "result": {
+      "ok": {
+        "diff": "α🙂",
+        "nextOffset": 3,
+        "offset": 0,
+        "sessionId": "session",
+        "source": "call"
+      }
+    }
+  },
+  {
+    "limit": 3,
+    "name": "too deep",
+    "offset": 0,
+    "output": "{\"value\":{\"data\":{\"result\":{\"result\":{\"diff\":\"α🙂hello\\nsecond\"}}}}}",
+    "result": {
+      "err": {
+        "code": "E_NOT_AVAILABLE",
+        "message": "this tool result has no inline patch; use /diff for the current worktree",
+        "reason": "tool-diff-unavailable"
+      }
+    }
+  },
+  {
+    "limit": 2,
+    "name": "no inline patch",
+    "offset": 0,
+    "output": "legacy output",
+    "result": {
+      "err": {
+        "code": "E_NOT_AVAILABLE",
+        "message": "this tool result has no inline patch; use /diff for the current worktree",
+        "reason": "tool-diff-unavailable"
+      }
+    }
+  },
+  {
+    "limit": 4,
+    "name": "redaction before paging",
+    "offset": 0,
+    "output": "{\"diff\":\"secret-fixture\"}",
+    "result": {
+      "ok": {
+        "diff": "[mas",
+        "nextOffset": 4,
+        "offset": 0,
+        "sessionId": "session",
+        "source": "call"
+      }
+    }
+  }
+]

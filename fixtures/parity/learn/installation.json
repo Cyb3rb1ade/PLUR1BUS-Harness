@@ -1,0 +1,763 @@
+[
+  {
+    "cap": 50,
+    "events": [
+      "{\"sessionId\":\"s2\",\"turnId\":\"turn1\",\"seq\":1,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"missing\",\"turnId\":\"turn2\",\"seq\":2,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"s1\",\"turnId\":\"turn3\",\"seq\":3,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"s1\",\"turnId\":\"turn4\",\"seq\":4,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.list\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}"
+    ],
+    "expected": {
+      "result": {
+        "digest": "081fdbbce99be8ea5f0f8f257d96160c176c17e0898e02dfa6c99d6675591aaf",
+        "findings": [
+          {
+            "agreement": "unknown",
+            "change": "add",
+            "contentKey": "227c9040988112d40975739baca905b949c29205dde388f43692cdeef5b879f6",
+            "desiredTier": "C",
+            "effectiveTier": "C",
+            "evidence": [
+              {
+                "agentId": "beta",
+                "day": "1970-01-01",
+                "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+                "sessionId": "s2",
+                "source": "event",
+                "sourceId": "1",
+                "trust": "untrusted",
+                "turnId": "turn1"
+              },
+              {
+                "agentId": "alpha",
+                "day": "1970-01-01",
+                "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+                "sessionId": "s1",
+                "source": "event",
+                "sourceId": "3",
+                "trust": "untrusted",
+                "turnId": "turn3"
+              }
+            ],
+            "id": "eaeac501d277e746d8aa640257c7629f80e92f892dbde3b1eb1361366f85718d",
+            "kind": "procedural",
+            "modelClasses": [],
+            "models": [],
+            "prevalence": {
+              "agents": 2,
+              "days": 1,
+              "persons": 1,
+              "sessions": 2,
+              "total": 2
+            },
+            "promptVersion": "learn-2",
+            "runId": "run-fixture",
+            "score": 0,
+            "skeptic": "not-required",
+            "status": "waiting-h3",
+            "target": {
+              "agentId": "alpha",
+              "owner": "ada",
+              "scope": "installation"
+            },
+            "text": "Tool failure pattern",
+            "toolPattern": {
+              "affectedAgents": [
+                "alpha",
+                "beta"
+              ],
+              "count": 2,
+              "errorClass": "tool-failed",
+              "shape": {
+                "arrays": 0,
+                "booleans": 0,
+                "depth": 1,
+                "fields": 1,
+                "nulls": 0,
+                "numbers": 0,
+                "objects": 1,
+                "strings": 1,
+                "truncated": false
+              },
+              "tool": "file.read",
+              "version": 1
+            },
+            "verify": "not-applicable"
+          },
+          {
+            "agreement": "unknown",
+            "change": "add",
+            "contentKey": "e8816c92cec058fc2f9a2e56fc4b3ea66b29c73846eb03533e5a79ac8a0ffd49",
+            "desiredTier": "C",
+            "effectiveTier": "C",
+            "evidence": [
+              {
+                "agentId": "alpha",
+                "day": "1970-01-01",
+                "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+                "sessionId": "s1",
+                "source": "event",
+                "sourceId": "4",
+                "trust": "untrusted",
+                "turnId": "turn4"
+              }
+            ],
+            "id": "cf73257a51de903f6547cff60acd7934690c8ad6aee3964f342607d9162f6d12",
+            "kind": "procedural",
+            "modelClasses": [],
+            "models": [],
+            "prevalence": {
+              "agents": 1,
+              "days": 1,
+              "persons": 1,
+              "sessions": 1,
+              "total": 2
+            },
+            "promptVersion": "learn-2",
+            "runId": "run-fixture",
+            "score": 0,
+            "skeptic": "not-required",
+            "status": "waiting-h3",
+            "target": {
+              "agentId": "alpha",
+              "owner": "ada",
+              "scope": "installation"
+            },
+            "text": "Tool failure pattern",
+            "toolPattern": {
+              "affectedAgents": [
+                "alpha"
+              ],
+              "count": 1,
+              "errorClass": "tool-failed",
+              "shape": {
+                "arrays": 0,
+                "booleans": 0,
+                "depth": 1,
+                "fields": 1,
+                "nulls": 0,
+                "numbers": 0,
+                "objects": 1,
+                "strings": 1,
+                "truncated": false
+              },
+              "tool": "file.list",
+              "version": 1
+            },
+            "verify": "not-applicable"
+          }
+        ],
+        "omittedSessions": 0,
+        "sessionIds": [
+          "s2",
+          "s1"
+        ],
+        "truncated": false
+      }
+    },
+    "name": "grouped",
+    "person": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "ada"
+    },
+    "rows": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "beta",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ]
+  },
+  {
+    "cap": 1,
+    "events": [
+      "{\"sessionId\":\"s2\",\"turnId\":\"turn1\",\"seq\":1,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"missing\",\"turnId\":\"turn2\",\"seq\":2,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"s1\",\"turnId\":\"turn3\",\"seq\":3,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"s1\",\"turnId\":\"turn4\",\"seq\":4,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.list\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}"
+    ],
+    "expected": {
+      "result": {
+        "digest": "97fb41b7d9cbfdaf50b1874b976fb1ca8be522d6451247d8622dafbac08c1436",
+        "findings": [
+          {
+            "agreement": "unknown",
+            "change": "add",
+            "contentKey": "227c9040988112d40975739baca905b949c29205dde388f43692cdeef5b879f6",
+            "desiredTier": "C",
+            "effectiveTier": "C",
+            "evidence": [
+              {
+                "agentId": "beta",
+                "day": "1970-01-01",
+                "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+                "sessionId": "s2",
+                "source": "event",
+                "sourceId": "1",
+                "trust": "untrusted",
+                "turnId": "turn1"
+              }
+            ],
+            "id": "eaeac501d277e746d8aa640257c7629f80e92f892dbde3b1eb1361366f85718d",
+            "kind": "procedural",
+            "modelClasses": [],
+            "models": [],
+            "prevalence": {
+              "agents": 1,
+              "days": 1,
+              "persons": 1,
+              "sessions": 1,
+              "total": 1
+            },
+            "promptVersion": "learn-2",
+            "runId": "run-fixture",
+            "score": 0,
+            "skeptic": "not-required",
+            "status": "waiting-h3",
+            "target": {
+              "agentId": "alpha",
+              "owner": "ada",
+              "scope": "installation"
+            },
+            "text": "Tool failure pattern",
+            "toolPattern": {
+              "affectedAgents": [
+                "beta"
+              ],
+              "count": 1,
+              "errorClass": "tool-failed",
+              "shape": {
+                "arrays": 0,
+                "booleans": 0,
+                "depth": 1,
+                "fields": 1,
+                "nulls": 0,
+                "numbers": 0,
+                "objects": 1,
+                "strings": 1,
+                "truncated": false
+              },
+              "tool": "file.read",
+              "version": 1
+            },
+            "verify": "not-applicable"
+          }
+        ],
+        "omittedSessions": 1,
+        "sessionIds": [
+          "s2"
+        ],
+        "truncated": true
+      }
+    },
+    "name": "session cap",
+    "person": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "ada"
+    },
+    "rows": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "beta",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ]
+  },
+  {
+    "cap": 50,
+    "events": [
+      "{\"sessionId\":\"s2\",\"turnId\":\"turn1\",\"seq\":1,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"missing\",\"turnId\":\"turn2\",\"seq\":2,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"s1\",\"turnId\":\"turn3\",\"seq\":3,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"s1\",\"turnId\":\"turn4\",\"seq\":4,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.list\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}"
+    ],
+    "expected": {
+      "result": {
+        "digest": "2ca1df8e4ccb633c6b6a9aed8595470f14700ed580e24b63fddff0bcd87b3d86",
+        "findings": [
+          {
+            "agreement": "unknown",
+            "change": "add",
+            "contentKey": "227c9040988112d40975739baca905b949c29205dde388f43692cdeef5b879f6",
+            "desiredTier": "C",
+            "effectiveTier": "C",
+            "evidence": [
+              {
+                "agentId": "alpha",
+                "day": "1970-01-01",
+                "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+                "sessionId": "s1",
+                "source": "event",
+                "sourceId": "3",
+                "trust": "untrusted",
+                "turnId": "turn3"
+              }
+            ],
+            "id": "eaeac501d277e746d8aa640257c7629f80e92f892dbde3b1eb1361366f85718d",
+            "kind": "procedural",
+            "modelClasses": [],
+            "models": [],
+            "prevalence": {
+              "agents": 1,
+              "days": 1,
+              "persons": 1,
+              "sessions": 1,
+              "total": 1
+            },
+            "promptVersion": "learn-2",
+            "runId": "run-fixture",
+            "score": 0,
+            "skeptic": "not-required",
+            "status": "waiting-h3",
+            "target": {
+              "agentId": "alpha",
+              "owner": "ada",
+              "scope": "installation"
+            },
+            "text": "Tool failure pattern",
+            "toolPattern": {
+              "affectedAgents": [
+                "alpha"
+              ],
+              "count": 1,
+              "errorClass": "tool-failed",
+              "shape": {
+                "arrays": 0,
+                "booleans": 0,
+                "depth": 1,
+                "fields": 1,
+                "nulls": 0,
+                "numbers": 0,
+                "objects": 1,
+                "strings": 1,
+                "truncated": false
+              },
+              "tool": "file.read",
+              "version": 1
+            },
+            "verify": "not-applicable"
+          },
+          {
+            "agreement": "unknown",
+            "change": "add",
+            "contentKey": "e8816c92cec058fc2f9a2e56fc4b3ea66b29c73846eb03533e5a79ac8a0ffd49",
+            "desiredTier": "C",
+            "effectiveTier": "C",
+            "evidence": [
+              {
+                "agentId": "alpha",
+                "day": "1970-01-01",
+                "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+                "sessionId": "s1",
+                "source": "event",
+                "sourceId": "4",
+                "trust": "untrusted",
+                "turnId": "turn4"
+              }
+            ],
+            "id": "cf73257a51de903f6547cff60acd7934690c8ad6aee3964f342607d9162f6d12",
+            "kind": "procedural",
+            "modelClasses": [],
+            "models": [],
+            "prevalence": {
+              "agents": 1,
+              "days": 1,
+              "persons": 1,
+              "sessions": 1,
+              "total": 1
+            },
+            "promptVersion": "learn-2",
+            "runId": "run-fixture",
+            "score": 0,
+            "skeptic": "not-required",
+            "status": "waiting-h3",
+            "target": {
+              "agentId": "alpha",
+              "owner": "ada",
+              "scope": "installation"
+            },
+            "text": "Tool failure pattern",
+            "toolPattern": {
+              "affectedAgents": [
+                "alpha"
+              ],
+              "count": 1,
+              "errorClass": "tool-failed",
+              "shape": {
+                "arrays": 0,
+                "booleans": 0,
+                "depth": 1,
+                "fields": 1,
+                "nulls": 0,
+                "numbers": 0,
+                "objects": 1,
+                "strings": 1,
+                "truncated": false
+              },
+              "tool": "file.list",
+              "version": 1
+            },
+            "verify": "not-applicable"
+          }
+        ],
+        "omittedSessions": 0,
+        "sessionIds": [
+          "s1"
+        ],
+        "truncated": false
+      }
+    },
+    "name": "denied scope",
+    "person": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "ada"
+    },
+    "rows": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "beta",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ]
+  },
+  {
+    "cap": 50,
+    "events": [],
+    "expected": {
+      "result": {
+        "digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "findings": [],
+        "omittedSessions": 0,
+        "sessionIds": [],
+        "truncated": false
+      }
+    },
+    "name": "empty",
+    "person": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "ada"
+    },
+    "rows": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "beta",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ]
+  },
+  {
+    "cap": 50,
+    "events": [
+      "{\"sessionId\":\"s2\",\"turnId\":\"turn1\",\"seq\":1,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"missing\",\"turnId\":\"turn2\",\"seq\":2,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"s1\",\"turnId\":\"turn3\",\"seq\":3,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"s1\",\"turnId\":\"turn4\",\"seq\":4,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.list\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}"
+    ],
+    "expected": {
+      "error": "source-unavailable"
+    },
+    "name": "missing port",
+    "person": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "ada"
+    },
+    "rows": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "beta",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ]
+  },
+  {
+    "cap": 50,
+    "events": [],
+    "expected": {
+      "error": "transcript-cap"
+    },
+    "name": "overflow",
+    "person": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "ada"
+    },
+    "rows": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "beta",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ]
+  },
+  {
+    "cap": 50,
+    "events": [
+      "{\"sessionId\":\"s2\",\"turnId\":\"turn1\",\"seq\":1,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"missing\",\"turnId\":\"turn2\",\"seq\":2,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"s1\",\"turnId\":\"turn3\",\"seq\":3,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"s1\",\"turnId\":\"turn4\",\"seq\":4,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.list\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}"
+    ],
+    "expected": {
+      "error": "rights-changed"
+    },
+    "name": "non-owner",
+    "person": {
+      "kind": "person",
+      "role": "admin",
+      "userId": "ada"
+    },
+    "rows": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "beta",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ]
+  },
+  {
+    "cap": 50,
+    "events": [
+      "{\"sessionId\":\"s2\",\"turnId\":\"turn1\",\"seq\":1,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"missing\",\"turnId\":\"turn2\",\"seq\":2,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"s1\",\"turnId\":\"turn3\",\"seq\":3,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.read\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}",
+      "{\"sessionId\":\"s1\",\"turnId\":\"turn4\",\"seq\":4,\"at\":23,\"metadata\":{\"version\":1,\"tool\":\"file.list\",\"errorClass\":\"tool-failed\",\"shape\":{\"objects\":1,\"arrays\":0,\"strings\":1,\"numbers\":0,\"booleans\":0,\"nulls\":0,\"fields\":1,\"depth\":1,\"truncated\":false}}}"
+    ],
+    "expected": {
+      "error": "rights-changed"
+    },
+    "name": "agent",
+    "person": {
+      "kind": "agent",
+      "role": "owner",
+      "userId": "ada"
+    },
+    "rows": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      },
+      {
+        "agentId": "beta",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": 20,
+        "memoryMode": "remember",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 20
+      }
+    ]
+  }
+]

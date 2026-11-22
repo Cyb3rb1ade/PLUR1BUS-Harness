@@ -406,11 +406,20 @@ impl Runtime {
     }
 }
 
+struct InstanceLock(File);
+
+impl Drop for InstanceLock {
+    fn drop(&mut self) {
+        // A duplicate Unix descriptor can outlive this file handle and keep its lock.
+        let _ = self.0.unlock();
+    }
+}
+
 /// Owns the native listener, instance lock and private run files until shutdown.
 pub struct Service {
     runtime: Arc<Runtime>,
     listener: Option<Listener>,
-    _lock: File,
+    _lock: InstanceLock,
 }
 
 impl Service {
@@ -434,6 +443,7 @@ impl Service {
             }
             fs::TryLockError::Error(error) => error,
         })?;
+        let single = InstanceLock(single);
         let endpoint = crate::address(home);
         #[cfg(unix)]
         if Path::new(&endpoint).exists() {
@@ -904,6 +914,26 @@ mod panic_boundary_tests {
             "RPC connection closed instead of reporting the module failure"
         );
         serde_json::from_str(&line).unwrap()
+    }
+
+    // On Unix, duplicated descriptors share the same advisory lock.
+    #[cfg(unix)]
+    #[test]
+    fn dropping_tools_service_releases_the_lock_while_a_duplicate_is_open() {
+        let home = tempfile::tempdir().unwrap();
+        fs::create_dir(home.path().join("state")).unwrap();
+        let service = Service::bind(home.path(), "first", Vec::new()).unwrap();
+        let duplicate = service._lock.0.try_clone().unwrap();
+        let conflict = Service::bind(home.path(), "while-locked", Vec::new());
+        assert!(
+            matches!(conflict, Err(error) if error.kind() == io::ErrorKind::WouldBlock),
+            "another service must not bind while the first is active"
+        );
+
+        drop(service);
+        let replacement = Service::bind(home.path(), "replacement", Vec::new()).unwrap();
+        drop(duplicate);
+        drop(replacement);
     }
 
     #[test]

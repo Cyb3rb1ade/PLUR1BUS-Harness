@@ -1,0 +1,750 @@
+[
+  {
+    "expected": {
+      "asked": [
+        {
+          "agentId": "alpha",
+          "args": {
+            "contentHash": "d80cd7300be71e99a8c8c7d0a03e8a88066286d5097b2a71e75c032cfb52c078",
+            "decision": "accept",
+            "enabled": false,
+            "proposalId": "fixture",
+            "scope": {
+              "agentId": "alpha",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "scope": "workspace"
+            },
+            "skillMd": "Fixture candidate"
+          },
+          "park": false,
+          "principal": "ada",
+          "request": {
+            "actionHash": "fa90e454067470e09f2a79e3ab20a9620c65eb2a8eb4b0c28dd916b2dc146446",
+            "capability": "fs.write",
+            "effect": "local-write",
+            "flags": {
+              "denyListHit": false,
+              "outsideRoots": false
+            },
+            "grantOptions": [
+              {
+                "requiredSurface": 3,
+                "scope": "once"
+              }
+            ],
+            "originSurface": 3,
+            "requiredSurface": 3,
+            "reversible": true,
+            "risk": "high",
+            "taintSuspended": false,
+            "tainted": false,
+            "tool": "skills.proposals.review"
+          },
+          "tool": "skills.proposals.review"
+        }
+      ],
+      "calls": [
+        {
+          "decision": "accept",
+          "expectedHash": "d80cd7300be71e99a8c8c7d0a03e8a88066286d5097b2a71e75c032cfb52c078",
+          "id": "fixture",
+          "scope": {
+            "agentId": "alpha",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "scope": "workspace"
+          }
+        }
+      ],
+      "reads": 2,
+      "result": {
+        "ok": true
+      },
+      "starts": 1
+    },
+    "name": "accepted",
+    "proposal": {
+      "candidate": {
+        "author": "agent",
+        "enabled": false,
+        "kind": "skill",
+        "name": "mined-workflow-aaaaaaaaaaaaaaaa",
+        "reason": "Verified repeated steps",
+        "schema": "plur1bus.skill-candidate/1",
+        "sessionIds": [
+          "s1",
+          "s2"
+        ],
+        "skillMd": "Fixture candidate",
+        "workflowHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "id": "fixture",
+      "scope": {
+        "agentId": "alpha",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "scope": "workspace"
+      },
+      "status": "pending"
+    },
+    "scope": {
+      "agentId": "alpha",
+      "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+      "scope": "workspace"
+    }
+  },
+  {
+    "expected": {
+      "asked": [
+        {
+          "agentId": "alpha",
+          "args": {
+            "contentHash": "d80cd7300be71e99a8c8c7d0a03e8a88066286d5097b2a71e75c032cfb52c078",
+            "decision": "reject",
+            "enabled": false,
+            "proposalId": "fixture",
+            "scope": {
+              "agentId": "alpha",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "scope": "workspace"
+            },
+            "skillMd": "Fixture candidate"
+          },
+          "park": false,
+          "principal": "ada",
+          "request": {
+            "actionHash": "d6a4990c2b4db909e619079a061d8c856042f05f9471c8e9e4a3193776a2d9cf",
+            "capability": "fs.write",
+            "effect": "local-write",
+            "flags": {
+              "denyListHit": false,
+              "outsideRoots": false
+            },
+            "grantOptions": [
+              {
+                "requiredSurface": 3,
+                "scope": "once"
+              }
+            ],
+            "originSurface": 3,
+            "requiredSurface": 3,
+            "reversible": true,
+            "risk": "high",
+            "taintSuspended": false,
+            "tainted": false,
+            "tool": "skills.proposals.review"
+          },
+          "tool": "skills.proposals.review"
+        }
+      ],
+      "calls": [
+        {
+          "decision": "reject",
+          "expectedHash": "d80cd7300be71e99a8c8c7d0a03e8a88066286d5097b2a71e75c032cfb52c078",
+          "id": "fixture",
+          "scope": {
+            "agentId": "alpha",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "scope": "workspace"
+          }
+        }
+      ],
+      "reads": 2,
+      "result": {
+        "ok": true
+      },
+      "starts": 1
+    },
+    "name": "rejected",
+    "proposal": {
+      "candidate": {
+        "author": "agent",
+        "enabled": false,
+        "kind": "skill",
+        "name": "mined-workflow-aaaaaaaaaaaaaaaa",
+        "reason": "Verified repeated steps",
+        "schema": "plur1bus.skill-candidate/1",
+        "sessionIds": [
+          "s1",
+          "s2"
+        ],
+        "skillMd": "Fixture candidate",
+        "workflowHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "id": "fixture",
+      "scope": {
+        "agentId": "alpha",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "scope": "workspace"
+      },
+      "status": "pending"
+    },
+    "scope": {
+      "agentId": "alpha",
+      "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+      "scope": "workspace"
+    }
+  },
+  {
+    "expected": {
+      "asked": [],
+      "calls": [],
+      "reads": 0,
+      "result": {
+        "error": "E_DENIED"
+      },
+      "starts": 0
+    },
+    "name": "viewer",
+    "proposal": {
+      "candidate": {
+        "author": "agent",
+        "enabled": false,
+        "kind": "skill",
+        "name": "mined-workflow-aaaaaaaaaaaaaaaa",
+        "reason": "Verified repeated steps",
+        "schema": "plur1bus.skill-candidate/1",
+        "sessionIds": [
+          "s1",
+          "s2"
+        ],
+        "skillMd": "Fixture candidate",
+        "workflowHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "id": "fixture",
+      "scope": {
+        "agentId": "alpha",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "scope": "workspace"
+      },
+      "status": "pending"
+    },
+    "scope": {
+      "agentId": "alpha",
+      "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+      "scope": "workspace"
+    }
+  },
+  {
+    "expected": {
+      "asked": [],
+      "calls": [],
+      "reads": 0,
+      "result": {
+        "error": "E_NOT_AVAILABLE"
+      },
+      "starts": 0
+    },
+    "name": "missing",
+    "proposal": {
+      "candidate": {
+        "author": "agent",
+        "enabled": false,
+        "kind": "skill",
+        "name": "mined-workflow-aaaaaaaaaaaaaaaa",
+        "reason": "Verified repeated steps",
+        "schema": "plur1bus.skill-candidate/1",
+        "sessionIds": [
+          "s1",
+          "s2"
+        ],
+        "skillMd": "Fixture candidate",
+        "workflowHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "id": "fixture",
+      "scope": {
+        "agentId": "alpha",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "scope": "workspace"
+      },
+      "status": "pending"
+    },
+    "scope": {
+      "agentId": "alpha",
+      "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+      "scope": "workspace"
+    }
+  },
+  {
+    "expected": {
+      "asked": [],
+      "calls": [],
+      "reads": 1,
+      "result": {
+        "error": "E_DENIED"
+      },
+      "starts": 0
+    },
+    "name": "foreign scope",
+    "proposal": {
+      "candidate": {
+        "author": "agent",
+        "enabled": false,
+        "kind": "skill",
+        "name": "mined-workflow-aaaaaaaaaaaaaaaa",
+        "reason": "Verified repeated steps",
+        "schema": "plur1bus.skill-candidate/1",
+        "sessionIds": [
+          "s1",
+          "s2"
+        ],
+        "skillMd": "Fixture candidate",
+        "workflowHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "id": "fixture",
+      "scope": {
+        "agentId": "beta",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "scope": "workspace"
+      },
+      "status": "pending"
+    },
+    "scope": {
+      "agentId": "alpha",
+      "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+      "scope": "workspace"
+    }
+  },
+  {
+    "expected": {
+      "asked": [],
+      "calls": [],
+      "reads": 1,
+      "result": {
+        "error": "E_DENIED"
+      },
+      "starts": 0
+    },
+    "name": "nonpending",
+    "proposal": {
+      "candidate": {
+        "author": "agent",
+        "enabled": false,
+        "kind": "skill",
+        "name": "mined-workflow-aaaaaaaaaaaaaaaa",
+        "reason": "Verified repeated steps",
+        "schema": "plur1bus.skill-candidate/1",
+        "sessionIds": [
+          "s1",
+          "s2"
+        ],
+        "skillMd": "Fixture candidate",
+        "workflowHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "id": "fixture",
+      "scope": {
+        "agentId": "alpha",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "scope": "workspace"
+      },
+      "status": "accepted"
+    },
+    "scope": {
+      "agentId": "alpha",
+      "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+      "scope": "workspace"
+    }
+  },
+  {
+    "expected": {
+      "asked": [],
+      "calls": [],
+      "reads": 1,
+      "result": {
+        "error": "E_STORAGE"
+      },
+      "starts": 0
+    },
+    "name": "active candidate",
+    "proposal": {
+      "candidate": {
+        "author": "agent",
+        "enabled": true,
+        "kind": "skill",
+        "name": "mined-workflow-aaaaaaaaaaaaaaaa",
+        "reason": "Verified repeated steps",
+        "schema": "plur1bus.skill-candidate/1",
+        "sessionIds": [
+          "s1",
+          "s2"
+        ],
+        "skillMd": "Fixture candidate",
+        "workflowHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "id": "fixture",
+      "scope": {
+        "agentId": "alpha",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "scope": "workspace"
+      },
+      "status": "pending"
+    },
+    "scope": {
+      "agentId": "alpha",
+      "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+      "scope": "workspace"
+    }
+  },
+  {
+    "expected": {
+      "asked": [],
+      "calls": [],
+      "reads": 1,
+      "result": {
+        "error": "E_STORAGE"
+      },
+      "starts": 0
+    },
+    "name": "long candidate",
+    "proposal": {
+      "candidate": {
+        "author": "agent",
+        "enabled": false,
+        "kind": "skill",
+        "name": "mined-workflow-aaaaaaaaaaaaaaaa",
+        "reason": "Verified repeated steps",
+        "schema": "plur1bus.skill-candidate/1",
+        "sessionIds": [
+          "s1",
+          "s2"
+        ],
+        "skillMd": "Fixture candidate",
+        "workflowHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "id": "fixture",
+      "scope": {
+        "agentId": "alpha",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "scope": "workspace"
+      },
+      "status": "pending"
+    },
+    "scope": {
+      "agentId": "alpha",
+      "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+      "scope": "workspace"
+    }
+  },
+  {
+    "expected": {
+      "asked": [
+        {
+          "agentId": "alpha",
+          "args": {
+            "contentHash": "d80cd7300be71e99a8c8c7d0a03e8a88066286d5097b2a71e75c032cfb52c078",
+            "decision": "accept",
+            "enabled": false,
+            "proposalId": "fixture",
+            "scope": {
+              "agentId": "alpha",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "scope": "workspace"
+            },
+            "skillMd": "Fixture candidate"
+          },
+          "park": false,
+          "principal": "ada",
+          "request": {
+            "actionHash": "fa90e454067470e09f2a79e3ab20a9620c65eb2a8eb4b0c28dd916b2dc146446",
+            "capability": "fs.write",
+            "effect": "local-write",
+            "flags": {
+              "denyListHit": false,
+              "outsideRoots": false
+            },
+            "grantOptions": [
+              {
+                "requiredSurface": 3,
+                "scope": "once"
+              }
+            ],
+            "originSurface": 3,
+            "requiredSurface": 3,
+            "reversible": true,
+            "risk": "high",
+            "taintSuspended": false,
+            "tainted": false,
+            "tool": "skills.proposals.review"
+          },
+          "tool": "skills.proposals.review"
+        }
+      ],
+      "calls": [],
+      "reads": 1,
+      "result": {
+        "error": "E_DENIED"
+      },
+      "starts": 0
+    },
+    "name": "denied",
+    "proposal": {
+      "candidate": {
+        "author": "agent",
+        "enabled": false,
+        "kind": "skill",
+        "name": "mined-workflow-aaaaaaaaaaaaaaaa",
+        "reason": "Verified repeated steps",
+        "schema": "plur1bus.skill-candidate/1",
+        "sessionIds": [
+          "s1",
+          "s2"
+        ],
+        "skillMd": "Fixture candidate",
+        "workflowHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "id": "fixture",
+      "scope": {
+        "agentId": "alpha",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "scope": "workspace"
+      },
+      "status": "pending"
+    },
+    "scope": {
+      "agentId": "alpha",
+      "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+      "scope": "workspace"
+    }
+  },
+  {
+    "expected": {
+      "asked": [
+        {
+          "agentId": "alpha",
+          "args": {
+            "contentHash": "d80cd7300be71e99a8c8c7d0a03e8a88066286d5097b2a71e75c032cfb52c078",
+            "decision": "accept",
+            "enabled": false,
+            "proposalId": "fixture",
+            "scope": {
+              "agentId": "alpha",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "scope": "workspace"
+            },
+            "skillMd": "Fixture candidate"
+          },
+          "park": false,
+          "principal": "ada",
+          "request": {
+            "actionHash": "fa90e454067470e09f2a79e3ab20a9620c65eb2a8eb4b0c28dd916b2dc146446",
+            "capability": "fs.write",
+            "effect": "local-write",
+            "flags": {
+              "denyListHit": false,
+              "outsideRoots": false
+            },
+            "grantOptions": [
+              {
+                "requiredSurface": 3,
+                "scope": "once"
+              }
+            ],
+            "originSurface": 3,
+            "requiredSurface": 3,
+            "reversible": true,
+            "risk": "high",
+            "taintSuspended": false,
+            "tainted": false,
+            "tool": "skills.proposals.review"
+          },
+          "tool": "skills.proposals.review"
+        }
+      ],
+      "calls": [],
+      "reads": 1,
+      "result": {
+        "error": "E_DENIED"
+      },
+      "starts": 0
+    },
+    "name": "standing",
+    "proposal": {
+      "candidate": {
+        "author": "agent",
+        "enabled": false,
+        "kind": "skill",
+        "name": "mined-workflow-aaaaaaaaaaaaaaaa",
+        "reason": "Verified repeated steps",
+        "schema": "plur1bus.skill-candidate/1",
+        "sessionIds": [
+          "s1",
+          "s2"
+        ],
+        "skillMd": "Fixture candidate",
+        "workflowHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "id": "fixture",
+      "scope": {
+        "agentId": "alpha",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "scope": "workspace"
+      },
+      "status": "pending"
+    },
+    "scope": {
+      "agentId": "alpha",
+      "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+      "scope": "workspace"
+    }
+  },
+  {
+    "expected": {
+      "asked": [
+        {
+          "agentId": "alpha",
+          "args": {
+            "contentHash": "d80cd7300be71e99a8c8c7d0a03e8a88066286d5097b2a71e75c032cfb52c078",
+            "decision": "accept",
+            "enabled": false,
+            "proposalId": "fixture",
+            "scope": {
+              "agentId": "alpha",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "scope": "workspace"
+            },
+            "skillMd": "Fixture candidate"
+          },
+          "park": false,
+          "principal": "ada",
+          "request": {
+            "actionHash": "fa90e454067470e09f2a79e3ab20a9620c65eb2a8eb4b0c28dd916b2dc146446",
+            "capability": "fs.write",
+            "effect": "local-write",
+            "flags": {
+              "denyListHit": false,
+              "outsideRoots": false
+            },
+            "grantOptions": [
+              {
+                "requiredSurface": 3,
+                "scope": "once"
+              }
+            ],
+            "originSurface": 3,
+            "requiredSurface": 3,
+            "reversible": true,
+            "risk": "high",
+            "taintSuspended": false,
+            "tainted": false,
+            "tool": "skills.proposals.review"
+          },
+          "tool": "skills.proposals.review"
+        }
+      ],
+      "calls": [],
+      "reads": 2,
+      "result": {
+        "error": "E_DENIED"
+      },
+      "starts": 0
+    },
+    "name": "changed",
+    "proposal": {
+      "candidate": {
+        "author": "agent",
+        "enabled": false,
+        "kind": "skill",
+        "name": "mined-workflow-aaaaaaaaaaaaaaaa",
+        "reason": "Verified repeated steps",
+        "schema": "plur1bus.skill-candidate/1",
+        "sessionIds": [
+          "s1",
+          "s2"
+        ],
+        "skillMd": "Fixture candidate",
+        "workflowHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "id": "fixture",
+      "scope": {
+        "agentId": "alpha",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "scope": "workspace"
+      },
+      "status": "pending"
+    },
+    "scope": {
+      "agentId": "alpha",
+      "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+      "scope": "workspace"
+    }
+  },
+  {
+    "expected": {
+      "asked": [
+        {
+          "agentId": "alpha",
+          "args": {
+            "contentHash": "d80cd7300be71e99a8c8c7d0a03e8a88066286d5097b2a71e75c032cfb52c078",
+            "decision": "accept",
+            "enabled": false,
+            "proposalId": "fixture",
+            "scope": {
+              "agentId": "alpha",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "scope": "workspace"
+            },
+            "skillMd": "Fixture candidate"
+          },
+          "park": false,
+          "principal": "ada",
+          "request": {
+            "actionHash": "fa90e454067470e09f2a79e3ab20a9620c65eb2a8eb4b0c28dd916b2dc146446",
+            "capability": "fs.write",
+            "effect": "local-write",
+            "flags": {
+              "denyListHit": false,
+              "outsideRoots": false
+            },
+            "grantOptions": [
+              {
+                "requiredSurface": 3,
+                "scope": "once"
+              }
+            ],
+            "originSurface": 3,
+            "requiredSurface": 3,
+            "reversible": true,
+            "risk": "high",
+            "taintSuspended": false,
+            "tainted": false,
+            "tool": "skills.proposals.review"
+          },
+          "tool": "skills.proposals.review"
+        }
+      ],
+      "calls": [],
+      "reads": 2,
+      "result": {
+        "error": "E_DENIED"
+      },
+      "starts": 1
+    },
+    "name": "consumed",
+    "proposal": {
+      "candidate": {
+        "author": "agent",
+        "enabled": false,
+        "kind": "skill",
+        "name": "mined-workflow-aaaaaaaaaaaaaaaa",
+        "reason": "Verified repeated steps",
+        "schema": "plur1bus.skill-candidate/1",
+        "sessionIds": [
+          "s1",
+          "s2"
+        ],
+        "skillMd": "Fixture candidate",
+        "workflowHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "id": "fixture",
+      "scope": {
+        "agentId": "alpha",
+        "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+        "scope": "workspace"
+      },
+      "status": "pending"
+    },
+    "scope": {
+      "agentId": "alpha",
+      "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+      "scope": "workspace"
+    }
+  }
+]

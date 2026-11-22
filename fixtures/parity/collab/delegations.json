@@ -1,0 +1,375 @@
+{
+  "name": "turn binding, delivery and cancellation",
+  "ops": [
+    {
+      "card": false,
+      "id": "read",
+      "op": "start",
+      "project": "primary"
+    },
+    {
+      "card": true,
+      "id": "write",
+      "op": "start",
+      "project": "primary"
+    },
+    {
+      "card": false,
+      "id": "review",
+      "op": "start",
+      "project": "secondary"
+    },
+    {
+      "ids": [
+        "foreign"
+      ],
+      "op": "collect"
+    },
+    {
+      "ids": [
+        "read",
+        "write",
+        "review",
+        "read"
+      ],
+      "op": "projects"
+    },
+    {
+      "ids": [
+        "review",
+        "read",
+        "review"
+      ],
+      "op": "collect"
+    },
+    {
+      "id": "read",
+      "op": "cancel-unbound"
+    },
+    {
+      "id": "read",
+      "op": "aborted"
+    },
+    {
+      "id": "write",
+      "op": "aborted"
+    },
+    {
+      "id": "review",
+      "op": "aborted"
+    },
+    {
+      "error": true,
+      "id": "review",
+      "op": "complete"
+    },
+    {
+      "id": "read",
+      "op": "complete"
+    },
+    {
+      "claim": "first",
+      "ids": [
+        "review",
+        "read",
+        "review",
+        "write"
+      ],
+      "op": "collect"
+    },
+    {
+      "ids": [
+        "review",
+        "read",
+        "write"
+      ],
+      "op": "collect"
+    },
+    {
+      "accepted": false,
+      "claim": "first",
+      "op": "settle"
+    },
+    {
+      "claim": "second",
+      "ids": [
+        "read",
+        "review"
+      ],
+      "op": "collect"
+    },
+    {
+      "accepted": true,
+      "claim": "first",
+      "op": "settle"
+    },
+    {
+      "accepted": true,
+      "claim": "second",
+      "op": "settle"
+    },
+    {
+      "ids": [
+        "read",
+        "review"
+      ],
+      "op": "collect"
+    },
+    {
+      "id": "write",
+      "op": "complete"
+    },
+    {
+      "op": "closed"
+    },
+    {
+      "cancel": true,
+      "op": "finish"
+    },
+    {
+      "id": "write",
+      "op": "aborted"
+    },
+    {
+      "op": "closed"
+    },
+    {
+      "card": false,
+      "id": "later",
+      "op": "start",
+      "project": "primary"
+    }
+  ],
+  "results": [
+    {
+      "ok": null
+    },
+    {
+      "ok": null
+    },
+    {
+      "ok": null
+    },
+    {
+      "err": {
+        "code": "not-found",
+        "message": "delegation does not belong to this turn"
+      }
+    },
+    {
+      "ok": [
+        "primary",
+        "secondary"
+      ]
+    },
+    {
+      "ok": {
+        "results": [],
+        "running": [
+          "review",
+          "read"
+        ]
+      }
+    },
+    {
+      "ok": null
+    },
+    {
+      "ok": false
+    },
+    {
+      "ok": false
+    },
+    {
+      "ok": true
+    },
+    {
+      "ok": null
+    },
+    {
+      "ok": null
+    },
+    {
+      "ok": {
+        "results": [
+          {
+            "error": {
+              "code": "guardrail",
+              "message": "delegation failed (timeout)"
+            },
+            "kind": "tool_result",
+            "provenance": {
+              "fromAgent": "sender",
+              "projectId": "secondary",
+              "taskId": "review"
+            },
+            "taskId": "review",
+            "trust": "untrusted"
+          },
+          {
+            "kind": "tool_result",
+            "provenance": {
+              "fromAgent": "sender",
+              "projectId": "primary",
+              "taskId": "read"
+            },
+            "result": {
+              "artifacts": [],
+              "assumptionsChecked": [],
+              "blockedBy": null,
+              "changes": [],
+              "concerns": [],
+              "doneWhen": [],
+              "id": "rt_read",
+              "inReplyTo": "ho_read",
+              "learned": [],
+              "needs": [],
+              "schema": "plur1bus.return/1",
+              "status": "partial",
+              "suggestedNext": [],
+              "summary": "fixture",
+              "usage": {
+                "durationMs": 0,
+                "tokens": 0,
+                "toolCalls": 0
+              }
+            },
+            "taskId": "read",
+            "trust": "untrusted"
+          }
+        ],
+        "running": [
+          "write"
+        ]
+      }
+    },
+    {
+      "ok": {
+        "results": [],
+        "running": [
+          "write"
+        ]
+      }
+    },
+    {
+      "ok": null
+    },
+    {
+      "ok": {
+        "results": [
+          {
+            "kind": "tool_result",
+            "provenance": {
+              "fromAgent": "sender",
+              "projectId": "primary",
+              "taskId": "read"
+            },
+            "result": {
+              "artifacts": [],
+              "assumptionsChecked": [],
+              "blockedBy": null,
+              "changes": [],
+              "concerns": [],
+              "doneWhen": [],
+              "id": "rt_read",
+              "inReplyTo": "ho_read",
+              "learned": [],
+              "needs": [],
+              "schema": "plur1bus.return/1",
+              "status": "partial",
+              "suggestedNext": [],
+              "summary": "fixture",
+              "usage": {
+                "durationMs": 0,
+                "tokens": 0,
+                "toolCalls": 0
+              }
+            },
+            "taskId": "read",
+            "trust": "untrusted"
+          },
+          {
+            "error": {
+              "code": "guardrail",
+              "message": "delegation failed (timeout)"
+            },
+            "kind": "tool_result",
+            "provenance": {
+              "fromAgent": "sender",
+              "projectId": "secondary",
+              "taskId": "review"
+            },
+            "taskId": "review",
+            "trust": "untrusted"
+          }
+        ],
+        "running": []
+      }
+    },
+    {
+      "ok": null
+    },
+    {
+      "ok": null
+    },
+    {
+      "ok": {
+        "results": [],
+        "running": []
+      }
+    },
+    {
+      "ok": null
+    },
+    {
+      "ok": false
+    },
+    {
+      "ok": [
+        {
+          "kind": "tool_result",
+          "provenance": {
+            "fromAgent": "sender",
+            "projectId": "primary",
+            "taskId": "write"
+          },
+          "result": {
+            "artifacts": [],
+            "assumptionsChecked": [],
+            "blockedBy": null,
+            "changes": [],
+            "concerns": [],
+            "doneWhen": [],
+            "id": "rt_write",
+            "inReplyTo": "ho_write",
+            "learned": [],
+            "needs": [],
+            "schema": "plur1bus.return/1",
+            "status": "partial",
+            "suggestedNext": [],
+            "summary": "fixture",
+            "usage": {
+              "durationMs": 0,
+              "tokens": 0,
+              "toolCalls": 0
+            }
+          },
+          "taskId": "write",
+          "trust": "untrusted"
+        }
+      ]
+    },
+    {
+      "ok": true
+    },
+    {
+      "ok": true
+    },
+    {
+      "err": {
+        "code": "aborted",
+        "message": "delegating turn already ended"
+      }
+    }
+  ]
+}

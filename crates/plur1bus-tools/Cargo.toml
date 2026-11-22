@@ -17,6 +17,24 @@ getrandom = "0.3"
 sha2 = "0.10"
 zeroize = "=1.9.0"
 uuid = { version = "1", features = ["v4"] }
+# P4-K K10a: the typestate gate (D120 §11.2, T1-b) composes the policy evaluator, the path layer, the approval and grant
+# stores and the audit rule of plur1bus-core, and the executors `exec` and `fs` run behind it. plur1bus-core does not
+# depend on this crate, so there is no cycle. All first party.
+plur1bus-core = { path = "../plur1bus-core" }
+# The dispatcher's canonical JSON and action hash: what an approval is bound to and what an executor recomputes.
+plur1bus-canon = { path = "../plur1bus-canon" }
+# The exact-value secret matcher (`SecretMatcher`) behind the bounded capture of `exec` and the read window of `fs`.
+plur1bus-log-schema = { path = "../plur1bus-log-schema" }
+# `file.read` and `file.write` with `encoding: "base64"`. The version plur1bus-core already pins; no new package.
+base64 = "=0.22.1"
+# The argument pattern of an `exec.run` allowlist entry (a subset of JavaScript's dialect, `exec/pattern.rs`). 1.13.1 is
+# locked already (plur1bus-log-schema, the CLI); no new package.
+regex = "1"
+
+[target.'cfg(unix)'.dependencies]
+# `kill(-pgid, SIGKILL)` for the process group of an `exec.run` child, without `unsafe`. 1.1.6 is locked already
+# (tempfile, plur1bus-core); no new package in the lock file.
+rustix = { version = "1", default-features = false, features = ["process", "std"] }
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -49,6 +49,28 @@ uuid = { version = "1", features = ["v4"] }
 # members). Both are versions the workspace already locks: ring through plur1bus-ext and rustls, base64 through the engine.
 ring = "0.17"
 base64 = "=0.22.1"
+# P4-K K1: the IANA time-zone database behind `budget::zones` (a budget period is a local day, week or month). Both are
+# crates the engine already locks; no new package in the lock file.
+chrono-tz.workspace = true
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+# P4-K K2: the host parser of the URL Standard behind `egress::Idna` (what Node's `domainToASCII` runs) and Unicode NFC
+# behind `policy::paths::Nfc` (`String.prototype.normalize`). Both are locked already: `url` by the engine, and
+# `icu_normalizer` through `url`'s IDNA. No new package in the lock file.
+url = "2"
+icu_normalizer = "2.3"
+# K7b uses the existing ICU collator and keeps insertion order for collation ties.
+icu_collator = "=2.3.1"
+icu_locale_core = "=2.3.0"
+indexmap = "=2.14.2"
+# P4-K K9a: the provider cache-profile table and the model-id normaliser behind `prompt::model_table` (the rows the
+# TypeScript builder reads from `packages/providers/schema/cache-profiles.json`). A workspace crate, already in the lock
+# file; it brings no new package.
+plur1bus-tokens = { path = "../plur1bus-tokens" }
+# P4-K K9b: an ECMAScript regular-expression engine for the tool-call runtime. A tool schema's `pattern` is tested with
+# `new RegExp(p, "u")`, and the tool-need and model-error rules use look-behind, `\p{L}` and `/iu`; the `regex` crate reads
+# those differently (`\s`, `\b`, `$`, no look-behind), and a validator that reads a pattern differently accepts other
+# arguments. `utf16` matches over code units, as JavaScript does. The version plur1bus-rpc already locks; no new package.
+regress = { version = "0.10.5", features = ["utf16"] }
 
 # The operating system's keyring behind `secrets::os_keyring` (P4-20 PR 2b). The same crates `@napi-rs/keyring` 2.1.0
 # wraps on the TypeScript side, so both implementations read and write the same items. Pinned exactly: a store that
@@ -74,6 +96,16 @@ signal-hook = { version = "0.3", default-features = false, features = ["iterator
 # O_NOFOLLOW and O_NONBLOCK for the one open of a credential file in run/ (`run_files::read_token`, P4-20 flip B2,
 # review U2). The crate plur1bus-rpc and plur1bus-audit already depend on; no new package in the lock file.
 libc = "0.2"
+# P4-K K10a (R-K-11): `openat`, `renameat`, `linkat` and `unlinkat` on the descriptor of the checked parent directory
+# behind `policy::fs_paths::RealFs`, without `unsafe`. 1.1.6 is the version tempfile already locks; no new package in the
+# lock file.
+rustix = { version = "1", default-features = false, features = ["fs", "std"] }
+
+[target.'cfg(windows)'.dependencies]
+# P4-K K10a (R-K-12): the volume serial number, the file index and the link count of an open handle
+# (`GetFileInformationByHandle`) behind `policy::fs_windows`, without `unsafe`. 0.1.11 is locked through `same-file`; no
+# new package in the lock file.
+winapi-util = "0.1"
 
 [dev-dependencies]
 tempfile.workspace = true

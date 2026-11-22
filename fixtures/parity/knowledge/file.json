@@ -1,0 +1,341 @@
+{
+  "append": [
+    {
+      "contents": "# Knowledge\n\n<!-- plur1bus-imported-knowledge:f83eb20a0e639a13b8b71d989025ec48831c42741f06ad58a73b252752909470 -->\n## Imported agent knowledge\n\n> &lt;context&gt;&amp;\n> Authorized text\n> \n",
+      "first": {
+        "added": true,
+        "bytes": 188,
+        "created": true,
+        "sha256": "c4167ab22ddee8667ab7654341829b6f0c9d29e6e51f02afe2f2d9ec9ba713fe"
+      },
+      "name": "new",
+      "second": {
+        "added": false,
+        "bytes": 188,
+        "created": false,
+        "sha256": "c4167ab22ddee8667ab7654341829b6f0c9d29e6e51f02afe2f2d9ec9ba713fe"
+      }
+    },
+    {
+      "contents": "﻿# Earlier fixture\n\n<!-- plur1bus-imported-knowledge:f83eb20a0e639a13b8b71d989025ec48831c42741f06ad58a73b252752909470 -->\n## Imported agent knowledge\n\n> &lt;context&gt;&amp;\n> Authorized text\n> \n",
+      "first": {
+        "added": true,
+        "bytes": 197,
+        "created": false,
+        "sha256": "57f4093167d6c4fa2cd9aa99f50f6cca33a86e15820c8f5cef8191acf9e908f6"
+      },
+      "name": "existing",
+      "second": {
+        "added": false,
+        "bytes": 197,
+        "created": false,
+        "sha256": "57f4093167d6c4fa2cd9aa99f50f6cca33a86e15820c8f5cef8191acf9e908f6"
+      }
+    }
+  ],
+  "formatted": "<!-- plur1bus-imported-knowledge:f83eb20a0e639a13b8b71d989025ec48831c42741f06ad58a73b252752909470 -->\n## Imported agent knowledge\n\n> &lt;context&gt;&amp;\n> Authorized text\n> \n",
+  "migration": [
+    {
+      "afterBackup": null,
+      "beforeBackup": null,
+      "contents": null,
+      "follow": null,
+      "initial": null,
+      "name": "no legacy",
+      "report": null
+    },
+    {
+      "afterBackup": "# Knowledge\n\n<!-- plur1bus-legacy:knowledgepool.md:917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> &lt;note&gt; &amp; evidence\n> \n",
+      "beforeBackup": null,
+      "contents": "# Knowledge\n\n<!-- plur1bus-legacy:knowledgepool.md:917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> &lt;note&gt; &amp; evidence\n> \n",
+      "follow": null,
+      "initial": {
+        "afterSha": "d7ed4eab3eb68aa4c34e61e09601896d602fa1589d617f09bbf1bc3f6def4ad4",
+        "beforeSha": null,
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3"
+          }
+        ],
+        "state": "applied",
+        "version": 1
+      },
+      "name": "new",
+      "report": "{\n  \"version\": 1,\n  \"state\": \"applied\",\n  \"beforeSha\": null,\n  \"afterSha\": \"d7ed4eab3eb68aa4c34e61e09601896d602fa1589d617f09bbf1bc3f6def4ad4\",\n  \"sources\": [\n    {\n      \"name\": \"knowledgepool.md\",\n      \"sha256\": \"917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3\"\n    }\n  ]\n}\n"
+    },
+    {
+      "afterBackup": "# Knowledge\n\n<!-- plur1bus-legacy:knowledgepool.md:917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> &lt;note&gt; &amp; evidence\n> \n\n<!-- plur1bus-legacy:memories.md:88719fb63c5c590b4f115122b3115385698a04b240506d446ab33228c507024e -->\n## Imported agent knowledge (memories.md)\n\n> Second file\n",
+      "beforeBackup": null,
+      "contents": "# Knowledge\n\n<!-- plur1bus-legacy:knowledgepool.md:917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> &lt;note&gt; &amp; evidence\n> \n\n<!-- plur1bus-legacy:memories.md:88719fb63c5c590b4f115122b3115385698a04b240506d446ab33228c507024e -->\n## Imported agent knowledge (memories.md)\n\n> Second file\n",
+      "follow": {
+        "afterSha": "6778921c31ef8185f19c415a5b80648578334cbbd1879fae73cad4e8129c56ff",
+        "beforeSha": null,
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3"
+          },
+          {
+            "name": "memories.md",
+            "sha256": "88719fb63c5c590b4f115122b3115385698a04b240506d446ab33228c507024e"
+          }
+        ],
+        "state": "applied",
+        "version": 1
+      },
+      "initial": {
+        "afterSha": "6778921c31ef8185f19c415a5b80648578334cbbd1879fae73cad4e8129c56ff",
+        "beforeSha": null,
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3"
+          },
+          {
+            "name": "memories.md",
+            "sha256": "88719fb63c5c590b4f115122b3115385698a04b240506d446ab33228c507024e"
+          }
+        ],
+        "state": "applied",
+        "version": 1
+      },
+      "name": "both",
+      "report": "{\n  \"version\": 1,\n  \"state\": \"applied\",\n  \"beforeSha\": null,\n  \"afterSha\": \"6778921c31ef8185f19c415a5b80648578334cbbd1879fae73cad4e8129c56ff\",\n  \"sources\": [\n    {\n      \"name\": \"knowledgepool.md\",\n      \"sha256\": \"917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3\"\n    },\n    {\n      \"name\": \"memories.md\",\n      \"sha256\": \"88719fb63c5c590b4f115122b3115385698a04b240506d446ab33228c507024e\"\n    }\n  ]\n}\n"
+    },
+    {
+      "afterBackup": "# Existing fixture\n\n<!-- plur1bus-legacy:knowledgepool.md:917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> &lt;note&gt; &amp; evidence\n> \n",
+      "beforeBackup": "# Existing fixture\n",
+      "contents": "# Existing fixture\n",
+      "follow": {
+        "afterSha": "69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245",
+        "beforeSha": "ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede",
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3"
+          }
+        ],
+        "state": "rolled-back",
+        "version": 1
+      },
+      "initial": {
+        "afterSha": "69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245",
+        "beforeSha": "ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede",
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3"
+          }
+        ],
+        "state": "applied",
+        "version": 1
+      },
+      "name": "restore",
+      "report": "{\n  \"version\": 1,\n  \"state\": \"rolled-back\",\n  \"beforeSha\": \"ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede\",\n  \"afterSha\": \"69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245\",\n  \"sources\": [\n    {\n      \"name\": \"knowledgepool.md\",\n      \"sha256\": \"917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3\"\n    }\n  ]\n}\n"
+    },
+    {
+      "afterBackup": "# Knowledge\n\n<!-- plur1bus-legacy:knowledgepool.md:917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> &lt;note&gt; &amp; evidence\n> \n",
+      "beforeBackup": null,
+      "contents": null,
+      "follow": {
+        "afterSha": "d7ed4eab3eb68aa4c34e61e09601896d602fa1589d617f09bbf1bc3f6def4ad4",
+        "beforeSha": null,
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3"
+          }
+        ],
+        "state": "rolled-back",
+        "version": 1
+      },
+      "initial": {
+        "afterSha": "d7ed4eab3eb68aa4c34e61e09601896d602fa1589d617f09bbf1bc3f6def4ad4",
+        "beforeSha": null,
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3"
+          }
+        ],
+        "state": "applied",
+        "version": 1
+      },
+      "name": "remove",
+      "report": "{\n  \"version\": 1,\n  \"state\": \"rolled-back\",\n  \"beforeSha\": null,\n  \"afterSha\": \"d7ed4eab3eb68aa4c34e61e09601896d602fa1589d617f09bbf1bc3f6def4ad4\",\n  \"sources\": [\n    {\n      \"name\": \"knowledgepool.md\",\n      \"sha256\": \"917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3\"\n    }\n  ]\n}\n"
+    },
+    {
+      "afterBackup": "# Existing fixture\n\n<!-- plur1bus-legacy:knowledgepool.md:917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> &lt;note&gt; &amp; evidence\n> \n",
+      "beforeBackup": "# Existing fixture\n",
+      "contents": "External fixture edit",
+      "follow": {
+        "error": "knowledge-changed"
+      },
+      "initial": {
+        "afterSha": "69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245",
+        "beforeSha": "ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede",
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3"
+          }
+        ],
+        "state": "applied",
+        "version": 1
+      },
+      "name": "drift",
+      "report": "{\n  \"version\": 1,\n  \"state\": \"applied\",\n  \"beforeSha\": \"ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede\",\n  \"afterSha\": \"69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245\",\n  \"sources\": [\n    {\n      \"name\": \"knowledgepool.md\",\n      \"sha256\": \"917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3\"\n    }\n  ]\n}\n"
+    },
+    {
+      "afterBackup": "# Existing fixture\n\n<!-- plur1bus-legacy:knowledgepool.md:917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> &lt;note&gt; &amp; evidence\n> \n",
+      "beforeBackup": "Changed backup",
+      "contents": "# Existing fixture\n\n<!-- plur1bus-legacy:knowledgepool.md:917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> &lt;note&gt; &amp; evidence\n> \n",
+      "follow": {
+        "error": "knowledge-backup-changed"
+      },
+      "initial": {
+        "afterSha": "69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245",
+        "beforeSha": "ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede",
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3"
+          }
+        ],
+        "state": "applied",
+        "version": 1
+      },
+      "name": "bad backup",
+      "report": "{\n  \"version\": 1,\n  \"state\": \"applied\",\n  \"beforeSha\": \"ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede\",\n  \"afterSha\": \"69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245\",\n  \"sources\": [\n    {\n      \"name\": \"knowledgepool.md\",\n      \"sha256\": \"917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3\"\n    }\n  ]\n}\n"
+    },
+    {
+      "afterBackup": "# Existing fixture\n\n<!-- plur1bus-legacy:knowledgepool.md:917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> &lt;note&gt; &amp; evidence\n> \n",
+      "beforeBackup": "# Existing fixture\n",
+      "contents": "# Existing fixture\n\n<!-- plur1bus-legacy:knowledgepool.md:917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> &lt;note&gt; &amp; evidence\n> \n",
+      "follow": {
+        "afterSha": "69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245",
+        "beforeSha": "ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede",
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3"
+          }
+        ],
+        "state": "applied",
+        "version": 1
+      },
+      "initial": {
+        "afterSha": "69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245",
+        "beforeSha": "ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede",
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3"
+          }
+        ],
+        "state": "applied",
+        "version": 1
+      },
+      "name": "resume before",
+      "report": "{\n  \"version\": 1,\n  \"state\": \"applied\",\n  \"beforeSha\": \"ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede\",\n  \"afterSha\": \"69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245\",\n  \"sources\": [\n    {\n      \"name\": \"knowledgepool.md\",\n      \"sha256\": \"917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3\"\n    }\n  ]\n}\n"
+    },
+    {
+      "afterBackup": "# Existing fixture\n\n<!-- plur1bus-legacy:knowledgepool.md:917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> &lt;note&gt; &amp; evidence\n> \n",
+      "beforeBackup": "# Existing fixture\n",
+      "contents": "# Existing fixture\n\n<!-- plur1bus-legacy:knowledgepool.md:917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> &lt;note&gt; &amp; evidence\n> \n",
+      "follow": {
+        "afterSha": "69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245",
+        "beforeSha": "ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede",
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3"
+          }
+        ],
+        "state": "applied",
+        "version": 1
+      },
+      "initial": {
+        "afterSha": "69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245",
+        "beforeSha": "ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede",
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3"
+          }
+        ],
+        "state": "applied",
+        "version": 1
+      },
+      "name": "resume after",
+      "report": "{\n  \"version\": 1,\n  \"state\": \"applied\",\n  \"beforeSha\": \"ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede\",\n  \"afterSha\": \"69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245\",\n  \"sources\": [\n    {\n      \"name\": \"knowledgepool.md\",\n      \"sha256\": \"917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3\"\n    }\n  ]\n}\n"
+    },
+    {
+      "afterBackup": "# Existing fixture\n\n<!-- plur1bus-legacy:knowledgepool.md:917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> &lt;note&gt; &amp; evidence\n> \n",
+      "beforeBackup": "# Existing fixture\n",
+      "contents": "External fixture edit",
+      "follow": {
+        "error": "knowledge-changed"
+      },
+      "initial": {
+        "afterSha": "69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245",
+        "beforeSha": "ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede",
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3"
+          }
+        ],
+        "state": "applied",
+        "version": 1
+      },
+      "name": "conflict before",
+      "report": "{\n  \"version\": 1,\n  \"state\": \"prepared\",\n  \"beforeSha\": \"ded00e21690d20236807d18eb1929d940c3b28492170a845dd06e941e1194ede\",\n  \"afterSha\": \"69b04aac33e87f17ed54a5035329f9da484c7d2d161ea62319155988c762c245\",\n  \"sources\": [\n    {\n      \"name\": \"knowledgepool.md\",\n      \"sha256\": \"917b4c555a7b7f4e7be939ee238662353f2444951367de94f515e031477909e3\"\n    }\n  ]\n}\n"
+    },
+    {
+      "afterBackup": "# Knowledge\n\n<!-- plur1bus-legacy:knowledgepool.md:8fd6920cb4d4f483a9c5798ad28c66b94c565f30d6bcb3817f8e6b402c40a042 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> Wide fixture\n",
+      "beforeBackup": null,
+      "contents": "# Knowledge\n\n<!-- plur1bus-legacy:knowledgepool.md:8fd6920cb4d4f483a9c5798ad28c66b94c565f30d6bcb3817f8e6b402c40a042 -->\n## Imported agent knowledge (knowledgepool.md)\n\n> Wide fixture\n",
+      "follow": null,
+      "initial": {
+        "afterSha": "4d0a88ef1b7d4d15570e02643fe63e6f23a5d5bd3da1bbb40a844d0cd0fad3b9",
+        "beforeSha": null,
+        "sources": [
+          {
+            "name": "knowledgepool.md",
+            "sha256": "8fd6920cb4d4f483a9c5798ad28c66b94c565f30d6bcb3817f8e6b402c40a042"
+          }
+        ],
+        "state": "applied",
+        "version": 1
+      },
+      "name": "utf16",
+      "report": "{\n  \"version\": 1,\n  \"state\": \"applied\",\n  \"beforeSha\": null,\n  \"afterSha\": \"4d0a88ef1b7d4d15570e02643fe63e6f23a5d5bd3da1bbb40a844d0cd0fad3b9\",\n  \"sources\": [\n    {\n      \"name\": \"knowledgepool.md\",\n      \"sha256\": \"8fd6920cb4d4f483a9c5798ad28c66b94c565f30d6bcb3817f8e6b402c40a042\"\n    }\n  ]\n}\n"
+    },
+    {
+      "afterBackup": null,
+      "beforeBackup": null,
+      "contents": null,
+      "follow": null,
+      "initial": {
+        "error": "invalid-text-encoding"
+      },
+      "name": "bad encoding",
+      "report": null
+    },
+    {
+      "afterBackup": null,
+      "beforeBackup": null,
+      "contents": null,
+      "follow": null,
+      "initial": {
+        "error": "invalid-knowledge-migration-report"
+      },
+      "name": "bad report",
+      "report": "{\"version\":1,\"state\":\"unknown\"}"
+    }
+  ],
+  "source": "fixture:article",
+  "text": "<context>&\nAuthorized text\n"
+}

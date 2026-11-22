@@ -1,0 +1,467 @@
+[
+  {
+    "active": [],
+    "calls": [
+      "ack",
+      "run"
+    ],
+    "deadline": 50,
+    "events": [
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.queued"
+      },
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.started"
+      },
+      {
+        "inflight": null,
+        "status": "succeeded",
+        "type": "delegate.finished"
+      }
+    ],
+    "finish": {
+      "error": null,
+      "inputTokens": 2,
+      "outputTokens": 3,
+      "result": "Fixture output from the worker",
+      "span": "succeeded",
+      "targetKind": "local",
+      "task": "succeeded",
+      "truncated": false
+    },
+    "handoff": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"handoff\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"sender-session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"sender-task\",\"project\":\"prj_1\"},\"objective\":\"Verify report\",\"doneWhen\":[\"Evidence recorded\"],\"constraints\":{\"scope\":{\"paths\":[],\"tools\":[\"file.read\"]},\"must\":[],\"mustNot\":[]},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":150,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00.050Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":false}}",
+    "initial": "queued",
+    "name": "done",
+    "start": 1791374400000,
+    "transcript": null
+  },
+  {
+    "active": [],
+    "calls": [
+      "ack",
+      "run"
+    ],
+    "deadline": 50,
+    "events": [
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.queued"
+      },
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.started"
+      },
+      {
+        "inflight": null,
+        "status": "succeeded",
+        "type": "delegate.finished"
+      }
+    ],
+    "finish": {
+      "error": null,
+      "inputTokens": 2,
+      "outputTokens": 3,
+      "result": "[truncated 30 chars; artifact:art_1]",
+      "span": "succeeded",
+      "targetKind": "local",
+      "task": "succeeded",
+      "truncated": true
+    },
+    "handoff": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"handoff\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"sender-session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"sender-task\",\"project\":\"prj_1\"},\"objective\":\"Verify report\",\"doneWhen\":[\"Evidence recorded\"],\"constraints\":{\"scope\":{\"paths\":[],\"tools\":[\"file.read\"]},\"must\":[],\"mustNot\":[]},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":150,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00.050Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":false}}",
+    "initial": "queued",
+    "name": "cap",
+    "start": 1791374400000,
+    "transcript": null
+  },
+  {
+    "active": [],
+    "calls": [
+      "ack",
+      "run"
+    ],
+    "deadline": 50,
+    "events": [
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.queued"
+      },
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.started"
+      },
+      {
+        "inflight": null,
+        "status": "succeeded",
+        "type": "delegate.finished"
+      }
+    ],
+    "finish": {
+      "error": null,
+      "inputTokens": 2,
+      "outputTokens": 3,
+      "result": "Fixture output from the worker",
+      "span": "succeeded",
+      "targetKind": "local",
+      "task": "succeeded",
+      "truncated": false
+    },
+    "handoff": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"handoff\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"sender-session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"sender-task\",\"project\":\"prj_1\"},\"objective\":\"Verify report\",\"doneWhen\":[\"Evidence recorded\"],\"constraints\":{\"scope\":{\"paths\":[],\"tools\":[\"file.read\"]},\"must\":[],\"mustNot\":[]},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":150,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00.050Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":false}}",
+    "initial": "queued",
+    "name": "transcript",
+    "start": 1791374400000,
+    "transcript": {
+      "events": [
+        [
+          "turn.started",
+          false,
+          null,
+          null
+        ],
+        [
+          "tool.result",
+          true,
+          null,
+          null
+        ],
+        [
+          "tool.result",
+          false,
+          "ack",
+          null
+        ],
+        [
+          "tool.result",
+          false,
+          null,
+          "done"
+        ],
+        [
+          "turn.completed",
+          false,
+          null,
+          "done"
+        ]
+      ],
+      "messages": [
+        [
+          "user",
+          "Verify report\n\nAcceptance criteria:\nEvidence recorded"
+        ],
+        [
+          "assistant",
+          "Fixture output from the worker"
+        ]
+      ]
+    }
+  },
+  {
+    "active": [
+      true,
+      true
+    ],
+    "calls": [
+      "ack",
+      "run"
+    ],
+    "deadline": 50,
+    "events": [
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.queued"
+      },
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.started"
+      },
+      {
+        "inflight": null,
+        "status": "succeeded",
+        "type": "delegate.finished"
+      }
+    ],
+    "finish": {
+      "error": null,
+      "inputTokens": 2,
+      "outputTokens": 3,
+      "result": "Fixture output from the worker",
+      "span": "succeeded",
+      "targetKind": "local",
+      "task": "succeeded",
+      "truncated": false
+    },
+    "handoff": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"handoff\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"sender-session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"sender-task\",\"project\":\"prj_1\"},\"objective\":\"Verify report\",\"doneWhen\":[\"Evidence recorded\"],\"constraints\":{\"scope\":{\"paths\":[],\"tools\":[\"file.read\"]},\"must\":[],\"mustNot\":[]},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":150,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00.050Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":false}}",
+    "initial": "queued",
+    "name": "progress",
+    "start": 1791374400000,
+    "transcript": null
+  },
+  {
+    "active": [
+      true,
+      false
+    ],
+    "calls": [
+      "ack",
+      "run"
+    ],
+    "deadline": 8,
+    "events": [
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.queued"
+      },
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.started"
+      },
+      {
+        "inflight": null,
+        "status": "partial",
+        "type": "delegate.finished"
+      }
+    ],
+    "finish": {
+      "error": "partial",
+      "inputTokens": 2,
+      "outputTokens": 3,
+      "result": "Fixture output from the worker",
+      "span": "partial",
+      "targetKind": "local",
+      "task": "cancelled",
+      "truncated": false
+    },
+    "handoff": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"handoff\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"sender-session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"sender-task\",\"project\":\"prj_1\"},\"objective\":\"Verify report\",\"doneWhen\":[\"Evidence recorded\"],\"constraints\":{\"scope\":{\"paths\":[],\"tools\":[\"file.read\"]},\"must\":[],\"mustNot\":[]},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":150,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00.008Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":false}}",
+    "initial": "queued",
+    "name": "deadline",
+    "start": 1791374400000,
+    "transcript": null
+  },
+  {
+    "active": [
+      true,
+      false
+    ],
+    "calls": [
+      "ack",
+      "run"
+    ],
+    "deadline": 50,
+    "events": [
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.queued"
+      },
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.started"
+      },
+      {
+        "inflight": null,
+        "status": "partial",
+        "type": "delegate.finished"
+      }
+    ],
+    "finish": {
+      "error": "partial",
+      "inputTokens": 2,
+      "outputTokens": 3,
+      "result": "Fixture output from the worker",
+      "span": "partial",
+      "targetKind": "local",
+      "task": "cancelled",
+      "truncated": false
+    },
+    "handoff": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"handoff\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"sender-session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"sender-task\",\"project\":\"prj_1\"},\"objective\":\"Verify report\",\"doneWhen\":[\"Evidence recorded\"],\"constraints\":{\"scope\":{\"paths\":[],\"tools\":[\"file.read\"]},\"must\":[],\"mustNot\":[]},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":150,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00.050Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":false}}",
+    "initial": "queued",
+    "name": "stall",
+    "start": 1791374400000,
+    "transcript": null
+  },
+  {
+    "active": [],
+    "calls": [
+      "ack"
+    ],
+    "deadline": 50,
+    "events": [
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.queued"
+      },
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.started"
+      },
+      {
+        "inflight": null,
+        "status": "failed",
+        "type": "delegate.finished"
+      }
+    ],
+    "finish": {
+      "error": "receiver has not accepted handoff",
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "result": null,
+      "span": "failed",
+      "targetKind": null,
+      "task": "failed",
+      "truncated": false
+    },
+    "handoff": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"handoff\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"sender-session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"sender-task\",\"project\":\"prj_1\"},\"objective\":\"Verify report\",\"doneWhen\":[\"Evidence recorded\"],\"constraints\":{\"scope\":{\"paths\":[],\"tools\":[\"file.read\"]},\"must\":[],\"mustNot\":[]},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":150,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00.050Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":false}}",
+    "initial": "queued",
+    "name": "wrong ack",
+    "start": 1791374400000,
+    "transcript": null
+  },
+  {
+    "active": [],
+    "calls": [],
+    "deadline": 50,
+    "events": [
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.queued"
+      },
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.started"
+      },
+      {
+        "inflight": null,
+        "status": "failed",
+        "type": "delegate.finished"
+      }
+    ],
+    "finish": {
+      "error": "handoff target mismatch",
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "result": null,
+      "span": "failed",
+      "targetKind": null,
+      "task": "failed",
+      "truncated": false
+    },
+    "handoff": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"handoff\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"sender-session\"},\"to\":{\"agent\":\"other\"},\"task\":{\"id\":\"sender-task\",\"project\":\"prj_1\"},\"objective\":\"Verify report\",\"doneWhen\":[\"Evidence recorded\"],\"constraints\":{\"scope\":{\"paths\":[],\"tools\":[\"file.read\"]},\"must\":[],\"mustNot\":[]},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":150,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00.050Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":false}}",
+    "initial": "queued",
+    "name": "wrong target",
+    "start": 1791374400000,
+    "transcript": null
+  },
+  {
+    "active": [],
+    "calls": [],
+    "deadline": 50,
+    "events": [
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.queued"
+      },
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.started"
+      },
+      {
+        "inflight": null,
+        "status": "failed",
+        "type": "delegate.finished"
+      }
+    ],
+    "finish": {
+      "error": "A2A targets cannot review local worktrees or receive card ownership",
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "result": null,
+      "span": "failed",
+      "targetKind": null,
+      "task": "failed",
+      "truncated": false
+    },
+    "handoff": "{\"schema\":\"plur1bus.handoff/1\",\"id\":\"handoff\",\"kind\":\"delegate\",\"from\":{\"agent\":\"sender\",\"session\":\"sender-session\"},\"to\":{\"agent\":\"receiver\"},\"task\":{\"id\":\"sender-task\",\"project\":\"prj_1\"},\"objective\":\"Verify report\",\"doneWhen\":[\"Evidence recorded\"],\"constraints\":{\"scope\":{\"paths\":[],\"tools\":[\"file.read\"]},\"must\":[],\"mustNot\":[]},\"authority\":{\"mayDecide\":[],\"mustAsk\":[],\"approvalsHeld\":[]},\"budget\":{\"tokens\":150,\"toolCalls\":3,\"deadline\":\"2026-10-07T12:00:00.050Z\",\"modelTier\":\"standard\"},\"returnContract\":{\"format\":\"plur1bus.return/1\",\"maxTokens\":2000,\"outputSchema\":{\"type\":\"string\"},\"citationsRequired\":false}}",
+    "initial": "queued",
+    "name": "remote review",
+    "start": 1791374400000,
+    "transcript": null
+  },
+  {
+    "active": [],
+    "calls": [
+      "run"
+    ],
+    "deadline": 50,
+    "events": [
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.queued"
+      },
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.started"
+      },
+      {
+        "inflight": 1,
+        "status": null,
+        "type": "chain.abandoned"
+      }
+    ],
+    "finish": null,
+    "handoff": null,
+    "initial": "queued",
+    "name": "shutdown abandons",
+    "start": 1791374400000,
+    "transcript": null
+  },
+  {
+    "active": [],
+    "calls": [
+      "run"
+    ],
+    "deadline": 50,
+    "events": [
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.queued"
+      },
+      {
+        "inflight": null,
+        "status": null,
+        "type": "delegate.started"
+      },
+      {
+        "inflight": null,
+        "status": "cancelled",
+        "type": "delegate.cancelled"
+      }
+    ],
+    "finish": null,
+    "handoff": null,
+    "initial": "queued",
+    "name": "shutdown cooperative",
+    "start": 1791374400000,
+    "transcript": null
+  }
+]

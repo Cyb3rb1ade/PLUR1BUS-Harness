@@ -1,0 +1,2846 @@
+{
+  "aggregate": {
+    "batch": [
+      {
+        "change": "add",
+        "contentKey": "branch label",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "Untrusted notes"
+      },
+      {
+        "change": "add",
+        "contentKey": "branch label",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "alpha",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s2",
+            "source": "message",
+            "sourceId": "evt2",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "beta",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s3",
+            "source": "message",
+            "sourceId": "evt3",
+            "trust": "verified",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "Many observations"
+      },
+      {
+        "change": "add",
+        "contentKey": "procedure",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "procedural",
+        "text": "Procedure"
+      }
+    ],
+    "expected": [
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "branch label",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "alpha",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s2",
+            "source": "message",
+            "sourceId": "evt2",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "beta",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s3",
+            "source": "message",
+            "sourceId": "evt3",
+            "trust": "verified",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "28710ffd5b332507cabc265e531039effb88cb793114a30c9ea99ce06f72ab27",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 2,
+          "days": 2,
+          "persons": 1,
+          "sessions": 3,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "Many observations",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "procedure",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "d965bec7cccdf317b61632e523120b943677796506ace4851c9b943fa8fe12ef",
+        "kind": "procedural",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "waiting-h3",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "Procedure",
+        "verify": "not-applicable"
+      }
+    ],
+    "merged": {
+      "agreement": "unknown",
+      "change": "add",
+      "contentKey": "branch label",
+      "desiredTier": "C",
+      "effectiveTier": "C",
+      "evidence": [
+        {
+          "agentId": "alpha",
+          "day": "1970-01-01",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "sessionId": "s1",
+          "source": "message",
+          "sourceId": "person",
+          "trust": "verified",
+          "turnId": "turn1"
+        },
+        {
+          "agentId": "alpha",
+          "day": "1970-01-02",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "sessionId": "s2",
+          "source": "message",
+          "sourceId": "evt2",
+          "trust": "verified",
+          "turnId": "turn1"
+        },
+        {
+          "agentId": "beta",
+          "day": "1970-01-02",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "sessionId": "s3",
+          "source": "message",
+          "sourceId": "evt3",
+          "trust": "verified",
+          "turnId": "turn1"
+        }
+      ],
+      "id": "28710ffd5b332507cabc265e531039effb88cb793114a30c9ea99ce06f72ab27",
+      "kind": "knowledge",
+      "models": [],
+      "prevalence": {
+        "agents": 2,
+        "days": 2,
+        "persons": 1,
+        "sessions": 3,
+        "total": 7
+      },
+      "promptVersion": "learn-2",
+      "revision": 1,
+      "runId": "run-fixture",
+      "score": 0,
+      "skeptic": "not-required",
+      "status": "pending",
+      "target": {
+        "agentId": "alpha",
+        "owner": "owner",
+        "scope": "agent"
+      },
+      "text": "Many observations",
+      "verify": "not-applicable"
+    },
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "vocabulary": [
+      {
+        "key": "branch label",
+        "text": "Untrusted notes"
+      },
+      {
+        "key": "procedure",
+        "text": "Procedure"
+      }
+    ]
+  },
+  "collation": {
+    "batch": [
+      {
+        "change": "add",
+        "contentKey": "case",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "ärger im Büro"
+      },
+      {
+        "change": "add",
+        "contentKey": "case",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "Ärger im Büro"
+      },
+      {
+        "change": "add",
+        "contentKey": "tie",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "é"
+      },
+      {
+        "change": "add",
+        "contentKey": "tie",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "é"
+      },
+      {
+        "change": "add",
+        "contentKey": "über",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "über"
+      },
+      {
+        "change": "add",
+        "contentKey": "zebra",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "Zebra"
+      },
+      {
+        "change": "add",
+        "contentKey": "äther",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "Äther"
+      },
+      {
+        "change": "add",
+        "contentKey": "f",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "f"
+      },
+      {
+        "change": "add",
+        "contentKey": "😀",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "😀"
+      },
+      {
+        "change": "add",
+        "contentKey": "é",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "kind": "knowledge",
+        "text": "é"
+      }
+    ],
+    "expected": [
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "äther",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "0a9e009144776a2a37d55e1ddc4a4629ee12385805bcf14d365d2867e3781c01",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "Äther",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "😀",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "22bab0790b7ea90f10ac3e81a26ebb8ae4de2780450557ace010a947c3099402",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "😀",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "tie",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "4a42f079bc9b4eada36f5070f941ed888bccd9d856e8dace14b89f1ff65ab973",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "é",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "case",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "6c71a869ab92877a3ad1ef71259221cb61515285f6e1653f1e2d03e1d4d953ce",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "ärger im Büro",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "zebra",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "995d909eea6f399feac54604b37cbce209f59bdb3814ad7ec356dc29e0bb1331",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "Zebra",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "é",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "b43a590f7a6f85c97a2f6fdaac38ba3d2a01c52f6cd3c1dba53abf7bd654c912",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "é",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "f",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "d73faf2e2105c329b7c9a73164adb86dedd5177a7a94e04487bbc7ad8d7aaa9f",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "f",
+        "verify": "not-applicable"
+      },
+      {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "über",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "person",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "fcfaf26d222ca22f73033dfd5ea49183ceb4e4af1db59fccef5b2a8991b81483",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "über",
+        "verify": "not-applicable"
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "vocabulary": [
+      {
+        "key": "😀",
+        "text": "😀"
+      },
+      {
+        "key": "äther",
+        "text": "Äther"
+      },
+      {
+        "key": "case",
+        "text": "Ärger im Büro"
+      },
+      {
+        "key": "é",
+        "text": "é"
+      },
+      {
+        "key": "f",
+        "text": "f"
+      },
+      {
+        "key": "tie",
+        "text": "é"
+      },
+      {
+        "key": "über",
+        "text": "über"
+      },
+      {
+        "key": "zebra",
+        "text": "Zebra"
+      }
+    ]
+  },
+  "extraction": [
+    {
+      "expected": {
+        "raw": [
+          {
+            "change": "add",
+            "contentKey": "branch label",
+            "evidence": [
+              {
+                "agentId": "alpha",
+                "day": "1970-01-01",
+                "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+                "sessionId": "s1",
+                "source": "message",
+                "sourceId": "person",
+                "trust": "person",
+                "turnId": "turn1"
+              }
+            ],
+            "kind": "knowledge",
+            "text": "Untrusted notes"
+          }
+        ]
+      },
+      "name": "valid direct",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"person\"}]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "raw": [
+          {
+            "change": "add",
+            "contentKey": "branch label",
+            "evidence": [
+              {
+                "agentId": "alpha",
+                "day": "1970-01-01",
+                "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+                "sessionId": "s1",
+                "source": "message",
+                "sourceId": "agent",
+                "trust": "agent",
+                "turnId": "turn1"
+              }
+            ],
+            "kind": "knowledge",
+            "text": "Untrusted notes"
+          }
+        ]
+      },
+      "name": "agent evidence",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"agent\"}]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "raw": [
+          {
+            "change": "add",
+            "contentKey": "branch label",
+            "evidence": [
+              {
+                "agentId": "alpha",
+                "day": "1970-01-01",
+                "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+                "sessionId": "s1",
+                "source": "message",
+                "sourceId": "person",
+                "trust": "person",
+                "turnId": "turn1"
+              }
+            ],
+            "kind": "knowledge",
+            "text": "Untrusted notes"
+          }
+        ]
+      },
+      "name": "channel linked",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"person\"}]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [
+          "person"
+        ],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "channel",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "raw": [
+          {
+            "change": "add",
+            "contentKey": "branch label",
+            "evidence": [
+              {
+                "agentId": "alpha",
+                "day": "1970-01-01",
+                "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+                "sessionId": "s1",
+                "source": "message",
+                "sourceId": "person",
+                "trust": "untrusted",
+                "turnId": "turn1"
+              }
+            ],
+            "kind": "knowledge",
+            "text": "Untrusted notes"
+          }
+        ]
+      },
+      "name": "channel unlinked",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"person\"}]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "channel",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "raw": [
+          {
+            "change": "add",
+            "contentKey": "branch label",
+            "evidence": [
+              {
+                "agentId": "alpha",
+                "day": "1970-01-01",
+                "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+                "sessionId": "s1",
+                "source": "message",
+                "sourceId": "person",
+                "trust": "untrusted",
+                "turnId": "turn1"
+              }
+            ],
+            "kind": "knowledge",
+            "text": "Untrusted notes"
+          }
+        ]
+      },
+      "name": "external origin",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"person\"}]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "origin": "a2a",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "raw": [
+          {
+            "change": "add",
+            "contentKey": "branch label",
+            "evidence": [
+              {
+                "agentId": "alpha",
+                "day": "1970-01-01",
+                "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+                "sessionId": "s1",
+                "source": "event",
+                "sourceId": "1",
+                "trust": "untrusted",
+                "turnId": "turn1"
+              }
+            ],
+            "kind": "knowledge",
+            "text": "Untrusted notes"
+          }
+        ]
+      },
+      "name": "valid event",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"event\",\"id\":\"1\"}]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "raw": [
+          {
+            "change": "add",
+            "checks": [
+              {
+                "contains": "notes",
+                "path": "docs/notes.md"
+              },
+              {
+                "contains": "use",
+                "path": "src/lib.rs"
+              }
+            ],
+            "contentKey": "branch label",
+            "evidence": [
+              {
+                "agentId": "alpha",
+                "day": "1970-01-01",
+                "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+                "sessionId": "s1",
+                "source": "message",
+                "sourceId": "person",
+                "trust": "person",
+                "turnId": "turn1"
+              }
+            ],
+            "kind": "knowledge",
+            "text": "Untrusted notes"
+          }
+        ]
+      },
+      "name": "two checks",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"person\"}],\"checks\":[{\"path\":\"docs/notes.md\",\"contains\":\"notes\"},{\"path\":\"src/lib.rs\",\"contains\":\"use\"}]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "foreign id",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"other\"}]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "empty evidence",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "bad kind",
+      "raw": "[{\"kind\":\"inferred\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"person\"}]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "bad change",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"apply\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"person\"}]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "long text",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"person\"}]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "invalid content key",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"bad\\u0001key\",\"evidence\":[{\"source\":\"message\",\"id\":\"person\"}]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "fake trust",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"person\",\"trust\":\"verified\"}]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "wrong memory id",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"person\"}],\"memoryId\":\"../fake\"}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "extra field",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"person\"}],\"target\":{\"scope\":\"agent\",\"owner\":\"owner\",\"agentId\":\"alpha\"}}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "wrong check",
+      "raw": "[{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"person\"}],\"checks\":[{\"path\":\"x\",\"contains\":\"\"}]}]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "raw": []
+      },
+      "name": "empty",
+      "raw": "[]",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    },
+    {
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "not array",
+      "raw": "{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"  Untrusted notes  \",\"contentKey\":\"  ＢＲＡＮＣＨ  Label  \",\"evidence\":[{\"source\":\"message\",\"id\":\"person\"}]}",
+      "transcript": {
+        "days": [
+          "1970-01-01"
+        ],
+        "events": [
+          {
+            "at": 1,
+            "data": {},
+            "seq": 1,
+            "sessionId": "s1",
+            "turnId": "turn1",
+            "type": "turn.completed"
+          }
+        ],
+        "messages": [
+          {
+            "createdAt": 1,
+            "id": "person",
+            "role": "user",
+            "seq": 1,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          },
+          {
+            "createdAt": 1,
+            "id": "agent",
+            "role": "assistant",
+            "seq": 2,
+            "sessionId": "s1",
+            "text": "example",
+            "tokens": 2,
+            "turnId": "turn1"
+          }
+        ],
+        "personMessageIds": [],
+        "session": {
+          "agentId": "alpha",
+          "archivedAt": null,
+          "chatKey": null,
+          "createdAt": 1,
+          "id": "s1",
+          "kind": "direct",
+          "lastTurnAt": 1,
+          "memoryMode": "remember",
+          "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+          "pinned": false,
+          "scope": "workspace",
+          "title": "",
+          "turnCount": 1,
+          "updatedAt": 1
+        }
+      }
+    }
+  ],
+  "precision": [
+    {
+      "accepted": 0,
+      "allowed": false,
+      "decided": 0,
+      "precision": null,
+      "reason": "shadow-incomplete"
+    },
+    {
+      "accepted": 49,
+      "allowed": false,
+      "decided": 49,
+      "precision": 1,
+      "reason": "shadow-incomplete"
+    },
+    {
+      "accepted": 47,
+      "allowed": false,
+      "decided": 50,
+      "precision": 0.94,
+      "reason": "precision-below-gate"
+    },
+    {
+      "accepted": 48,
+      "allowed": false,
+      "decided": 50,
+      "precision": 0.96,
+      "reason": "revert-unavailable"
+    },
+    {
+      "accepted": 95,
+      "allowed": false,
+      "decided": 100,
+      "precision": 0.95,
+      "reason": "revert-unavailable"
+    }
+  ],
+  "scored": [
+    {
+      "expected": {
+        "desiredTier": "A",
+        "effectiveTier": "C",
+        "score": 0.85
+      },
+      "input": {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "branch label",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "alpha",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s2",
+            "source": "message",
+            "sourceId": "evt2",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "beta",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s3",
+            "source": "message",
+            "sourceId": "evt3",
+            "trust": "verified",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "28710ffd5b332507cabc265e531039effb88cb793114a30c9ea99ce06f72ab27",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 2,
+          "days": 2,
+          "persons": 1,
+          "sessions": 3,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "Many observations",
+        "verify": "not-applicable"
+      },
+      "name": "agent verified",
+      "safety": {
+        "personAuthored": false,
+        "sensitive": false,
+        "targetVerified": true
+      }
+    },
+    {
+      "expected": {
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "score": 0.85
+      },
+      "input": {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "branch label",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "alpha",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s2",
+            "source": "message",
+            "sourceId": "evt2",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "beta",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s3",
+            "source": "message",
+            "sourceId": "evt3",
+            "trust": "verified",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "28710ffd5b332507cabc265e531039effb88cb793114a30c9ea99ce06f72ab27",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 2,
+          "days": 2,
+          "persons": 1,
+          "sessions": 3,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "Many observations",
+        "verify": "not-applicable"
+      },
+      "name": "explicit manual",
+      "safety": {
+        "personAuthored": true,
+        "sensitive": false,
+        "targetVerified": true
+      }
+    },
+    {
+      "expected": {
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "score": 0.85
+      },
+      "input": {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "branch label",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "alpha",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s2",
+            "source": "message",
+            "sourceId": "evt2",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "beta",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s3",
+            "source": "message",
+            "sourceId": "evt3",
+            "trust": "verified",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "28710ffd5b332507cabc265e531039effb88cb793114a30c9ea99ce06f72ab27",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 2,
+          "days": 2,
+          "persons": 1,
+          "sessions": 3,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "Always use the fixture",
+        "verify": "not-applicable"
+      },
+      "name": "instruction",
+      "safety": {
+        "personAuthored": false,
+        "sensitive": false,
+        "targetVerified": true
+      }
+    },
+    {
+      "expected": {
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "score": 0.85
+      },
+      "input": {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "branch label",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "alpha",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s2",
+            "source": "message",
+            "sourceId": "evt2",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "beta",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s3",
+            "source": "message",
+            "sourceId": "evt3",
+            "trust": "verified",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "28710ffd5b332507cabc265e531039effb88cb793114a30c9ea99ce06f72ab27",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 2,
+          "days": 2,
+          "persons": 1,
+          "sessions": 3,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "A diagnosis appears in the source",
+        "verify": "not-applicable"
+      },
+      "name": "sensitive",
+      "safety": {
+        "personAuthored": false,
+        "sensitive": false,
+        "targetVerified": true
+      }
+    },
+    {
+      "expected": {
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "score": 0
+      },
+      "input": {
+        "agreement": "unknown",
+        "change": "add",
+        "contentKey": "branch label",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "untrusted",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "alpha",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s2",
+            "source": "message",
+            "sourceId": "evt2",
+            "trust": "untrusted",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "beta",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s3",
+            "source": "message",
+            "sourceId": "evt3",
+            "trust": "untrusted",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "28710ffd5b332507cabc265e531039effb88cb793114a30c9ea99ce06f72ab27",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 2,
+          "days": 2,
+          "persons": 1,
+          "sessions": 3,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "Many observations",
+        "verify": "not-applicable"
+      },
+      "name": "untrusted",
+      "safety": {
+        "personAuthored": false,
+        "sensitive": false,
+        "targetVerified": true
+      }
+    },
+    {
+      "expected": {
+        "desiredTier": "B",
+        "effectiveTier": "C",
+        "score": 0.95
+      },
+      "input": {
+        "agreement": "agrees",
+        "change": "add",
+        "contentKey": "branch label",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "alpha",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s2",
+            "source": "message",
+            "sourceId": "evt2",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "beta",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s3",
+            "source": "message",
+            "sourceId": "evt3",
+            "trust": "verified",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "28710ffd5b332507cabc265e531039effb88cb793114a30c9ea99ce06f72ab27",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 2,
+          "days": 2,
+          "persons": 1,
+          "sessions": 3,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Many observations",
+        "verify": "supported"
+      },
+      "name": "project match",
+      "safety": {
+        "personAuthored": false,
+        "sensitive": false,
+        "targetVerified": true
+      }
+    },
+    {
+      "expected": {
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "score": 0.2
+      },
+      "input": {
+        "agreement": "contradicts",
+        "change": "add",
+        "contentKey": "branch label",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "alpha",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s2",
+            "source": "message",
+            "sourceId": "evt2",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "beta",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s3",
+            "source": "message",
+            "sourceId": "evt3",
+            "trust": "verified",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "28710ffd5b332507cabc265e531039effb88cb793114a30c9ea99ce06f72ab27",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 2,
+          "days": 2,
+          "persons": 1,
+          "sessions": 3,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "Many observations",
+        "verify": "not-applicable"
+      },
+      "name": "contradicted",
+      "safety": {
+        "personAuthored": false,
+        "sensitive": false,
+        "targetVerified": true
+      }
+    },
+    {
+      "expected": {
+        "desiredTier": "A",
+        "effectiveTier": "C",
+        "score": 0.85
+      },
+      "input": {
+        "agreement": "unknown",
+        "change": "stale",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "alpha",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s2",
+            "source": "message",
+            "sourceId": "evt2",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "beta",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s3",
+            "source": "message",
+            "sourceId": "evt3",
+            "trust": "verified",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "18cecd70614f49f2b10a6d728992b6da6f6dc2671823974eee8a00fa432bebd3",
+        "kind": "knowledge",
+        "memoryId": "existing",
+        "models": [],
+        "prevalence": {
+          "agents": 2,
+          "days": 2,
+          "persons": 1,
+          "sessions": 3,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "Same retained record",
+        "verify": "contradicted"
+      },
+      "name": "stale",
+      "safety": {
+        "personAuthored": false,
+        "sensitive": false,
+        "targetVerified": true
+      }
+    },
+    {
+      "expected": {
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "score": 0.8
+      },
+      "input": {
+        "agreement": "unknown",
+        "change": "retire",
+        "contentKey": "branch label",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "person",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "alpha",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s2",
+            "source": "message",
+            "sourceId": "evt2",
+            "trust": "verified",
+            "turnId": "turn1"
+          },
+          {
+            "agentId": "beta",
+            "day": "1970-01-02",
+            "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+            "sessionId": "s3",
+            "source": "message",
+            "sourceId": "evt3",
+            "trust": "verified",
+            "turnId": "turn1"
+          }
+        ],
+        "id": "28710ffd5b332507cabc265e531039effb88cb793114a30c9ea99ce06f72ab27",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 2,
+          "days": 2,
+          "persons": 1,
+          "sessions": 3,
+          "total": 7
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run-fixture",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "owner",
+          "scope": "agent"
+        },
+        "text": "Many observations",
+        "verify": "not-applicable"
+      },
+      "name": "retire",
+      "safety": {
+        "personAuthored": false,
+        "sensitive": false,
+        "targetVerified": true
+      }
+    }
+  ]
+}

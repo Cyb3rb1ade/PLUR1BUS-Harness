@@ -1,0 +1,3630 @@
+{
+  "allocate": [
+    {
+      "policy": "default",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "default",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 1
+      },
+      "window": 1
+    },
+    {
+      "policy": "default",
+      "result": {
+        "budgets": {
+          "conversation": 2,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 1
+      },
+      "window": 3
+    },
+    {
+      "policy": "default",
+      "result": {
+        "budgets": {
+          "conversation": 3,
+          "memory": 1,
+          "system": 1,
+          "tools": 1,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "default",
+      "result": {
+        "budgets": {
+          "conversation": 4,
+          "memory": 3,
+          "system": 2,
+          "tools": 2,
+          "volatile": 2
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "default",
+      "result": {
+        "budgets": {
+          "conversation": 6,
+          "memory": 4,
+          "system": 3,
+          "tools": 3,
+          "volatile": 3
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "default",
+      "result": {
+        "budgets": {
+          "conversation": 20,
+          "memory": 20,
+          "system": 20,
+          "tools": 20,
+          "volatile": 20
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 100
+    },
+    {
+      "policy": "default",
+      "result": {
+        "budgets": {
+          "conversation": 200,
+          "memory": 200,
+          "system": 200,
+          "tools": 200,
+          "volatile": 200
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1000
+    },
+    {
+      "policy": "default",
+      "result": {
+        "budgets": {
+          "conversation": 1639,
+          "memory": 1639,
+          "system": 1638,
+          "tools": 1638,
+          "volatile": 1638
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 8192
+    },
+    {
+      "policy": "default",
+      "result": {
+        "budgets": {
+          "conversation": 48180,
+          "memory": 4250,
+          "system": 26214,
+          "tools": 26214,
+          "volatile": 26214
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 131072
+    },
+    {
+      "policy": "default",
+      "result": {
+        "budgets": {
+          "conversation": 75750,
+          "memory": 4250,
+          "system": 40000,
+          "tools": 40000,
+          "volatile": 40000
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 200000
+    },
+    {
+      "policy": "default",
+      "result": {
+        "budgets": {
+          "conversation": 439804646861,
+          "memory": 4250,
+          "system": 219902325555,
+          "tools": 219902325555,
+          "volatile": 219902325555
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "default",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "default",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "impossible",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "impossible",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 1
+    },
+    {
+      "policy": "impossible",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 3
+    },
+    {
+      "policy": "impossible",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 7
+    },
+    {
+      "policy": "impossible",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 13
+    },
+    {
+      "policy": "impossible",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 19
+    },
+    {
+      "policy": "impossible",
+      "result": {
+        "kind": "infeasible",
+        "reason": "sum of minima exceeds window"
+      },
+      "window": 100
+    },
+    {
+      "policy": "impossible",
+      "result": {
+        "kind": "infeasible",
+        "reason": "sum of minima exceeds window"
+      },
+      "window": 1000
+    },
+    {
+      "policy": "impossible",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 8192
+    },
+    {
+      "policy": "impossible",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 131072
+    },
+    {
+      "policy": "impossible",
+      "result": {
+        "kind": "infeasible",
+        "reason": "sum of minima exceeds window"
+      },
+      "window": 200000
+    },
+    {
+      "policy": "impossible",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "impossible",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "impossible",
+      "window": 9007199254740992
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for memory",
+      "policy": "minMoreThanMax",
+      "window": 0
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for memory",
+      "policy": "minMoreThanMax",
+      "window": 1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for memory",
+      "policy": "minMoreThanMax",
+      "window": 3
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for memory",
+      "policy": "minMoreThanMax",
+      "window": 7
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for memory",
+      "policy": "minMoreThanMax",
+      "window": 13
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for memory",
+      "policy": "minMoreThanMax",
+      "window": 19
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for memory",
+      "policy": "minMoreThanMax",
+      "window": 100
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for memory",
+      "policy": "minMoreThanMax",
+      "window": 1000
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for memory",
+      "policy": "minMoreThanMax",
+      "window": 8192
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for memory",
+      "policy": "minMoreThanMax",
+      "window": 131072
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for memory",
+      "policy": "minMoreThanMax",
+      "window": 200000
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for memory",
+      "policy": "minMoreThanMax",
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "minMoreThanMax",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "minMoreThanMax",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "minAboveMaxTokens",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "minAboveMaxTokens",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for memory"
+      },
+      "window": 1
+    },
+    {
+      "policy": "minAboveMaxTokens",
+      "result": {
+        "budgets": {
+          "conversation": 2,
+          "memory": 1,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 3
+    },
+    {
+      "policy": "minAboveMaxTokens",
+      "result": {
+        "budgets": {
+          "conversation": 1,
+          "memory": 3,
+          "system": 1,
+          "tools": 1,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "minAboveMaxTokens",
+      "result": {
+        "budgets": {
+          "conversation": 2,
+          "memory": 5,
+          "system": 2,
+          "tools": 2,
+          "volatile": 2
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "minAboveMaxTokens",
+      "result": {
+        "budgets": {
+          "conversation": 3,
+          "memory": 7,
+          "system": 3,
+          "tools": 3,
+          "volatile": 3
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "minAboveMaxTokens",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for memory"
+      },
+      "window": 100
+    },
+    {
+      "policy": "minAboveMaxTokens",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for memory"
+      },
+      "window": 1000
+    },
+    {
+      "policy": "minAboveMaxTokens",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for memory"
+      },
+      "window": 8192
+    },
+    {
+      "policy": "minAboveMaxTokens",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for memory"
+      },
+      "window": 131072
+    },
+    {
+      "policy": "minAboveMaxTokens",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for memory"
+      },
+      "window": 200000
+    },
+    {
+      "policy": "minAboveMaxTokens",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for memory"
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "minAboveMaxTokens",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "minAboveMaxTokens",
+      "window": 9007199254740992
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badShare",
+      "window": 0
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badShare",
+      "window": 1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badShare",
+      "window": 3
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badShare",
+      "window": 7
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badShare",
+      "window": 13
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badShare",
+      "window": 19
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badShare",
+      "window": 100
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badShare",
+      "window": 1000
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badShare",
+      "window": 8192
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badShare",
+      "window": 131072
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badShare",
+      "window": 200000
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badShare",
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "badShare",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "badShare",
+      "window": 9007199254740992
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badTokens",
+      "window": 0
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badTokens",
+      "window": 1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badTokens",
+      "window": 3
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badTokens",
+      "window": 7
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badTokens",
+      "window": 13
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badTokens",
+      "window": 19
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badTokens",
+      "window": 100
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badTokens",
+      "window": 1000
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badTokens",
+      "window": 8192
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badTokens",
+      "window": 131072
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badTokens",
+      "window": 200000
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid policy for volatile",
+      "policy": "badTokens",
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "badTokens",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "badTokens",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "unusedWindow",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "unusedWindow",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 1
+      },
+      "window": 1
+    },
+    {
+      "policy": "unusedWindow",
+      "result": {
+        "budgets": {
+          "conversation": 2,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 1
+      },
+      "window": 3
+    },
+    {
+      "policy": "unusedWindow",
+      "result": {
+        "budgets": {
+          "conversation": 5,
+          "memory": 1,
+          "system": 0,
+          "tools": 0,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "unusedWindow",
+      "result": {
+        "budgets": {
+          "conversation": 8,
+          "memory": 3,
+          "system": 0,
+          "tools": 0,
+          "volatile": 2
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "unusedWindow",
+      "result": {
+        "budgets": {
+          "conversation": 12,
+          "memory": 4,
+          "system": 0,
+          "tools": 0,
+          "volatile": 3
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "unusedWindow",
+      "result": {
+        "budgets": {
+          "conversation": 45,
+          "memory": 25,
+          "system": 5,
+          "tools": 5,
+          "volatile": 20
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 100
+    },
+    {
+      "policy": "unusedWindow",
+      "result": {
+        "budgets": {
+          "conversation": 450,
+          "memory": 250,
+          "system": 50,
+          "tools": 50,
+          "volatile": 200
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1000
+    },
+    {
+      "policy": "unusedWindow",
+      "result": {
+        "budgets": {
+          "conversation": 3688,
+          "memory": 2048,
+          "system": 409,
+          "tools": 409,
+          "volatile": 1638
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 8192
+    },
+    {
+      "policy": "unusedWindow",
+      "result": {
+        "budgets": {
+          "conversation": 87502,
+          "memory": 4250,
+          "system": 6553,
+          "tools": 6553,
+          "volatile": 26214
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 131072
+    },
+    {
+      "policy": "unusedWindow",
+      "result": {
+        "budgets": {
+          "conversation": 135750,
+          "memory": 4250,
+          "system": 10000,
+          "tools": 10000,
+          "volatile": 40000
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 200000
+    },
+    {
+      "policy": "unusedWindow",
+      "result": {
+        "budgets": {
+          "conversation": 769658135195,
+          "memory": 4250,
+          "system": 54975581388,
+          "tools": 54975581388,
+          "volatile": 219902325555
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "unusedWindow",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "unusedWindow",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "seed-1",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "seed-1",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 1
+    },
+    {
+      "policy": "seed-1",
+      "result": {
+        "kind": "infeasible",
+        "reason": "sum of minima exceeds window"
+      },
+      "window": 3
+    },
+    {
+      "policy": "seed-1",
+      "result": {
+        "budgets": {
+          "conversation": 1,
+          "memory": 1,
+          "system": 2,
+          "tools": 2,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "seed-1",
+      "result": {
+        "budgets": {
+          "conversation": 2,
+          "memory": 3,
+          "system": 3,
+          "tools": 3,
+          "volatile": 2
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "seed-1",
+      "result": {
+        "budgets": {
+          "conversation": 4,
+          "memory": 3,
+          "system": 4,
+          "tools": 4,
+          "volatile": 4
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "seed-1",
+      "result": {
+        "budgets": {
+          "conversation": 21,
+          "memory": 20,
+          "system": 19,
+          "tools": 18,
+          "volatile": 22
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 100
+    },
+    {
+      "policy": "seed-1",
+      "result": {
+        "budgets": {
+          "conversation": 210,
+          "memory": 200,
+          "system": 190,
+          "tools": 180,
+          "volatile": 220
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1000
+    },
+    {
+      "policy": "seed-1",
+      "result": {
+        "budgets": {
+          "conversation": 1720,
+          "memory": 1638,
+          "system": 1557,
+          "tools": 1475,
+          "volatile": 1802
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 8192
+    },
+    {
+      "policy": "seed-1",
+      "result": {
+        "budgets": {
+          "conversation": 27525,
+          "memory": 26214,
+          "system": 24903,
+          "tools": 23594,
+          "volatile": 28836
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 131072
+    },
+    {
+      "policy": "seed-1",
+      "result": {
+        "budgets": {
+          "conversation": 42000,
+          "memory": 40000,
+          "system": 38000,
+          "tools": 36000,
+          "volatile": 44000
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 200000
+    },
+    {
+      "policy": "seed-1",
+      "result": {
+        "budgets": {
+          "conversation": 230897441833,
+          "memory": 219902325555,
+          "system": 208907209278,
+          "tools": 197912093000,
+          "volatile": 241892558110
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-1",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-1",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "seed-2",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "seed-2",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 1
+    },
+    {
+      "policy": "seed-2",
+      "result": {
+        "kind": "infeasible",
+        "reason": "sum of minima exceeds window"
+      },
+      "window": 3
+    },
+    {
+      "policy": "seed-2",
+      "result": {
+        "budgets": {
+          "conversation": 1,
+          "memory": 1,
+          "system": 2,
+          "tools": 2,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "seed-2",
+      "result": {
+        "budgets": {
+          "conversation": 2,
+          "memory": 2,
+          "system": 4,
+          "tools": 3,
+          "volatile": 2
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "seed-2",
+      "result": {
+        "budgets": {
+          "conversation": 3,
+          "memory": 3,
+          "system": 5,
+          "tools": 5,
+          "volatile": 3
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "seed-2",
+      "result": {
+        "budgets": {
+          "conversation": 18,
+          "memory": 16,
+          "system": 24,
+          "tools": 22,
+          "volatile": 20
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 100
+    },
+    {
+      "policy": "seed-2",
+      "result": {
+        "budgets": {
+          "conversation": 180,
+          "memory": 160,
+          "system": 240,
+          "tools": 220,
+          "volatile": 200
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1000
+    },
+    {
+      "policy": "seed-2",
+      "result": {
+        "budgets": {
+          "conversation": 1474,
+          "memory": 1310,
+          "system": 1967,
+          "tools": 1803,
+          "volatile": 1638
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 8192
+    },
+    {
+      "policy": "seed-2",
+      "result": {
+        "budgets": {
+          "conversation": 23593,
+          "memory": 20971,
+          "system": 31457,
+          "tools": 28837,
+          "volatile": 26214
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 131072
+    },
+    {
+      "policy": "seed-2",
+      "result": {
+        "budgets": {
+          "conversation": 36000,
+          "memory": 32000,
+          "system": 48000,
+          "tools": 44000,
+          "volatile": 40000
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 200000
+    },
+    {
+      "policy": "seed-2",
+      "result": {
+        "budgets": {
+          "conversation": 197912092999,
+          "memory": 175921860444,
+          "system": 263882790667,
+          "tools": 241892558111,
+          "volatile": 219902325555
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-2",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-2",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "seed-3",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "seed-3",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 1
+    },
+    {
+      "policy": "seed-3",
+      "result": {
+        "kind": "infeasible",
+        "reason": "sum of minima exceeds window"
+      },
+      "window": 3
+    },
+    {
+      "policy": "seed-3",
+      "result": {
+        "budgets": {
+          "conversation": 1,
+          "memory": 1,
+          "system": 2,
+          "tools": 2,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "seed-3",
+      "result": {
+        "budgets": {
+          "conversation": 3,
+          "memory": 2,
+          "system": 2,
+          "tools": 4,
+          "volatile": 2
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "seed-3",
+      "result": {
+        "budgets": {
+          "conversation": 4,
+          "memory": 3,
+          "system": 4,
+          "tools": 5,
+          "volatile": 3
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "seed-3",
+      "result": {
+        "budgets": {
+          "conversation": 23,
+          "memory": 20,
+          "system": 17,
+          "tools": 24,
+          "volatile": 16
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 100
+    },
+    {
+      "policy": "seed-3",
+      "result": {
+        "budgets": {
+          "conversation": 230,
+          "memory": 200,
+          "system": 170,
+          "tools": 240,
+          "volatile": 160
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1000
+    },
+    {
+      "policy": "seed-3",
+      "result": {
+        "budgets": {
+          "conversation": 1884,
+          "memory": 1638,
+          "system": 1393,
+          "tools": 1967,
+          "volatile": 1310
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 8192
+    },
+    {
+      "policy": "seed-3",
+      "result": {
+        "budgets": {
+          "conversation": 30146,
+          "memory": 26214,
+          "system": 22283,
+          "tools": 31458,
+          "volatile": 20971
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 131072
+    },
+    {
+      "policy": "seed-3",
+      "result": {
+        "budgets": {
+          "conversation": 46000,
+          "memory": 40000,
+          "system": 34000,
+          "tools": 48000,
+          "volatile": 32000
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 200000
+    },
+    {
+      "policy": "seed-3",
+      "result": {
+        "budgets": {
+          "conversation": 252887674389,
+          "memory": 219902325555,
+          "system": 186916976722,
+          "tools": 263882790666,
+          "volatile": 175921860444
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-3",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-3",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "seed-4",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "seed-4",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 1
+    },
+    {
+      "policy": "seed-4",
+      "result": {
+        "kind": "infeasible",
+        "reason": "sum of minima exceeds window"
+      },
+      "window": 3
+    },
+    {
+      "policy": "seed-4",
+      "result": {
+        "budgets": {
+          "conversation": 1,
+          "memory": 1,
+          "system": 2,
+          "tools": 2,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "seed-4",
+      "result": {
+        "budgets": {
+          "conversation": 2,
+          "memory": 2,
+          "system": 3,
+          "tools": 3,
+          "volatile": 3
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "seed-4",
+      "result": {
+        "budgets": {
+          "conversation": 3,
+          "memory": 3,
+          "system": 5,
+          "tools": 4,
+          "volatile": 4
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "seed-4",
+      "result": {
+        "budgets": {
+          "conversation": 20,
+          "memory": 16,
+          "system": 22,
+          "tools": 18,
+          "volatile": 24
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 100
+    },
+    {
+      "policy": "seed-4",
+      "result": {
+        "budgets": {
+          "conversation": 200,
+          "memory": 160,
+          "system": 220,
+          "tools": 180,
+          "volatile": 240
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1000
+    },
+    {
+      "policy": "seed-4",
+      "result": {
+        "budgets": {
+          "conversation": 1638,
+          "memory": 1310,
+          "system": 1803,
+          "tools": 1475,
+          "volatile": 1966
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 8192
+    },
+    {
+      "policy": "seed-4",
+      "result": {
+        "budgets": {
+          "conversation": 26214,
+          "memory": 20971,
+          "system": 28836,
+          "tools": 23594,
+          "volatile": 31457
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 131072
+    },
+    {
+      "policy": "seed-4",
+      "result": {
+        "budgets": {
+          "conversation": 40000,
+          "memory": 32000,
+          "system": 44000,
+          "tools": 36000,
+          "volatile": 48000
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 200000
+    },
+    {
+      "policy": "seed-4",
+      "result": {
+        "budgets": {
+          "conversation": 219902325555,
+          "memory": 175921860444,
+          "system": 241892558111,
+          "tools": 197912093000,
+          "volatile": 263882790666
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-4",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-4",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "seed-5",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "seed-5",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 1
+    },
+    {
+      "policy": "seed-5",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 1,
+          "system": 0,
+          "tools": 1,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 3
+    },
+    {
+      "policy": "seed-5",
+      "result": {
+        "budgets": {
+          "conversation": 1,
+          "memory": 2,
+          "system": 1,
+          "tools": 2,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "seed-5",
+      "result": {
+        "budgets": {
+          "conversation": 2,
+          "memory": 3,
+          "system": 2,
+          "tools": 3,
+          "volatile": 3
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "seed-5",
+      "result": {
+        "budgets": {
+          "conversation": 3,
+          "memory": 4,
+          "system": 3,
+          "tools": 5,
+          "volatile": 4
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "seed-5",
+      "result": {
+        "budgets": {
+          "conversation": 17,
+          "memory": 22,
+          "system": 17,
+          "tools": 22,
+          "volatile": 22
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 100
+    },
+    {
+      "policy": "seed-5",
+      "result": {
+        "budgets": {
+          "conversation": 170,
+          "memory": 220,
+          "system": 170,
+          "tools": 220,
+          "volatile": 220
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1000
+    },
+    {
+      "policy": "seed-5",
+      "result": {
+        "budgets": {
+          "conversation": 1392,
+          "memory": 1802,
+          "system": 1393,
+          "tools": 1803,
+          "volatile": 1802
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 8192
+    },
+    {
+      "policy": "seed-5",
+      "result": {
+        "budgets": {
+          "conversation": 22282,
+          "memory": 28836,
+          "system": 22282,
+          "tools": 28836,
+          "volatile": 28836
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 131072
+    },
+    {
+      "policy": "seed-5",
+      "result": {
+        "budgets": {
+          "conversation": 34000,
+          "memory": 44000,
+          "system": 34000,
+          "tools": 44000,
+          "volatile": 44000
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 200000
+    },
+    {
+      "policy": "seed-5",
+      "result": {
+        "budgets": {
+          "conversation": 186916976722,
+          "memory": 241892558111,
+          "system": 186916976722,
+          "tools": 241892558111,
+          "volatile": 241892558110
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-5",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-5",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "seed-6",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "seed-6",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 1
+    },
+    {
+      "policy": "seed-6",
+      "result": {
+        "kind": "infeasible",
+        "reason": "sum of minima exceeds window"
+      },
+      "window": 3
+    },
+    {
+      "policy": "seed-6",
+      "result": {
+        "budgets": {
+          "conversation": 1,
+          "memory": 1,
+          "system": 2,
+          "tools": 2,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "seed-6",
+      "result": {
+        "budgets": {
+          "conversation": 2,
+          "memory": 2,
+          "system": 3,
+          "tools": 4,
+          "volatile": 2
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "seed-6",
+      "result": {
+        "budgets": {
+          "conversation": 4,
+          "memory": 3,
+          "system": 4,
+          "tools": 5,
+          "volatile": 3
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "seed-6",
+      "result": {
+        "budgets": {
+          "conversation": 22,
+          "memory": 16,
+          "system": 20,
+          "tools": 24,
+          "volatile": 18
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 100
+    },
+    {
+      "policy": "seed-6",
+      "result": {
+        "budgets": {
+          "conversation": 220,
+          "memory": 160,
+          "system": 200,
+          "tools": 240,
+          "volatile": 180
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1000
+    },
+    {
+      "policy": "seed-6",
+      "result": {
+        "budgets": {
+          "conversation": 1802,
+          "memory": 1310,
+          "system": 1639,
+          "tools": 1967,
+          "volatile": 1474
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 8192
+    },
+    {
+      "policy": "seed-6",
+      "result": {
+        "budgets": {
+          "conversation": 28836,
+          "memory": 20971,
+          "system": 26214,
+          "tools": 31458,
+          "volatile": 23593
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 131072
+    },
+    {
+      "policy": "seed-6",
+      "result": {
+        "budgets": {
+          "conversation": 44000,
+          "memory": 32000,
+          "system": 40000,
+          "tools": 48000,
+          "volatile": 36000
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 200000
+    },
+    {
+      "policy": "seed-6",
+      "result": {
+        "budgets": {
+          "conversation": 241892558110,
+          "memory": 175921860444,
+          "system": 219902325556,
+          "tools": 263882790667,
+          "volatile": 197912092999
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-6",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-6",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "seed-7",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "seed-7",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 1
+    },
+    {
+      "policy": "seed-7",
+      "result": {
+        "kind": "infeasible",
+        "reason": "sum of minima exceeds window"
+      },
+      "window": 3
+    },
+    {
+      "policy": "seed-7",
+      "result": {
+        "budgets": {
+          "conversation": 1,
+          "memory": 1,
+          "system": 2,
+          "tools": 2,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "seed-7",
+      "result": {
+        "budgets": {
+          "conversation": 2,
+          "memory": 2,
+          "system": 3,
+          "tools": 3,
+          "volatile": 3
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "seed-7",
+      "result": {
+        "budgets": {
+          "conversation": 3,
+          "memory": 3,
+          "system": 5,
+          "tools": 4,
+          "volatile": 4
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "seed-7",
+      "result": {
+        "budgets": {
+          "conversation": 17,
+          "memory": 20,
+          "system": 23,
+          "tools": 16,
+          "volatile": 24
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 100
+    },
+    {
+      "policy": "seed-7",
+      "result": {
+        "budgets": {
+          "conversation": 170,
+          "memory": 200,
+          "system": 230,
+          "tools": 160,
+          "volatile": 240
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1000
+    },
+    {
+      "policy": "seed-7",
+      "result": {
+        "budgets": {
+          "conversation": 1392,
+          "memory": 1638,
+          "system": 1885,
+          "tools": 1311,
+          "volatile": 1966
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 8192
+    },
+    {
+      "policy": "seed-7",
+      "result": {
+        "budgets": {
+          "conversation": 22282,
+          "memory": 26214,
+          "system": 30147,
+          "tools": 20972,
+          "volatile": 31457
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 131072
+    },
+    {
+      "policy": "seed-7",
+      "result": {
+        "budgets": {
+          "conversation": 34000,
+          "memory": 40000,
+          "system": 46000,
+          "tools": 32000,
+          "volatile": 48000
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 200000
+    },
+    {
+      "policy": "seed-7",
+      "result": {
+        "budgets": {
+          "conversation": 186916976722,
+          "memory": 219902325555,
+          "system": 252887674389,
+          "tools": 175921860444,
+          "volatile": 263882790666
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-7",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-7",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "seed-8",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "seed-8",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 1
+    },
+    {
+      "policy": "seed-8",
+      "result": {
+        "kind": "infeasible",
+        "reason": "sum of minima exceeds window"
+      },
+      "window": 3
+    },
+    {
+      "policy": "seed-8",
+      "result": {
+        "budgets": {
+          "conversation": 1,
+          "memory": 1,
+          "system": 2,
+          "tools": 2,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "seed-8",
+      "result": {
+        "budgets": {
+          "conversation": 3,
+          "memory": 2,
+          "system": 3,
+          "tools": 3,
+          "volatile": 2
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "seed-8",
+      "result": {
+        "budgets": {
+          "conversation": 4,
+          "memory": 3,
+          "system": 4,
+          "tools": 4,
+          "volatile": 4
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "seed-8",
+      "result": {
+        "budgets": {
+          "conversation": 24,
+          "memory": 16,
+          "system": 18,
+          "tools": 20,
+          "volatile": 22
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 100
+    },
+    {
+      "policy": "seed-8",
+      "result": {
+        "budgets": {
+          "conversation": 240,
+          "memory": 160,
+          "system": 180,
+          "tools": 200,
+          "volatile": 220
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1000
+    },
+    {
+      "policy": "seed-8",
+      "result": {
+        "budgets": {
+          "conversation": 1966,
+          "memory": 1310,
+          "system": 1475,
+          "tools": 1639,
+          "volatile": 1802
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 8192
+    },
+    {
+      "policy": "seed-8",
+      "result": {
+        "budgets": {
+          "conversation": 31457,
+          "memory": 20971,
+          "system": 23593,
+          "tools": 26215,
+          "volatile": 28836
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 131072
+    },
+    {
+      "policy": "seed-8",
+      "result": {
+        "budgets": {
+          "conversation": 48000,
+          "memory": 32000,
+          "system": 36000,
+          "tools": 40000,
+          "volatile": 44000
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 200000
+    },
+    {
+      "policy": "seed-8",
+      "result": {
+        "budgets": {
+          "conversation": 263882790666,
+          "memory": 175921860444,
+          "system": 197912093000,
+          "tools": 219902325556,
+          "volatile": 241892558110
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-8",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-8",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "seed-9",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "seed-9",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 1
+    },
+    {
+      "policy": "seed-9",
+      "result": {
+        "kind": "infeasible",
+        "reason": "sum of minima exceeds window"
+      },
+      "window": 3
+    },
+    {
+      "policy": "seed-9",
+      "result": {
+        "budgets": {
+          "conversation": 1,
+          "memory": 1,
+          "system": 2,
+          "tools": 2,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "seed-9",
+      "result": {
+        "budgets": {
+          "conversation": 2,
+          "memory": 3,
+          "system": 3,
+          "tools": 3,
+          "volatile": 2
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "seed-9",
+      "result": {
+        "budgets": {
+          "conversation": 3,
+          "memory": 3,
+          "system": 5,
+          "tools": 5,
+          "volatile": 3
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "seed-9",
+      "result": {
+        "budgets": {
+          "conversation": 19,
+          "memory": 20,
+          "system": 21,
+          "tools": 23,
+          "volatile": 17
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 100
+    },
+    {
+      "policy": "seed-9",
+      "result": {
+        "budgets": {
+          "conversation": 190,
+          "memory": 200,
+          "system": 210,
+          "tools": 220,
+          "volatile": 180
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1000
+    },
+    {
+      "policy": "seed-9",
+      "result": {
+        "budgets": {
+          "conversation": 1556,
+          "memory": 1638,
+          "system": 1721,
+          "tools": 1803,
+          "volatile": 1474
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 8192
+    },
+    {
+      "policy": "seed-9",
+      "result": {
+        "budgets": {
+          "conversation": 24903,
+          "memory": 26214,
+          "system": 27525,
+          "tools": 28837,
+          "volatile": 23593
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 131072
+    },
+    {
+      "policy": "seed-9",
+      "result": {
+        "budgets": {
+          "conversation": 38000,
+          "memory": 40000,
+          "system": 42000,
+          "tools": 44001,
+          "volatile": 35999
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 200000
+    },
+    {
+      "policy": "seed-9",
+      "result": {
+        "budgets": {
+          "conversation": 208907209278,
+          "memory": 219902325555,
+          "system": 230897441833,
+          "tools": 241892558111,
+          "volatile": 197912092999
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-9",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-9",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "seed-10",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "seed-10",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 1
+      },
+      "window": 1
+    },
+    {
+      "policy": "seed-10",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 1,
+          "system": 1,
+          "tools": 1,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 3
+    },
+    {
+      "policy": "seed-10",
+      "result": {
+        "budgets": {
+          "conversation": 1,
+          "memory": 1,
+          "system": 2,
+          "tools": 2,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "seed-10",
+      "result": {
+        "budgets": {
+          "conversation": 2,
+          "memory": 3,
+          "system": 3,
+          "tools": 3,
+          "volatile": 2
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "seed-10",
+      "result": {
+        "budgets": {
+          "conversation": 4,
+          "memory": 4,
+          "system": 4,
+          "tools": 4,
+          "volatile": 3
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "seed-10",
+      "result": {
+        "budgets": {
+          "conversation": 20,
+          "memory": 20,
+          "system": 20,
+          "tools": 20,
+          "volatile": 20
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 100
+    },
+    {
+      "policy": "seed-10",
+      "result": {
+        "budgets": {
+          "conversation": 200,
+          "memory": 200,
+          "system": 200,
+          "tools": 200,
+          "volatile": 200
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1000
+    },
+    {
+      "policy": "seed-10",
+      "result": {
+        "budgets": {
+          "conversation": 1638,
+          "memory": 1638,
+          "system": 1639,
+          "tools": 1639,
+          "volatile": 1638
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 8192
+    },
+    {
+      "policy": "seed-10",
+      "result": {
+        "budgets": {
+          "conversation": 26214,
+          "memory": 26214,
+          "system": 26215,
+          "tools": 26215,
+          "volatile": 26214
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 131072
+    },
+    {
+      "policy": "seed-10",
+      "result": {
+        "budgets": {
+          "conversation": 40000,
+          "memory": 40000,
+          "system": 40000,
+          "tools": 40000,
+          "volatile": 40000
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 200000
+    },
+    {
+      "policy": "seed-10",
+      "result": {
+        "budgets": {
+          "conversation": 219902325555,
+          "memory": 219902325555,
+          "system": 219902325555,
+          "tools": 219902325556,
+          "volatile": 219902325555
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-10",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-10",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "seed-11",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "seed-11",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 1
+    },
+    {
+      "policy": "seed-11",
+      "result": {
+        "kind": "infeasible",
+        "reason": "sum of minima exceeds window"
+      },
+      "window": 3
+    },
+    {
+      "policy": "seed-11",
+      "result": {
+        "budgets": {
+          "conversation": 1,
+          "memory": 1,
+          "system": 2,
+          "tools": 2,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "seed-11",
+      "result": {
+        "budgets": {
+          "conversation": 2,
+          "memory": 3,
+          "system": 3,
+          "tools": 3,
+          "volatile": 2
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "seed-11",
+      "result": {
+        "budgets": {
+          "conversation": 4,
+          "memory": 3,
+          "system": 4,
+          "tools": 4,
+          "volatile": 4
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "seed-11",
+      "result": {
+        "budgets": {
+          "conversation": 21,
+          "memory": 20,
+          "system": 19,
+          "tools": 18,
+          "volatile": 22
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 100
+    },
+    {
+      "policy": "seed-11",
+      "result": {
+        "budgets": {
+          "conversation": 210,
+          "memory": 200,
+          "system": 190,
+          "tools": 180,
+          "volatile": 220
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1000
+    },
+    {
+      "policy": "seed-11",
+      "result": {
+        "budgets": {
+          "conversation": 1720,
+          "memory": 1638,
+          "system": 1557,
+          "tools": 1475,
+          "volatile": 1802
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 8192
+    },
+    {
+      "policy": "seed-11",
+      "result": {
+        "budgets": {
+          "conversation": 27525,
+          "memory": 26214,
+          "system": 24903,
+          "tools": 23594,
+          "volatile": 28836
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 131072
+    },
+    {
+      "policy": "seed-11",
+      "result": {
+        "budgets": {
+          "conversation": 42000,
+          "memory": 40000,
+          "system": 38000,
+          "tools": 36000,
+          "volatile": 44000
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 200000
+    },
+    {
+      "policy": "seed-11",
+      "result": {
+        "budgets": {
+          "conversation": 230897441833,
+          "memory": 219902325555,
+          "system": 208907209278,
+          "tools": 197912093000,
+          "volatile": 241892558110
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-11",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-11",
+      "window": 9007199254740992
+    },
+    {
+      "policy": "seed-12",
+      "result": {
+        "budgets": {
+          "conversation": 0,
+          "memory": 0,
+          "system": 0,
+          "tools": 0,
+          "volatile": 0
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 0
+    },
+    {
+      "policy": "seed-12",
+      "result": {
+        "kind": "infeasible",
+        "reason": "minimum exceeds maximum for tools"
+      },
+      "window": 1
+    },
+    {
+      "policy": "seed-12",
+      "result": {
+        "kind": "infeasible",
+        "reason": "sum of minima exceeds window"
+      },
+      "window": 3
+    },
+    {
+      "policy": "seed-12",
+      "result": {
+        "budgets": {
+          "conversation": 1,
+          "memory": 1,
+          "system": 2,
+          "tools": 2,
+          "volatile": 1
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 7
+    },
+    {
+      "policy": "seed-12",
+      "result": {
+        "budgets": {
+          "conversation": 2,
+          "memory": 2,
+          "system": 4,
+          "tools": 3,
+          "volatile": 2
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 13
+    },
+    {
+      "policy": "seed-12",
+      "result": {
+        "budgets": {
+          "conversation": 3,
+          "memory": 3,
+          "system": 5,
+          "tools": 5,
+          "volatile": 3
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 19
+    },
+    {
+      "policy": "seed-12",
+      "result": {
+        "budgets": {
+          "conversation": 18,
+          "memory": 16,
+          "system": 24,
+          "tools": 22,
+          "volatile": 20
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 100
+    },
+    {
+      "policy": "seed-12",
+      "result": {
+        "budgets": {
+          "conversation": 180,
+          "memory": 160,
+          "system": 240,
+          "tools": 220,
+          "volatile": 200
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1000
+    },
+    {
+      "policy": "seed-12",
+      "result": {
+        "budgets": {
+          "conversation": 1474,
+          "memory": 1310,
+          "system": 1967,
+          "tools": 1803,
+          "volatile": 1638
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 8192
+    },
+    {
+      "policy": "seed-12",
+      "result": {
+        "budgets": {
+          "conversation": 23593,
+          "memory": 20971,
+          "system": 31457,
+          "tools": 28837,
+          "volatile": 26214
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 131072
+    },
+    {
+      "policy": "seed-12",
+      "result": {
+        "budgets": {
+          "conversation": 36000,
+          "memory": 32000,
+          "system": 48000,
+          "tools": 44000,
+          "volatile": 40000
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 200000
+    },
+    {
+      "policy": "seed-12",
+      "result": {
+        "budgets": {
+          "conversation": 197912092999,
+          "memory": 175921860444,
+          "system": 263882790667,
+          "tools": 241892558111,
+          "volatile": 219902325555
+        },
+        "kind": "allocated",
+        "unallocated": 0
+      },
+      "window": 1099511627776
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-12",
+      "window": -1
+    },
+    {
+      "error": "RangeError",
+      "message": "invalid model window",
+      "policy": "seed-12",
+      "window": 9007199254740992
+    }
+  ],
+  "check": [
+    {
+      "budgets": {
+        "conversation": 40,
+        "memory": 30,
+        "system": 20,
+        "tools": 10,
+        "volatile": 5
+      },
+      "result": {
+        "kind": "within_budget"
+      },
+      "used": {}
+    },
+    {
+      "budgets": {
+        "conversation": 40,
+        "memory": 30,
+        "system": 20,
+        "tools": 10,
+        "volatile": 5
+      },
+      "result": {
+        "kind": "within_budget"
+      },
+      "used": {
+        "tools": 10
+      }
+    },
+    {
+      "budgets": {
+        "conversation": 40,
+        "memory": 30,
+        "system": 20,
+        "tools": 10,
+        "volatile": 5
+      },
+      "result": {
+        "kind": "zone_exceeded",
+        "zones": [
+          {
+            "limit": 10,
+            "used": 11,
+            "zone": "tools"
+          }
+        ]
+      },
+      "used": {
+        "tools": 11
+      }
+    },
+    {
+      "budgets": {
+        "conversation": 40,
+        "memory": 30,
+        "system": 20,
+        "tools": 10,
+        "volatile": 5
+      },
+      "result": {
+        "kind": "zone_exceeded",
+        "zones": [
+          {
+            "limit": 10,
+            "used": 11,
+            "zone": "tools"
+          },
+          {
+            "limit": 30,
+            "used": 31,
+            "zone": "memory"
+          },
+          {
+            "limit": 5,
+            "used": 6,
+            "zone": "volatile"
+          }
+        ]
+      },
+      "used": {
+        "memory": 31,
+        "tools": 11,
+        "volatile": 6
+      }
+    },
+    {
+      "budgets": {
+        "conversation": 40,
+        "memory": 30,
+        "system": 20,
+        "tools": 10,
+        "volatile": 5
+      },
+      "result": {
+        "kind": "within_budget"
+      },
+      "used": {
+        "conversation": 0
+      }
+    },
+    {
+      "budgets": {
+        "conversation": 40,
+        "memory": 30,
+        "system": 20,
+        "tools": 10,
+        "volatile": 5
+      },
+      "error": "RangeError",
+      "message": "invalid zone counts",
+      "used": {
+        "tools": -1
+      }
+    },
+    {
+      "budgets": {
+        "conversation": 40,
+        "memory": 30,
+        "system": 20,
+        "tools": 10,
+        "volatile": 5
+      },
+      "error": "RangeError",
+      "message": "invalid zone counts",
+      "used": {
+        "memory": 9007199254740992
+      }
+    },
+    {
+      "budgets": {
+        "conversation": 40,
+        "memory": 30,
+        "system": -1,
+        "tools": 10,
+        "volatile": 5
+      },
+      "error": "RangeError",
+      "message": "invalid zone counts",
+      "used": {}
+    }
+  ],
+  "policies": {
+    "badShare": {
+      "conversation": {
+        "maxShare": 0.8,
+        "minShare": 0
+      },
+      "memory": {
+        "maxShare": 0.25,
+        "maxTokens": 4250,
+        "minShare": 0
+      },
+      "system": {
+        "maxShare": 0.2,
+        "minShare": 0
+      },
+      "tools": {
+        "maxShare": 0.2,
+        "minShare": 0
+      },
+      "volatile": {
+        "maxShare": 1.5,
+        "minShare": 0
+      }
+    },
+    "badTokens": {
+      "conversation": {
+        "maxShare": 0.8,
+        "minShare": 0
+      },
+      "memory": {
+        "maxShare": 0.25,
+        "maxTokens": 4250,
+        "minShare": 0
+      },
+      "system": {
+        "maxShare": 0.2,
+        "minShare": 0
+      },
+      "tools": {
+        "maxShare": 0.2,
+        "minShare": 0
+      },
+      "volatile": {
+        "maxShare": 0.2,
+        "maxTokens": -1,
+        "minShare": 0
+      }
+    },
+    "default": {
+      "conversation": {
+        "maxShare": 0.8,
+        "minShare": 0
+      },
+      "memory": {
+        "maxShare": 0.25,
+        "maxTokens": 4250,
+        "minShare": 0
+      },
+      "system": {
+        "maxShare": 0.2,
+        "minShare": 0
+      },
+      "tools": {
+        "maxShare": 0.2,
+        "minShare": 0
+      },
+      "volatile": {
+        "maxShare": 0.2,
+        "minShare": 0
+      }
+    },
+    "impossible": {
+      "conversation": {
+        "maxShare": 0.8,
+        "minShare": 0
+      },
+      "memory": {
+        "maxShare": 0.25,
+        "maxTokens": 4250,
+        "minShare": 0
+      },
+      "system": {
+        "maxShare": 0.9,
+        "minShare": 0.9
+      },
+      "tools": {
+        "maxShare": 0.9,
+        "minShare": 0.9
+      },
+      "volatile": {
+        "maxShare": 0.2,
+        "minShare": 0
+      }
+    },
+    "minAboveMaxTokens": {
+      "conversation": {
+        "maxShare": 0.8,
+        "minShare": 0
+      },
+      "memory": {
+        "maxShare": 0.5,
+        "maxTokens": 10,
+        "minShare": 0.2
+      },
+      "system": {
+        "maxShare": 0.2,
+        "minShare": 0
+      },
+      "tools": {
+        "maxShare": 0.2,
+        "minShare": 0
+      },
+      "volatile": {
+        "maxShare": 0.2,
+        "minShare": 0
+      }
+    },
+    "minMoreThanMax": {
+      "conversation": {
+        "maxShare": 0.8,
+        "minShare": 0
+      },
+      "memory": {
+        "maxShare": 0.25,
+        "minShare": 0.5
+      },
+      "system": {
+        "maxShare": 0.2,
+        "minShare": 0
+      },
+      "tools": {
+        "maxShare": 0.2,
+        "minShare": 0
+      },
+      "volatile": {
+        "maxShare": 0.2,
+        "minShare": 0
+      }
+    },
+    "seed-1": {
+      "conversation": {
+        "maxShare": 0.4,
+        "minShare": 0.06
+      },
+      "memory": {
+        "maxShare": 0.4,
+        "minShare": 0.05
+      },
+      "system": {
+        "maxShare": 0.4,
+        "minShare": 0.04
+      },
+      "tools": {
+        "maxShare": 0.4,
+        "minShare": 0.03
+      },
+      "volatile": {
+        "maxShare": 0.4,
+        "minShare": 0.07
+      }
+    },
+    "seed-10": {
+      "conversation": {
+        "maxShare": 0.4,
+        "minShare": 0
+      },
+      "memory": {
+        "maxShare": 0.4,
+        "minShare": 0
+      },
+      "system": {
+        "maxShare": 0.4,
+        "minShare": 0
+      },
+      "tools": {
+        "maxShare": 0.4,
+        "minShare": 0
+      },
+      "volatile": {
+        "maxShare": 0.4,
+        "minShare": 0
+      }
+    },
+    "seed-11": {
+      "conversation": {
+        "maxShare": 0.4,
+        "minShare": 0.06
+      },
+      "memory": {
+        "maxShare": 0.4,
+        "minShare": 0.05
+      },
+      "system": {
+        "maxShare": 0.4,
+        "minShare": 0.04
+      },
+      "tools": {
+        "maxShare": 0.4,
+        "minShare": 0.03
+      },
+      "volatile": {
+        "maxShare": 0.4,
+        "minShare": 0.07
+      }
+    },
+    "seed-12": {
+      "conversation": {
+        "maxShare": 0.4,
+        "minShare": 0.02
+      },
+      "memory": {
+        "maxShare": 0.4,
+        "minShare": 0
+      },
+      "system": {
+        "maxShare": 0.4,
+        "minShare": 0.08
+      },
+      "tools": {
+        "maxShare": 0.4,
+        "minShare": 0.06
+      },
+      "volatile": {
+        "maxShare": 0.4,
+        "minShare": 0.04
+      }
+    },
+    "seed-2": {
+      "conversation": {
+        "maxShare": 0.4,
+        "minShare": 0.02
+      },
+      "memory": {
+        "maxShare": 0.4,
+        "minShare": 0
+      },
+      "system": {
+        "maxShare": 0.4,
+        "minShare": 0.08
+      },
+      "tools": {
+        "maxShare": 0.4,
+        "minShare": 0.06
+      },
+      "volatile": {
+        "maxShare": 0.4,
+        "minShare": 0.04
+      }
+    },
+    "seed-3": {
+      "conversation": {
+        "maxShare": 0.4,
+        "minShare": 0.08
+      },
+      "memory": {
+        "maxShare": 0.4,
+        "minShare": 0.05
+      },
+      "system": {
+        "maxShare": 0.4,
+        "minShare": 0.02
+      },
+      "tools": {
+        "maxShare": 0.4,
+        "minShare": 0.09
+      },
+      "volatile": {
+        "maxShare": 0.4,
+        "minShare": 0.01
+      }
+    },
+    "seed-4": {
+      "conversation": {
+        "maxShare": 0.4,
+        "minShare": 0.04
+      },
+      "memory": {
+        "maxShare": 0.4,
+        "minShare": 0
+      },
+      "system": {
+        "maxShare": 0.4,
+        "minShare": 0.06
+      },
+      "tools": {
+        "maxShare": 0.4,
+        "minShare": 0.02
+      },
+      "volatile": {
+        "maxShare": 0.4,
+        "minShare": 0.08
+      }
+    },
+    "seed-5": {
+      "conversation": {
+        "maxShare": 0.4,
+        "minShare": 0
+      },
+      "memory": {
+        "maxShare": 0.4,
+        "minShare": 0.05
+      },
+      "system": {
+        "maxShare": 0.4,
+        "minShare": 0
+      },
+      "tools": {
+        "maxShare": 0.4,
+        "minShare": 0.05
+      },
+      "volatile": {
+        "maxShare": 0.4,
+        "minShare": 0.05
+      }
+    },
+    "seed-6": {
+      "conversation": {
+        "maxShare": 0.4,
+        "minShare": 0.06
+      },
+      "memory": {
+        "maxShare": 0.4,
+        "minShare": 0
+      },
+      "system": {
+        "maxShare": 0.4,
+        "minShare": 0.04
+      },
+      "tools": {
+        "maxShare": 0.4,
+        "minShare": 0.08
+      },
+      "volatile": {
+        "maxShare": 0.4,
+        "minShare": 0.02
+      }
+    },
+    "seed-7": {
+      "conversation": {
+        "maxShare": 0.4,
+        "minShare": 0.02
+      },
+      "memory": {
+        "maxShare": 0.4,
+        "minShare": 0.05
+      },
+      "system": {
+        "maxShare": 0.4,
+        "minShare": 0.08
+      },
+      "tools": {
+        "maxShare": 0.4,
+        "minShare": 0.01
+      },
+      "volatile": {
+        "maxShare": 0.4,
+        "minShare": 0.09
+      }
+    },
+    "seed-8": {
+      "conversation": {
+        "maxShare": 0.4,
+        "minShare": 0.08
+      },
+      "memory": {
+        "maxShare": 0.4,
+        "minShare": 0
+      },
+      "system": {
+        "maxShare": 0.4,
+        "minShare": 0.02
+      },
+      "tools": {
+        "maxShare": 0.4,
+        "minShare": 0.04
+      },
+      "volatile": {
+        "maxShare": 0.4,
+        "minShare": 0.06
+      }
+    },
+    "seed-9": {
+      "conversation": {
+        "maxShare": 0.4,
+        "minShare": 0.04
+      },
+      "memory": {
+        "maxShare": 0.4,
+        "minShare": 0.05
+      },
+      "system": {
+        "maxShare": 0.4,
+        "minShare": 0.06
+      },
+      "tools": {
+        "maxShare": 0.4,
+        "minShare": 0.07
+      },
+      "volatile": {
+        "maxShare": 0.4,
+        "minShare": 0.03
+      }
+    },
+    "unusedWindow": {
+      "conversation": {
+        "maxShare": 0.8,
+        "minShare": 0
+      },
+      "memory": {
+        "maxShare": 0.25,
+        "maxTokens": 4250,
+        "minShare": 0
+      },
+      "system": {
+        "maxShare": 0.05,
+        "minShare": 0
+      },
+      "tools": {
+        "maxShare": 0.05,
+        "minShare": 0
+      },
+      "volatile": {
+        "maxShare": 0.2,
+        "minShare": 0
+      }
+    }
+  },
+  "zones": [
+    "tools",
+    "system",
+    "memory",
+    "conversation",
+    "volatile"
+  ]
+}
