@@ -217,3 +217,48 @@ fn a_non_json_body_never_exposes_any_provider_supplied_text() {
     assert_eq!(error, Error::BadResponse);
     assert!(!format!("{error:?} {error}").contains(CREDENTIAL));
 }
+
+#[test]
+fn complete_json_at_the_published_ceiling_and_one_extra_byte() {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    use std::io::Write;
+
+    const CEILING: usize = 1024 * 1024;
+    for encoding in ["identity", "gzip"] {
+        let input = format!("\"{}\"", "a".repeat(CEILING - 2));
+        let chunk = |body: &[u8]| {
+            let bytes = if encoding == "gzip" {
+                let mut encoder =
+                    flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+                encoder.write_all(body).unwrap();
+                encoder.finish().unwrap()
+            } else {
+                body.to_vec()
+            };
+            STANDARD.encode(bytes)
+        };
+        let over = format!("{input} ");
+        let server = FakeServer::start(&json!({
+            "transport": "http",
+            "exchanges": [
+                {"request": {"method": "GET", "path": "/at"},
+                 "response": {"status": 200, "headers": {"content-encoding": encoding},
+                              "chunksBase64": [chunk(input.as_bytes())]}},
+                {"request": {"method": "GET", "path": "/over"},
+                 "response": {"status": 200, "headers": {"content-encoding": encoding},
+                              "chunksBase64": [chunk(over.as_bytes())]}},
+            ]
+        }));
+        let pin = Pin(server.addr);
+        let client = Client::new(&pin).with_loopback_http();
+        let url = |path: &str| Url::parse(&format!("http://{}/{path}", server.addr)).unwrap();
+        let budget = Duration::from_secs(5);
+        let at = client.json(&url("at"), "GET", &[], b"", budget).unwrap();
+        assert_eq!(at.as_str().map(str::len), Some(CEILING - 2), "{encoding}");
+        assert_eq!(
+            client.json(&url("over"), "GET", &[], b"", budget),
+            Err(Error::BadResponse),
+            "{encoding}",
+        );
+    }
+}
