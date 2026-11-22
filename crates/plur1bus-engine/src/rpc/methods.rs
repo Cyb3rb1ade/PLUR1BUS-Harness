@@ -936,6 +936,10 @@ mod tests {
                         | "engine.capture.wait"
                         | "engine.capture.abort"
                         | "engine.channels.register"
+                        // Live Core verification requires the process server. Both routes
+                        // are exercised through authenticated connections in rpc_server.rs.
+                        | "engine.media.index"
+                        | "engine.dreams.schedule"
                         | "engine.tokens.count"
                         | "engine.tokens.families"
                         | "engine.tokens.observe"
