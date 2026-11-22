@@ -1074,3 +1074,19 @@ flag, and missing or numeric-string budget bounds. The adapter already validates
 Rust uses a boolean toggle, enables adaptive thinking only for a declared effort flag, and requires
 numeric budget bounds. The six catalog cases are recorded from the real TypeScript builder. A null
 effort value falls back to the chosen level in both languages.
+
+## P4D-202 — cloud voice JSON responses have no byte limit
+
+Security, W3, reported from static review. The voice HTTP client calls
+`Response.json()` on a successful response. The production voice transport
+passes the body stream through to the client. The headers deadline has already
+ended by the time parsing starts. Listing voices limits the number of pages,
+but accepts the full contents of each page before iterating its entries. An
+oversized response can exhaust process memory. No live provider or stress
+test was used. See [HTTP parsing](../../packages/voice-providers/src/http.ts),
+[voice transport](../../packages/core/src/voice/transport.ts) and
+[voice listing](../../packages/voice-providers/src/providers/elevenlabs.ts).
+
+W3 awaits the maximum decoded JSON bytes per response and the existing error
+classification to return on overflow. Count bytes as the body arrives and stop
+reading at the limit. Preserve streaming audio as a separate response type.
