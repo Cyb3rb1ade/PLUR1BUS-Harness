@@ -357,21 +357,7 @@ pub fn transcribe(
         deadline,
     )?;
     let words = if options.timestamps {
-        result["words"].as_array().map(|words| {
-            words
-                .iter()
-                .filter_map(|word| {
-                    if word["type"].as_str().is_some_and(|kind| kind != "word") {
-                        return None;
-                    }
-                    Some(WordTiming {
-                        text: word["text"].as_str()?.into(),
-                        start_ms: milliseconds(&word["start"]),
-                        end_ms: milliseconds(&word["end"]),
-                    })
-                })
-                .collect()
-        })
+        word_timings(&result["words"])
     } else {
         None
     };
@@ -382,6 +368,25 @@ pub fn transcribe(
         model: model.into(),
         audio_seconds: f64::from(pcm_bytes) / (f64::from(sample_rate) * 2.),
     })
+}
+
+pub(crate) fn word_timings(value: &Value) -> Option<Vec<WordTiming>> {
+    Some(
+        value
+            .as_array()?
+            .iter()
+            .filter_map(|word| {
+                if word.get("type").is_some_and(|kind| kind != "word") {
+                    return None;
+                }
+                Some(WordTiming {
+                    text: word["text"].as_str()?.into(),
+                    start_ms: milliseconds(&word["start"]),
+                    end_ms: milliseconds(&word["end"]),
+                })
+            })
+            .collect(),
+    )
 }
 
 fn milliseconds(value: &Value) -> f64 {

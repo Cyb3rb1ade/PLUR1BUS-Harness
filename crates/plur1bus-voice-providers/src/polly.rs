@@ -45,7 +45,15 @@ pub fn synthesize(
     options: &Options<'_>,
     budget: Duration,
 ) -> Result<super::elevenlabs::Audio, Error> {
-    let deadline = deadline(budget);
+    synthesize_until(host, text, options, deadline(budget))
+}
+
+fn synthesize_until(
+    host: &dyn SignedRequests,
+    text: &str,
+    options: &Options<'_>,
+    deadline: Instant,
+) -> Result<super::elevenlabs::Audio, Error> {
     let chars = text.encode_utf16().take(3001).count();
     if chars > 3000 || options.voice.is_empty() {
         return Err(Error::InvalidRequest);
@@ -77,6 +85,29 @@ pub fn synthesize(
         model: model.into(),
         input_utf16_units: chars,
     })
+}
+
+/// Convert a series of text deltas into complete signed requests in order.
+pub fn synthesize_stream<'a>(
+    host: &dyn SignedRequests,
+    chunks: impl IntoIterator<Item = &'a str>,
+    options: &Options<'_>,
+    max_words: Option<usize>,
+    budget: Duration,
+    mut on_audio: impl FnMut(super::elevenlabs::Audio) -> Result<(), Error>,
+) -> Result<(), Error> {
+    let deadline = deadline(budget);
+    let mut sentences = crate::sentences::SentenceWindows::new(max_words);
+    for delta in chunks {
+        super::http::check(host, deadline)?;
+        for sentence in sentences.push(delta)? {
+            on_audio(synthesize_until(host, &sentence, options, deadline)?)?;
+        }
+    }
+    for sentence in sentences.finish() {
+        on_audio(synthesize_until(host, &sentence, options, deadline)?)?;
+    }
+    Ok(())
 }
 
 pub fn list_voices(host: &dyn SignedRequests, budget: Duration) -> Result<Vec<Value>, Error> {

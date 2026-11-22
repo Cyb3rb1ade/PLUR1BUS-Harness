@@ -33,7 +33,7 @@ fn provider_catalogs_match_recorded_typescript_requests_and_results() {
         let base = Url::parse(&format!("http://{}/v1", server.addr)).unwrap();
         let operation = scenario["operation"].as_str().unwrap();
         let vendor = match operation {
-            "eleven-voices" | "eleven-models" => Vendor::ElevenLabs,
+            "eleven-voices" | "eleven-models" | "eleven-asr-models" => Vendor::ElevenLabs,
             "gemini-models" => Vendor::Gemini,
             "xai-models" => Vendor::Xai,
             _ => panic!("unrecognized voice fixture"),
@@ -42,6 +42,8 @@ fn provider_catalogs_match_recorded_typescript_requests_and_results() {
         let budget = Duration::from_secs(5);
         let result = if operation == "eleven-voices" {
             catalog.list_elevenlabs_voices(CREDENTIAL, budget)
+        } else if operation == "eleven-asr-models" {
+            catalog.list_elevenlabs_asr_models(CREDENTIAL, None, budget)
         } else {
             catalog.list_models(CREDENTIAL, budget)
         };

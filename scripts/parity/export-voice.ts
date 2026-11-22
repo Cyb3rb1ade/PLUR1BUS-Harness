@@ -11,7 +11,7 @@ import { exporterMain } from "./lib.mjs";
 
 const fixtureKey = "synthetic-voice-credential";
 const keyHeaders = ["xi-api-key", "x-goog-api-key", "authorization"];
-type Operation = "eleven-voices" | "eleven-models" | "gemini-models" | "xai-models";
+type Operation = "eleven-voices" | "eleven-models" | "eleven-asr-models" | "gemini-models" | "xai-models";
 type Reply = { status?: number; body: unknown };
 
 async function capture(operation: Operation, responses: Reply[]) {
@@ -28,6 +28,7 @@ async function capture(operation: Operation, responses: Reply[]) {
     try {
       if (operation === "eleven-voices") expected = { result: await createElevenLabs(options).tts.listVoices!() };
       else if (operation === "eleven-models") expected = { result: await createElevenLabs(options).tts.listModels!() };
+      else if (operation === "eleven-asr-models") expected = { result: await createElevenLabs(options).asr.listModels!() };
       else if (operation === "gemini-models") expected = { result: await createGeminiLive(options).listModels!() };
       else expected = { result: await createGrokVoice(options).listModels!() };
     } catch (error) {
@@ -285,6 +286,95 @@ async function captureRealtime(vendor: "grok" | "gemini" | "eleven-asr") {
   }
 }
 
+async function captureDialogue(vendor: "grok" | "gemini" | "eleven-asr") {
+  const asr = vendor === "eleven-asr";
+  const model = asr ? "scribe_v2_realtime" : "fixture-live";
+  const input = { vendor, model, language: "de", pcm: [1, 0, 2, 0], sampleRate: 16000, text: "A fixture turn",
+    callId: "call-1", tool: "lookup", result: { found: true } };
+  const ready = vendor === "grok" ? { type: "session.created" } : asr
+    ? { message_type: "session_started" } : { setupComplete: {} };
+  const response = vendor === "grok" ? [
+    { type: "response.audio_transcript.delta", delta: "Hallo " },
+    { type: "response.audio_transcript.delta", delta: "Welt" },
+    { type: "response.audio_transcript.done" },
+    { type: "response.function_call_arguments.done", call_id: input.callId, name: input.tool, arguments: '{"term":"example"}' },
+  ] : asr ? [
+    { message_type: "partial_transcript", text: "Hallo" },
+    { message_type: "committed_transcript", text: "Skip when timestamps were requested" },
+    { message_type: "committed_transcript_with_timestamps", text: "Hallo Welt", language_code: "de",
+      words: [{ text: "Hallo", start: 0.125, end: 0.4, type: "word" }, { text: " ", type: "spacing" }] },
+  ] : [
+    { serverContent: { inputTranscription: { text: "Hallo " } } },
+    { serverContent: { inputTranscription: { text: "Welt" }, outputTranscription: { text: "Guten Tag" } } },
+    { toolCall: { functionCalls: [{ id: input.callId, name: input.tool, args: { term: "example" } }] } },
+  ];
+  const done = vendor === "grok" ? [
+    { type: "response.done", response: { id: "turn-1", usage: { input_tokens: 7, output_tokens: 4 } } },
+  ] : [
+    { usageMetadata: { promptTokenCount: 3, responseTokenCount: 1 } },
+    { serverContent: { turnComplete: true }, usageMetadata: { promptTokenCount: 7, responseTokenCount: 4 } },
+  ];
+  const setupFrames = asr ? 0 : 1;
+  const requestFrames = vendor === "gemini" ? 1 : 2;
+  const resultFrames = vendor === "grok" ? 2 : 1;
+  const server = await startFakeVendor({ ws: socket => { void (async () => {
+    if (setupFrames) await socket.waitFor(setupFrames);
+    socket.send(ready);
+    await socket.waitFor(setupFrames + requestFrames);
+    response.forEach(frame => socket.send(frame));
+    if (!asr) {
+      await socket.waitFor(setupFrames + requestFrames + resultFrames);
+      done.forEach(frame => socket.send(frame));
+    }
+  })(); } });
+  const signal = AbortSignal.timeout(3000);
+  const config = { baseUrl: server.httpUrl, apiKeyRef: "fixture", getSecret: async () => fixtureKey };
+  let session;
+  try {
+    session = asr
+      ? await createElevenLabs({ ...config, zeroRetention: true }).asr.openStream({
+        model, sampleRate: input.sampleRate, language: input.language, timestamps: true, signal,
+      })
+      : await (vendor === "grok" ? createGrokVoice(config) : createGeminiLive(config))
+        .connect({ model, inputSampleRate: input.sampleRate, tools: [{ name: input.tool }], signal });
+    const stream = session.events[Symbol.asyncIterator]();
+    const events = [];
+    const take = async (count: number) => {
+      for (let i = 0; i < count; i++) {
+        const event = (await stream.next()).value;
+        if (!event || event.type === "error") throw new Error("Fixture dialogue ended unexpectedly");
+        if (event.type === "usage" && vendor === "gemini") {
+          events.push({ ...event, report: { ...event.report, eventId: event.report.eventId.replace(/^gemini:[^:]+:/, "gemini:<session>:") } });
+        } else events.push(event);
+      }
+    };
+    await take(1);
+    if ("commit" in session) {
+      session.sendAudio(Uint8Array.from(input.pcm)); session.commit();
+      await take(2);
+    } else {
+      session.sendText(input.text); await take(4);
+      session.submitToolResult(input.callId, input.result);
+      await take(vendor === "grok" ? 2 : 4);
+    }
+    const peer = server.sockets[0]!;
+    const sent = peer.jsonFrames();
+    const split = setupFrames + requestFrames;
+    return {
+      schema: "plur1bus.parity-wire/1", exporter: "scripts/parity/export-voice.ts", transport: "websocket",
+      input, request: { path: peer.req.url }, expected: events,
+      exchanges: [
+        { send: sent.slice(0, setupFrames), receive: [ready] },
+        { send: sent.slice(setupFrames, split), receive: response },
+        ...(!asr ? [{ send: sent.slice(split), receive: done }] : []),
+      ],
+    };
+  } finally {
+    await session?.close();
+    await server.close();
+  }
+}
+
 async function capturePolly() {
   const input = { text: "Eine Teststimme 🎙", voice: "FixtureVoice", language: "de-DE" };
   const audio = Uint8Array.of(1, 4, 6, 9);
@@ -306,8 +396,22 @@ async function capturePolly() {
   const { data, ...result } = await provider.synthesize(input.text, { voice: input.voice, language: input.language });
   const voices = await provider.listVoices!();
   const models = await provider.listModels!();
-  return { input, pages, synthesisRequests, listRequests, expected: {
-    ...result, data: Array.from(data), voices, models,
+  const stream = { chunks: ["Dr. Ve", "ga met Alice. ", "A note at 3.", "14 follows. ", "Then one, two, three, four and five"], maxWords: 5 };
+  const streamStart = synthesisRequests.length;
+  const speech = createPolly({
+    maxWords: stream.maxWords,
+    clientFactory: async () => ({
+      async synthesize(params) { synthesisRequests.push(params); return audio; },
+      async describeVoices() { throw new Error("unexpected catalog call"); },
+    }),
+  });
+  const streamAudio = [];
+  for await (const chunk of speech.synthesizeStream((async function* () { yield* stream.chunks; })(), { voice: input.voice })) {
+    streamAudio.push({ bytes: Array.from(chunk.data), format: chunk.format, sampleRate: chunk.sampleRate });
+  }
+  const streamRequests = synthesisRequests.splice(streamStart);
+  return { input, pages, synthesisRequests, listRequests, stream, streamRequests, expected: {
+    ...result, data: Array.from(data), voices, models, streamAudio,
   } };
 }
 
@@ -319,6 +423,9 @@ export async function buildVoiceFixtures() {
     polly: await capturePolly(),
     "http-retry": await captureRetry(),
     "grok-realtime": await captureRealtime("grok"),
+    "grok-dialogue": await captureDialogue("grok"),
+    "gemini-dialogue": await captureDialogue("gemini"),
+    "eleven-asr-dialogue": await captureDialogue("eleven-asr"),
     "gemini-realtime": await captureRealtime("gemini"),
     "eleven-asr-realtime": await captureRealtime("eleven-asr"),
     transcription: await captureTranscription(),
@@ -335,6 +442,11 @@ export async function buildVoiceFixtures() {
           { model_id: "variant", name: "Model", can_do_text_to_speech: true, languages: [{ language_id: "en" }] },
           { model_id: "scribe-only" },
         ] }]),
+        await capture("eleven-asr-models", [{ body: [
+          { model_id: "scribe-synthetic", languages: [{ language_id: "de" }] },
+          { model_id: "voice-synthetic", can_do_text_to_speech: true },
+        ] }]),
+        await capture("eleven-asr-models", [{ body: [] }]),
         await capture("gemini-models", [
           { body: { models: [{ name: "models/live", supportedGenerationMethods: ["bidiGenerateContent"] }], nextPageToken: "two /" } },
           { body: { models: [{ name: "models/text", displayName: "Text" }] } },

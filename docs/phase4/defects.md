@@ -1354,3 +1354,14 @@ P4D-205 ceiling, and exposes usage only after the text input and the provider's
 final frame both complete. The TypeScript HTTP deadline ends at the headers.
 The TypeScript socket consumer queues audio frames asynchronously. The native
 host owns the ordering of calls to the blocking dialogue.
+
+<a id="p4d-211"></a>
+
+## P4D-211 — streaming text admission and usage identifiers
+
+The Rust Polly sentence splitter admits up to 1 MiB per input delta and
+keeps up to 1 MiB of unfinished text. Individual signed requests use Polly's
+3,000 UTF-16 code unit ceiling. The TypeScript sentence splitter has no bound
+on unfinished text. The Rust realtime host supplies the Gemini session
+identifier used to deduplicate usage events. Audio and transcripts remain
+application data and are omitted from event Debug output.

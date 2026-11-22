@@ -208,10 +208,12 @@ are recorded in [P4D-202](defects.md#p4d-202), [P4D-204](defects.md#p4d-204),
 have separate ceilings. Host registration uses the R-W-11 logger. A socket
 operation already blocked at cancellation can remain blocked until its deadline.
 
-The HTTP and WebSocket synthesis streams are recorded from the TypeScript
-provider. Their completion and deadline difference is [P4D-210](defects.md#p4d-210).
-Open W3 parity includes retry timing, caller text and tool frames, and complete
-realtime event projection and usage. The cloud library has no production caller.
+The HTTP and WebSocket synthesis streams, Polly sentence windows, retry
+schedule, and Grok/Gemini/ElevenLabs dialogues are recorded from the TypeScript
+providers. The host supplies the duplex scheduling and usage sink. Retry
+waits are bounded by the same request deadline. See
+[P4D-210](defects.md#p4d-210) and [P4D-211](defects.md#p4d-211). The cloud
+library has no production caller.
 
 ### W4 · Medien und Dokumente (P4-53)
 
