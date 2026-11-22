@@ -2157,6 +2157,23 @@
         }
       }
     },
+    "engine_dream_ledger_import": {
+      "description": "Counts of legacy ADR-009 rows imported in one engine transaction.",
+      "properties": {
+        "runs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "schedules": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidates": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
     "engine_process_lifecycle": {
       "description": "Content-free engine process transitions; never memory, method parameters or paths.",
       "properties": {
@@ -8159,6 +8176,46 @@
             "process": "connector",
             "reason": "sandbox-unavailable",
             "cause": "macos-acceptance-pending"
+          }
+        }
+      ]
+    },
+    {
+      "event": "engine.dreams.ledger_imported",
+      "note": "RE-10 T5 commits the complete legacy dream ledger once.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "engine dream ledger initialized",
+      "attrs": "engine_dream_ledger_import",
+      "requiredAttrs": [
+        "runs",
+        "schedules",
+        "candidates"
+      ],
+      "activity": false,
+      "since": "RE-10 T5",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-11-01T12:00:00.000Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "engine",
+            "version": "0.1.0"
+          },
+          "event": "engine.dreams.ledger_imported",
+          "msg": "engine dream ledger initialized",
+          "attrs": {
+            "runs": 2,
+            "schedules": 3,
+            "candidates": 1
           }
         }
       ]

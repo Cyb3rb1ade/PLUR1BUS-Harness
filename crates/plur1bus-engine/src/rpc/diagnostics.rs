@@ -165,6 +165,15 @@ fn render(
     Some(line)
 }
 
+pub(super) fn dream_ledger_import(imported: crate::store::dream_ledger::Imported) {
+    write(render(
+        "engine.dreams.ledger_imported",
+        "info",
+        "engine dream ledger initialized",
+        json!({"runs":imported.runs,"schedules":imported.schedules,"candidates":imported.candidates}),
+    ));
+}
+
 fn lifecycle_line(state: Lifecycle, reason: Reason) -> Option<String> {
     render(
         "engine.process.lifecycle",

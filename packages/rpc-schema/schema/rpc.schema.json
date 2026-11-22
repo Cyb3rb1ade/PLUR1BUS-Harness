@@ -8669,6 +8669,39 @@
       }
     },
     "methods": {
+      "engine.dreams.schedule": {
+        "x-server": "engine",
+        "x-stability": "experimental",
+        "x-since": "1.28.0",
+        "description": "Read an agent's schedules over the verified Core link. The first call after the Core retires its writer imports the legacy ledger.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schedules"
+          ],
+          "properties": {
+            "schedules": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DreamSchedule"
+              }
+            }
+          }
+        }
+      },
       "engine.media.index": {
         "x-server": "engine",
         "x-stability": "experimental",

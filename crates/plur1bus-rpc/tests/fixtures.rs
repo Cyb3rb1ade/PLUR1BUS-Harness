@@ -250,6 +250,18 @@ fn method_fixture(name: &str, f: &Value) {
             EngineAdminWorkspacePolicyGetParams,
             EngineAdminWorkspacePolicyGetResult,
         >(name, f),
+        "engine.admin.reembedding.checkpoint.get" => pair::<
+            EngineAdminReembeddingCheckpointGetParams,
+            EngineAdminReembeddingCheckpointGetResult,
+        >(name, f),
+        "engine.admin.reembedding.checkpoint.put" => pair::<
+            EngineAdminReembeddingCheckpointPutParams,
+            EngineAdminReembeddingCheckpointPutResult,
+        >(name, f),
+        "engine.dreams.schedule" => {
+            pair::<EngineDreamsScheduleParams, EngineDreamsScheduleResult>(name, f)
+        }
+        "engine.media.index" => pair::<EngineMediaIndexParams, EngineMediaIndexResult>(name, f),
         "engine.admin.reembedding.switch" => {
             pair::<EngineAdminReembeddingSwitchParams, EngineAdminReembeddingSwitchResult>(name, f)
         }

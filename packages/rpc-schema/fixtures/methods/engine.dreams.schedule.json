@@ -1,0 +1,16 @@
+{
+  "params": { "agentId": "a1" },
+  "result": {
+    "schedules": [
+      {
+        "agentId": "a1",
+        "phase": "rem",
+        "cron": "0 3 * * *",
+        "timezone": "UTC",
+        "enabled": false,
+        "staggerOffsetS": 0,
+        "nextRunAt": null
+      }
+    ]
+  }
+}

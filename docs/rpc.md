@@ -460,6 +460,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ### engine server
 
+- `engine.dreams.schedule`: experimental, since 1.28.0
 - `engine.media.index`: experimental, since 1.28.0
 - `engine.admin.reembedding.checkpoint.put`: experimental, since 1.27.0
 - `engine.admin.reembedding.checkpoint.get`: experimental, since 1.27.0
@@ -560,6 +561,51 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `legacy.secret.changed`: experimental, since 1.27.0
 
 ## Methods
+
+### `engine.dreams.schedule`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Read an agent's schedules over the verified Core link. The first call after the Core retires its writer imports the legacy ledger.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schedules"
+  ],
+  "properties": {
+    "schedules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DreamSchedule"
+      }
+    }
+  }
+}
+```
 
 ### `engine.media.index`
 

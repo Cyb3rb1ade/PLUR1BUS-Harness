@@ -26,6 +26,7 @@
   "engine.channels.register": "1.27.0",
   "engine.checkpoint": "1.7.0",
   "engine.config.normalizeEmbedding": "1.7.0",
+  "engine.dreams.schedule": "1.28.0",
   "engine.embedding.embed": "1.7.0",
   "engine.embedding.fingerprint": "1.7.0",
   "engine.embedding.identities": "1.7.0",

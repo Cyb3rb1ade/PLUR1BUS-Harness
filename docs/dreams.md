@@ -50,6 +50,14 @@ money dimension (owner decision 2026-10-19); the ledger's legacy money column st
   migrations). Per-run logs: `<home>/state/dreams/<agentId>/<phase>/<runId>.log`. Retention: ledger rows 365 days, logs 30 days.
 * Code: `packages/core/src/dreams/` (`cron.ts`, `store.ts`, `candidates.ts`, `producer.ts`, `scheduler.ts`, `methods.ts`, `index.ts`).
 
+### Native ledger cutover
+
+The verified Core link can call `engine.dreams.schedule` after retiring the legacy ledger writer.
+The first call imports all three ADR-009 tables into `<home>/state/dreams/engine.sqlite` in one
+transaction and records the row counts. Retries reuse that commit. The legacy database and
+per-run log files are retained. The public schedule methods and scheduler still use the legacy
+ledger until the complete read/write cutover is available.
+
 ## Rust-engine jobs
 
 With `engine.implementation: "rust"`, the Core still owns the schedule. It

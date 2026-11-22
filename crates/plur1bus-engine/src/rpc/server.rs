@@ -945,6 +945,21 @@ impl Shared {
                 }
                 encode(self.engine.index_media(request, &connection.cancel)?)
             }
+            "engine.dreams.schedule" => {
+                self.live_core_instance(connection)?;
+                let agent: String = decode(&params["agentId"])?;
+                let agent = crate::context::safe_agent_id(&agent)
+                    .map_err(|_| WireError::invalid_params())?;
+                let (result, imported) = crate::store::dream_ledger::schedules(
+                    &self.home.join("state"),
+                    &agent,
+                    &connection.cancel,
+                )?;
+                if let Some(imported) = imported {
+                    diagnostics::dream_ledger_import(imported);
+                }
+                Ok(result)
+            }
             "engine.jobs.run" => self.run_job(connection, params),
             "engine.capture.wait" => self.capture_wait(params, &connection.cancel),
             "engine.capture.abort" => {

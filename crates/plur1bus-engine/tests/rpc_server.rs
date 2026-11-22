@@ -1322,3 +1322,145 @@ fn media_index_is_core_only_and_has_no_unbound_runtime_fallback() {
     assert_eq!(unbound["error"]["data"]["reason"], "operation-unavailable");
     assert!(unbound.get("result").is_none());
 }
+
+#[test]
+fn dreams_schedule_imports_the_legacy_ledger_once() {
+    let _guard = process_test();
+    let home = home();
+    let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let state = home.path().join("state/dreams");
+    plur1bus_engine::store::paths::secure_dir(&state).unwrap();
+    let legacy_path = state.join("dreams.db");
+    let legacy = rusqlite::Connection::open(&legacy_path).unwrap();
+    plur1bus_engine::store::paths::secure_file(&legacy_path).unwrap();
+    legacy
+        .execute_batch(include_str!("../../plur1bus-core/src/dreams/store-v1.sql"))
+        .unwrap();
+    legacy.execute_batch("
+        PRAGMA user_version=1;
+        INSERT INTO dream_schedule (agent_id,phase,cron,timezone,enabled,next_run_at)
+            VALUES ('a1','rem','0 3 * * *','UTC',0,1234);
+        INSERT INTO dream_run (run_id,agent_id,phase,job_id,idempotency_key,trigger,started_at)
+            VALUES ('fixture-run','a1','rem','rem-dream','fixture-key','manual',42);
+        INSERT INTO dream_candidate (candidate_id,agent_id,content_hash,source_run_id,first_seen_at,expires_at,state)
+            VALUES ('fixture-candidate','a1','fixture-content','fixture-run',42,1234,'observed');
+    ").unwrap();
+    drop(legacy);
+
+    let request = json!({"agentId":"a1"});
+    let mut unauthorized = RawConnection::connect(engine.address());
+    assert!(unauthorized.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"dreams-fixture"})
+    )["result"]
+        .is_object());
+    assert_unauthorized(&unauthorized.call(2, "engine.dreams.schedule", request.clone()));
+    let destination = state.join("engine.sqlite");
+    assert!(!destination.exists());
+
+    let mut core = core_peer(&engine, home.path());
+    let first = core.call(2, "engine.dreams.schedule", request.clone());
+    assert_eq!(
+        first["result"],
+        json!({"schedules":[{
+            "agentId":"a1","phase":"rem","cron":"0 3 * * *","timezone":"UTC",
+            "enabled":false,"staggerOffsetS":0,"nextRunAt":null
+        }]}),
+        "{first}"
+    );
+
+    let imported = rusqlite::Connection::open(&destination).unwrap();
+    for table in ["dream_schedule", "dream_run", "dream_candidate"] {
+        let n: u32 = imported
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 1, "{table}");
+    }
+    imported
+        .execute("UPDATE dream_schedule SET cron='0 4 * * *'", [])
+        .unwrap();
+    drop(imported);
+
+    let again = core.call(3, "engine.dreams.schedule", request);
+    assert_eq!(
+        again["result"]["schedules"][0]["cron"], "0 4 * * *",
+        "{again}"
+    );
+    let legacy = rusqlite::Connection::open(&legacy_path).unwrap();
+    let cron: String = legacy
+        .query_row("SELECT cron FROM dream_schedule", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(cron, "0 3 * * *");
+    drop(legacy);
+
+    engine.connect().call("engine.shutdown", json!({})).unwrap();
+    assert!(engine.wait_for_exit().success(), "{}", engine.diagnostics());
+    let events: Vec<Value> = engine
+        .stderr()
+        .lines()
+        .filter_map(|line| {
+            let record: Value = serde_json::from_str(line).unwrap();
+            (record["event"] == "engine.dreams.ledger_imported").then_some(record)
+        })
+        .collect();
+    assert_eq!(events.len(), 1, "{}", engine.diagnostics());
+    assert_eq!(
+        events[0]["attrs"],
+        json!({"runs":1,"schedules":1,"candidates":1})
+    );
+
+    let restarted = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut core = core_peer(&restarted, home.path());
+    let again = core.call(2, "engine.dreams.schedule", json!({"agentId":"a1"}));
+    assert_eq!(
+        again["result"]["schedules"][0]["cron"], "0 4 * * *",
+        "{again}"
+    );
+}
+
+#[test]
+fn dreams_schedule_rolls_back_an_incomplete_legacy_import() {
+    let _guard = process_test();
+    let home = home();
+    let engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let state = home.path().join("state/dreams");
+    plur1bus_engine::store::paths::secure_dir(&state).unwrap();
+    let path = state.join("dreams.db");
+    let legacy = rusqlite::Connection::open(&path).unwrap();
+    plur1bus_engine::store::paths::secure_file(&path).unwrap();
+    let ddl = include_str!("../../plur1bus-core/src/dreams/store-v1.sql");
+    let candidate_ddl = ddl.find("CREATE TABLE dream_candidate").unwrap();
+    legacy.execute_batch(&ddl[..candidate_ddl]).unwrap();
+    legacy.execute_batch("
+        PRAGMA user_version=1;
+        INSERT INTO dream_schedule (agent_id,phase,cron,timezone) VALUES ('a1','rem','0 3 * * *','UTC');
+    ").unwrap();
+    let mut core = core_peer(&engine, home.path());
+    let failed = core.call(2, "engine.dreams.schedule", json!({"agentId":"a1"}));
+    assert!(failed.get("error").is_some(), "{failed}");
+
+    let target = rusqlite::Connection::open(state.join("engine.sqlite")).unwrap();
+    assert_eq!(
+        target
+            .pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        target
+            .query_row("SELECT COUNT(*) FROM sqlite_schema", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    drop(target);
+
+    legacy.execute_batch(&ddl[candidate_ddl..]).unwrap();
+    drop(legacy);
+    let retry = core.call(3, "engine.dreams.schedule", json!({"agentId":"a1"}));
+    assert_eq!(
+        retry["result"]["schedules"][0]["cron"], "0 3 * * *",
+        "{retry}"
+    );
+}

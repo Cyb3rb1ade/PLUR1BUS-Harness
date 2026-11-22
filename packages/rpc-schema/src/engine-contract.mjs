@@ -314,6 +314,15 @@ export function engineRpcSurface() {
     "1.28.0",
   );
 
+  add(
+    "engine.dreams.schedule",
+    { agentId: { $ref: "#/$defs/AgentId" } },
+    ["agentId"],
+    object({ schedules: { type: "array", items: { $ref: "#/$defs/DreamSchedule" } } }, ["schedules"]),
+    "Read an agent's schedules over the verified Core link. The first call after the Core retires its writer imports the legacy ledger.",
+    "1.28.0",
+  );
+
   from("engine.stores", "StoreOps");
   add(
     "engine.snapshot.create",
