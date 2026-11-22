@@ -6359,6 +6359,9 @@ dependencies = [
 name = "plur1bus-webtools"
 version = "0.1.0"
 dependencies = [
+ "encoding_rs",
+ "regex",
+ "serde",
  "serde_json",
 ]
 

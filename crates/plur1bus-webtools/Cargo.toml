@@ -9,5 +9,10 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[dependencies]
+encoding_rs = "=0.8.42"
+regex = "=1.13.1"
+serde.workspace = true
+
 [dev-dependencies]
 serde_json.workspace = true

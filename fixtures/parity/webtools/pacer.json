@@ -1,0 +1,89 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "hosts": 2,
+        "outcomes": [
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok"
+        ],
+        "sleeps": [
+          1000,
+          600,
+          1000,
+          3000
+        ]
+      },
+      "steps": [
+        {
+          "host": "a.test"
+        },
+        {
+          "host": "a.test"
+        },
+        {
+          "advance": 400,
+          "host": "a.test"
+        },
+        {
+          "host": "b.test"
+        },
+        {
+          "crawlMs": 3000,
+          "host": "a.test"
+        },
+        {
+          "host": "a.test"
+        }
+      ]
+    },
+    {
+      "expected": {
+        "hosts": 2,
+        "outcomes": [
+          "ok",
+          "cancelled",
+          "ok",
+          "cancelled",
+          "ok",
+          "ok"
+        ],
+        "sleeps": [
+          1000,
+          1000,
+          700,
+          300
+        ]
+      },
+      "steps": [
+        {
+          "host": "a.test"
+        },
+        {
+          "cancel": true,
+          "host": "a.test"
+        },
+        {
+          "host": "a.test"
+        },
+        {
+          "advance": 300,
+          "cancel": true,
+          "host": "a.test"
+        },
+        {
+          "advance": 400,
+          "host": "a.test"
+        },
+        {
+          "host": "b.test"
+        }
+      ]
+    }
+  ],
+  "source": "packages/core/src/tools/web/robots.ts"
+}
