@@ -1,0 +1,370 @@
+{
+  "cases": [
+    {
+      "calls": [
+        [
+          "knowledge-update",
+          "a",
+          "manual"
+        ],
+        [
+          "knowledge-update",
+          "b",
+          "manual"
+        ],
+        [
+          "knowledge-update",
+          "c",
+          "manual"
+        ]
+      ],
+      "initial": 909000,
+      "name": "restart",
+      "next": 910200,
+      "outcome": {
+        "detail": [
+          {
+            "agentId": "a",
+            "outcome": "completed",
+            "runId": "a-run"
+          },
+          {
+            "agentId": "b",
+            "outcome": "completed",
+            "runId": "b-run"
+          },
+          {
+            "agentId": "c",
+            "outcome": "skipped",
+            "runId": "c-run"
+          }
+        ],
+        "outcome": "completed"
+      },
+      "reentrant": null
+    },
+    {
+      "calls": [],
+      "initial": 10000,
+      "name": "capability",
+      "next": 910200,
+      "outcome": {
+        "detail": {
+          "requiredCapability": "knowledgePromotion",
+          "requiredContract": "1.18.0"
+        },
+        "outcome": "skipped",
+        "reason": "engine-contract-unavailable"
+      },
+      "reentrant": null
+    },
+    {
+      "calls": [],
+      "initial": 10000,
+      "name": "job name",
+      "next": 910200,
+      "outcome": {
+        "detail": {
+          "requiredCapability": "knowledgePromotion",
+          "requiredContract": "1.18.0"
+        },
+        "outcome": "skipped",
+        "reason": "engine-contract-unavailable"
+      },
+      "reentrant": null
+    },
+    {
+      "calls": [
+        [
+          "knowledge-update",
+          "b",
+          "manual"
+        ]
+      ],
+      "initial": 10000,
+      "name": "target",
+      "next": 910200,
+      "outcome": {
+        "detail": [
+          {
+            "agentId": "b",
+            "outcome": "completed",
+            "runId": "b-run"
+          }
+        ],
+        "outcome": "completed"
+      },
+      "reentrant": null
+    },
+    {
+      "calls": [],
+      "initial": 10000,
+      "name": "unknown",
+      "next": 10000,
+      "outcome": {
+        "error": "unknown agent"
+      },
+      "reentrant": null
+    },
+    {
+      "calls": [],
+      "initial": 10000,
+      "name": "extra",
+      "next": 10000,
+      "outcome": {
+        "error": "unknown knowledge.update argument"
+      },
+      "reentrant": null
+    },
+    {
+      "calls": [],
+      "initial": 10000,
+      "name": "array",
+      "next": 10000,
+      "outcome": {
+        "error": "args must be an object"
+      },
+      "reentrant": null
+    },
+    {
+      "calls": [
+        [
+          "knowledge-update",
+          "a",
+          "manual"
+        ],
+        [
+          "knowledge-update",
+          "b",
+          "manual"
+        ],
+        [
+          "knowledge-update",
+          "c",
+          "manual"
+        ]
+      ],
+      "initial": 10000,
+      "name": "throw",
+      "next": 910200,
+      "outcome": {
+        "detail": [
+          {
+            "agentId": "a",
+            "outcome": "failed",
+            "reason": "engine-job-threw"
+          },
+          {
+            "agentId": "b",
+            "outcome": "completed",
+            "runId": "b-run"
+          },
+          {
+            "agentId": "c",
+            "outcome": "skipped",
+            "runId": "c-run"
+          }
+        ],
+        "outcome": "failed",
+        "reason": "engine-job-failed"
+      },
+      "reentrant": null
+    },
+    {
+      "calls": [
+        [
+          "knowledge-update",
+          "a",
+          "manual"
+        ],
+        [
+          "knowledge-update",
+          "b",
+          "manual"
+        ]
+      ],
+      "initial": 10000,
+      "name": "invalid",
+      "next": 910200,
+      "outcome": {
+        "detail": [
+          {
+            "agentId": "a",
+            "outcome": "completed",
+            "runId": "a-run"
+          }
+        ],
+        "outcome": "failed",
+        "reason": "engine-job-invalid-result"
+      },
+      "reentrant": null
+    },
+    {
+      "calls": [
+        [
+          "knowledge-update",
+          "a",
+          "manual"
+        ],
+        [
+          "knowledge-update",
+          "c",
+          "manual"
+        ]
+      ],
+      "initial": 10000,
+      "name": "removed",
+      "next": 910200,
+      "outcome": {
+        "detail": [
+          {
+            "agentId": "a",
+            "outcome": "completed",
+            "runId": "a-run"
+          },
+          {
+            "agentId": "c",
+            "outcome": "skipped",
+            "runId": "c-run"
+          }
+        ],
+        "outcome": "completed"
+      },
+      "reentrant": null
+    },
+    {
+      "calls": [
+        [
+          "knowledge-update",
+          "a",
+          "manual"
+        ]
+      ],
+      "initial": 10000,
+      "name": "abort",
+      "next": 910200,
+      "outcome": {
+        "detail": [
+          {
+            "agentId": "a",
+            "outcome": "completed",
+            "runId": "a-run"
+          }
+        ],
+        "outcome": "abandoned",
+        "reason": "aborted"
+      },
+      "reentrant": null
+    },
+    {
+      "calls": [],
+      "initial": 10000,
+      "name": "pre-abort",
+      "next": 10000,
+      "outcome": {
+        "detail": null,
+        "outcome": "abandoned",
+        "reason": "aborted"
+      },
+      "reentrant": null
+    },
+    {
+      "calls": [
+        [
+          "knowledge-update",
+          "a",
+          "manual"
+        ],
+        [
+          "knowledge-update",
+          "b",
+          "manual"
+        ],
+        [
+          "knowledge-update",
+          "c",
+          "manual"
+        ]
+      ],
+      "initial": 10000,
+      "name": "singleton",
+      "next": 910200,
+      "outcome": {
+        "detail": [
+          {
+            "agentId": "a",
+            "outcome": "completed",
+            "runId": "a-run"
+          },
+          {
+            "agentId": "b",
+            "outcome": "completed",
+            "runId": "b-run"
+          },
+          {
+            "agentId": "c",
+            "outcome": "skipped",
+            "runId": "c-run"
+          }
+        ],
+        "outcome": "completed"
+      },
+      "reentrant": {
+        "detail": null,
+        "outcome": "skipped",
+        "reason": "already-running"
+      }
+    },
+    {
+      "calls": [
+        [
+          "knowledge-update",
+          "a",
+          "manual"
+        ],
+        [
+          "knowledge-update",
+          "b",
+          "manual"
+        ],
+        [
+          "knowledge-update",
+          "c",
+          "manual"
+        ]
+      ],
+      "initial": 10000,
+      "name": "mixed",
+      "next": 910200,
+      "outcome": {
+        "detail": [
+          {
+            "agentId": "a",
+            "outcome": "completed",
+            "runId": "a-run"
+          },
+          {
+            "agentId": "b",
+            "outcome": "incomplete",
+            "reason": "budget"
+          },
+          {
+            "agentId": "c",
+            "outcome": "skipped",
+            "runId": "c-run"
+          }
+        ],
+        "outcome": "failed",
+        "reason": "engine-job-failed"
+      },
+      "reentrant": null
+    }
+  ],
+  "retry": {
+    "cancelled": 1,
+    "delays": [
+      20,
+      30000
+    ]
+  }
+}

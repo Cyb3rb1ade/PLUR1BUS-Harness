@@ -1,0 +1,116 @@
+[
+  {
+    "events": [
+      "encode"
+    ],
+    "name": "local",
+    "outcome": "ok"
+  },
+  {
+    "events": [
+      {
+        "agentId": "a",
+        "images": 1,
+        "model": "m",
+        "videoSeconds": 0
+      },
+      "encode",
+      "settle"
+    ],
+    "name": "image",
+    "outcome": "ok"
+  },
+  {
+    "events": [
+      {
+        "agentId": "a",
+        "images": 0,
+        "model": "m",
+        "videoSeconds": 2
+      },
+      "encode",
+      "settle"
+    ],
+    "name": "video",
+    "outcome": "ok"
+  },
+  {
+    "events": [],
+    "name": "no duration",
+    "outcome": "E_MEDIA_UNAVAILABLE"
+  },
+  {
+    "events": [],
+    "name": "negative duration",
+    "outcome": "E_MEDIA_UNAVAILABLE"
+  },
+  {
+    "events": [],
+    "name": "infinite duration",
+    "outcome": "E_MEDIA_UNAVAILABLE"
+  },
+  {
+    "events": [],
+    "name": "pinned",
+    "outcome": "E_MEDIA_PRIVACY"
+  },
+  {
+    "events": [
+      {
+        "agentId": "a",
+        "images": 1,
+        "model": "m",
+        "videoSeconds": 0
+      },
+      "release"
+    ],
+    "name": "pin changes",
+    "outcome": "E_MEDIA_PRIVACY"
+  },
+  {
+    "events": [],
+    "name": "audio",
+    "outcome": "E_MEDIA_UNAVAILABLE"
+  },
+  {
+    "events": [],
+    "name": "no budget",
+    "outcome": "E_MEDIA_UNAVAILABLE"
+  },
+  {
+    "events": [
+      {
+        "agentId": "a",
+        "images": 1,
+        "model": "m",
+        "videoSeconds": 0
+      },
+      "encode",
+      "settle"
+    ],
+    "name": "failed",
+    "outcome": "E_MEDIA_UNAVAILABLE"
+  },
+  {
+    "events": [
+      "text"
+    ],
+    "name": "local search",
+    "outcome": "ok"
+  },
+  {
+    "events": [],
+    "name": "cloud search",
+    "outcome": "E_MEDIA_UNAVAILABLE"
+  },
+  {
+    "events": [],
+    "name": "local backfill",
+    "outcome": "ok"
+  },
+  {
+    "events": [],
+    "name": "cloud backfill",
+    "outcome": "E_MEDIA_UNAVAILABLE"
+  }
+]

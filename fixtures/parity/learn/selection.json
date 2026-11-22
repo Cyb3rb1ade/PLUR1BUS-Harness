@@ -1,0 +1,1862 @@
+[
+  {
+    "cap": 2,
+    "expected": {
+      "digest": "43885e833dbb1bde00653b47e9566c150188a2634aced544081d39d5ea0b8652",
+      "ids": [
+        "s_recent",
+        "s_a"
+      ],
+      "loaded": [
+        "s_recent",
+        "s_a"
+      ],
+      "omittedSessions": 2,
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753",
+      "truncated": true
+    },
+    "name": "rank and cap",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s_Z",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s_a",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s_recent",
+        "kind": "direct",
+        "lastTurnAt": 31,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s_old",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 2
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "digest": "73a4e5ecf874eb5fd919aa6b3f0ad60213fc636b851b88cb6a592a874efff084",
+      "ids": [
+        "ok"
+      ],
+      "loaded": [
+        "ok"
+      ],
+      "omittedSessions": 0,
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753",
+      "truncated": false
+    },
+    "name": "scope filtering",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "ok",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "other-owner",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:d9298a10d1b0735837dc4bd85dac641b0f3cef27a47e5d53a54f2f3f5b2fcffa",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "beta",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "other-agent",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "forget",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "incognito",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "revoked",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [
+      "revoked"
+    ],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "digest": "a7eb28b33480e5975c2d55a53e2cc4fd3a5fdf8041965ed1edda2f40e56b1e7f",
+      "ids": [
+        "project-member"
+      ],
+      "loaded": [
+        "project-member"
+      ],
+      "omittedSessions": 0,
+      "targetHash": "cf39952ea0c1e4357ac5b8465aada6aad9160526be6e52d29a613d029c8495dc",
+      "truncated": false
+    },
+    "name": "project",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "other-project",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "elsewhere",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "beta",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "project-member",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "projectId": "workspace",
+      "scope": "project"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "digest": "a76f408b162421467d0cc3c26480ba585a1bcafb5f05f2750741a2a01ab237a9",
+      "ids": [
+        "alpha",
+        "beta"
+      ],
+      "loaded": [
+        "alpha",
+        "beta"
+      ],
+      "omittedSessions": 0,
+      "targetHash": "68fd666e8f63f8a47bdbe44f7352b8da867654503668cd098769f17f432e8ca6",
+      "truncated": false
+    },
+    "name": "installation",
+    "sessions": [
+      {
+        "agentId": "beta",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "beta",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "alpha",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "installation"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "error": "source-unavailable",
+      "loaded": [],
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753"
+    },
+    "name": "duplicate across pages",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s0",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s2",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s3",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s4",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s5",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s6",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s7",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s8",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s9",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s10",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s11",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s12",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s13",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s14",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s15",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s16",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s17",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s18",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s19",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s20",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s21",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s22",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s23",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s24",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s25",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s26",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s27",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s28",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s29",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s30",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s31",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s32",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s33",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s34",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s35",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s36",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s37",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s38",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s39",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s40",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s41",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s42",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s43",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s44",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s45",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s46",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s47",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s48",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s49",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s50",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      },
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s0",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "error": "rights-changed",
+      "loaded": [],
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753"
+    },
+    "name": "non-human",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "agent",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "error": "rights-changed",
+      "loaded": [],
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753"
+    },
+    "name": "other principal",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "other"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 51,
+    "expected": {
+      "error": "rights-changed",
+      "loaded": [],
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753"
+    },
+    "name": "outside cap",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "error": "rights-changed",
+      "loaded": [],
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753"
+    },
+    "name": "invalid window",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 1
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "error": "rights-changed",
+      "loaded": [],
+      "targetHash": "f452a9442031262295cc6a718f9c37f0f05051bb17be53f575667bc893249a4a"
+    },
+    "name": "missing project",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "project"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "error": "rights-changed",
+      "loaded": [],
+      "targetHash": "baec81722cae511f7db674cbfeec959169b8ac111536da11406bc7e7d11e14c2"
+    },
+    "name": "project on agent",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "projectId": "workspace",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "error": "rights-changed",
+      "loaded": [],
+      "targetHash": "c28e7bc1897d7f939ce381380f463c50ccc15fa3c4880aca7197a7375f185999"
+    },
+    "name": "target control",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "bad\u0000id",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "error": "source-unavailable",
+      "loaded": [
+        "s1"
+      ],
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753"
+    },
+    "name": "cross transcript",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "error": "source-unavailable",
+      "loaded": [
+        "s1"
+      ],
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753"
+    },
+    "name": "cross message",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "error": "source-unavailable",
+      "loaded": [
+        "s1"
+      ],
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753"
+    },
+    "name": "cross event",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "error": "transcript-cap",
+      "loaded": [
+        "s1"
+      ],
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753"
+    },
+    "name": "message cap",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "error": "transcript-cap",
+      "loaded": [
+        "s1"
+      ],
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753"
+    },
+    "name": "event cap",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "error": "transcript-cap",
+      "loaded": [
+        "s1"
+      ],
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753"
+    },
+    "name": "byte cap",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "ids": [],
+      "loaded": [
+        "s1"
+      ],
+      "omittedSessions": 0,
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753",
+      "truncated": false
+    },
+    "name": "empty",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "direct",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  },
+  {
+    "cap": 50,
+    "expected": {
+      "digest": "fe4fa710fd20d2b8ddffd7e38b2c594c4259e712dedc3ce91c2da08c0eb87480",
+      "ids": [
+        "s1"
+      ],
+      "loaded": [
+        "s1"
+      ],
+      "omittedSessions": 0,
+      "targetHash": "f54600a0913abd0ce923be43a08a42816f9d62e8ab9151e2651d1e0e0c9fd753",
+      "truncated": false
+    },
+    "name": "person source",
+    "sessions": [
+      {
+        "agentId": "alpha",
+        "archivedAt": null,
+        "chatKey": null,
+        "createdAt": 1,
+        "id": "s1",
+        "kind": "channel",
+        "lastTurnAt": null,
+        "memoryMode": "remember",
+        "owner": "user:v2:4c1029697ee358715d3a14a2add817c4b01651440de808371f78165ac90dc581",
+        "pinned": false,
+        "scope": "workspace",
+        "title": "",
+        "turnCount": 1,
+        "updatedAt": 22
+      }
+    ],
+    "target": {
+      "agentId": "alpha",
+      "owner": "owner",
+      "scope": "agent"
+    },
+    "unreadable": [],
+    "who": {
+      "kind": "person",
+      "role": "owner",
+      "userId": "owner"
+    },
+    "window": {
+      "from": 1,
+      "to": 101
+    }
+  }
+]

@@ -1,0 +1,231 @@
+{
+  "candidates": {
+    "expired": 1,
+    "inserts": [
+      true,
+      false,
+      true,
+      true
+    ],
+    "other": [
+      {
+        "agentId": "agent-b",
+        "candidateId": "other-agent",
+        "contentHash": "fixture-hash",
+        "decision": null,
+        "expiresAt": 35,
+        "firstSeenAt": 10,
+        "partition": "agent-private",
+        "recalls": 0,
+        "score": null,
+        "sourceRunId": "run-2",
+        "state": "shortlisted",
+        "uniqueQueries": 0
+      }
+    ],
+    "owned": [
+      {
+        "agentId": "agent-a",
+        "candidateId": "candidate-a",
+        "contentHash": "fixture-hash",
+        "decision": {
+          "at": 35,
+          "gate": "expiry",
+          "passed": false
+        },
+        "expiresAt": 35,
+        "firstSeenAt": 10,
+        "partition": "agent-private",
+        "recalls": 4,
+        "score": 0.9,
+        "sourceRunId": "run-2",
+        "state": "expired",
+        "uniqueQueries": 3
+      },
+      {
+        "agentId": "agent-a",
+        "candidateId": "other-partition",
+        "contentHash": "fixture-hash",
+        "decision": null,
+        "expiresAt": 36,
+        "firstSeenAt": 10,
+        "partition": "workspace",
+        "recalls": 0,
+        "score": null,
+        "sourceRunId": "run-2",
+        "state": "shortlisted",
+        "uniqueQueries": 0
+      }
+    ]
+  },
+  "claims": [
+    true,
+    false,
+    true,
+    false
+  ],
+  "holder": "run-2",
+  "inserts": [
+    true,
+    true,
+    true,
+    false
+  ],
+  "llmSessions": 3,
+  "openAfterPrune": [
+    {
+      "agentId": "agent-a",
+      "claimed": false,
+      "counts": {},
+      "error": null,
+      "finishedAt": null,
+      "idempotencyKey": "fixture-key",
+      "jobId": "fixture-job",
+      "logPath": "fixture.log",
+      "outcome": null,
+      "partition": null,
+      "phase": "rem",
+      "reason": null,
+      "runId": "run-3",
+      "scheduledFor": 0,
+      "startedAt": 40,
+      "tokensIn": null,
+      "tokensOut": null,
+      "trigger": "catchup"
+    }
+  ],
+  "prune": {
+    "deleted": 1,
+    "logs": [
+      "fixture.log",
+      "fixture.log"
+    ]
+  },
+  "runs": [
+    {
+      "agentId": "agent-a",
+      "claimed": false,
+      "counts": {},
+      "error": null,
+      "finishedAt": null,
+      "idempotencyKey": "fixture-key",
+      "jobId": "fixture-job",
+      "logPath": "fixture.log",
+      "outcome": null,
+      "partition": null,
+      "phase": "rem",
+      "reason": null,
+      "runId": "run-3",
+      "scheduledFor": 0,
+      "startedAt": 40,
+      "tokensIn": null,
+      "tokensOut": null,
+      "trigger": "catchup"
+    },
+    {
+      "agentId": "agent-a",
+      "claimed": true,
+      "counts": {
+        "llmSessions": 2
+      },
+      "error": null,
+      "finishedAt": 40,
+      "idempotencyKey": "fixture-key",
+      "jobId": "fixture-job",
+      "logPath": "fixture.log",
+      "outcome": "completed",
+      "partition": null,
+      "phase": "rem",
+      "reason": null,
+      "runId": "run-2",
+      "scheduledFor": 0,
+      "startedAt": 30,
+      "tokensIn": 8,
+      "tokensOut": 2,
+      "trigger": "cron"
+    },
+    {
+      "agentId": "agent-a",
+      "claimed": false,
+      "counts": {
+        "llmSessions": 1
+      },
+      "error": {
+        "message": "fixture run error"
+      },
+      "finishedAt": 25,
+      "idempotencyKey": "fixture-key",
+      "jobId": "fixture-job",
+      "logPath": "fixture.log",
+      "outcome": "failed",
+      "partition": null,
+      "phase": "rem",
+      "reason": "fixture",
+      "runId": "run-1",
+      "scheduledFor": 0,
+      "startedAt": 20,
+      "tokensIn": null,
+      "tokensOut": null,
+      "trigger": "cron"
+    }
+  ],
+  "schedules": [
+    {
+      "agentId": "agent-a",
+      "breakerReason": "fixture",
+      "breakerState": "open",
+      "breakerUntil": 120,
+      "captureSeq": 2,
+      "capturesAcc": 2,
+      "cron": "0 */4 * * *",
+      "enabled": true,
+      "importanceAcc": 8.5,
+      "lastCaptureAt": 65,
+      "lastRunId": "run-1",
+      "nextRunAt": null,
+      "phase": "light",
+      "staggerOffsetS": 20,
+      "timezone": "UTC"
+    },
+    {
+      "agentId": "agent-a",
+      "breakerReason": null,
+      "breakerState": "closed",
+      "breakerUntil": null,
+      "captureSeq": 2,
+      "capturesAcc": 2,
+      "cron": "15 1 * * *",
+      "enabled": true,
+      "importanceAcc": 8.5,
+      "lastCaptureAt": 65,
+      "lastRunId": null,
+      "nextRunAt": 5000,
+      "phase": "rem",
+      "staggerOffsetS": 20,
+      "timezone": "UTC"
+    },
+    {
+      "agentId": "agent-b",
+      "breakerReason": null,
+      "breakerState": "closed",
+      "breakerUntil": null,
+      "captureSeq": 0,
+      "capturesAcc": 0,
+      "cron": "0 */4 * * *",
+      "enabled": false,
+      "importanceAcc": 0,
+      "lastCaptureAt": null,
+      "lastRunId": null,
+      "nextRunAt": 5000,
+      "phase": "light",
+      "staggerOffsetS": 20,
+      "timezone": "UTC"
+    }
+  ],
+  "version": 1,
+  "window": [
+    "run-1",
+    "run-2",
+    "run-3"
+  ]
+}

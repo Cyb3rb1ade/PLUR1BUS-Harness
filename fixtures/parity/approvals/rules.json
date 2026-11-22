@@ -1,0 +1,3883 @@
+[
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "ok",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_0",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": " FS.Read ",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-spelling",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_1",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.readx",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "unknown",
+    "result": {
+      "error": "invalid-grant",
+      "message": "unknown capability fs.readx"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "harness.admin",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "never",
+    "result": {
+      "error": "never-capability",
+      "message": "harness.admin is a never capability; no grant can exist for it"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "memory.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "no-ceiling",
+    "result": {
+      "error": "ceiling-exceeded",
+      "message": "memory.read takes no standing grant"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "policy.bypass",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "policy-bypass",
+    "result": {
+      "error": "never-capability",
+      "message": "policy.bypass is a never capability; no grant can exist for it"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "empty-person",
+    "result": {
+      "error": "invalid-grant",
+      "message": "person, agent and createdBy are required"
+    }
+  },
+  {
+    "input": {
+      "agent": "",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "empty-agent",
+    "result": {
+      "error": "invalid-grant",
+      "message": "person, agent and createdBy are required"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "empty-creator",
+    "result": {
+      "error": "invalid-grant",
+      "message": "person, agent and createdBy are required"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "core:auto-agent-owner",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "reserved-issuer",
+    "result": {
+      "error": "invalid-grant",
+      "message": "reserved grant issuer"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "forever",
+      "surface": 3
+    },
+    "name": "bad-scope",
+    "result": {
+      "error": "invalid-grant",
+      "message": "unknown duration forever"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.delete",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "session",
+      "sessionId": "s",
+      "surface": 3
+    },
+    "name": "above-ceiling",
+    "result": {
+      "error": "ceiling-exceeded",
+      "message": "fs.delete allows at most task grants"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.delete",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "task",
+      "surface": 3,
+      "taskId": "t"
+    },
+    "name": "at-ceiling",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.delete",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_12",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "task",
+        "surface": 3,
+        "taskId": "t"
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 0
+    },
+    "name": "surface-0",
+    "result": {
+      "error": "surface-too-low",
+      "message": "a grant needs a decision from a T1..T3 surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "shell.exec",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 1
+    },
+    "name": "surface-1-min-2",
+    "result": {
+      "error": "surface-too-low",
+      "message": "shell.exec needs a decision from T2 or above"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "os.grant",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "surface-2-min-3",
+    "result": {
+      "error": "surface-too-low",
+      "message": "os.grant needs a decision from T3 or above"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-ok",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "attestedVia": "attested:touch-id",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_16",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 2
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 1
+    },
+    "name": "attested-surface-1",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:Touch-ID",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "attested-upper",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:-x",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "attested-dash-first",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "attested-32",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "attestedVia": "attested:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_20",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "attested-33",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "attested-empty",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "person-256",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_23",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "person-257",
+    "result": {
+      "error": "invalid-grant",
+      "message": "person is longer than 256 characters"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "person-256-units",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_25",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀x",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "person-257-units",
+    "result": {
+      "error": "invalid-grant",
+      "message": "person is longer than 256 characters"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "effect": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "effect-257",
+    "result": {
+      "error": "invalid-grant",
+      "message": "effect is longer than 256 characters"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "id-257",
+    "result": {
+      "error": "invalid-grant",
+      "message": "id is longer than 256 characters"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "expiresAt": 1794985200000,
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "expires-past",
+    "result": {
+      "error": "invalid-grant",
+      "message": "expiresAt must lie in the future"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "expiresAt": 1794985200001,
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "expires-future",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "expiresAt": 1794985200001,
+        "id": "grt_rule_30",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "expiresAt": null,
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "expires-nan",
+    "nonFinite": {
+      "expiresAt": "NaN"
+    },
+    "result": {
+      "error": "invalid-grant",
+      "message": "expiresAt must be a finite number"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "expiresAt": null,
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "expires-infinite",
+    "nonFinite": {
+      "expiresAt": "Infinity"
+    },
+    "result": {
+      "error": "invalid-grant",
+      "message": "expiresAt must be a finite number"
+    }
+  },
+  {
+    "input": {
+      "actionHash": "h",
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "action"
+      },
+      "person": "christian",
+      "scope": "once",
+      "surface": 3
+    },
+    "name": "once-ok",
+    "result": {
+      "grant": {
+        "actionHash": "h",
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_33",
+        "match": {
+          "kind": "action"
+        },
+        "person": "christian",
+        "scope": "once",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "action"
+      },
+      "person": "christian",
+      "scope": "once",
+      "surface": 3
+    },
+    "name": "once-no-hash",
+    "result": {
+      "error": "invalid-grant",
+      "message": "a once grant is bound to an action hash (match.kind = action)"
+    }
+  },
+  {
+    "input": {
+      "actionHash": "",
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "action"
+      },
+      "person": "christian",
+      "scope": "once",
+      "surface": 3
+    },
+    "name": "once-empty-hash",
+    "result": {
+      "error": "invalid-grant",
+      "message": "a once grant is bound to an action hash (match.kind = action)"
+    }
+  },
+  {
+    "input": {
+      "actionHash": "h",
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "once",
+      "surface": 3
+    },
+    "name": "once-capability",
+    "result": {
+      "error": "invalid-grant",
+      "message": "a once grant is bound to an action hash (match.kind = action)"
+    }
+  },
+  {
+    "input": {
+      "actionHash": "h",
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "action"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "action-not-once",
+    "result": {
+      "error": "invalid-grant",
+      "message": "only a once grant can match an action hash"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "task",
+      "surface": 3
+    },
+    "name": "task-no-task",
+    "result": {
+      "error": "invalid-grant",
+      "message": "a task grant needs a taskId"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "task",
+      "surface": 3,
+      "taskId": ""
+    },
+    "name": "task-empty-task",
+    "result": {
+      "error": "invalid-grant",
+      "message": "a task grant needs a taskId"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "session",
+      "surface": 3
+    },
+    "name": "session-no-session",
+    "result": {
+      "error": "invalid-grant",
+      "message": "a session grant needs a sessionId"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "jobId": "j",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "task",
+      "surface": 3,
+      "taskId": "t"
+    },
+    "name": "job-not-always",
+    "result": {
+      "error": "invalid-grant",
+      "message": "a job grant is a standing (always) grant"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "jobId": "",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "job-empty",
+    "result": {
+      "error": "invalid-grant",
+      "message": "a job grant is a standing (always) grant"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "memory.jobs.run",
+      "createdBy": "christian",
+      "jobId": "engine:dream",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "memory-job-ok",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "memory.jobs.run",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_43",
+        "jobId": "engine:dream",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 2
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "memory.jobs.run",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "memory-job-no-job",
+    "result": {
+      "error": "invalid-grant",
+      "message": "a memory job needs the person's own non-delegable standing grant for one agent and job"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "memory.jobs.run",
+      "createdBy": "christian",
+      "delegable": true,
+      "jobId": "j",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "memory-job-delegable",
+    "result": {
+      "error": "invalid-grant",
+      "message": "a memory job needs the person's own non-delegable standing grant for one agent and job"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "memory.jobs.run",
+      "createdBy": "eva",
+      "jobId": "j",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "memory-job-other-creator",
+    "result": {
+      "error": "invalid-grant",
+      "message": "a memory job needs the person's own non-delegable standing grant for one agent and job"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "memory.jobs.run",
+      "createdBy": "christian",
+      "jobId": "j",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2,
+      "taskId": "t"
+    },
+    "name": "memory-job-task",
+    "result": {
+      "error": "invalid-grant",
+      "message": "a memory job needs the person's own non-delegable standing grant for one agent and job"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "memory.jobs.run",
+      "createdBy": "christian",
+      "jobId": "j",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "memory-job-path",
+    "result": {
+      "error": "invalid-grant",
+      "message": "a memory job needs the person's own non-delegable standing grant for one agent and job"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-ok",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_49",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/x",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "work/x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-relative",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path must be absolute and canonical"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-root",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path must be canonical (no root-only path, trailing or doubled separator, or '.' segment)"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x/",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-trailing",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path must be canonical (no root-only path, trailing or doubled separator, or '.' segment)"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work//x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-double",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path must be canonical (no root-only path, trailing or doubled separator, or '.' segment)"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/./x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-dot",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path must be canonical (no root-only path, trailing or doubled separator, or '.' segment)"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/../x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-dotdot",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: dot-dot"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-empty",
+    "result": {
+      "error": "invalid-grant",
+      "message": "path match needs path, access and recursive"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/\u0000x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-nul",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: control-char"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/‮x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-bidi",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: bidi-control"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "exec",
+        "kind": "path",
+        "path": "/work/x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-access",
+    "result": {
+      "error": "invalid-grant",
+      "message": "path match needs path, access and recursive"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/etc",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-etc",
+    "result": {
+      "error": "ceiling-exceeded",
+      "message": "a grant on a home, drive root or system tree is at most task"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/etc/ssh",
+        "recursive": false
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-etc-sub",
+    "result": {
+      "error": "ceiling-exceeded",
+      "message": "a grant on a home, drive root or system tree is at most task"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/home/vector-user",
+        "recursive": false
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-home",
+    "result": {
+      "error": "ceiling-exceeded",
+      "message": "a grant on a home, drive root or system tree is at most task"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/home/vector-user",
+        "recursive": false
+      },
+      "person": "christian",
+      "scope": "task",
+      "surface": 3,
+      "taskId": "t"
+    },
+    "name": "path-home-task-t3",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_63",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/home/vector-user",
+          "recursive": false
+        },
+        "person": "christian",
+        "scope": "task",
+        "surface": 3,
+        "taskId": "t"
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/home/vector-user",
+        "recursive": false
+      },
+      "person": "christian",
+      "scope": "task",
+      "surface": 2,
+      "taskId": "t"
+    },
+    "name": "path-home-task-t2",
+    "result": {
+      "error": "surface-too-low",
+      "message": "a grant on a home, drive root or system tree needs a decision from T3"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/home/vector-user/docs",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-home-child",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_65",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/home/vector-user/docs",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/home",
+        "recursive": false
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-homes-parent",
+    "result": {
+      "error": "ceiling-exceeded",
+      "message": "a grant on a home, drive root or system tree is at most task"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/home",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "task",
+      "surface": 3,
+      "taskId": "t"
+    },
+    "name": "path-homes-parent-recursive-task",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_67",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/home",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "task",
+        "surface": 3,
+        "taskId": "t"
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/Users/x/docs",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-users",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_68",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/Users/x/docs",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/home/vector-user/../x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-above-home",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: dot-dot"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "C:\\work\\x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-windows-spelling",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: backslash"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "\\\\server\\share\\x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-unc",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: backslash"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.write",
+      "createdBy": "christian",
+      "match": {
+        "access": "write",
+        "kind": "path",
+        "path": "/usr",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "task",
+      "surface": 3,
+      "taskId": "t"
+    },
+    "name": "path-write-system-recursive",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.write",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_72",
+        "match": {
+          "access": "write",
+          "kind": "path",
+          "path": "/usr",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "task",
+        "surface": 3,
+        "taskId": "t"
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "﻿fs.read﻿",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-0",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_73",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id﻿",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-0",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "﻿attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-0",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/﻿/x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-0",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_76",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/﻿/x",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x﻿y",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-0",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_77",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/x﻿y",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-1",
+    "result": {
+      "error": "invalid-grant",
+      "message": "unknown capability fs.read"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-1",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-1",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work//x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-1",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: control-char"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/xy",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-1",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: control-char"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "᠎fs.read᠎",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-2",
+    "result": {
+      "error": "invalid-grant",
+      "message": "unknown capability ᠎fs.read᠎"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id᠎",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-2",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "᠎attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-2",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/᠎/x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-2",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_86",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/᠎/x",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x᠎y",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-2",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_87",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/x᠎y",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": " fs.read ",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-3",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_88",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id ",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-3",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": " attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-3",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/ /x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-3",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_91",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/ /x",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x y",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-3",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_92",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/x y",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": " fs.read ",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-4",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_93",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id ",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-4",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": " attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-4",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/ /x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-4",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_96",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/ /x",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x y",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-4",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_97",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/x y",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "\nfs.read\n",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-5",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_98",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id\n",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-5",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "\nattested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-5",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/\n/x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-5",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: control-char"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x\ny",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-5",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: control-char"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "\rfs.read\r",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-6",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_103",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id\r",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-6",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "\rattested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-6",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/\r/x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-6",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: control-char"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x\ry",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-6",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: control-char"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "\u000bfs.read\u000b",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-7",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_108",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id\u000b",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-7",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "\u000battested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-7",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/\u000b/x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-7",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: control-char"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x\u000by",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-7",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: control-char"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": " fs.read ",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-8",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_113",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id ",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-8",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": " attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-8",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/ /x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-8",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_116",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/ /x",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x y",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-8",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_117",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/x y",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": " fs.read ",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-9",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_118",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id ",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-9",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": " attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-9",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/ /x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-9",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_121",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/ /x",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x y",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-9",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_122",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/x y",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": " fs.read ",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-10",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_123",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id ",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-10",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": " attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-10",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/ /x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-10",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_126",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/ /x",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x y",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-10",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_127",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/x y",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": " fs.read ",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-11",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_128",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id ",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-11",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": " attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-11",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/ /x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-11",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_131",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/ /x",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x y",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-11",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_132",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/x y",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": " fs.read ",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-12",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_133",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id ",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-12",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": " attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-12",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/ /x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-12",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_136",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/ /x",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x y",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-12",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_137",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/x y",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": " fs.read ",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-13",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_138",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id ",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-13",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": " attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-13",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/ /x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-13",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_141",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/ /x",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x y",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-13",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_142",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/x y",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "　fs.read　",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-14",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_143",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id　",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-14",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "　attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-14",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/　/x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-14",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_146",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/　/x",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x　y",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-14",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_147",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/x　y",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "​fs.read​",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-space-15",
+    "result": {
+      "error": "invalid-grant",
+      "message": "unknown capability ​fs.read​"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:touch-id​",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-tail-15",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "​attested:touch-id",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-head-15",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/​/x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-segment-15",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_151",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/​/x",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x​y",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-inside-15",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_152",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/x​y",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "FS.READ",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-upper",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_153",
+        "match": {
+          "kind": "capability"
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.readı",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "capability-dotless-i",
+    "result": {
+      "error": "invalid-grant",
+      "message": "unknown capability fs.readı"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:K",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-kelvin",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:ı",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-dotless-i",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "attestedVia": "attested:x\r\n",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "kind": "capability"
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 2
+    },
+    "name": "attested-crlf",
+    "result": {
+      "error": "invalid-grant",
+      "message": "attestedVia must be attested:<method> and needs a T2 or higher surface"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x\\y",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-backslash-inside",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: backslash"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/x\\",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-backslash-trailing",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: backslash"
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/ /x",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-space-segment",
+    "result": {
+      "grant": {
+        "agent": "bernd",
+        "capability": "fs.read",
+        "createdAt": 1794985200000,
+        "createdBy": "christian",
+        "id": "grt_rule_160",
+        "match": {
+          "access": "read",
+          "kind": "path",
+          "path": "/work/ /x",
+          "recursive": true
+        },
+        "person": "christian",
+        "scope": "always",
+        "surface": 3
+      }
+    }
+  },
+  {
+    "input": {
+      "agent": "bernd",
+      "capability": "fs.read",
+      "createdBy": "christian",
+      "match": {
+        "access": "read",
+        "kind": "path",
+        "path": "/work/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "recursive": true
+      },
+      "person": "christian",
+      "scope": "always",
+      "surface": 3
+    },
+    "name": "path-long",
+    "result": {
+      "error": "invalid-grant",
+      "message": "grant path refused: too-long"
+    }
+  }
+]

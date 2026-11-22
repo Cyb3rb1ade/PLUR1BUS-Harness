@@ -1,0 +1,633 @@
+{
+  "listings": [
+    {
+      "expected": {
+        "calls": [],
+        "entries": [
+          {
+            "content": " Alpha ",
+            "createdAt": 75,
+            "memoryId": "a",
+            "partition": "agent-private",
+            "repetitions": 2
+          },
+          {
+            "content": "Alpha",
+            "createdAt": 75,
+            "memoryId": "b",
+            "partition": "agent-private",
+            "repetitions": 2
+          },
+          {
+            "content": "Candidate",
+            "createdAt": 75,
+            "memoryId": "c",
+            "partition": "agent-private"
+          }
+        ]
+      },
+      "name": "projection",
+      "pages": [
+        {
+          "items": [
+            {
+              "createdAt": 75,
+              "id": "a",
+              "scope": "agent-private",
+              "text": " Alpha "
+            },
+            {
+              "createdAt": 75,
+              "id": "b",
+              "scope": "agent-private",
+              "text": "Alpha"
+            },
+            {
+              "createdAt": 75,
+              "id": "shared",
+              "scope": "workspace",
+              "text": "other"
+            },
+            {
+              "createdAt": 75,
+              "id": "c",
+              "scope": "agent-private",
+              "text": "Candidate"
+            }
+          ],
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected": {
+        "calls": [],
+        "refused": true
+      },
+      "name": "projection refused",
+      "pages": [
+        {
+          "items": [
+            {
+              "createdAt": 75,
+              "id": "a",
+              "scope": "agent-private",
+              "text": " Alpha "
+            },
+            {
+              "createdAt": 75,
+              "id": "b",
+              "scope": "agent-private",
+              "text": "Alpha"
+            },
+            {
+              "createdAt": 75,
+              "id": "shared",
+              "scope": "workspace",
+              "text": "other"
+            },
+            {
+              "createdAt": 75,
+              "id": "c",
+              "scope": "agent-private",
+              "text": "Candidate"
+            }
+          ],
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "expected": {
+        "calls": [
+          {
+            "limit": 100,
+            "since": 0,
+            "until": 100
+          }
+        ],
+        "entries": [
+          {
+            "content": " Alpha ",
+            "createdAt": 75,
+            "memoryId": "a",
+            "partition": "agent-private",
+            "repetitions": 2
+          },
+          {
+            "content": "Alpha",
+            "createdAt": 75,
+            "memoryId": "b",
+            "partition": "agent-private",
+            "repetitions": 2
+          },
+          {
+            "content": "Candidate",
+            "createdAt": 75,
+            "memoryId": "c",
+            "partition": "agent-private"
+          }
+        ]
+      },
+      "name": "one page",
+      "pages": [
+        {
+          "items": [
+            {
+              "createdAt": 75,
+              "id": "a",
+              "scope": "agent-private",
+              "text": " Alpha "
+            },
+            {
+              "createdAt": 75,
+              "id": "b",
+              "scope": "agent-private",
+              "text": "Alpha"
+            },
+            {
+              "createdAt": 75,
+              "id": "shared",
+              "scope": "workspace",
+              "text": "other"
+            },
+            {
+              "createdAt": 75,
+              "id": "c",
+              "scope": "agent-private",
+              "text": "Candidate"
+            }
+          ],
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected": {
+        "calls": [
+          {
+            "limit": 100,
+            "since": 0,
+            "until": 100
+          },
+          {
+            "limit": 100,
+            "since": 0,
+            "until": 20
+          }
+        ],
+        "entries": [
+          {
+            "content": "Alpha",
+            "createdAt": 80,
+            "memoryId": "a",
+            "partition": "agent-private"
+          },
+          {
+            "content": "Beta",
+            "createdAt": 20,
+            "memoryId": "b",
+            "partition": "agent-private"
+          },
+          {
+            "content": "Candidate",
+            "createdAt": 1,
+            "memoryId": "c",
+            "partition": "agent-private"
+          }
+        ]
+      },
+      "name": "two pages",
+      "pages": [
+        {
+          "items": [
+            {
+              "createdAt": 80,
+              "id": "a",
+              "scope": "agent-private",
+              "text": "Alpha"
+            },
+            {
+              "createdAt": 20,
+              "id": "b",
+              "scope": "agent-private",
+              "text": "Beta"
+            }
+          ],
+          "truncated": true
+        },
+        {
+          "items": [
+            {
+              "createdAt": 20,
+              "id": "b",
+              "scope": "agent-private",
+              "text": "Beta"
+            },
+            {
+              "createdAt": 1,
+              "id": "c",
+              "scope": "agent-private",
+              "text": "Candidate"
+            }
+          ],
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "expected": {
+        "calls": [
+          {
+            "limit": 100,
+            "since": 0,
+            "until": 100
+          }
+        ],
+        "refused": true
+      },
+      "name": "no progress",
+      "pages": [
+        {
+          "items": [
+            {
+              "createdAt": 100,
+              "id": "a",
+              "scope": "agent-private",
+              "text": "Alpha"
+            }
+          ],
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "expected": {
+        "calls": [
+          {
+            "limit": 100,
+            "since": 0,
+            "until": 100
+          }
+        ],
+        "refused": true
+      },
+      "name": "bad time",
+      "pages": [
+        {
+          "items": [
+            {
+              "createdAt": -1,
+              "id": "a",
+              "scope": "agent-private",
+              "text": "Alpha"
+            }
+          ],
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "expected": {
+        "calls": [
+          {
+            "limit": 100,
+            "since": 0,
+            "until": 100
+          }
+        ],
+        "refused": true
+      },
+      "name": "no boundary",
+      "pages": [
+        {
+          "items": [],
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "expected": {
+        "calls": [
+          {
+            "limit": 100,
+            "since": 0,
+            "until": 100
+          }
+        ],
+        "refused": true
+      },
+      "name": "missing id",
+      "pages": [
+        {
+          "items": [
+            {
+              "createdAt": 75,
+              "scope": "agent-private",
+              "text": " Alpha "
+            },
+            {
+              "createdAt": 75,
+              "id": "b",
+              "scope": "agent-private",
+              "text": "Alpha"
+            },
+            {
+              "createdAt": 75,
+              "id": "shared",
+              "scope": "workspace",
+              "text": "other"
+            },
+            {
+              "createdAt": 75,
+              "id": "c",
+              "scope": "agent-private",
+              "text": "Candidate"
+            }
+          ],
+          "truncated": false
+        }
+      ]
+    }
+  ],
+  "signals": [
+    {
+      "expected": {
+        "calls": [
+          {
+            "agentId": "alpha",
+            "ids": [
+              "id"
+            ]
+          }
+        ],
+        "entries": [
+          {
+            "content": "candidate",
+            "lastRecalledAt": 4,
+            "memoryId": "id",
+            "recalls": 3,
+            "uniqueQueries": 3
+          }
+        ]
+      },
+      "items": [
+        {
+          "content": "candidate",
+          "memoryId": "id",
+          "recalls": 8,
+          "uniqueQueries": 4
+        },
+        {
+          "content": "shared",
+          "memoryId": "shared",
+          "partition": "workspace"
+        }
+      ],
+      "name": "measured",
+      "reply": {
+        "agentId": "alpha",
+        "items": [
+          {
+            "distinctQueries": 3,
+            "id": "id",
+            "lastRecalledAt": 4,
+            "recalls": 3
+          }
+        ]
+      }
+    },
+    {
+      "expected": {
+        "calls": [
+          {
+            "agentId": "alpha",
+            "ids": [
+              "id"
+            ]
+          }
+        ],
+        "entries": [
+          {
+            "content": "candidate",
+            "memoryId": "id"
+          }
+        ]
+      },
+      "items": [
+        {
+          "content": "candidate",
+          "memoryId": "id",
+          "recalls": 8,
+          "uniqueQueries": 4
+        },
+        {
+          "content": "shared",
+          "memoryId": "shared",
+          "partition": "workspace"
+        }
+      ],
+      "name": "missing receipt",
+      "reply": {
+        "agentId": "alpha",
+        "items": []
+      }
+    },
+    {
+      "expected": {
+        "calls": [
+          {
+            "agentId": "alpha",
+            "ids": [
+              "id"
+            ]
+          }
+        ],
+        "refused": true
+      },
+      "items": [
+        {
+          "content": "candidate",
+          "memoryId": "id",
+          "recalls": 8,
+          "uniqueQueries": 4
+        },
+        {
+          "content": "shared",
+          "memoryId": "shared",
+          "partition": "workspace"
+        }
+      ],
+      "name": "foreign scope",
+      "reply": {
+        "agentId": "beta",
+        "items": [
+          {
+            "distinctQueries": 3,
+            "id": "id",
+            "lastRecalledAt": 4,
+            "recalls": 3
+          }
+        ]
+      }
+    },
+    {
+      "expected": {
+        "calls": [
+          {
+            "agentId": "alpha",
+            "ids": [
+              "id"
+            ]
+          }
+        ],
+        "refused": true
+      },
+      "items": [
+        {
+          "content": "candidate",
+          "memoryId": "id",
+          "recalls": 8,
+          "uniqueQueries": 4
+        },
+        {
+          "content": "shared",
+          "memoryId": "shared",
+          "partition": "workspace"
+        }
+      ],
+      "name": "foreign identity",
+      "reply": {
+        "agentId": "alpha",
+        "items": [
+          {
+            "distinctQueries": 3,
+            "id": "foreign",
+            "lastRecalledAt": 4,
+            "recalls": 3
+          }
+        ]
+      }
+    },
+    {
+      "expected": {
+        "calls": [
+          {
+            "agentId": "alpha",
+            "ids": [
+              "id"
+            ]
+          }
+        ],
+        "refused": true
+      },
+      "items": [
+        {
+          "content": "candidate",
+          "memoryId": "id",
+          "recalls": 8,
+          "uniqueQueries": 4
+        },
+        {
+          "content": "shared",
+          "memoryId": "shared",
+          "partition": "workspace"
+        }
+      ],
+      "name": "duplicate receipt",
+      "reply": {
+        "agentId": "alpha",
+        "items": [
+          {
+            "distinctQueries": 3,
+            "id": "id",
+            "lastRecalledAt": 4,
+            "recalls": 3
+          },
+          {
+            "distinctQueries": 3,
+            "id": "id",
+            "lastRecalledAt": 4,
+            "recalls": 3
+          }
+        ]
+      }
+    },
+    {
+      "expected": {
+        "calls": [
+          {
+            "agentId": "alpha",
+            "ids": [
+              "id"
+            ]
+          }
+        ],
+        "refused": true
+      },
+      "items": [
+        {
+          "content": "candidate",
+          "memoryId": "id",
+          "recalls": 8,
+          "uniqueQueries": 4
+        },
+        {
+          "content": "shared",
+          "memoryId": "shared",
+          "partition": "workspace"
+        }
+      ],
+      "name": "negative count",
+      "reply": {
+        "agentId": "alpha",
+        "items": [
+          {
+            "distinctQueries": 3,
+            "id": "id",
+            "lastRecalledAt": 4,
+            "recalls": -1
+          }
+        ]
+      }
+    },
+    {
+      "expected": {
+        "calls": [],
+        "entries": [
+          {
+            "content": "candidate",
+            "memoryId": "id",
+            "recalls": 8,
+            "uniqueQueries": 4
+          }
+        ]
+      },
+      "items": [
+        {
+          "content": "candidate",
+          "memoryId": "id",
+          "recalls": 8,
+          "uniqueQueries": 4
+        },
+        {
+          "content": "shared",
+          "memoryId": "shared",
+          "partition": "workspace"
+        }
+      ],
+      "name": "old capability",
+      "reply": {
+        "agentId": "alpha",
+        "items": [
+          {
+            "distinctQueries": 3,
+            "id": "id",
+            "lastRecalledAt": 4,
+            "recalls": 3
+          }
+        ]
+      }
+    }
+  ]
+}

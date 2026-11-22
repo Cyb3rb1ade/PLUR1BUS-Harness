@@ -1,0 +1,2400 @@
+{
+  "endReasons": [
+    "completed",
+    "tool-error",
+    "provider-error",
+    "approval-required",
+    "local-only",
+    "budget",
+    "aborted",
+    "cancelled",
+    "error-limit",
+    "round-limit",
+    "command",
+    "failed"
+  ],
+  "limit": 1024,
+  "scenarios": [
+    {
+      "name": "fresh",
+      "steps": [
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 0,
+              "error-limit": 0,
+              "failed": 0,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 0
+            },
+            "errorsReturned": 0,
+            "forcedTurns": 0,
+            "metaCalls": {
+              "search": 0,
+              "skillLoad": 0,
+              "skillRead": 0
+            },
+            "rounds": 0,
+            "skills": {
+              "injected": 0,
+              "loaded": 0
+            },
+            "toolCalls": 0,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 0,
+            "triage": {
+              "count": 0,
+              "p50Ms": null,
+              "p95Ms": null
+            },
+            "turns": 0,
+            "withoutNeededTool": 0
+          }
+        },
+        {
+          "op": {
+            "fresh": true
+          },
+          "result": {
+            "endReason": "completed",
+            "errorsReturned": 0,
+            "metaCalls": {
+              "search": 0,
+              "skillLoad": 0,
+              "skillRead": 0
+            },
+            "rounds": 0,
+            "skills": {
+              "injected": 0,
+              "loaded": 0
+            },
+            "toolCalls": 0,
+            "toolChoice": {
+              "forced": false,
+              "status": "auto"
+            },
+            "toolNeed": {
+              "detected": false,
+              "reasons": []
+            },
+            "triageDurationMs": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "one-turn",
+      "steps": [
+        {
+          "op": {
+            "observe": {
+              "endReason": "tool-error",
+              "errorsReturned": 2,
+              "metaCalls": {
+                "search": 1,
+                "skillLoad": 2,
+                "skillRead": 3
+              },
+              "rounds": 3,
+              "skills": {
+                "injected": 5,
+                "loaded": 6
+              },
+              "toolCalls": 4,
+              "toolChoice": {
+                "forced": true,
+                "status": "required"
+              },
+              "toolNeed": {
+                "detected": true,
+                "reasons": [
+                  "url",
+                  "path"
+                ]
+              },
+              "triageDurationMs": 12.5
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 0,
+              "error-limit": 0,
+              "failed": 0,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 1
+            },
+            "errorsReturned": 2,
+            "forcedTurns": 1,
+            "metaCalls": {
+              "search": 1,
+              "skillLoad": 2,
+              "skillRead": 3
+            },
+            "rounds": 3,
+            "skills": {
+              "injected": 5,
+              "loaded": 6
+            },
+            "toolCalls": 4,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 1,
+            "triage": {
+              "count": 1,
+              "p50Ms": 12.5,
+              "p95Ms": 12.5
+            },
+            "turns": 1,
+            "withoutNeededTool": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "every-end-reason",
+      "steps": [
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "tool-error",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "provider-error",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "approval-required",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "local-only",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "budget",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "aborted",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "cancelled",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "error-limit",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "round-limit",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "command",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "failed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 1,
+              "approval-required": 1,
+              "budget": 1,
+              "cancelled": 1,
+              "command": 1,
+              "completed": 1,
+              "error-limit": 1,
+              "failed": 1,
+              "local-only": 1,
+              "provider-error": 1,
+              "round-limit": 1,
+              "tool-error": 1
+            },
+            "errorsReturned": 0,
+            "forcedTurns": 0,
+            "metaCalls": {
+              "search": 0,
+              "skillLoad": 0,
+              "skillRead": 0
+            },
+            "rounds": 0,
+            "skills": {
+              "injected": 0,
+              "loaded": 0
+            },
+            "toolCalls": 0,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 0,
+            "triage": {
+              "count": 0,
+              "p50Ms": null,
+              "p95Ms": null
+            },
+            "turns": 12,
+            "withoutNeededTool": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "unknown-end-reason",
+      "steps": [
+        {
+          "op": {
+            "observe": {
+              "endReason": "weird",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 0,
+              "error-limit": 0,
+              "failed": 2,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 0
+            },
+            "errorsReturned": 0,
+            "forcedTurns": 0,
+            "metaCalls": {
+              "search": 0,
+              "skillLoad": 0,
+              "skillRead": 0
+            },
+            "rounds": 0,
+            "skills": {
+              "injected": 0,
+              "loaded": 0
+            },
+            "toolCalls": 0,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 0,
+            "triage": {
+              "count": 0,
+              "p50Ms": null,
+              "p95Ms": null
+            },
+            "turns": 2,
+            "withoutNeededTool": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "bad-counts",
+      "steps": [
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": -0.5,
+              "metaCalls": {
+                "search": -3,
+                "skillLoad": 1.5,
+                "skillRead": 0
+              },
+              "rounds": -1,
+              "skills": {
+                "injected": -1,
+                "loaded": 2.25
+              },
+              "toolCalls": 0.5,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 1,
+              "error-limit": 0,
+              "failed": 0,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 0
+            },
+            "errorsReturned": 0,
+            "forcedTurns": 0,
+            "metaCalls": {
+              "search": 0,
+              "skillLoad": 1.5,
+              "skillRead": 0
+            },
+            "rounds": 0,
+            "skills": {
+              "injected": 0,
+              "loaded": 2.25
+            },
+            "toolCalls": 0.5,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 0,
+            "triage": {
+              "count": 0,
+              "p50Ms": null,
+              "p95Ms": null
+            },
+            "turns": 1,
+            "withoutNeededTool": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "need-without-tool",
+      "steps": [
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": true,
+                "reasons": [
+                  "time"
+                ]
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 1,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": true,
+                "reasons": [
+                  "time"
+                ]
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": -1,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": true,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 4,
+              "error-limit": 0,
+              "failed": 0,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 0
+            },
+            "errorsReturned": 0,
+            "forcedTurns": 0,
+            "metaCalls": {
+              "search": 0,
+              "skillLoad": 0,
+              "skillRead": 0
+            },
+            "rounds": 0,
+            "skills": {
+              "injected": 0,
+              "loaded": 0
+            },
+            "toolCalls": 1,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 3,
+            "triage": {
+              "count": 0,
+              "p50Ms": null,
+              "p95Ms": null
+            },
+            "turns": 4,
+            "withoutNeededTool": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "tool-choice",
+      "steps": [
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": true,
+                "status": "required"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": true,
+                "status": "named"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "unsupported"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 4,
+              "error-limit": 0,
+              "failed": 0,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 0
+            },
+            "errorsReturned": 0,
+            "forcedTurns": 2,
+            "metaCalls": {
+              "search": 0,
+              "skillLoad": 0,
+              "skillRead": 0
+            },
+            "rounds": 0,
+            "skills": {
+              "injected": 0,
+              "loaded": 0
+            },
+            "toolCalls": 0,
+            "toolChoiceUnsupported": 1,
+            "toolNeedTurns": 0,
+            "triage": {
+              "count": 0,
+              "p50Ms": null,
+              "p95Ms": null
+            },
+            "turns": 4,
+            "withoutNeededTool": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "triage-quantiles",
+      "steps": [
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 5
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 1
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 3
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 2
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 4
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 5,
+              "error-limit": 0,
+              "failed": 0,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 0
+            },
+            "errorsReturned": 0,
+            "forcedTurns": 0,
+            "metaCalls": {
+              "search": 0,
+              "skillLoad": 0,
+              "skillRead": 0
+            },
+            "rounds": 0,
+            "skills": {
+              "injected": 0,
+              "loaded": 0
+            },
+            "toolCalls": 0,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 0,
+            "triage": {
+              "count": 5,
+              "p50Ms": 3,
+              "p95Ms": 5
+            },
+            "turns": 5,
+            "withoutNeededTool": 0
+          }
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": null
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": -1
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 0
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 8,
+              "error-limit": 0,
+              "failed": 0,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 0
+            },
+            "errorsReturned": 0,
+            "forcedTurns": 0,
+            "metaCalls": {
+              "search": 0,
+              "skillLoad": 0,
+              "skillRead": 0
+            },
+            "rounds": 0,
+            "skills": {
+              "injected": 0,
+              "loaded": 0
+            },
+            "toolCalls": 0,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 0,
+            "triage": {
+              "count": 6,
+              "p50Ms": 2,
+              "p95Ms": 5
+            },
+            "turns": 8,
+            "withoutNeededTool": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "triage-one-sample",
+      "steps": [
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 7
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 1,
+              "error-limit": 0,
+              "failed": 0,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 0
+            },
+            "errorsReturned": 0,
+            "forcedTurns": 0,
+            "metaCalls": {
+              "search": 0,
+              "skillLoad": 0,
+              "skillRead": 0
+            },
+            "rounds": 0,
+            "skills": {
+              "injected": 0,
+              "loaded": 0
+            },
+            "toolCalls": 0,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 0,
+            "triage": {
+              "count": 1,
+              "p50Ms": 7,
+              "p95Ms": 7
+            },
+            "turns": 1,
+            "withoutNeededTool": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "triage-twenty",
+      "steps": [
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 1
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 2
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 3
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 4
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 5
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 6
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 7
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 8
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 9
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 10
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 11
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 12
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 13
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 14
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 15
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 16
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 17
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 18
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 19
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "observe": {
+              "endReason": "completed",
+              "errorsReturned": 0,
+              "metaCalls": {
+                "search": 0,
+                "skillLoad": 0,
+                "skillRead": 0
+              },
+              "rounds": 0,
+              "skills": {
+                "injected": 0,
+                "loaded": 0
+              },
+              "toolCalls": 0,
+              "toolChoice": {
+                "forced": false,
+                "status": "auto"
+              },
+              "toolNeed": {
+                "detected": false,
+                "reasons": []
+              },
+              "triageDurationMs": 20
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 20,
+              "error-limit": 0,
+              "failed": 0,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 0
+            },
+            "errorsReturned": 0,
+            "forcedTurns": 0,
+            "metaCalls": {
+              "search": 0,
+              "skillLoad": 0,
+              "skillRead": 0
+            },
+            "rounds": 0,
+            "skills": {
+              "injected": 0,
+              "loaded": 0
+            },
+            "toolCalls": 0,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 0,
+            "triage": {
+              "count": 20,
+              "p50Ms": 10,
+              "p95Ms": 19
+            },
+            "turns": 20,
+            "withoutNeededTool": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "ring-wraps",
+      "steps": [
+        {
+          "op": {
+            "series": {
+              "n": 1024,
+              "step": 1
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 1024,
+              "error-limit": 0,
+              "failed": 0,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 0
+            },
+            "errorsReturned": 0,
+            "forcedTurns": 0,
+            "metaCalls": {
+              "search": 0,
+              "skillLoad": 0,
+              "skillRead": 0
+            },
+            "rounds": 0,
+            "skills": {
+              "injected": 0,
+              "loaded": 0
+            },
+            "toolCalls": 0,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 0,
+            "triage": {
+              "count": 1024,
+              "p50Ms": 512,
+              "p95Ms": 973
+            },
+            "turns": 1024,
+            "withoutNeededTool": 0
+          }
+        },
+        {
+          "op": {
+            "series": {
+              "n": 10,
+              "step": 1000
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 1034,
+              "error-limit": 0,
+              "failed": 0,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 0
+            },
+            "errorsReturned": 0,
+            "forcedTurns": 0,
+            "metaCalls": {
+              "search": 0,
+              "skillLoad": 0,
+              "skillRead": 0
+            },
+            "rounds": 0,
+            "skills": {
+              "injected": 0,
+              "loaded": 0
+            },
+            "toolCalls": 0,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 0,
+            "triage": {
+              "count": 1024,
+              "p50Ms": 522,
+              "p95Ms": 983
+            },
+            "turns": 1034,
+            "withoutNeededTool": 0
+          }
+        },
+        {
+          "op": {
+            "series": {
+              "n": 1024,
+              "step": 2
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 2058,
+              "error-limit": 0,
+              "failed": 0,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 0
+            },
+            "errorsReturned": 0,
+            "forcedTurns": 0,
+            "metaCalls": {
+              "search": 0,
+              "skillLoad": 0,
+              "skillRead": 0
+            },
+            "rounds": 0,
+            "skills": {
+              "injected": 0,
+              "loaded": 0
+            },
+            "toolCalls": 0,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 0,
+            "triage": {
+              "count": 1024,
+              "p50Ms": 3092,
+              "p95Ms": 4014
+            },
+            "turns": 2058,
+            "withoutNeededTool": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "snapshot-is-a-copy",
+      "steps": [
+        {
+          "op": {
+            "observe": {
+              "endReason": "tool-error",
+              "errorsReturned": 2,
+              "metaCalls": {
+                "search": 1,
+                "skillLoad": 2,
+                "skillRead": 3
+              },
+              "rounds": 3,
+              "skills": {
+                "injected": 5,
+                "loaded": 6
+              },
+              "toolCalls": 4,
+              "toolChoice": {
+                "forced": true,
+                "status": "required"
+              },
+              "toolNeed": {
+                "detected": true,
+                "reasons": [
+                  "url",
+                  "path"
+                ]
+              },
+              "triageDurationMs": 12.5
+            }
+          },
+          "result": null
+        },
+        {
+          "op": {
+            "mutate": true,
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 0,
+              "error-limit": 0,
+              "failed": 0,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 1
+            },
+            "errorsReturned": 2,
+            "forcedTurns": 1,
+            "metaCalls": {
+              "search": 1,
+              "skillLoad": 2,
+              "skillRead": 3
+            },
+            "rounds": 3,
+            "skills": {
+              "injected": 5,
+              "loaded": 6
+            },
+            "toolCalls": 4,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 1,
+            "triage": {
+              "count": 1,
+              "p50Ms": 12.5,
+              "p95Ms": 12.5
+            },
+            "turns": 1,
+            "withoutNeededTool": 0
+          }
+        },
+        {
+          "op": {
+            "snapshot": true
+          },
+          "result": {
+            "endReasons": {
+              "aborted": 0,
+              "approval-required": 0,
+              "budget": 0,
+              "cancelled": 0,
+              "command": 0,
+              "completed": 0,
+              "error-limit": 0,
+              "failed": 0,
+              "local-only": 0,
+              "provider-error": 0,
+              "round-limit": 0,
+              "tool-error": 1
+            },
+            "errorsReturned": 2,
+            "forcedTurns": 1,
+            "metaCalls": {
+              "search": 1,
+              "skillLoad": 2,
+              "skillRead": 3
+            },
+            "rounds": 3,
+            "skills": {
+              "injected": 5,
+              "loaded": 6
+            },
+            "toolCalls": 4,
+            "toolChoiceUnsupported": 0,
+            "toolNeedTurns": 1,
+            "triage": {
+              "count": 1,
+              "p50Ms": 12.5,
+              "p95Ms": 12.5
+            },
+            "turns": 1,
+            "withoutNeededTool": 0
+          }
+        }
+      ]
+    }
+  ]
+}

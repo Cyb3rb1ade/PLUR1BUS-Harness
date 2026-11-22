@@ -1,0 +1,167 @@
+{
+  "key": {
+    "parts": [
+      "8acec4521ebef085",
+      "473c4eeeac468ab8",
+      "775cf8b45da39f23",
+      "09466fb93f93e7c3"
+    ]
+  },
+  "mac": [
+    {
+      "kind": "approval.requested",
+      "mac": "40f8f0081a0fa04833ebb19c364c720071cc087dd829751f663e4d7280bd4db7",
+      "nonce": "n",
+      "payload": "{}",
+      "prev": "0000000000000000000000000000000000000000000000000000000000000000",
+      "ref": "apr_a",
+      "seq": 1,
+      "text": "[\"0000000000000000000000000000000000000000000000000000000000000000\",1,1794985200000,\"approval.requested\",\"apr_a\",\"n\",\"{}\"]",
+      "ts": 1794985200000
+    },
+    {
+      "kind": "k",
+      "mac": "bc0ac36cf73300d32a87bd9dbd8712b3f22af0fee223dc7bd009b4bd8b5b2779",
+      "nonce": null,
+      "payload": "\"  \u0000\u001f\\\"",
+      "prev": "x",
+      "ref": "r",
+      "seq": 2,
+      "text": "[\"x\",2,0,\"k\",\"r\",null,\"\\\"  \\u0000\\u001f\\\\\\\"\"]",
+      "ts": 0
+    },
+    {
+      "kind": "ké",
+      "mac": "9e28ca29f0259179da802fd6270841054e21cd24e855108701937df724fc21b4",
+      "nonce": "\t",
+      "payload": "[1,2]",
+      "prev": "x",
+      "ref": "r😀",
+      "seq": 3,
+      "text": "[\"x\",3,-5,\"ké\",\"r😀\",\"\\t\",\"[1,2]\"]",
+      "ts": -5
+    },
+    {
+      "kind": "",
+      "mac": "f4aebf6ba49f41051ecf46b7f60afbfa17ada7ac78d9e695f5ea6d626642bab7",
+      "nonce": "",
+      "payload": "",
+      "prev": "x",
+      "ref": "",
+      "seq": 9007199254740991,
+      "text": "[\"x\",9007199254740991,1.5,\"\",\"\",\"\",\"\"]",
+      "ts": 1.5
+    },
+    {
+      "kind": "k",
+      "mac": "3b9e38730103740e32c531606718c3bbc58dbae2b740c812547a0e4ea06883ee",
+      "nonce": "n",
+      "payload": "p",
+      "prev": "x",
+      "ref": "r",
+      "seq": 1,
+      "text": "[\"x\",1,1e+21,\"k\",\"r\",\"n\",\"p\"]",
+      "ts": 1e+21
+    }
+  ],
+  "restringify": [
+    {
+      "out": "{\"b\":1,\"a\":2}",
+      "text": "{\"b\":1,\"a\":2}"
+    },
+    {
+      "out": "{\"1\":4,\"2\":1,\"10\":2,\"4294967294\":7,\"b\":3,\"01\":5,\"4294967295\":6}",
+      "text": "{\"2\":1,\"10\":2,\"b\":3,\"1\":4,\"01\":5,\"4294967295\":6,\"4294967294\":7}"
+    },
+    {
+      "out": "[1,100,0,0.1,1e-7,123456789012345680000]",
+      "text": "[1.0,1e2,-0,0.1,1e-7,123456789012345680000]"
+    },
+    {
+      "out": "{\"a\":2}",
+      "text": "{\"a\":1,\"a\":2}"
+    },
+    {
+      "out": "\"é😀 \"",
+      "text": "\"\\u00e9\\ud83d\\ude00\\u2028\""
+    },
+    {
+      "out": "{\"x\":{\"y\":[null,true,{\"z\":\"\\u0001\"}]}}",
+      "text": "{\"x\":{\"y\":[null,true,{\"z\":\"\\u0001\"}]}}"
+    },
+    {
+      "out": "1e+21",
+      "text": "1e21"
+    },
+    {
+      "out": "0",
+      "text": "-0"
+    },
+    {
+      "out": "9007199254740992",
+      "text": "9007199254740993"
+    }
+  ],
+  "tag": [
+    {
+      "mac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "seq": 1,
+      "tag": "ee94b78409000b34948b93519eee0b975ce97096917f01db7c5ee7ce1ea64cd6",
+      "text": "[\"head\",1,\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"]"
+    },
+    {
+      "mac": "",
+      "seq": 99,
+      "tag": "748a267c1ec0ee22b4c746971e01be1a8ca88b42e06307aa3fb424b0effaf01e",
+      "text": "[\"head\",99,\"\"]"
+    },
+    {
+      "mac": "é",
+      "seq": 0.5,
+      "tag": "f11428c4b1d440bed3307587729a616094480053f0a1b1bf8bf88a6304a5e18b",
+      "text": "[\"head\",0.5,\"é\"]"
+    }
+  ],
+  "tuples": [
+    {
+      "inputJson": "{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}",
+      "tuple": "[\"h1\",\"christian\",\"agent\",\"bernd\",\"turn1\",\"t1\",\"s1\"]"
+    },
+    {
+      "inputJson": "{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":null,\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}",
+      "tuple": null
+    },
+    {
+      "inputJson": "{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":\"x\",\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}",
+      "tuple": null
+    },
+    {
+      "inputJson": "{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":1,\"taskId\":\"t1\",\"sessionId\":\"s1\"}",
+      "tuple": null
+    },
+    {
+      "inputJson": "[]",
+      "tuple": null
+    },
+    {
+      "inputJson": "null",
+      "tuple": null
+    },
+    {
+      "inputJson": "\"s\"",
+      "tuple": null
+    },
+    {
+      "inputJson": "{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\"bernd\"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\",\"extra\":1}",
+      "tuple": "[\"h1\",\"christian\",\"agent\",\"bernd\",\"turn1\",\"t1\",\"s1\"]"
+    },
+    {
+      "inputJson": "{\"actionHash\":\"h1\",\"principal\":\"christian\",\"subject\":{\"kind\":\"agent\",\"id\":\" \"},\"turnId\":\"turn1\",\"taskId\":\"t1\",\"sessionId\":\"s1\"}",
+      "tuple": "[\"h1\",\"christian\",\"agent\",\" \",\"turn1\",\"t1\",\"s1\"]"
+    },
+    {
+      "inputJson": "{\"actionHash\":\"\",\"principal\":\"\",\"subject\":{\"kind\":\"\",\"id\":\"\"},\"turnId\":\"\",\"taskId\":\"\",\"sessionId\":\"\"}",
+      "tuple": "[\"\",\"\",\"\",\"\",\"\",\"\",\"\"]"
+    }
+  ]
+}

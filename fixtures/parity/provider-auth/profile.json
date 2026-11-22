@@ -1,0 +1,3929 @@
+{
+  "cases": [
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": "https://example.test/auth",
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": true,
+        "tokenUrl": "https://example.test/token"
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "rotating"
+        },
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": "https://example.test/device",
+        "refreshSkewMs": 120000,
+        "refreshable": true,
+        "tokenUrl": "https://example.test/token"
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "device_authorization_endpoint": "https://example.test/device",
+        "display_name": "Example",
+        "id": "example:dev",
+        "kind": "device_code",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "adc",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "external_cli",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "federated_token",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: not an object.",
+        "retryable": false
+      },
+      "input": null,
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: not an object.",
+        "retryable": false
+      },
+      "input": 1,
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: not an object.",
+        "retryable": false
+      },
+      "input": "x",
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: not an object.",
+        "retryable": false
+      },
+      "input": [],
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: not an object.",
+        "retryable": false
+      },
+      "input": [
+        {
+          "auth_header_scheme": "Authorization: Bearer {token}",
+          "capabilities": [
+            "chat"
+          ],
+          "display_name": "Example",
+          "id": "example:key",
+          "kind": "api_key",
+          "policy_checked": "2026-09-22",
+          "policy_source": "https://example.test/terms",
+          "policy_status": "allowed",
+          "secret_ref": "ex/key"
+        }
+      ],
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: id must match ^[a-z0-9][a-z0-9._:-]{0,127}$.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: id must match ^[a-z0-9][a-z0-9._:-]{0,127}$.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "A",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "a",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: id must match ^[a-z0-9][a-z0-9._:-]{0,127}$.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: id must match ^[a-z0-9][a-z0-9._:-]{0,127}$.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "-a",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: id must match ^[a-z0-9][a-z0-9._:-]{0,127}$.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "a b",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "a:b.c-d_e",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: id must match ^[a-z0-9][a-z0-9._:-]{0,127}$.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "a\n",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: superseded by openai:chatgpt-plan; sign in with ChatGPT again.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "openai:chatgpt-oauth-restricted",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: id must match ^[a-z0-9][a-z0-9._:-]{0,127}$.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": 5,
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: id must match ^[a-z0-9][a-z0-9._:-]{0,127}$.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": null,
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: id must match ^[a-z0-9][a-z0-9._:-]{0,127}$.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: display_name missing.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: kind must be one of api_key|oauth_pkce|device_code|adc|external_cli|federated_token.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: capabilities must list chat|embedding|rerank.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: auth_header_scheme missing.",
+        "retryable": false
+      },
+      "input": {
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_status missing.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_source missing.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_checked must be YYYY-MM-DD.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: unknown field.",
+        "retryable": false
+      },
+      "input": {
+        "api_key": {
+          "parts": [
+            "CANARY-X"
+          ]
+        },
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: unknown field.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key",
+        "wire_profile": "siwc"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: unknown field.",
+        "retryable": false
+      },
+      "input": {
+        "__proto__x": 1,
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: kind must be one of api_key|oauth_pkce|device_code|adc|external_cli|federated_token.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "oauth",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: kind must be one of api_key|oauth_pkce|device_code|adc|external_cli|federated_token.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "token",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: kind must be one of api_key|oauth_pkce|device_code|adc|external_cli|federated_token.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: kind must be one of api_key|oauth_pkce|device_code|adc|external_cli|federated_token.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": 3,
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "restricted",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_status is prohibited; a prohibited profile is never loadable (ADR-005).",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "prohibited",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_status missing.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "Allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_status missing.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": null,
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_checked must be YYYY-MM-DD.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "yesterday",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_checked must be YYYY-MM-DD.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-02-30",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_checked must be YYYY-MM-DD.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-02-29",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2024-02-29",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_checked must be YYYY-MM-DD.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-13-01",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_checked must be YYYY-MM-DD.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-00-10",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "0000-01-01",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "9999-12-31",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_checked must be YYYY-MM-DD.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-9-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_checked must be YYYY-MM-DD.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": " 2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_checked must be YYYY-MM-DD.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22\n",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_checked must be YYYY-MM-DD.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": 20260922,
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: capabilities must list chat|embedding|rerank.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat",
+          "embedding",
+          "rerank"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: capabilities must list chat|embedding|rerank.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat",
+          "vision"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: capabilities must list chat|embedding|rerank.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": "chat",
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: capabilities must list chat|embedding|rerank.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          null
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat",
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "x-api-key: {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: auth_header_scheme must be `Name: value` with {token}.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer x",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: auth_header_scheme must be `Name: value` with {token}.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "X: {token}\r\nEvil: 1",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "X:{token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: auth_header_scheme must be `Name: value` with {token}.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "X :{token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: auth_header_scheme must be `Name: value` with {token}.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "X_Y: {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "X:  {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: auth_header_scheme must be `Name: value` with {token}.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "X: {token} ",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: auth_header_scheme must be `Name: value` with {token}.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "X:\n{token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "X: Bearer {token} {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: auth_header_scheme missing.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: auth_header_scheme missing.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": 7,
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: auth_header_scheme must be `Name: value` with {token}.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": ": {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: auth_header_scheme must be `Name: value` with {token}.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Ä: {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "extra_headers": {
+          "anthropic-version": "1"
+        },
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: extra_headers entry is malformed.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "extra_headers": {
+          "bad name": "1"
+        },
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: extra_headers entry is malformed.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "extra_headers": {
+          "a": "x\ny"
+        },
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: extra_headers entry is malformed.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "extra_headers": {
+          "a": 1
+        },
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "extra_headers": "ab",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "extra_headers": [
+          "v"
+        ],
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "extra_headers": 3,
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "extra_headers": null,
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "extra_headers": {},
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: base_url must be https.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "base_url": "http://example.test/v1",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: base_url must not carry credentials.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "base_url": "https://u:p@example.test/v1",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "base_url": "http://127.0.0.1:11434/v1",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "base_url": "http://localhost/v1",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "base_url": "http://LOCALHOST/v1",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "base_url": "http://[::1]:8/v1",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: base_url must be https.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "base_url": "http://127.0.0.2/v1",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: base_url is not a URL.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "base_url": "not a url",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: base_url must be a URL string.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "base_url": "",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: base_url must be https.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "base_url": "ftp://example.test",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "base_url": "https://example.test/v1",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: base_url must be a URL string.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "base_url": {},
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: oauth_pkce needs authorization_endpoint and token_endpoint.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "rotating"
+        },
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: oauth_pkce needs authorization_endpoint and token_endpoint.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "rotating"
+        },
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: oauth_pkce needs authorization_endpoint and token_endpoint.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "rotating"
+        },
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": "https://example.test/auth",
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": true,
+        "tokenUrl": "https://example.test/token"
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "authorizeUrl": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "rotating"
+        },
+        "secret_ref": "ex/key",
+        "tokenUrl": "https://example.test/token",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: conflicting endpoint aliases.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "authorizeUrl": "https://example.test/other",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "rotating"
+        },
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: conflicting endpoint aliases.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "rotating"
+        },
+        "secret_ref": "ex/key",
+        "tokenUrl": "https://example.test/other",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": "https://example.test/auth",
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": true,
+        "tokenUrl": "https://example.test/token"
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorizeUrl": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "rotating"
+        },
+        "secret_ref": "ex/key",
+        "tokenUrl": "https://example.test/token"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: device_code needs device_authorization_endpoint and token_endpoint.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:dev",
+        "kind": "device_code",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": "https://example.test/device",
+        "refreshSkewMs": 120000,
+        "refreshable": true,
+        "tokenUrl": "https://example.test/token"
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "deviceUrl": "https://example.test/device",
+        "device_authorization_endpoint": "https://example.test/device",
+        "display_name": "Example",
+        "id": "example:dev",
+        "kind": "device_code",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: conflicting endpoint aliases.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "deviceUrl": "https://example.test/other",
+        "device_authorization_endpoint": "https://example.test/device",
+        "display_name": "Example",
+        "id": "example:dev",
+        "kind": "device_code",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: token_endpoint must be a URL string.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "rotating"
+        },
+        "secret_ref": "ex/key",
+        "token_endpoint": {}
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "scopes": [
+          "read",
+          "offline_access"
+        ],
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: scopes must be OAuth scope tokens.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "scopes": [
+          "a b"
+        ],
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: scopes must be OAuth scope tokens.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "scopes": [
+          "a\"b"
+        ],
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: scopes must be OAuth scope tokens.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "scopes": [
+          "a\\b"
+        ],
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: scopes must be OAuth scope tokens.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "scopes": [
+          ""
+        ],
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "scopes": [],
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: scopes must be OAuth scope tokens.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "scopes": "read",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: scopes must be OAuth scope tokens.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "scopes": [
+          1
+        ],
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "scopes": [
+          "~!#[]"
+        ],
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "client_id": "x",
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid identifier.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "client_id": "",
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid identifier.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "client_id": "a\nb",
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid identifier.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "client_id": 3,
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "audience": "x",
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid identifier.",
+        "retryable": false
+      },
+      "input": {
+        "audience": "",
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid identifier.",
+        "retryable": false
+      },
+      "input": {
+        "audience": "a\nb",
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid identifier.",
+        "retryable": false
+      },
+      "input": {
+        "audience": 3,
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "x"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid identifier.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": ""
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid identifier.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "a\nb"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid identifier.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": 3
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "client_registration": "none",
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "client_registration": "static",
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "client_registration": "dynamic",
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "client_registration": "dynamic_on_authorize",
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid client_registration.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "client_registration": "other",
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "person_bound": true,
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "person_bound": false,
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: person_bound must be boolean.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "person_bound": "yes",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "redirect": {
+          "type": "loopback"
+        },
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "redirect": {
+          "port": 0,
+          "type": "loopback"
+        },
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "redirect": {
+          "port": 65535,
+          "type": "loopback"
+        },
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid redirect port.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "redirect": {
+          "port": 65536,
+          "type": "loopback"
+        },
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid redirect port.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "redirect": {
+          "port": -1,
+          "type": "loopback"
+        },
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid redirect port.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "redirect": {
+          "port": 1.5,
+          "type": "loopback"
+        },
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid loopback redirect.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "redirect": {
+          "type": "web"
+        },
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid loopback redirect.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "redirect": {
+          "extra": 1,
+          "type": "loopback"
+        },
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid loopback redirect.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "redirect": null,
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: invalid loopback redirect.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "redirect": [],
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": null,
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": false,
+        "tokenUrl": null
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "pkce": "S256",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: pkce must be S256.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "pkce": "plain",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    },
+    {
+      "derived": {
+        "authorizeUrl": "https://example.test/auth",
+        "deviceUrl": null,
+        "refreshSkewMs": 120000,
+        "refreshable": true,
+        "tokenUrl": "https://example.test/token"
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "rotating"
+        },
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": "https://example.test/auth",
+        "deviceUrl": null,
+        "refreshSkewMs": 0,
+        "refreshable": true,
+        "tokenUrl": "https://example.test/token"
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "static",
+          "refresh_skew_seconds": 0
+        },
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": true
+    },
+    {
+      "derived": {
+        "authorizeUrl": "https://example.test/auth",
+        "deviceUrl": null,
+        "refreshSkewMs": 30000,
+        "refreshable": true,
+        "tokenUrl": "https://example.test/token"
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "static",
+          "refresh_skew_seconds": 30
+        },
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": true
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: refresh_skew_seconds must be a non-negative integer.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "static",
+          "refresh_skew_seconds": -1
+        },
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: refresh_skew_seconds must be a non-negative integer.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "static",
+          "refresh_skew_seconds": 1.5
+        },
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: refresh.mode must be rotating|static.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "other"
+        },
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: refresh.mode must be rotating|static.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": {
+          "mode": "rotating",
+          "x": 1
+        },
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: refresh.mode must be rotating|static.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "authorization_endpoint": "https://example.test/auth",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:oauth",
+        "kind": "oauth_pkce",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "refresh": null,
+        "secret_ref": "ex/key",
+        "token_endpoint": "https://example.test/token"
+      },
+      "ok": false
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: revocation_endpoint must be https.",
+        "retryable": false
+      },
+      "input": {
+        "auth_header_scheme": "Authorization: Bearer {token}",
+        "capabilities": [
+          "chat"
+        ],
+        "display_name": "Example",
+        "id": "example:key",
+        "kind": "api_key",
+        "policy_checked": "2026-09-22",
+        "policy_source": "https://example.test/terms",
+        "policy_status": "allowed",
+        "revocation_endpoint": "http://example.test/r",
+        "secret_ref": "ex/key"
+      },
+      "ok": false
+    }
+  ],
+  "catalogues": [
+    {
+      "ids": [
+        "example:key",
+        "example:oauth",
+        "example:dev"
+      ],
+      "input": [
+        {
+          "auth_header_scheme": "Authorization: Bearer {token}",
+          "capabilities": [
+            "chat"
+          ],
+          "display_name": "Example",
+          "id": "example:key",
+          "kind": "api_key",
+          "policy_checked": "2026-09-22",
+          "policy_source": "https://example.test/terms",
+          "policy_status": "allowed",
+          "secret_ref": "ex/key"
+        },
+        {
+          "auth_header_scheme": "Authorization: Bearer {token}",
+          "authorization_endpoint": "https://example.test/auth",
+          "capabilities": [
+            "chat"
+          ],
+          "display_name": "Example",
+          "id": "example:oauth",
+          "kind": "oauth_pkce",
+          "policy_checked": "2026-09-22",
+          "policy_source": "https://example.test/terms",
+          "policy_status": "allowed",
+          "refresh": {
+            "mode": "rotating"
+          },
+          "secret_ref": "ex/key",
+          "token_endpoint": "https://example.test/token"
+        },
+        {
+          "auth_header_scheme": "Authorization: Bearer {token}",
+          "capabilities": [
+            "chat"
+          ],
+          "device_authorization_endpoint": "https://example.test/device",
+          "display_name": "Example",
+          "id": "example:dev",
+          "kind": "device_code",
+          "policy_checked": "2026-09-22",
+          "policy_source": "https://example.test/terms",
+          "policy_status": "allowed",
+          "secret_ref": "ex/key",
+          "token_endpoint": "https://example.test/token"
+        }
+      ]
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: duplicate id.",
+        "retryable": false
+      },
+      "input": [
+        {
+          "auth_header_scheme": "Authorization: Bearer {token}",
+          "capabilities": [
+            "chat"
+          ],
+          "display_name": "Example",
+          "id": "example:key",
+          "kind": "api_key",
+          "policy_checked": "2026-09-22",
+          "policy_source": "https://example.test/terms",
+          "policy_status": "allowed",
+          "secret_ref": "ex/key"
+        },
+        {
+          "auth_header_scheme": "Authorization: Bearer {token}",
+          "capabilities": [
+            "chat"
+          ],
+          "display_name": "Example",
+          "id": "example:key",
+          "kind": "api_key",
+          "policy_checked": "2026-09-22",
+          "policy_source": "https://example.test/terms",
+          "policy_status": "allowed",
+          "secret_ref": "ex/key"
+        }
+      ]
+    },
+    {
+      "error": {
+        "code": "invalid_profile",
+        "kind": "auth",
+        "message": "Auth profile is invalid: policy_status is prohibited; a prohibited profile is never loadable (ADR-005).",
+        "retryable": false
+      },
+      "input": [
+        {
+          "auth_header_scheme": "Authorization: Bearer {token}",
+          "capabilities": [
+            "chat"
+          ],
+          "display_name": "Example",
+          "id": "example:key",
+          "kind": "api_key",
+          "policy_checked": "2026-09-22",
+          "policy_source": "https://example.test/terms",
+          "policy_status": "allowed",
+          "secret_ref": "ex/key"
+        },
+        {
+          "auth_header_scheme": "Authorization: Bearer {token}",
+          "authorization_endpoint": "https://example.test/auth",
+          "capabilities": [
+            "chat"
+          ],
+          "display_name": "Example",
+          "id": "example:oauth",
+          "kind": "oauth_pkce",
+          "policy_checked": "2026-09-22",
+          "policy_source": "https://example.test/terms",
+          "policy_status": "prohibited",
+          "refresh": {
+            "mode": "rotating"
+          },
+          "secret_ref": "ex/key",
+          "token_endpoint": "https://example.test/token"
+        }
+      ]
+    },
+    {
+      "ids": [],
+      "input": []
+    },
+    {
+      "ids": [
+        "b:1",
+        "a:1"
+      ],
+      "input": [
+        {
+          "auth_header_scheme": "Authorization: Bearer {token}",
+          "capabilities": [
+            "chat"
+          ],
+          "display_name": "Example",
+          "id": "b:1",
+          "kind": "api_key",
+          "policy_checked": "2026-09-22",
+          "policy_source": "https://example.test/terms",
+          "policy_status": "allowed",
+          "secret_ref": "ex/key"
+        },
+        {
+          "auth_header_scheme": "Authorization: Bearer {token}",
+          "capabilities": [
+            "chat"
+          ],
+          "display_name": "Example",
+          "id": "a:1",
+          "kind": "api_key",
+          "policy_checked": "2026-09-22",
+          "policy_source": "https://example.test/terms",
+          "policy_status": "allowed",
+          "secret_ref": "ex/key"
+        }
+      ]
+    }
+  ],
+  "kinds": [
+    "api_key",
+    "oauth_pkce",
+    "device_code",
+    "adc",
+    "external_cli",
+    "federated_token"
+  ],
+  "schemes": [
+    {
+      "parsed": {
+        "name": "x-api-key",
+        "template": "{token}"
+      },
+      "scheme": "x-api-key: {token}"
+    },
+    {
+      "parsed": {
+        "name": "Authorization",
+        "template": "Bearer {token}"
+      },
+      "scheme": "Authorization: Bearer {token}"
+    },
+    {
+      "parsed": {
+        "name": "A",
+        "template": "{token}"
+      },
+      "scheme": "A:{token}"
+    },
+    {
+      "parsed": {
+        "name": "A",
+        "template": "{token}"
+      },
+      "scheme": "A: \t {token}"
+    },
+    {
+      "parsed": {
+        "name": "A",
+        "template": "{token} x {token}"
+      },
+      "scheme": "A:  {token} x {token}"
+    }
+  ]
+}

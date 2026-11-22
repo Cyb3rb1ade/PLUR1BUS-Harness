@@ -1,0 +1,2649 @@
+{
+  "classify": [
+    {
+      "classification": {
+        "certainty": "ambiguous",
+        "code": "rate_limited",
+        "scope": "credential"
+      },
+      "failure": {
+        "status": 429
+      }
+    },
+    {
+      "classification": {
+        "certainty": "ambiguous",
+        "code": "rate_limited",
+        "scope": "model"
+      },
+      "failure": {
+        "model": "m",
+        "status": 429
+      }
+    },
+    {
+      "classification": {
+        "certainty": "confirmed",
+        "code": "quota_exhausted",
+        "scope": "credential"
+      },
+      "failure": {
+        "hint": "quota_exhausted",
+        "status": 429
+      }
+    },
+    {
+      "classification": {
+        "certainty": "confirmed",
+        "code": "quota_exhausted",
+        "scope": "credential"
+      },
+      "failure": {
+        "hint": "quota_exhausted",
+        "model": "m",
+        "status": 429
+      }
+    },
+    {
+      "classification": {
+        "certainty": "ambiguous",
+        "code": "rate_limited",
+        "scope": "model"
+      },
+      "failure": {
+        "hint": "rate_limit",
+        "model": "m",
+        "status": 429
+      }
+    },
+    {
+      "classification": {
+        "certainty": "confirmed",
+        "code": "auth_rejected",
+        "scope": "credential"
+      },
+      "failure": {
+        "status": 401
+      }
+    },
+    {
+      "classification": {
+        "certainty": "confirmed",
+        "code": "auth_rejected",
+        "scope": "credential"
+      },
+      "failure": {
+        "model": "m",
+        "status": 401
+      }
+    },
+    {
+      "classification": {
+        "certainty": "ambiguous",
+        "code": "forbidden",
+        "scope": "credential"
+      },
+      "failure": {
+        "status": 403
+      }
+    },
+    {
+      "classification": {
+        "certainty": "ambiguous",
+        "code": "forbidden",
+        "scope": "model"
+      },
+      "failure": {
+        "model": "m",
+        "status": 403
+      }
+    },
+    {
+      "classification": {
+        "certainty": "ambiguous",
+        "code": "forbidden",
+        "scope": "credential"
+      },
+      "failure": {
+        "model": "",
+        "status": 403
+      }
+    },
+    {
+      "classification": null,
+      "failure": {
+        "status": 500
+      }
+    },
+    {
+      "classification": null,
+      "failure": {
+        "status": 200
+      }
+    },
+    {
+      "classification": null,
+      "failure": {
+        "status": 404
+      }
+    },
+    {
+      "classification": null,
+      "failure": {
+        "status": 408
+      }
+    }
+  ],
+  "cooldownMs": {
+    "ambiguous": {
+      "several": 60000,
+      "sole": 15000
+    },
+    "confirmed": {
+      "several": 3600000,
+      "sole": 300000
+    }
+  },
+  "duplicate": {
+    "code": "invalid_profile",
+    "kind": "auth",
+    "message": "Credential pool for p has duplicate credential ids.",
+    "profileId": "p",
+    "retryable": false
+  },
+  "retryAfter": {
+    "max": 86400000,
+    "min": 1000
+  },
+  "scenarios": [
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 60000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        }
+      ],
+      "n": 2,
+      "name": "ambiguous-429-boundary",
+      "ops": [
+        {
+          "op": "select"
+        },
+        {
+          "failure": {
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "ms": 59999,
+          "op": "advance"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "status"
+        },
+        {
+          "ms": 1,
+          "op": "advance"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 60000
+          }
+        },
+        {
+          "out": {
+            "id": "c2",
+            "secretRef": "ref/2"
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "out": {
+            "id": "c2",
+            "secretRef": "ref/2"
+          }
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 1,
+              "id": "c1",
+              "label": "first",
+              "lastError": {
+                "certainty": "ambiguous",
+                "code": "rate_limited"
+              },
+              "modelCooldowns": {},
+              "uses": 1
+            },
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c2",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 2
+            }
+          ]
+        },
+        {
+          "out": null
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c1",
+              "label": "first",
+              "lastError": {
+                "certainty": "ambiguous",
+                "code": "rate_limited"
+              },
+              "modelCooldowns": {},
+              "uses": 2
+            },
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c2",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 2
+            }
+          ]
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "confirmed",
+            "code": "auth_rejected",
+            "credentialId": "c1",
+            "ms": 3600000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        }
+      ],
+      "n": 2,
+      "name": "confirmed-401-boundary",
+      "ops": [
+        {
+          "failure": {
+            "status": 401
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "ms": 3599999,
+          "op": "advance"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "ms": 1,
+          "op": "advance"
+        },
+        {
+          "op": "select"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "classification": {
+              "certainty": "confirmed",
+              "code": "auth_rejected",
+              "scope": "credential"
+            },
+            "cooldownMs": 3600000
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "out": {
+            "id": "c2",
+            "secretRef": "ref/2"
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "confirmed",
+            "code": "auth_rejected",
+            "credentialId": "c1",
+            "ms": 3600000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c2",
+            "ms": 15000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": true
+          }
+        }
+      ],
+      "n": 2,
+      "name": "sole-and-remaining-sole",
+      "ops": [
+        {
+          "failure": {
+            "status": 401
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "status": 429
+          },
+          "id": "c2",
+          "op": "fail"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "ms": 14999,
+          "op": "advance"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "ms": 1,
+          "op": "advance"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "classification": {
+              "certainty": "confirmed",
+              "code": "auth_rejected",
+              "scope": "credential"
+            },
+            "cooldownMs": 3600000
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 15000
+          }
+        },
+        {
+          "error": {
+            "code": "all_cooling_down",
+            "kind": "auth",
+            "message": "Every credential for this profile is cooling down; retry in 15 s.",
+            "profileId": "e:key",
+            "retryAfterMs": 15000,
+            "retryable": true
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "error": {
+            "code": "all_cooling_down",
+            "kind": "auth",
+            "message": "Every credential for this profile is cooling down; retry in 1 s.",
+            "profileId": "e:key",
+            "retryAfterMs": 1,
+            "retryable": true
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "out": {
+            "id": "c2",
+            "secretRef": "ref/2"
+          }
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 3585000,
+              "id": "c1",
+              "label": "first",
+              "lastError": {
+                "certainty": "confirmed",
+                "code": "auth_rejected"
+              },
+              "modelCooldowns": {},
+              "uses": 0
+            },
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c2",
+              "lastError": {
+                "certainty": "ambiguous",
+                "code": "rate_limited"
+              },
+              "modelCooldowns": {},
+              "uses": 1
+            }
+          ]
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "confirmed",
+            "code": "quota_exhausted",
+            "credentialId": "c1",
+            "ms": 300000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": true
+          }
+        }
+      ],
+      "n": 1,
+      "name": "solo-quota",
+      "ops": [
+        {
+          "failure": {
+            "hint": "quota_exhausted",
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "ms": 300000,
+          "op": "advance"
+        },
+        {
+          "op": "select"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "classification": {
+              "certainty": "confirmed",
+              "code": "quota_exhausted",
+              "scope": "credential"
+            },
+            "cooldownMs": 300000
+          }
+        },
+        {
+          "error": {
+            "code": "all_cooling_down",
+            "kind": "auth",
+            "message": "Every credential for this profile is cooling down; retry in 300 s.",
+            "profileId": "e:key",
+            "retryAfterMs": 300000,
+            "retryable": true
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 30000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c2",
+            "ms": 10000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": true
+          }
+        }
+      ],
+      "n": 2,
+      "name": "all-cooling-earliest",
+      "ops": [
+        {
+          "failure": {
+            "retryAfterMs": 30000,
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "retryAfterMs": 10000,
+            "status": 429
+          },
+          "id": "c2",
+          "op": "fail"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "ms": 9999,
+          "op": "advance"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "ms": 1,
+          "op": "advance"
+        },
+        {
+          "op": "select"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 30000
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 10000
+          }
+        },
+        {
+          "error": {
+            "code": "all_cooling_down",
+            "kind": "auth",
+            "message": "Every credential for this profile is cooling down; retry in 10 s.",
+            "profileId": "e:key",
+            "retryAfterMs": 10000,
+            "retryable": true
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "error": {
+            "code": "all_cooling_down",
+            "kind": "auth",
+            "message": "Every credential for this profile is cooling down; retry in 1 s.",
+            "profileId": "e:key",
+            "retryAfterMs": 1,
+            "retryable": true
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "out": {
+            "id": "c2",
+            "secretRef": "ref/2"
+          }
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 1500,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": true
+          }
+        }
+      ],
+      "n": 1,
+      "name": "all-cooling-rounding",
+      "ops": [
+        {
+          "failure": {
+            "retryAfterMs": 1500,
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "ms": 501,
+          "op": "advance"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "ms": 998,
+          "op": "advance"
+        },
+        {
+          "op": "select"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 1500
+          }
+        },
+        {
+          "error": {
+            "code": "all_cooling_down",
+            "kind": "auth",
+            "message": "Every credential for this profile is cooling down; retry in 2 s.",
+            "profileId": "e:key",
+            "retryAfterMs": 1500,
+            "retryable": true
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "error": {
+            "code": "all_cooling_down",
+            "kind": "auth",
+            "message": "Every credential for this profile is cooling down; retry in 1 s.",
+            "profileId": "e:key",
+            "retryAfterMs": 999,
+            "retryable": true
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "error": {
+            "code": "all_cooling_down",
+            "kind": "auth",
+            "message": "Every credential for this profile is cooling down; retry in 1 s.",
+            "profileId": "e:key",
+            "retryAfterMs": 1,
+            "retryable": true
+          }
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 1000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 1000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 1000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 1001,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 86400000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 86400000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 86400000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 2000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 1000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 1000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 1234.5,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        }
+      ],
+      "n": 2,
+      "name": "retry-after-clamp",
+      "ops": [
+        {
+          "failure": {
+            "retryAfterMs": 5,
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "retryAfterMs": 999,
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "retryAfterMs": 1000,
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "retryAfterMs": 1001,
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "retryAfterMs": 86400000,
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "retryAfterMs": 86400001,
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "retryAfterMs": 1000000000000,
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "retryAfterMs": 2000,
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "retryAfterMs": 0,
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "retryAfterMs": -5,
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "retryAfterMs": 1234.5,
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 1000
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 1000
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 1000
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 1001
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 86400000
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 86400000
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 86400000
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 2000
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 1000
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 1000
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 1234.5
+          }
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 86400000,
+              "id": "c1",
+              "label": "first",
+              "lastError": {
+                "certainty": "ambiguous",
+                "code": "rate_limited"
+              },
+              "modelCooldowns": {},
+              "uses": 0
+            },
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c2",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 0
+            }
+          ]
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 5000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "confirmed",
+            "code": "auth_rejected",
+            "credentialId": "c1",
+            "ms": 5000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        }
+      ],
+      "n": 2,
+      "name": "never-shortened-equal",
+      "ops": [
+        {
+          "failure": {
+            "retryAfterMs": 5000,
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "retryAfterMs": 5000,
+            "status": 401
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "op": "status"
+        },
+        {
+          "id": "c1",
+          "op": "success"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 5000
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "confirmed",
+              "code": "auth_rejected",
+              "scope": "credential"
+            },
+            "cooldownMs": 5000
+          }
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 5000,
+              "id": "c1",
+              "label": "first",
+              "lastError": {
+                "certainty": "confirmed",
+                "code": "auth_rejected"
+              },
+              "modelCooldowns": {},
+              "uses": 0
+            },
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c2",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 0
+            }
+          ]
+        },
+        {
+          "out": null
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c1",
+              "label": "first",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 1
+            },
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c2",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 0
+            }
+          ]
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 15000,
+            "profileId": "e:key",
+            "scope": "model",
+            "sole": true
+          }
+        }
+      ],
+      "n": 1,
+      "name": "model-scope",
+      "ops": [
+        {
+          "failure": {
+            "model": "big",
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "model": "big",
+          "op": "select"
+        },
+        {
+          "model": "small",
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "status"
+        },
+        {
+          "ms": 14999,
+          "op": "advance"
+        },
+        {
+          "model": "big",
+          "op": "select"
+        },
+        {
+          "ms": 1,
+          "op": "advance"
+        },
+        {
+          "model": "big",
+          "op": "select"
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "model"
+            },
+            "cooldownMs": 15000
+          }
+        },
+        {
+          "error": {
+            "code": "all_cooling_down",
+            "kind": "auth",
+            "message": "Every credential for this profile is cooling down; retry in 15 s.",
+            "profileId": "e:key",
+            "retryAfterMs": 15000,
+            "retryable": true
+          }
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c1",
+              "label": "first",
+              "lastError": {
+                "certainty": "ambiguous",
+                "code": "rate_limited"
+              },
+              "modelCooldowns": {
+                "big": 15000
+              },
+              "uses": 2
+            }
+          ]
+        },
+        {
+          "out": null
+        },
+        {
+          "error": {
+            "code": "all_cooling_down",
+            "kind": "auth",
+            "message": "Every credential for this profile is cooling down; retry in 1 s.",
+            "profileId": "e:key",
+            "retryAfterMs": 1,
+            "retryable": true
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c1",
+              "label": "first",
+              "lastError": {
+                "certainty": "ambiguous",
+                "code": "rate_limited"
+              },
+              "modelCooldowns": {},
+              "uses": 3
+            }
+          ]
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "forbidden",
+            "credentialId": "c1",
+            "ms": 60000,
+            "profileId": "e:key",
+            "scope": "model",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "forbidden",
+            "credentialId": "c2",
+            "ms": 15000,
+            "profileId": "e:key",
+            "scope": "model",
+            "sole": true
+          }
+        }
+      ],
+      "n": 2,
+      "name": "model-scope-403-two",
+      "ops": [
+        {
+          "failure": {
+            "model": "m",
+            "status": 403
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "model": "m",
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "failure": {
+            "model": "m",
+            "status": 403
+          },
+          "id": "c2",
+          "op": "fail"
+        },
+        {
+          "model": "m",
+          "op": "select"
+        },
+        {
+          "id": "c1",
+          "model": "m",
+          "op": "success"
+        },
+        {
+          "model": "m",
+          "op": "select"
+        },
+        {
+          "op": "snapshot"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "forbidden",
+              "scope": "model"
+            },
+            "cooldownMs": 60000
+          }
+        },
+        {
+          "out": {
+            "id": "c2",
+            "secretRef": "ref/2"
+          }
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "forbidden",
+              "scope": "model"
+            },
+            "cooldownMs": 15000
+          }
+        },
+        {
+          "error": {
+            "code": "all_cooling_down",
+            "kind": "auth",
+            "message": "Every credential for this profile is cooling down; retry in 15 s.",
+            "profileId": "e:key",
+            "retryAfterMs": 15000,
+            "retryable": true
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": {
+            "cooldowns": [
+              {
+                "certainty": "ambiguous",
+                "code": "forbidden",
+                "id": "c2",
+                "model": "m",
+                "until": 1000000015000
+              }
+            ],
+            "cursor": 0,
+            "uses": {
+              "c1": 2,
+              "c2": 1
+            }
+          }
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [],
+      "n": 2,
+      "name": "statuses-cool-nothing",
+      "ops": [
+        {
+          "failure": {
+            "status": 503
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "status": 500
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "status": 404
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "status": 200
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "status": 400
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "failure": {
+            "status": 401
+          },
+          "id": "nope",
+          "op": "fail"
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "steps": [
+        {
+          "out": null
+        },
+        {
+          "out": null
+        },
+        {
+          "out": null
+        },
+        {
+          "out": null
+        },
+        {
+          "out": null
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c1",
+              "label": "first",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 1
+            },
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c2",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 0
+            }
+          ]
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 60000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "confirmed",
+            "code": "auth_rejected",
+            "credentialId": "c1",
+            "ms": 3600000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "forbidden",
+            "credentialId": "c2",
+            "ms": 15000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": true
+          }
+        }
+      ],
+      "n": 2,
+      "name": "success-ends-ambiguous-only",
+      "ops": [
+        {
+          "failure": {
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "id": "c1",
+          "op": "success"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "status"
+        },
+        {
+          "failure": {
+            "status": 401
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "id": "c1",
+          "op": "success"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "status"
+        },
+        {
+          "failure": {
+            "status": 403
+          },
+          "id": "c2",
+          "op": "fail"
+        },
+        {
+          "id": "c2",
+          "model": "x",
+          "op": "success"
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 60000
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c1",
+              "label": "first",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 1
+            },
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c2",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 0
+            }
+          ]
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "confirmed",
+              "code": "auth_rejected",
+              "scope": "credential"
+            },
+            "cooldownMs": 3600000
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "out": {
+            "id": "c2",
+            "secretRef": "ref/2"
+          }
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 3600000,
+              "id": "c1",
+              "label": "first",
+              "lastError": {
+                "certainty": "confirmed",
+                "code": "auth_rejected"
+              },
+              "modelCooldowns": {},
+              "uses": 1
+            },
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c2",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 1
+            }
+          ]
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "forbidden",
+              "scope": "credential"
+            },
+            "cooldownMs": 15000
+          }
+        },
+        {
+          "out": null
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 3600000,
+              "id": "c1",
+              "label": "first",
+              "lastError": {
+                "certainty": "confirmed",
+                "code": "auth_rejected"
+              },
+              "modelCooldowns": {},
+              "uses": 1
+            },
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c2",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 1
+            }
+          ]
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c2",
+            "ms": 60000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        }
+      ],
+      "n": 3,
+      "name": "round-robin",
+      "ops": [
+        {
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "failure": {
+            "status": 429
+          },
+          "id": "c2",
+          "op": "fail"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "snapshot"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": {
+            "id": "c2",
+            "secretRef": "ref/2"
+          }
+        },
+        {
+          "out": {
+            "id": "c3",
+            "secretRef": "ref/3"
+          }
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 60000
+          }
+        },
+        {
+          "out": {
+            "id": "c3",
+            "secretRef": "ref/3"
+          }
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": {
+            "id": "c3",
+            "secretRef": "ref/3"
+          }
+        },
+        {
+          "out": {
+            "cooldowns": [
+              {
+                "certainty": "ambiguous",
+                "code": "rate_limited",
+                "id": "c2",
+                "until": 1000000060000
+              }
+            ],
+            "cursor": 0,
+            "uses": {
+              "c1": 3,
+              "c2": 1,
+              "c3": 3
+            }
+          }
+        }
+      ],
+      "strategy": "round_robin"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "confirmed",
+            "code": "auth_rejected",
+            "credentialId": "c3",
+            "ms": 3600000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        }
+      ],
+      "n": 3,
+      "name": "round-robin-cursor-wrap",
+      "ops": [
+        {
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "failure": {
+            "status": 401
+          },
+          "id": "c3",
+          "op": "fail"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "snapshot"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": {
+            "id": "c2",
+            "secretRef": "ref/2"
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "confirmed",
+              "code": "auth_rejected",
+              "scope": "credential"
+            },
+            "cooldownMs": 3600000
+          }
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": {
+            "id": "c2",
+            "secretRef": "ref/2"
+          }
+        },
+        {
+          "out": {
+            "cooldowns": [
+              {
+                "certainty": "confirmed",
+                "code": "auth_rejected",
+                "id": "c3",
+                "until": 1000003600000
+              }
+            ],
+            "cursor": 2,
+            "uses": {
+              "c1": 2,
+              "c2": 2
+            }
+          }
+        }
+      ],
+      "strategy": "round_robin"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c2",
+            "ms": 60000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        }
+      ],
+      "n": 3,
+      "name": "least-used",
+      "ops": [
+        {
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "failure": {
+            "status": 429
+          },
+          "id": "c2",
+          "op": "fail"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": {
+            "id": "c2",
+            "secretRef": "ref/2"
+          }
+        },
+        {
+          "out": {
+            "id": "c3",
+            "secretRef": "ref/3"
+          }
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 60000
+          }
+        },
+        {
+          "out": {
+            "id": "c3",
+            "secretRef": "ref/3"
+          }
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": {
+            "id": "c3",
+            "secretRef": "ref/3"
+          }
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c1",
+              "label": "first",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 3
+            },
+            {
+              "cooldownRemainingMs": 60000,
+              "id": "c2",
+              "lastError": {
+                "certainty": "ambiguous",
+                "code": "rate_limited"
+              },
+              "modelCooldowns": {},
+              "uses": 1
+            },
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c3",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 3
+            }
+          ]
+        }
+      ],
+      "strategy": "least_used"
+    },
+    {
+      "logs": [],
+      "n": 2,
+      "name": "fill-first",
+      "ops": [
+        {
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c1",
+              "label": "first",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 3
+            },
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c2",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 0
+            }
+          ]
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "confirmed",
+            "code": "quota_exhausted",
+            "credentialId": "c1",
+            "ms": 3600000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        },
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c2",
+            "ms": 15000,
+            "profileId": "e:key",
+            "scope": "model",
+            "sole": true
+          }
+        }
+      ],
+      "n": 2,
+      "name": "snapshot-restore",
+      "ops": [
+        {
+          "failure": {
+            "hint": "quota_exhausted",
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "failure": {
+            "model": "m",
+            "status": 429
+          },
+          "id": "c2",
+          "op": "fail"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "op": "snapshot"
+        },
+        {
+          "from": "last",
+          "op": "restore"
+        },
+        {
+          "op": "status"
+        },
+        {
+          "op": "select"
+        },
+        {
+          "model": "m",
+          "op": "select"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "classification": {
+              "certainty": "confirmed",
+              "code": "quota_exhausted",
+              "scope": "credential"
+            },
+            "cooldownMs": 3600000
+          }
+        },
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "model"
+            },
+            "cooldownMs": 15000
+          }
+        },
+        {
+          "out": {
+            "id": "c2",
+            "secretRef": "ref/2"
+          }
+        },
+        {
+          "out": {
+            "cooldowns": [
+              {
+                "certainty": "confirmed",
+                "code": "quota_exhausted",
+                "id": "c1",
+                "until": 1000003600000
+              },
+              {
+                "certainty": "ambiguous",
+                "code": "rate_limited",
+                "id": "c2",
+                "model": "m",
+                "until": 1000000015000
+              }
+            ],
+            "cursor": 0,
+            "uses": {
+              "c2": 1
+            }
+          }
+        },
+        {
+          "out": {
+            "cooldowns": [
+              {
+                "certainty": "confirmed",
+                "code": "quota_exhausted",
+                "id": "c1",
+                "until": 1000003600000
+              },
+              {
+                "certainty": "ambiguous",
+                "code": "rate_limited",
+                "id": "c2",
+                "model": "m",
+                "until": 1000000015000
+              }
+            ],
+            "cursor": 0,
+            "uses": {
+              "c2": 1
+            }
+          }
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 3600000,
+              "id": "c1",
+              "label": "first",
+              "lastError": {
+                "certainty": "confirmed",
+                "code": "quota_exhausted"
+              },
+              "modelCooldowns": {},
+              "uses": 0
+            },
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c2",
+              "lastError": {
+                "certainty": "ambiguous",
+                "code": "rate_limited"
+              },
+              "modelCooldowns": {
+                "m": 15000
+              },
+              "uses": 1
+            }
+          ]
+        },
+        {
+          "out": {
+            "id": "c2",
+            "secretRef": "ref/2"
+          }
+        },
+        {
+          "error": {
+            "code": "all_cooling_down",
+            "kind": "auth",
+            "message": "Every credential for this profile is cooling down; retry in 15 s.",
+            "profileId": "e:key",
+            "retryAfterMs": 15000,
+            "retryable": true
+          }
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [],
+      "n": 0,
+      "name": "empty",
+      "ops": [
+        {
+          "op": "select"
+        },
+        {
+          "op": "status"
+        },
+        {
+          "id": "c1",
+          "op": "entry"
+        }
+      ],
+      "steps": [
+        {
+          "error": {
+            "code": "no_credential",
+            "kind": "auth",
+            "message": "No credential is configured for this profile.",
+            "profileId": "e:key",
+            "retryable": false
+          }
+        },
+        {
+          "out": []
+        },
+        {
+          "out": null
+        }
+      ],
+      "strategy": "fill_first"
+    },
+    {
+      "logs": [
+        {
+          "event": "auth.pool.cooldown",
+          "fields": {
+            "certainty": "ambiguous",
+            "code": "rate_limited",
+            "credentialId": "c1",
+            "ms": 60000,
+            "profileId": "e:key",
+            "scope": "credential",
+            "sole": false
+          }
+        }
+      ],
+      "n": 2,
+      "name": "rate-limit-hint",
+      "ops": [
+        {
+          "failure": {
+            "hint": "rate_limit",
+            "status": 429
+          },
+          "id": "c1",
+          "op": "fail"
+        },
+        {
+          "op": "status"
+        },
+        {
+          "id": "c1",
+          "op": "entry"
+        },
+        {
+          "id": "zz",
+          "op": "entry"
+        }
+      ],
+      "steps": [
+        {
+          "out": {
+            "classification": {
+              "certainty": "ambiguous",
+              "code": "rate_limited",
+              "scope": "credential"
+            },
+            "cooldownMs": 60000
+          }
+        },
+        {
+          "out": [
+            {
+              "cooldownRemainingMs": 60000,
+              "id": "c1",
+              "label": "first",
+              "lastError": {
+                "certainty": "ambiguous",
+                "code": "rate_limited"
+              },
+              "modelCooldowns": {},
+              "uses": 0
+            },
+            {
+              "cooldownRemainingMs": 0,
+              "id": "c2",
+              "lastError": null,
+              "modelCooldowns": {},
+              "uses": 0
+            }
+          ]
+        },
+        {
+          "out": {
+            "id": "c1",
+            "label": "first",
+            "secretRef": "ref/1"
+          }
+        },
+        {
+          "out": null
+        }
+      ],
+      "strategy": "fill_first"
+    }
+  ],
+  "start": 1000000000000
+}

@@ -1,0 +1,4845 @@
+{
+  "scenarios": [
+    {
+      "name": "project-lifecycle",
+      "ops": [
+        {
+          "op": {
+            "name": "alpha",
+            "op": "createProject",
+            "owner": "u-owner"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000000
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "getProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000000
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "addMember",
+            "role": "member",
+            "user": "u-mem"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "member",
+                  "userId": "u-mem"
+                },
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000001
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "addMember",
+            "role": "reviewer",
+            "user": "u-mem"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "reviewer",
+                  "userId": "u-mem"
+                },
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000002
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "addMember",
+            "role": "member",
+            "user": "u-owner"
+          },
+          "out": {
+            "err": {
+              "code": "conflict",
+              "message": "the project owner must remain lead",
+              "reason": "owner"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "addMember",
+            "role": "member",
+            "user": ""
+          },
+          "out": {
+            "err": {
+              "code": "invalid",
+              "message": "userId is required",
+              "reason": "userId"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "addMember",
+            "role": "admin",
+            "user": "x"
+          },
+          "out": {
+            "err": {
+              "code": "invalid",
+              "message": "unknown project role",
+              "reason": "role"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "nope",
+            "op": "addMember",
+            "role": "member",
+            "user": "x"
+          },
+          "out": {
+            "err": {
+              "code": "not-found",
+              "message": "project nope not found",
+              "reason": "project"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "removeMember",
+            "user": "u-owner"
+          },
+          "out": {
+            "err": {
+              "code": "conflict",
+              "message": "the project owner cannot be removed",
+              "reason": "owner"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "removeMember",
+            "user": "u-mem"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000006
+            }
+          }
+        },
+        {
+          "op": {
+            "agent": "b",
+            "id": "prj_1",
+            "op": "addAgent"
+          },
+          "out": {
+            "ok": {
+              "agents": [
+                "b"
+              ],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000007
+            }
+          }
+        },
+        {
+          "op": {
+            "agent": "a",
+            "id": "prj_1",
+            "op": "addAgent"
+          },
+          "out": {
+            "ok": {
+              "agents": [
+                "a",
+                "b"
+              ],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000008
+            }
+          }
+        },
+        {
+          "op": {
+            "agent": "a",
+            "id": "prj_1",
+            "op": "addAgent"
+          },
+          "out": {
+            "ok": {
+              "agents": [
+                "a",
+                "b"
+              ],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000009
+            }
+          }
+        },
+        {
+          "op": {
+            "agent": "",
+            "id": "prj_1",
+            "op": "addAgent"
+          },
+          "out": {
+            "err": {
+              "code": "invalid",
+              "message": "agentId is required",
+              "reason": "agentId"
+            }
+          }
+        },
+        {
+          "op": {
+            "agent": "b",
+            "id": "prj_1",
+            "op": "removeAgent"
+          },
+          "out": {
+            "ok": {
+              "agents": [
+                "a"
+              ],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000010
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "name": "  beta  ",
+            "op": "updateProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [
+                "a"
+              ],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "beta",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000011
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "name": "   ",
+            "op": "updateProject"
+          },
+          "out": {
+            "err": {
+              "code": "invalid",
+              "message": "invalid project name",
+              "reason": "name"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "nope",
+            "name": "x",
+            "op": "updateProject"
+          },
+          "out": {
+            "err": {
+              "code": "not-found",
+              "message": "project not found"
+            }
+          }
+        },
+        {
+          "op": {
+            "op": "listProjects"
+          },
+          "out": {
+            "ok": [
+              {
+                "agents": [
+                  "a"
+                ],
+                "archivedAt": null,
+                "createdAt": 1000000,
+                "id": "prj_1",
+                "members": [
+                  {
+                    "role": "lead",
+                    "userId": "u-owner"
+                  }
+                ],
+                "name": "beta",
+                "owner": "u-owner",
+                "settings": {
+                  "allowCrossProject": false,
+                  "maxDepth": 2,
+                  "maxFanout": 8,
+                  "maxPairPerTurn": 4,
+                  "maxTurns": 25,
+                  "repeatWindowMs": 30000,
+                  "returnTokens": 2000,
+                  "timeoutMs": 300000,
+                  "tokenBudget": null
+                },
+                "updatedAt": 1000011
+              }
+            ]
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "archive"
+          },
+          "out": {
+            "ok": {
+              "agents": [
+                "a"
+              ],
+              "archivedAt": 1000012,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "beta",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000012
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "archive"
+          },
+          "out": {
+            "ok": {
+              "agents": [
+                "a"
+              ],
+              "archivedAt": 1000012,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "beta",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000012
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "nope",
+            "op": "archive"
+          },
+          "out": {
+            "err": {
+              "code": "not-found",
+              "message": "project nope not found",
+              "reason": "project"
+            }
+          }
+        },
+        {
+          "op": {
+            "agent": "c",
+            "id": "prj_1",
+            "op": "addAgent"
+          },
+          "out": {
+            "err": {
+              "code": "archived",
+              "message": "project prj_1 is archived",
+              "reason": "archived"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "removeMember",
+            "user": "u-mem"
+          },
+          "out": {
+            "err": {
+              "code": "archived",
+              "message": "project prj_1 is archived",
+              "reason": "archived"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "name": "late",
+            "op": "updateProject"
+          },
+          "out": {
+            "err": {
+              "code": "archived",
+              "message": "project prj_1 is archived",
+              "reason": "archived"
+            }
+          }
+        },
+        {
+          "op": {
+            "op": "sql",
+            "sql": "SELECT id, name, owner, settings, created_at, updated_at, archived_at FROM projects"
+          },
+          "out": {
+            "ok": [
+              [
+                "prj_1",
+                "beta",
+                "u-owner",
+                "{\"settingsVersion\":2}",
+                1000000,
+                1000012,
+                1000012
+              ]
+            ]
+          }
+        },
+        {
+          "op": {
+            "op": "sql",
+            "sql": "SELECT project_id, user_id, role, added_at FROM project_members ORDER BY user_id"
+          },
+          "out": {
+            "ok": [
+              [
+                "prj_1",
+                "u-owner",
+                "lead",
+                1000000
+              ]
+            ]
+          }
+        },
+        {
+          "op": {
+            "op": "sql",
+            "sql": "SELECT project_id, agent_id, added_at FROM project_agents ORDER BY agent_id"
+          },
+          "out": {
+            "ok": [
+              [
+                "prj_1",
+                "a",
+                1000008
+              ]
+            ]
+          }
+        }
+      ],
+      "step": 1
+    },
+    {
+      "name": "names-and-owners",
+      "ops": [
+        {
+          "op": {
+            "name": "",
+            "op": "createProject",
+            "owner": "u"
+          },
+          "out": {
+            "err": {
+              "code": "invalid",
+              "message": "project name is required",
+              "reason": "name"
+            }
+          }
+        },
+        {
+          "op": {
+            "name": "﻿   ",
+            "op": "createProject",
+            "owner": "u"
+          },
+          "out": {
+            "err": {
+              "code": "invalid",
+              "message": "project name is required",
+              "reason": "name"
+            }
+          }
+        },
+        {
+          "op": {
+            "name": "x",
+            "op": "createProject",
+            "owner": ""
+          },
+          "out": {
+            "err": {
+              "code": "invalid",
+              "message": "owner is required",
+              "reason": "owner"
+            }
+          }
+        },
+        {
+          "op": {
+            "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "op": "createProject",
+            "owner": "u"
+          },
+          "out": {
+            "err": {
+              "code": "invalid",
+              "message": "project name is too long",
+              "reason": "name"
+            }
+          }
+        },
+        {
+          "op": {
+            "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "op": "createProject",
+            "owner": "u"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000000
+            }
+          }
+        },
+        {
+          "op": {
+            "name": "  bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  ",
+            "op": "createProject",
+            "owner": "u"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000001,
+              "id": "prj_2",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000001
+            }
+          }
+        },
+        {
+          "op": {
+            "name": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+            "op": "createProject",
+            "owner": "u"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000002,
+              "id": "prj_3",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000002
+            }
+          }
+        },
+        {
+          "op": {
+            "name": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+            "op": "createProject",
+            "owner": "u"
+          },
+          "out": {
+            "err": {
+              "code": "invalid",
+              "message": "project name is too long",
+              "reason": "name"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "fixed-id",
+            "name": "named",
+            "op": "createProject",
+            "owner": "u"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000003,
+              "id": "fixed-id",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "named",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000003
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "fixed-id",
+            "name": "dup",
+            "op": "createProject",
+            "owner": "u"
+          },
+          "out": {
+            "err": {
+              "raw": true
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "fixed-id",
+            "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "op": "updateProject"
+          },
+          "out": {
+            "err": {
+              "code": "invalid",
+              "message": "invalid project name",
+              "reason": "name"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "fixed-id",
+            "name": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+            "op": "updateProject"
+          },
+          "out": {
+            "err": {
+              "code": "invalid",
+              "message": "invalid project name",
+              "reason": "name"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "fixed-id",
+            "name": " cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc ",
+            "op": "updateProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000003,
+              "id": "fixed-id",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000005
+            }
+          }
+        },
+        {
+          "op": {
+            "op": "listProjects"
+          },
+          "out": {
+            "ok": [
+              {
+                "agents": [],
+                "archivedAt": null,
+                "createdAt": 1000000,
+                "id": "prj_1",
+                "members": [
+                  {
+                    "role": "lead",
+                    "userId": "u"
+                  }
+                ],
+                "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "owner": "u",
+                "settings": {
+                  "allowCrossProject": false,
+                  "maxDepth": 2,
+                  "maxFanout": 8,
+                  "maxPairPerTurn": 4,
+                  "maxTurns": 25,
+                  "repeatWindowMs": 30000,
+                  "returnTokens": 2000,
+                  "timeoutMs": 300000,
+                  "tokenBudget": null
+                },
+                "updatedAt": 1000000
+              },
+              {
+                "agents": [],
+                "archivedAt": null,
+                "createdAt": 1000001,
+                "id": "prj_2",
+                "members": [
+                  {
+                    "role": "lead",
+                    "userId": "u"
+                  }
+                ],
+                "name": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "owner": "u",
+                "settings": {
+                  "allowCrossProject": false,
+                  "maxDepth": 2,
+                  "maxFanout": 8,
+                  "maxPairPerTurn": 4,
+                  "maxTurns": 25,
+                  "repeatWindowMs": 30000,
+                  "returnTokens": 2000,
+                  "timeoutMs": 300000,
+                  "tokenBudget": null
+                },
+                "updatedAt": 1000001
+              },
+              {
+                "agents": [],
+                "archivedAt": null,
+                "createdAt": 1000002,
+                "id": "prj_3",
+                "members": [
+                  {
+                    "role": "lead",
+                    "userId": "u"
+                  }
+                ],
+                "name": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+                "owner": "u",
+                "settings": {
+                  "allowCrossProject": false,
+                  "maxDepth": 2,
+                  "maxFanout": 8,
+                  "maxPairPerTurn": 4,
+                  "maxTurns": 25,
+                  "repeatWindowMs": 30000,
+                  "returnTokens": 2000,
+                  "timeoutMs": 300000,
+                  "tokenBudget": null
+                },
+                "updatedAt": 1000002
+              },
+              {
+                "agents": [],
+                "archivedAt": null,
+                "createdAt": 1000003,
+                "id": "fixed-id",
+                "members": [
+                  {
+                    "role": "lead",
+                    "userId": "u"
+                  }
+                ],
+                "name": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "owner": "u",
+                "settings": {
+                  "allowCrossProject": false,
+                  "maxDepth": 2,
+                  "maxFanout": 8,
+                  "maxPairPerTurn": 4,
+                  "maxTurns": 25,
+                  "repeatWindowMs": 30000,
+                  "returnTokens": 2000,
+                  "timeoutMs": 300000,
+                  "tokenBudget": null
+                },
+                "updatedAt": 1000005
+              }
+            ]
+          }
+        }
+      ],
+      "step": 1
+    },
+    {
+      "name": "settings-forms",
+      "ops": [
+        {
+          "op": {
+            "name": "legacy",
+            "op": "createProject",
+            "owner": "u",
+            "settingsJson": "{\"maxDepth\":1,\"maxFanout\":3,\"maxPairPerTurn\":2,\"maxTurns\":25,\"timeoutMs\":300000,\"returnTokens\":2000}"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "legacy",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 1,
+                "maxFanout": 3,
+                "maxPairPerTurn": 2,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000000
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "getProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "legacy",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 1,
+                "maxFanout": 3,
+                "maxPairPerTurn": 2,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000000
+            }
+          }
+        },
+        {
+          "op": {
+            "args": [
+              "{\"maxDepth\":1,\"maxFanout\":3,\"maxPairPerTurn\":2,\"maxTurns\":25,\"timeoutMs\":300000,\"returnTokens\":2000,\"allowCrossProject\":true}",
+              "prj_1"
+            ],
+            "op": "exec",
+            "sql": "UPDATE projects SET settings = ? WHERE id = ?"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "getProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "legacy",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": true,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000000
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "limits"
+          },
+          "out": {
+            "ok": {
+              "allowCrossProject": true,
+              "consults": {
+                "perPairPerTurn": 4
+              },
+              "readHelpers": {
+                "depth": 2,
+                "perTurn": 8
+              },
+              "repeatWindowMs": 30000,
+              "returnTokens": 2000,
+              "taskClasses": {
+                "code-large": {
+                  "rounds": 200,
+                  "stallTimeMs": 900000,
+                  "wallTimeMs": 7200000
+                },
+                "code-small": {
+                  "rounds": 100,
+                  "stallTimeMs": 600000,
+                  "wallTimeMs": 2700000
+                },
+                "consult": {
+                  "rounds": 25,
+                  "stallTimeMs": 120000,
+                  "wallTimeMs": 300000
+                },
+                "research": {
+                  "rounds": 50,
+                  "stallTimeMs": 300000,
+                  "wallTimeMs": 900000
+                },
+                "review": {
+                  "rounds": 40,
+                  "stallTimeMs": 300000,
+                  "wallTimeMs": 1200000
+                }
+              },
+              "tokenBudget": null,
+              "workTokens": 131072,
+              "writers": {
+                "perProject": 4
+              }
+            }
+          }
+        },
+        {
+          "op": {
+            "agent": "x",
+            "id": "prj_1",
+            "op": "addAgent"
+          },
+          "out": {
+            "ok": {
+              "agents": [
+                "x"
+              ],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "legacy",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": true,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000001
+            }
+          }
+        },
+        {
+          "op": {
+            "op": "sql",
+            "sql": "SELECT settings FROM projects"
+          },
+          "out": {
+            "ok": [
+              [
+                "{\"allowCrossProject\":true,\"settingsVersion\":2}"
+              ]
+            ]
+          }
+        },
+        {
+          "op": {
+            "name": "v2",
+            "op": "createProject",
+            "owner": "u",
+            "settingsJson": "{\"settingsVersion\":2,\"maxDepth\":1,\"maxFanout\":3,\"tokenBudget\":null}"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000002,
+              "id": "prj_2",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "v2",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 1,
+                "maxFanout": 3,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000002
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_2",
+            "op": "getProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000002,
+              "id": "prj_2",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "v2",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 1,
+                "maxFanout": 3,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000002
+            }
+          }
+        },
+        {
+          "op": {
+            "changesJson": "{\"maxFanout\":5,\"repeatWindowMs\":0.5,\"zzz\":1}",
+            "id": "prj_2",
+            "op": "setSettings"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000002,
+              "id": "prj_2",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "v2",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 1,
+                "maxFanout": 5,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 0.5,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000003
+            }
+          }
+        },
+        {
+          "op": {
+            "op": "sql",
+            "sql": "SELECT settings FROM projects WHERE id = 'prj_2'"
+          },
+          "out": {
+            "ok": [
+              [
+                "{\"settingsVersion\":2,\"maxDepth\":1,\"maxFanout\":5,\"tokenBudget\":null,\"repeatWindowMs\":0.5,\"zzz\":1}"
+              ]
+            ]
+          }
+        },
+        {
+          "op": {
+            "changesJson": "{\"tokenBudget\":-1}",
+            "id": "prj_2",
+            "op": "setSettings"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000002,
+              "id": "prj_2",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "v2",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 1,
+                "maxFanout": 5,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 0.5,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": 0
+              },
+              "updatedAt": 1000004
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_2",
+            "op": "limits"
+          },
+          "out": {
+            "ok": {
+              "allowCrossProject": false,
+              "consults": {
+                "perPairPerTurn": 4
+              },
+              "readHelpers": {
+                "depth": 1,
+                "perTurn": 5
+              },
+              "repeatWindowMs": 0.5,
+              "returnTokens": 2000,
+              "taskClasses": {
+                "code-large": {
+                  "rounds": 200,
+                  "stallTimeMs": 900000,
+                  "wallTimeMs": 7200000
+                },
+                "code-small": {
+                  "rounds": 100,
+                  "stallTimeMs": 600000,
+                  "wallTimeMs": 2700000
+                },
+                "consult": {
+                  "rounds": 25,
+                  "stallTimeMs": 120000,
+                  "wallTimeMs": 300000
+                },
+                "research": {
+                  "rounds": 50,
+                  "stallTimeMs": 300000,
+                  "wallTimeMs": 900000
+                },
+                "review": {
+                  "rounds": 40,
+                  "stallTimeMs": 300000,
+                  "wallTimeMs": 1200000
+                }
+              },
+              "tokenBudget": 0,
+              "workTokens": 131072,
+              "writers": {
+                "perProject": 4
+              }
+            }
+          }
+        },
+        {
+          "op": {
+            "changesJson": "{\"tokenBudget\":\"7\",\"maxDepth\":\"1\",\"allowCrossProject\":\"true\"}",
+            "id": "prj_2",
+            "op": "setSettings"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000002,
+              "id": "prj_2",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "v2",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 5,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 0.5,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": 0
+              },
+              "updatedAt": 1000005
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_2",
+            "op": "limits"
+          },
+          "out": {
+            "ok": {
+              "allowCrossProject": false,
+              "consults": {
+                "perPairPerTurn": 4
+              },
+              "readHelpers": {
+                "depth": 2,
+                "perTurn": 5
+              },
+              "repeatWindowMs": 0.5,
+              "returnTokens": 2000,
+              "taskClasses": {
+                "code-large": {
+                  "rounds": 200,
+                  "stallTimeMs": 900000,
+                  "wallTimeMs": 7200000
+                },
+                "code-small": {
+                  "rounds": 100,
+                  "stallTimeMs": 600000,
+                  "wallTimeMs": 2700000
+                },
+                "consult": {
+                  "rounds": 25,
+                  "stallTimeMs": 120000,
+                  "wallTimeMs": 300000
+                },
+                "research": {
+                  "rounds": 50,
+                  "stallTimeMs": 300000,
+                  "wallTimeMs": 900000
+                },
+                "review": {
+                  "rounds": 40,
+                  "stallTimeMs": 300000,
+                  "wallTimeMs": 1200000
+                }
+              },
+              "tokenBudget": 0,
+              "workTokens": 131072,
+              "writers": {
+                "perProject": 4
+              }
+            }
+          }
+        },
+        {
+          "op": {
+            "changesJson": "{\"tokenBudget\":12.5,\"maxDepth\":1.9,\"maxFanout\":-0,\"repeatWindowMs\":-1,\"returnTokens\":99999,\"timeoutMs\":1000,\"maxTurns\":3}",
+            "id": "prj_2",
+            "op": "setSettings"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000002,
+              "id": "prj_2",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "v2",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 1,
+                "maxFanout": 0,
+                "maxPairPerTurn": 4,
+                "maxTurns": 3,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 1000,
+                "tokenBudget": 12.5
+              },
+              "updatedAt": 1000006
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_2",
+            "op": "limits"
+          },
+          "out": {
+            "ok": {
+              "allowCrossProject": false,
+              "consults": {
+                "perPairPerTurn": 4
+              },
+              "readHelpers": {
+                "depth": 1,
+                "perTurn": 0
+              },
+              "repeatWindowMs": 30000,
+              "returnTokens": 2000,
+              "taskClasses": {
+                "code-large": {
+                  "rounds": 3,
+                  "stallTimeMs": 1000,
+                  "wallTimeMs": 1000
+                },
+                "code-small": {
+                  "rounds": 3,
+                  "stallTimeMs": 1000,
+                  "wallTimeMs": 1000
+                },
+                "consult": {
+                  "rounds": 3,
+                  "stallTimeMs": 1000,
+                  "wallTimeMs": 1000
+                },
+                "research": {
+                  "rounds": 3,
+                  "stallTimeMs": 1000,
+                  "wallTimeMs": 1000
+                },
+                "review": {
+                  "rounds": 3,
+                  "stallTimeMs": 1000,
+                  "wallTimeMs": 1000
+                }
+              },
+              "tokenBudget": 12.5,
+              "workTokens": 131072,
+              "writers": {
+                "perProject": 4
+              }
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_2",
+            "op": "getProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000002,
+              "id": "prj_2",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "v2",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 1,
+                "maxFanout": 0,
+                "maxPairPerTurn": 4,
+                "maxTurns": 3,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 1000,
+                "tokenBudget": 12.5
+              },
+              "updatedAt": 1000006
+            }
+          }
+        },
+        {
+          "op": {
+            "name": "team",
+            "op": "createProject",
+            "owner": "u",
+            "settingsJson": "{\"collaboration\":{\"teams\":{\"enabled\":true}},\"settingsVersion\":3}"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000007,
+              "id": "prj_3",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "team",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "collaboration": {
+                  "teams": {
+                    "enabled": true
+                  }
+                },
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000007
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_3",
+            "op": "getProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000007,
+              "id": "prj_3",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "team",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "collaboration": {
+                  "teams": {
+                    "enabled": true
+                  }
+                },
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000007
+            }
+          }
+        },
+        {
+          "op": {
+            "name": "falsy",
+            "op": "createProject",
+            "owner": "u",
+            "settingsJson": "{\"collaboration\":0,\"settingsVersion\":2}"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000008,
+              "id": "prj_4",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "falsy",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000008
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_4",
+            "op": "getProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000008,
+              "id": "prj_4",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "falsy",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000008
+            }
+          }
+        },
+        {
+          "op": {
+            "changesJson": "{}",
+            "id": "nope",
+            "op": "setSettings"
+          },
+          "out": {
+            "err": {
+              "code": "not-found",
+              "message": "project nope not found",
+              "reason": "project"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_2",
+            "op": "archive"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": 1000009,
+              "createdAt": 1000002,
+              "id": "prj_2",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u"
+                }
+              ],
+              "name": "v2",
+              "owner": "u",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 1,
+                "maxFanout": 0,
+                "maxPairPerTurn": 4,
+                "maxTurns": 3,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 1000,
+                "tokenBudget": 12.5
+              },
+              "updatedAt": 1000009
+            }
+          }
+        },
+        {
+          "op": {
+            "changesJson": "{}",
+            "id": "prj_2",
+            "op": "setSettings"
+          },
+          "out": {
+            "err": {
+              "code": "archived",
+              "message": "project prj_2 is archived",
+              "reason": "archived"
+            }
+          }
+        },
+        {
+          "op": {
+            "args": [
+              "prj_3"
+            ],
+            "op": "exec",
+            "sql": "UPDATE projects SET settings = 'null' WHERE id = ?"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "id": "prj_3",
+            "op": "getProject"
+          },
+          "out": {
+            "err": {
+              "raw": true
+            }
+          }
+        },
+        {
+          "op": {
+            "args": [
+              "prj_3"
+            ],
+            "op": "exec",
+            "sql": "UPDATE projects SET settings = '{bad' WHERE id = ?"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "id": "prj_3",
+            "op": "limits"
+          },
+          "out": {
+            "err": {
+              "raw": true
+            }
+          }
+        },
+        {
+          "op": {
+            "op": "listProjects"
+          },
+          "out": {
+            "err": {
+              "raw": true
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "nope",
+            "op": "limits"
+          },
+          "out": {
+            "err": {
+              "code": "not-found",
+              "message": "project not found"
+            }
+          }
+        }
+      ],
+      "step": 1
+    },
+    {
+      "config": {
+        "consults": {
+          "perPairPerTurn": 3
+        },
+        "readHelpers": {
+          "depth": 1,
+          "perTurn": 4
+        },
+        "taskClasses": {
+          "code-large": {
+            "rounds": 9,
+            "stallTimeMs": 1,
+            "wallTimeMs": 4000
+          },
+          "code-small": {
+            "rounds": 8,
+            "stallTimeMs": 4000,
+            "wallTimeMs": 3000
+          },
+          "consult": {
+            "rounds": 5,
+            "stallTimeMs": 100000,
+            "wallTimeMs": 90000
+          },
+          "research": {
+            "rounds": 6,
+            "stallTimeMs": 500,
+            "wallTimeMs": 1000
+          },
+          "review": {
+            "rounds": 7,
+            "stallTimeMs": 3000,
+            "wallTimeMs": 2000
+          }
+        },
+        "workTokens": 1000,
+        "writers": {
+          "perProject": 2
+        }
+      },
+      "name": "limits-from-configuration",
+      "ops": [
+        {
+          "op": {
+            "name": "alpha",
+            "op": "createProject",
+            "owner": "u-owner",
+            "settingsJson": "{\"settingsVersion\":2,\"maxFanout\":50,\"maxTurns\":10,\"timeoutMs\":60000}"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 1,
+                "maxFanout": 4,
+                "maxPairPerTurn": 3,
+                "maxTurns": 5,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 60000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000000
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "limits"
+          },
+          "out": {
+            "ok": {
+              "allowCrossProject": false,
+              "consults": {
+                "perPairPerTurn": 3
+              },
+              "readHelpers": {
+                "depth": 1,
+                "perTurn": 4
+              },
+              "repeatWindowMs": 30000,
+              "returnTokens": 2000,
+              "taskClasses": {
+                "code-large": {
+                  "rounds": 9,
+                  "stallTimeMs": 1,
+                  "wallTimeMs": 4000
+                },
+                "code-small": {
+                  "rounds": 8,
+                  "stallTimeMs": 3000,
+                  "wallTimeMs": 3000
+                },
+                "consult": {
+                  "rounds": 5,
+                  "stallTimeMs": 60000,
+                  "wallTimeMs": 60000
+                },
+                "research": {
+                  "rounds": 6,
+                  "stallTimeMs": 500,
+                  "wallTimeMs": 1000
+                },
+                "review": {
+                  "rounds": 7,
+                  "stallTimeMs": 2000,
+                  "wallTimeMs": 2000
+                }
+              },
+              "tokenBudget": null,
+              "workTokens": 1000,
+              "writers": {
+                "perProject": 2
+              }
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "getProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 1,
+                "maxFanout": 4,
+                "maxPairPerTurn": 3,
+                "maxTurns": 5,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 60000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000000
+            }
+          }
+        }
+      ],
+      "step": 1
+    },
+    {
+      "name": "repo-and-worktrees",
+      "ops": [
+        {
+          "op": {
+            "name": "alpha",
+            "op": "createProject",
+            "owner": "u-owner"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000000
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "setRepo",
+            "repo": {
+              "baseBranch": "main",
+              "repoPath": "/r"
+            }
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "repo": {
+                "baseBranch": "main",
+                "repoPath": "/r"
+              },
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000001
+            }
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "baseSha": "abc",
+              "branch": "b1",
+              "cardId": null,
+              "path": "/w/1",
+              "projectId": "prj_1",
+              "rootId": "prj_1"
+            },
+            "op": "insertWorktree"
+          },
+          "out": {
+            "ok": {
+              "baseSha": "abc",
+              "branch": "b1",
+              "cardId": null,
+              "commonGitDir": null,
+              "createdAt": 1000002,
+              "dev": null,
+              "gitDir": null,
+              "id": "wt_1",
+              "ino": null,
+              "path": "/w/1",
+              "projectId": "prj_1",
+              "removedAt": null,
+              "rootId": "prj_1"
+            }
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "baseSha": "abc",
+              "branch": "b2",
+              "cardId": null,
+              "path": "/w/2",
+              "projectId": "prj_1",
+              "rootId": "prj_1"
+            },
+            "op": "insertWorktree"
+          },
+          "out": {
+            "err": {
+              "raw": true
+            }
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "baseSha": "def",
+              "branch": "b3",
+              "cardId": "c1",
+              "commonGitDir": "/cg",
+              "dev": "1",
+              "gitDir": "/g",
+              "ino": "2",
+              "path": "/w/3",
+              "projectId": "prj_1",
+              "rootId": "prj_1"
+            },
+            "op": "insertWorktree"
+          },
+          "out": {
+            "ok": {
+              "baseSha": "def",
+              "branch": "b3",
+              "cardId": "c1",
+              "commonGitDir": "/cg",
+              "createdAt": 1000004,
+              "dev": "1",
+              "gitDir": "/g",
+              "id": "wt_3",
+              "ino": "2",
+              "path": "/w/3",
+              "projectId": "prj_1",
+              "removedAt": null,
+              "rootId": "prj_1"
+            }
+          }
+        },
+        {
+          "op": {
+            "op": "liveWorktree",
+            "project": "prj_1"
+          },
+          "out": {
+            "ok": {
+              "baseSha": "abc",
+              "branch": "b1",
+              "cardId": null,
+              "commonGitDir": null,
+              "createdAt": 1000002,
+              "dev": null,
+              "gitDir": null,
+              "id": "wt_1",
+              "ino": null,
+              "path": "/w/1",
+              "projectId": "prj_1",
+              "removedAt": null,
+              "rootId": "prj_1"
+            }
+          }
+        },
+        {
+          "op": {
+            "card": "c1",
+            "op": "liveWorktree",
+            "project": "prj_1"
+          },
+          "out": {
+            "ok": {
+              "baseSha": "def",
+              "branch": "b3",
+              "cardId": "c1",
+              "commonGitDir": "/cg",
+              "createdAt": 1000004,
+              "dev": "1",
+              "gitDir": "/g",
+              "id": "wt_3",
+              "ino": "2",
+              "path": "/w/3",
+              "projectId": "prj_1",
+              "removedAt": null,
+              "rootId": "prj_1"
+            }
+          }
+        },
+        {
+          "op": {
+            "card": "",
+            "op": "liveWorktree",
+            "project": "prj_1"
+          },
+          "out": {
+            "ok": {
+              "baseSha": "abc",
+              "branch": "b1",
+              "cardId": null,
+              "commonGitDir": null,
+              "createdAt": 1000002,
+              "dev": null,
+              "gitDir": null,
+              "id": "wt_1",
+              "ino": null,
+              "path": "/w/1",
+              "projectId": "prj_1",
+              "removedAt": null,
+              "rootId": "prj_1"
+            }
+          }
+        },
+        {
+          "op": {
+            "card": "zz",
+            "op": "liveWorktree",
+            "project": "prj_1"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "worktreeAt",
+            "path": "/w/3"
+          },
+          "out": {
+            "ok": {
+              "baseSha": "def",
+              "branch": "b3",
+              "cardId": "c1",
+              "commonGitDir": "/cg",
+              "createdAt": 1000004,
+              "dev": "1",
+              "gitDir": "/g",
+              "id": "wt_3",
+              "ino": "2",
+              "path": "/w/3",
+              "projectId": "prj_1",
+              "removedAt": null,
+              "rootId": "prj_1"
+            }
+          }
+        },
+        {
+          "op": {
+            "op": "worktreeAt",
+            "path": "/w/nope"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "setRepo",
+            "repo": {
+              "baseBranch": "dev",
+              "repoPath": "/r2"
+            }
+          },
+          "out": {
+            "err": {
+              "code": "conflict",
+              "message": "remove live worktrees before rebinding",
+              "reason": "worktree-live"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "clearRepo"
+          },
+          "out": {
+            "err": {
+              "code": "conflict",
+              "message": "remove the worktree before unbinding the repository",
+              "reason": "worktree-live"
+            }
+          }
+        },
+        {
+          "op": {
+            "card": "c1",
+            "op": "markRemoved",
+            "project": "prj_1"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "card": "c1",
+            "op": "previousWorktree",
+            "project": "prj_1"
+          },
+          "out": {
+            "ok": {
+              "baseSha": "def",
+              "branch": "b3",
+              "cardId": "c1",
+              "commonGitDir": "/cg",
+              "createdAt": 1000004,
+              "dev": "1",
+              "gitDir": "/g",
+              "id": "wt_3",
+              "ino": "2",
+              "path": "/w/3",
+              "projectId": "prj_1",
+              "removedAt": 1000005,
+              "rootId": "prj_1"
+            }
+          }
+        },
+        {
+          "op": {
+            "op": "previousWorktree",
+            "project": "prj_1"
+          },
+          "out": {
+            "ok": {
+              "baseSha": "abc",
+              "branch": "b1",
+              "cardId": null,
+              "commonGitDir": null,
+              "createdAt": 1000002,
+              "dev": null,
+              "gitDir": null,
+              "id": "wt_1",
+              "ino": null,
+              "path": "/w/1",
+              "projectId": "prj_1",
+              "removedAt": null,
+              "rootId": "prj_1"
+            }
+          }
+        },
+        {
+          "op": {
+            "card": "",
+            "op": "previousWorktree",
+            "project": "prj_1"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "worktreeAt",
+            "path": "/w/3"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "baseSha": "x",
+              "branch": "b4",
+              "cardId": "c1",
+              "path": "/w/4",
+              "projectId": "prj_1",
+              "rootId": "prj_1"
+            },
+            "op": "insertWorktree"
+          },
+          "out": {
+            "ok": {
+              "baseSha": "x",
+              "branch": "b4",
+              "cardId": "c1",
+              "commonGitDir": null,
+              "createdAt": 1000006,
+              "dev": null,
+              "gitDir": null,
+              "id": "wt_4",
+              "ino": null,
+              "path": "/w/4",
+              "projectId": "prj_1",
+              "removedAt": null,
+              "rootId": "prj_1"
+            }
+          }
+        },
+        {
+          "op": {
+            "card": "c1",
+            "op": "previousWorktree",
+            "project": "prj_1"
+          },
+          "out": {
+            "ok": {
+              "baseSha": "x",
+              "branch": "b4",
+              "cardId": "c1",
+              "commonGitDir": null,
+              "createdAt": 1000006,
+              "dev": null,
+              "gitDir": null,
+              "id": "wt_4",
+              "ino": null,
+              "path": "/w/4",
+              "projectId": "prj_1",
+              "removedAt": null,
+              "rootId": "prj_1"
+            }
+          }
+        },
+        {
+          "op": {
+            "card": "",
+            "op": "markRemoved",
+            "project": "prj_1"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "liveWorktree",
+            "project": "prj_1"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "baseSha": "x",
+              "branch": "b5",
+              "cardId": "",
+              "path": "/w/5",
+              "projectId": "prj_1",
+              "rootId": "prj_1"
+            },
+            "op": "insertWorktree"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "baseSha": "x",
+              "branch": "b6",
+              "cardId": "",
+              "path": "/w/6",
+              "projectId": "prj_1",
+              "rootId": "prj_1"
+            },
+            "op": "insertWorktree"
+          },
+          "out": {
+            "err": {
+              "raw": true
+            }
+          }
+        },
+        {
+          "op": {
+            "op": "markRemoved",
+            "project": "prj_1"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "clearRepo"
+          },
+          "out": {
+            "err": {
+              "code": "conflict",
+              "message": "remove the worktree before unbinding the repository",
+              "reason": "worktree-live"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "getProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "repo": {
+                "baseBranch": "main",
+                "repoPath": "/r"
+              },
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000001
+            }
+          }
+        },
+        {
+          "op": {
+            "card": "c1",
+            "op": "markRemoved",
+            "project": "prj_1"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "clearRepo"
+          },
+          "out": {
+            "err": {
+              "code": "conflict",
+              "message": "remove the worktree before unbinding the repository",
+              "reason": "worktree-live"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "getProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "repo": {
+                "baseBranch": "main",
+                "repoPath": "/r"
+              },
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000001
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "nope",
+            "op": "setRepo",
+            "repo": {
+              "baseBranch": "main",
+              "repoPath": "/r"
+            }
+          },
+          "out": {
+            "err": {
+              "code": "not-found",
+              "message": "project nope not found",
+              "reason": "project"
+            }
+          }
+        },
+        {
+          "op": {
+            "op": "sql",
+            "sql": "SELECT id, project_id, root_id, card_id, branch, path, base_sha, created_at, removed_at, git_dir, common_git_dir, device, inode FROM project_worktrees ORDER BY id"
+          },
+          "out": {
+            "ok": [
+              [
+                "wt_1",
+                "prj_1",
+                "prj_1",
+                null,
+                "b1",
+                "/w/1",
+                "abc",
+                1000002,
+                1000007,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                "wt_3",
+                "prj_1",
+                "prj_1",
+                "c1",
+                "b3",
+                "/w/3",
+                "def",
+                1000004,
+                1000005,
+                "/g",
+                "/cg",
+                "1",
+                "2"
+              ],
+              [
+                "wt_4",
+                "prj_1",
+                "prj_1",
+                "c1",
+                "b4",
+                "/w/4",
+                "x",
+                1000006,
+                1000011,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                "wt_5",
+                "prj_1",
+                "prj_1",
+                "",
+                "b5",
+                "/w/5",
+                "x",
+                1000008,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            ]
+          }
+        }
+      ],
+      "step": 1
+    },
+    {
+      "name": "artifacts-and-repeats",
+      "ops": [
+        {
+          "op": {
+            "body": "full body 😀",
+            "op": "putArtifact",
+            "project": "p"
+          },
+          "out": {
+            "ok": {
+              "id": "art_1",
+              "pointer": "artifact:art_1"
+            }
+          }
+        },
+        {
+          "op": {
+            "body": "x",
+            "contentType": "application/json",
+            "op": "putArtifact",
+            "project": "p"
+          },
+          "out": {
+            "ok": {
+              "id": "art_2",
+              "pointer": "artifact:art_2"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "art_1",
+            "op": "getArtifact"
+          },
+          "out": {
+            "ok": {
+              "body": "full body 😀",
+              "contentType": "text/plain",
+              "createdAt": 1000000,
+              "id": "art_1",
+              "projectId": "p"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "art_2",
+            "op": "getArtifact"
+          },
+          "out": {
+            "ok": {
+              "body": "x",
+              "contentType": "application/json",
+              "createdAt": 1000007,
+              "id": "art_2",
+              "projectId": "p"
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "nope",
+            "op": "getArtifact"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "key": "k",
+            "op": "lastRepeat"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "at": 5,
+            "key": "k",
+            "op": "rememberRepeat"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "key": "k",
+            "op": "lastRepeat"
+          },
+          "out": {
+            "ok": 5
+          }
+        },
+        {
+          "op": {
+            "at": 9,
+            "key": "k",
+            "op": "rememberRepeat"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "key": "k",
+            "op": "lastRepeat"
+          },
+          "out": {
+            "ok": 9
+          }
+        }
+      ],
+      "step": 7
+    },
+    {
+      "name": "traces-spans-tasks",
+      "ops": [
+        {
+          "op": {
+            "name": "alpha",
+            "op": "createProject",
+            "owner": "u-owner"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000000
+            }
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "projectId": "prj_1",
+              "rootAgent": "lead",
+              "rootSpanId": "s1",
+              "traceId": "t1"
+            },
+            "op": "insertTrace"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "projectId": "prj_1",
+              "rootAgent": "lead",
+              "rootSpanId": "s1",
+              "traceId": "t1"
+            },
+            "op": "insertTrace"
+          },
+          "out": {
+            "err": {
+              "raw": true
+            }
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "projectId": "nope",
+              "rootAgent": "lead",
+              "rootSpanId": "s9",
+              "traceId": "t2"
+            },
+            "op": "insertTrace"
+          },
+          "out": {
+            "err": {
+              "raw": true
+            }
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "agentId": "worker",
+              "inputPreview": "in s1",
+              "kind": "consult",
+              "parentSpanId": null,
+              "spanId": "s1",
+              "traceId": "t1"
+            },
+            "op": "insertSpan"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "agentId": "spec",
+              "inputPreview": "in s2",
+              "kind": "delegate",
+              "parentSpanId": "s1",
+              "spanId": "s2",
+              "traceId": "t1"
+            },
+            "op": "insertSpan"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "agentId": "spec",
+              "inputPreview": "in s3",
+              "kind": "guardrail",
+              "parentSpanId": "s1",
+              "spanId": "s3",
+              "traceId": "t1"
+            },
+            "op": "insertSpan"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "agentId": "x",
+              "inputPreview": "in s4",
+              "kind": "bogus",
+              "parentSpanId": null,
+              "spanId": "s4",
+              "traceId": "t1"
+            },
+            "op": "insertSpan"
+          },
+          "out": {
+            "err": {
+              "raw": true
+            }
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "agentId": "x",
+              "inputPreview": "in s5",
+              "kind": "consult",
+              "parentSpanId": null,
+              "spanId": "s5",
+              "traceId": "zz"
+            },
+            "op": "insertSpan"
+          },
+          "out": {
+            "err": {
+              "raw": true
+            }
+          }
+        },
+        {
+          "op": {
+            "op": "bindSession",
+            "session": "ses_1",
+            "span": "s2"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "bindSession",
+            "session": "",
+            "span": "s1"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "finishSpan",
+            "patch": {
+              "inputTokens": 3,
+              "outputPreview": "out",
+              "outputTokens": 4,
+              "status": "succeeded",
+              "targetKind": "external"
+            },
+            "span": "s1"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "finishSpan",
+            "patch": {
+              "error": "boom",
+              "guardrail": "depth",
+              "origin": "a2a",
+              "status": "failed",
+              "targetKind": "a2a"
+            },
+            "span": "s2"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "finishSpan",
+            "patch": {
+              "status": "refused"
+            },
+            "span": "s3"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "getTrace",
+            "trace": "t1"
+          },
+          "out": {
+            "ok": {
+              "createdAt": 1000001,
+              "endedAt": null,
+              "projectId": "prj_1",
+              "rootAgent": "lead",
+              "rootSpanId": "s1",
+              "spans": [
+                {
+                  "agentId": "worker",
+                  "endedAt": 1000009,
+                  "error": null,
+                  "guardrail": null,
+                  "inputPreview": "in s1",
+                  "inputTokens": 3,
+                  "kind": "consult",
+                  "outputPreview": "out",
+                  "outputTokens": 4,
+                  "parentSpanId": null,
+                  "spanId": "s1",
+                  "startedAt": 1000004,
+                  "status": "succeeded",
+                  "targetKind": "external",
+                  "traceId": "t1"
+                },
+                {
+                  "agentId": "spec",
+                  "endedAt": 1000010,
+                  "error": "boom",
+                  "guardrail": "depth",
+                  "inputPreview": "in s2",
+                  "inputTokens": 0,
+                  "kind": "delegate",
+                  "origin": "a2a",
+                  "outputPreview": "",
+                  "outputTokens": 0,
+                  "parentSpanId": "s1",
+                  "sessionId": "ses_1",
+                  "spanId": "s2",
+                  "startedAt": 1000005,
+                  "status": "failed",
+                  "targetKind": "a2a",
+                  "traceId": "t1"
+                },
+                {
+                  "agentId": "spec",
+                  "endedAt": 1000011,
+                  "error": null,
+                  "guardrail": null,
+                  "inputPreview": "in s3",
+                  "inputTokens": 0,
+                  "kind": "guardrail",
+                  "outputPreview": "",
+                  "outputTokens": 0,
+                  "parentSpanId": "s1",
+                  "spanId": "s3",
+                  "startedAt": 1000006,
+                  "status": "refused",
+                  "traceId": "t1"
+                }
+              ],
+              "status": "running",
+              "traceId": "t1",
+              "traceparent": "00-t1-s1-01"
+            }
+          }
+        },
+        {
+          "op": {
+            "op": "getTrace",
+            "trace": "nope"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "finishTrace",
+            "status": "succeeded",
+            "trace": "t1"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "getTrace",
+            "trace": "t1"
+          },
+          "out": {
+            "ok": {
+              "createdAt": 1000001,
+              "endedAt": 1000012,
+              "projectId": "prj_1",
+              "rootAgent": "lead",
+              "rootSpanId": "s1",
+              "spans": [
+                {
+                  "agentId": "worker",
+                  "endedAt": 1000009,
+                  "error": null,
+                  "guardrail": null,
+                  "inputPreview": "in s1",
+                  "inputTokens": 3,
+                  "kind": "consult",
+                  "outputPreview": "out",
+                  "outputTokens": 4,
+                  "parentSpanId": null,
+                  "spanId": "s1",
+                  "startedAt": 1000004,
+                  "status": "succeeded",
+                  "targetKind": "external",
+                  "traceId": "t1"
+                },
+                {
+                  "agentId": "spec",
+                  "endedAt": 1000010,
+                  "error": "boom",
+                  "guardrail": "depth",
+                  "inputPreview": "in s2",
+                  "inputTokens": 0,
+                  "kind": "delegate",
+                  "origin": "a2a",
+                  "outputPreview": "",
+                  "outputTokens": 0,
+                  "parentSpanId": "s1",
+                  "sessionId": "ses_1",
+                  "spanId": "s2",
+                  "startedAt": 1000005,
+                  "status": "failed",
+                  "targetKind": "a2a",
+                  "traceId": "t1"
+                },
+                {
+                  "agentId": "spec",
+                  "endedAt": 1000011,
+                  "error": null,
+                  "guardrail": null,
+                  "inputPreview": "in s3",
+                  "inputTokens": 0,
+                  "kind": "guardrail",
+                  "outputPreview": "",
+                  "outputTokens": 0,
+                  "parentSpanId": "s1",
+                  "spanId": "s3",
+                  "startedAt": 1000006,
+                  "status": "refused",
+                  "traceId": "t1"
+                }
+              ],
+              "status": "succeeded",
+              "traceId": "t1",
+              "traceparent": "00-t1-s1-01"
+            }
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "projectId": "prj_1",
+              "rootAgent": "lead",
+              "rootSpanId": "s7",
+              "status": "partial",
+              "traceId": "t3"
+            },
+            "op": "insertTrace"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "listTraces",
+            "project": "prj_1"
+          },
+          "out": {
+            "ok": [
+              {
+                "createdAt": 1000001,
+                "endedAt": 1000012,
+                "projectId": "prj_1",
+                "rootAgent": "lead",
+                "rootSpanId": "s1",
+                "spans": [
+                  {
+                    "agentId": "worker",
+                    "endedAt": 1000009,
+                    "error": null,
+                    "guardrail": null,
+                    "inputPreview": "in s1",
+                    "inputTokens": 3,
+                    "kind": "consult",
+                    "outputPreview": "out",
+                    "outputTokens": 4,
+                    "parentSpanId": null,
+                    "spanId": "s1",
+                    "startedAt": 1000004,
+                    "status": "succeeded",
+                    "targetKind": "external",
+                    "traceId": "t1"
+                  },
+                  {
+                    "agentId": "spec",
+                    "endedAt": 1000010,
+                    "error": "boom",
+                    "guardrail": "depth",
+                    "inputPreview": "in s2",
+                    "inputTokens": 0,
+                    "kind": "delegate",
+                    "origin": "a2a",
+                    "outputPreview": "",
+                    "outputTokens": 0,
+                    "parentSpanId": "s1",
+                    "sessionId": "ses_1",
+                    "spanId": "s2",
+                    "startedAt": 1000005,
+                    "status": "failed",
+                    "targetKind": "a2a",
+                    "traceId": "t1"
+                  },
+                  {
+                    "agentId": "spec",
+                    "endedAt": 1000011,
+                    "error": null,
+                    "guardrail": null,
+                    "inputPreview": "in s3",
+                    "inputTokens": 0,
+                    "kind": "guardrail",
+                    "outputPreview": "",
+                    "outputTokens": 0,
+                    "parentSpanId": "s1",
+                    "spanId": "s3",
+                    "startedAt": 1000006,
+                    "status": "refused",
+                    "traceId": "t1"
+                  }
+                ],
+                "status": "succeeded",
+                "traceId": "t1",
+                "traceparent": "00-t1-s1-01"
+              },
+              {
+                "createdAt": 1000013,
+                "endedAt": null,
+                "projectId": "prj_1",
+                "rootAgent": "lead",
+                "rootSpanId": "s7",
+                "spans": [],
+                "status": "partial",
+                "traceId": "t3",
+                "traceparent": "00-t3-s7-01"
+              }
+            ]
+          }
+        },
+        {
+          "op": {
+            "op": "listTraces",
+            "project": "nope"
+          },
+          "out": {
+            "ok": []
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "acceptance": "ok",
+              "fromAgent": "lead",
+              "id": "k1",
+              "kind": "delegate",
+              "parentTaskId": null,
+              "path": [
+                "lead",
+                "worker"
+              ],
+              "projectId": "prj_1",
+              "spanId": "s1",
+              "status": "queued",
+              "task": "do",
+              "toAgent": "worker",
+              "traceId": "t1"
+            },
+            "op": "insertTask"
+          },
+          "out": {
+            "ok": {
+              "acceptanceCriteria": "ok",
+              "artifactId": null,
+              "artifactPointer": null,
+              "createdAt": 1000014,
+              "endedAt": null,
+              "error": null,
+              "fromAgent": "lead",
+              "id": "k1",
+              "parentTaskId": null,
+              "path": [
+                "lead",
+                "worker"
+              ],
+              "projectId": "prj_1",
+              "result": null,
+              "spanId": "s1",
+              "startedAt": null,
+              "status": "queued",
+              "task": "do",
+              "toAgent": "worker",
+              "traceId": "t1",
+              "truncated": false,
+              "usage": null
+            }
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "acceptance": "",
+              "fromAgent": "worker",
+              "id": "k2",
+              "kind": "delegate",
+              "parentTaskId": "k1",
+              "path": [
+                "lead",
+                "worker",
+                "spec"
+              ],
+              "projectId": "prj_1",
+              "spanId": "s2",
+              "status": "running",
+              "task": "sub",
+              "toAgent": "spec",
+              "traceId": "t1"
+            },
+            "op": "insertTask"
+          },
+          "out": {
+            "ok": {
+              "acceptanceCriteria": "",
+              "artifactId": null,
+              "artifactPointer": null,
+              "createdAt": 1000015,
+              "endedAt": null,
+              "error": null,
+              "fromAgent": "worker",
+              "id": "k2",
+              "parentTaskId": "k1",
+              "path": [
+                "lead",
+                "worker",
+                "spec"
+              ],
+              "projectId": "prj_1",
+              "result": null,
+              "spanId": "s2",
+              "startedAt": 1000015,
+              "status": "running",
+              "task": "sub",
+              "toAgent": "spec",
+              "traceId": "t1",
+              "truncated": false,
+              "usage": null
+            }
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "acceptance": "",
+              "fromAgent": "a",
+              "id": "k3",
+              "kind": "weird",
+              "parentTaskId": null,
+              "path": [],
+              "projectId": "prj_1",
+              "spanId": "s2",
+              "status": "queued",
+              "task": "x",
+              "toAgent": "b",
+              "traceId": "t1"
+            },
+            "op": "insertTask"
+          },
+          "out": {
+            "err": {
+              "raw": true
+            }
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "acceptance": "",
+              "fromAgent": "a",
+              "id": "k4",
+              "kind": "consult",
+              "parentTaskId": null,
+              "path": [
+                "é"
+              ],
+              "projectId": "prj_1",
+              "spanId": "s2",
+              "status": "queued",
+              "task": "x\u0000y 😀",
+              "toAgent": "b",
+              "traceId": "t1"
+            },
+            "op": "insertTask"
+          },
+          "out": {
+            "ok": {
+              "acceptanceCriteria": "",
+              "artifactId": null,
+              "artifactPointer": null,
+              "createdAt": 1000017,
+              "endedAt": null,
+              "error": null,
+              "fromAgent": "a",
+              "id": "k4",
+              "parentTaskId": null,
+              "path": [
+                "é"
+              ],
+              "projectId": "prj_1",
+              "result": null,
+              "spanId": "s2",
+              "startedAt": null,
+              "status": "queued",
+              "task": "x\u0000y 😀",
+              "toAgent": "b",
+              "traceId": "t1",
+              "truncated": false,
+              "usage": null
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "k1",
+            "op": "getTask"
+          },
+          "out": {
+            "ok": {
+              "acceptanceCriteria": "ok",
+              "artifactId": null,
+              "artifactPointer": null,
+              "createdAt": 1000014,
+              "endedAt": null,
+              "error": null,
+              "fromAgent": "lead",
+              "id": "k1",
+              "parentTaskId": null,
+              "path": [
+                "lead",
+                "worker"
+              ],
+              "projectId": "prj_1",
+              "result": null,
+              "spanId": "s1",
+              "startedAt": null,
+              "status": "queued",
+              "task": "do",
+              "toAgent": "worker",
+              "traceId": "t1",
+              "truncated": false,
+              "usage": null
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "nope",
+            "op": "getTask"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "listTasks",
+            "trace": "t1"
+          },
+          "out": {
+            "ok": [
+              {
+                "acceptanceCriteria": "ok",
+                "artifactId": null,
+                "artifactPointer": null,
+                "createdAt": 1000014,
+                "endedAt": null,
+                "error": null,
+                "fromAgent": "lead",
+                "id": "k1",
+                "parentTaskId": null,
+                "path": [
+                  "lead",
+                  "worker"
+                ],
+                "projectId": "prj_1",
+                "result": null,
+                "spanId": "s1",
+                "startedAt": null,
+                "status": "queued",
+                "task": "do",
+                "toAgent": "worker",
+                "traceId": "t1",
+                "truncated": false,
+                "usage": null
+              },
+              {
+                "acceptanceCriteria": "",
+                "artifactId": null,
+                "artifactPointer": null,
+                "createdAt": 1000015,
+                "endedAt": null,
+                "error": null,
+                "fromAgent": "worker",
+                "id": "k2",
+                "parentTaskId": "k1",
+                "path": [
+                  "lead",
+                  "worker",
+                  "spec"
+                ],
+                "projectId": "prj_1",
+                "result": null,
+                "spanId": "s2",
+                "startedAt": 1000015,
+                "status": "running",
+                "task": "sub",
+                "toAgent": "spec",
+                "traceId": "t1",
+                "truncated": false,
+                "usage": null
+              },
+              {
+                "acceptanceCriteria": "",
+                "artifactId": null,
+                "artifactPointer": null,
+                "createdAt": 1000017,
+                "endedAt": null,
+                "error": null,
+                "fromAgent": "a",
+                "id": "k4",
+                "parentTaskId": null,
+                "path": [
+                  "é"
+                ],
+                "projectId": "prj_1",
+                "result": null,
+                "spanId": "s2",
+                "startedAt": null,
+                "status": "queued",
+                "task": "x\u0000y 😀",
+                "toAgent": "b",
+                "traceId": "t1",
+                "truncated": false,
+                "usage": null
+              }
+            ]
+          }
+        },
+        {
+          "op": {
+            "id": "k1",
+            "op": "updateTask",
+            "patch": {
+              "status": "running"
+            }
+          },
+          "out": {
+            "ok": {
+              "acceptanceCriteria": "ok",
+              "artifactId": null,
+              "artifactPointer": null,
+              "createdAt": 1000014,
+              "endedAt": null,
+              "error": null,
+              "fromAgent": "lead",
+              "id": "k1",
+              "parentTaskId": null,
+              "path": [
+                "lead",
+                "worker"
+              ],
+              "projectId": "prj_1",
+              "result": null,
+              "spanId": "s1",
+              "startedAt": 1000018,
+              "status": "running",
+              "task": "do",
+              "toAgent": "worker",
+              "traceId": "t1",
+              "truncated": false,
+              "usage": null
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "k1",
+            "op": "updateTask",
+            "patch": {
+              "artifactId": "art_1",
+              "inputTokens": 5,
+              "outputTokens": 6,
+              "result": "[truncated 5 chars; artifact:art_1]",
+              "status": "succeeded",
+              "targetKind": "local",
+              "truncated": true
+            }
+          },
+          "out": {
+            "ok": {
+              "acceptanceCriteria": "ok",
+              "artifactId": "art_1",
+              "artifactPointer": "artifact:art_1",
+              "createdAt": 1000014,
+              "endedAt": 1000019,
+              "error": null,
+              "fromAgent": "lead",
+              "id": "k1",
+              "parentTaskId": null,
+              "path": [
+                "lead",
+                "worker"
+              ],
+              "projectId": "prj_1",
+              "result": "[truncated 5 chars; artifact:art_1]",
+              "spanId": "s1",
+              "startedAt": 1000018,
+              "status": "succeeded",
+              "targetKind": "local",
+              "task": "do",
+              "toAgent": "worker",
+              "traceId": "t1",
+              "truncated": true,
+              "usage": {
+                "inputTokens": 5,
+                "outputTokens": 6
+              }
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "k2",
+            "op": "updateTask",
+            "patch": {
+              "error": "boom",
+              "inputTokens": 1,
+              "status": "failed"
+            }
+          },
+          "out": {
+            "ok": {
+              "acceptanceCriteria": "",
+              "artifactId": null,
+              "artifactPointer": null,
+              "createdAt": 1000015,
+              "endedAt": 1000020,
+              "error": "boom",
+              "fromAgent": "worker",
+              "id": "k2",
+              "parentTaskId": "k1",
+              "path": [
+                "lead",
+                "worker",
+                "spec"
+              ],
+              "projectId": "prj_1",
+              "result": null,
+              "spanId": "s2",
+              "startedAt": 1000015,
+              "status": "failed",
+              "task": "sub",
+              "toAgent": "spec",
+              "traceId": "t1",
+              "truncated": false,
+              "usage": {
+                "inputTokens": 1,
+                "outputTokens": 0
+              }
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "k4",
+            "op": "updateTask",
+            "patch": {
+              "artifactId": "",
+              "origin": "a2a",
+              "status": "succeeded",
+              "targetKind": ""
+            }
+          },
+          "out": {
+            "ok": {
+              "acceptanceCriteria": "",
+              "artifactId": "",
+              "artifactPointer": null,
+              "createdAt": 1000017,
+              "endedAt": 1000021,
+              "error": null,
+              "fromAgent": "a",
+              "id": "k4",
+              "origin": "a2a",
+              "parentTaskId": null,
+              "path": [
+                "é"
+              ],
+              "projectId": "prj_1",
+              "result": null,
+              "spanId": "s2",
+              "startedAt": null,
+              "status": "succeeded",
+              "task": "x\u0000y 😀",
+              "toAgent": "b",
+              "traceId": "t1",
+              "truncated": false,
+              "usage": null
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "nope",
+            "op": "updateTask",
+            "patch": {
+              "status": "failed"
+            }
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "id": "k3",
+            "op": "updateTask",
+            "patch": {
+              "status": "queued"
+            }
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "ended"
+          },
+          "out": {
+            "ok": [
+              "k1",
+              "k2",
+              "k4",
+              "nope"
+            ]
+          }
+        },
+        {
+          "op": {
+            "mode": "throw",
+            "op": "grants"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "id": "k3",
+            "op": "updateTask",
+            "patch": {
+              "status": "cancelled"
+            }
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "warned"
+          },
+          "out": {
+            "ok": [
+              "grant task end failed"
+            ]
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "acceptance": "",
+              "fromAgent": "a",
+              "id": "k5",
+              "kind": "delegate",
+              "parentTaskId": null,
+              "path": [],
+              "projectId": "prj_1",
+              "spanId": "s2",
+              "status": "queued",
+              "task": "q",
+              "toAgent": "b",
+              "traceId": "t1"
+            },
+            "op": "insertTask"
+          },
+          "out": {
+            "ok": {
+              "acceptanceCriteria": "",
+              "artifactId": null,
+              "artifactPointer": null,
+              "createdAt": 1000025,
+              "endedAt": null,
+              "error": null,
+              "fromAgent": "a",
+              "id": "k5",
+              "parentTaskId": null,
+              "path": [],
+              "projectId": "prj_1",
+              "result": null,
+              "spanId": "s2",
+              "startedAt": null,
+              "status": "queued",
+              "task": "q",
+              "toAgent": "b",
+              "traceId": "t1",
+              "truncated": false,
+              "usage": null
+            }
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "acceptance": "",
+              "fromAgent": "a",
+              "id": "k6",
+              "kind": "delegate",
+              "parentTaskId": null,
+              "path": [],
+              "projectId": "prj_1",
+              "spanId": "s2",
+              "status": "running",
+              "task": "r",
+              "toAgent": "b",
+              "traceId": "t1"
+            },
+            "op": "insertTask"
+          },
+          "out": {
+            "ok": {
+              "acceptanceCriteria": "",
+              "artifactId": null,
+              "artifactPointer": null,
+              "createdAt": 1000026,
+              "endedAt": null,
+              "error": null,
+              "fromAgent": "a",
+              "id": "k6",
+              "parentTaskId": null,
+              "path": [],
+              "projectId": "prj_1",
+              "result": null,
+              "spanId": "s2",
+              "startedAt": 1000026,
+              "status": "running",
+              "task": "r",
+              "toAgent": "b",
+              "traceId": "t1",
+              "truncated": false,
+              "usage": null
+            }
+          }
+        },
+        {
+          "op": {
+            "mode": "ok",
+            "op": "grants"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "op": "cancelOpen",
+            "trace": "t1"
+          },
+          "out": {
+            "ok": [
+              "k5",
+              "k6"
+            ]
+          }
+        },
+        {
+          "op": {
+            "op": "cancelOpen",
+            "trace": "t1"
+          },
+          "out": {
+            "ok": []
+          }
+        },
+        {
+          "op": {
+            "op": "cancelOpen",
+            "trace": "nope"
+          },
+          "out": {
+            "ok": []
+          }
+        },
+        {
+          "op": {
+            "op": "ended"
+          },
+          "out": {
+            "ok": [
+              "k1",
+              "k2",
+              "k4",
+              "nope",
+              "k3",
+              "k5",
+              "k6"
+            ]
+          }
+        },
+        {
+          "op": {
+            "op": "warned"
+          },
+          "out": {
+            "ok": [
+              "grant task end failed"
+            ]
+          }
+        },
+        {
+          "op": {
+            "op": "listTasks",
+            "trace": "t1"
+          },
+          "out": {
+            "ok": [
+              {
+                "acceptanceCriteria": "ok",
+                "artifactId": "art_1",
+                "artifactPointer": "artifact:art_1",
+                "createdAt": 1000014,
+                "endedAt": 1000019,
+                "error": null,
+                "fromAgent": "lead",
+                "id": "k1",
+                "parentTaskId": null,
+                "path": [
+                  "lead",
+                  "worker"
+                ],
+                "projectId": "prj_1",
+                "result": "[truncated 5 chars; artifact:art_1]",
+                "spanId": "s1",
+                "startedAt": 1000018,
+                "status": "succeeded",
+                "targetKind": "local",
+                "task": "do",
+                "toAgent": "worker",
+                "traceId": "t1",
+                "truncated": true,
+                "usage": {
+                  "inputTokens": 5,
+                  "outputTokens": 6
+                }
+              },
+              {
+                "acceptanceCriteria": "",
+                "artifactId": null,
+                "artifactPointer": null,
+                "createdAt": 1000015,
+                "endedAt": 1000020,
+                "error": "boom",
+                "fromAgent": "worker",
+                "id": "k2",
+                "parentTaskId": "k1",
+                "path": [
+                  "lead",
+                  "worker",
+                  "spec"
+                ],
+                "projectId": "prj_1",
+                "result": null,
+                "spanId": "s2",
+                "startedAt": 1000015,
+                "status": "failed",
+                "task": "sub",
+                "toAgent": "spec",
+                "traceId": "t1",
+                "truncated": false,
+                "usage": {
+                  "inputTokens": 1,
+                  "outputTokens": 0
+                }
+              },
+              {
+                "acceptanceCriteria": "",
+                "artifactId": "",
+                "artifactPointer": null,
+                "createdAt": 1000017,
+                "endedAt": 1000021,
+                "error": null,
+                "fromAgent": "a",
+                "id": "k4",
+                "origin": "a2a",
+                "parentTaskId": null,
+                "path": [
+                  "é"
+                ],
+                "projectId": "prj_1",
+                "result": null,
+                "spanId": "s2",
+                "startedAt": null,
+                "status": "succeeded",
+                "task": "x\u0000y 😀",
+                "toAgent": "b",
+                "traceId": "t1",
+                "truncated": false,
+                "usage": null
+              },
+              {
+                "acceptanceCriteria": "",
+                "artifactId": null,
+                "artifactPointer": null,
+                "createdAt": 1000025,
+                "endedAt": 1000027,
+                "error": "aborted",
+                "fromAgent": "a",
+                "id": "k5",
+                "parentTaskId": null,
+                "path": [],
+                "projectId": "prj_1",
+                "result": null,
+                "spanId": "s2",
+                "startedAt": null,
+                "status": "cancelled",
+                "task": "q",
+                "toAgent": "b",
+                "traceId": "t1",
+                "truncated": false,
+                "usage": null
+              },
+              {
+                "acceptanceCriteria": "",
+                "artifactId": null,
+                "artifactPointer": null,
+                "createdAt": 1000026,
+                "endedAt": 1000027,
+                "error": "aborted",
+                "fromAgent": "a",
+                "id": "k6",
+                "parentTaskId": null,
+                "path": [],
+                "projectId": "prj_1",
+                "result": null,
+                "spanId": "s2",
+                "startedAt": 1000026,
+                "status": "cancelled",
+                "task": "r",
+                "toAgent": "b",
+                "traceId": "t1",
+                "truncated": false,
+                "usage": null
+              }
+            ]
+          }
+        },
+        {
+          "op": {
+            "op": "sql",
+            "sql": "SELECT id, status, error, started_at, ended_at, truncated, result_artifact_id, target_kind, origin, input_tokens, output_tokens, path FROM tasks ORDER BY id"
+          },
+          "out": {
+            "ok": [
+              [
+                "k1",
+                "succeeded",
+                null,
+                1000018,
+                1000019,
+                1,
+                "art_1",
+                "local",
+                null,
+                5,
+                6,
+                "[\"lead\",\"worker\"]"
+              ],
+              [
+                "k2",
+                "failed",
+                "boom",
+                1000015,
+                1000020,
+                0,
+                null,
+                null,
+                null,
+                1,
+                null,
+                "[\"lead\",\"worker\",\"spec\"]"
+              ],
+              [
+                "k4",
+                "succeeded",
+                null,
+                null,
+                1000021,
+                0,
+                "",
+                "",
+                "a2a",
+                null,
+                null,
+                "[\"é\"]"
+              ],
+              [
+                "k5",
+                "cancelled",
+                "aborted",
+                null,
+                1000027,
+                0,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "[]"
+              ],
+              [
+                "k6",
+                "cancelled",
+                "aborted",
+                1000026,
+                1000027,
+                0,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "[]"
+              ]
+            ]
+          }
+        },
+        {
+          "op": {
+            "op": "sql",
+            "sql": "SELECT span_id, status, started_at, ended_at, session_id, guardrail, target_kind, origin FROM spans ORDER BY span_id"
+          },
+          "out": {
+            "ok": [
+              [
+                "s1",
+                "succeeded",
+                1000004,
+                1000009,
+                "",
+                null,
+                "external",
+                null
+              ],
+              [
+                "s2",
+                "failed",
+                1000005,
+                1000010,
+                "ses_1",
+                "depth",
+                "a2a",
+                "a2a"
+              ],
+              [
+                "s3",
+                "refused",
+                1000006,
+                1000011,
+                null,
+                null,
+                null,
+                null
+              ]
+            ]
+          }
+        }
+      ],
+      "step": 1
+    },
+    {
+      "name": "two-connections",
+      "ops": [
+        {
+          "op": {
+            "name": "alpha",
+            "op": "createProject",
+            "owner": "u-owner"
+          },
+          "out": {
+            "ok": {
+              "agents": [],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000000
+            }
+          }
+        },
+        {
+          "op": {
+            "agent": "x",
+            "id": "prj_1",
+            "on": "b",
+            "op": "addAgent"
+          },
+          "out": {
+            "ok": {
+              "agents": [
+                "x"
+              ],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000001
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "getProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [
+                "x"
+              ],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000001
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "on": "b",
+            "op": "addMember",
+            "role": "member",
+            "user": "m"
+          },
+          "out": {
+            "ok": {
+              "agents": [
+                "x"
+              ],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "member",
+                  "userId": "m"
+                },
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000002
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "removeMember",
+            "user": "m"
+          },
+          "out": {
+            "ok": {
+              "agents": [
+                "x"
+              ],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000003
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "on": "b",
+            "op": "getProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [
+                "x"
+              ],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000003
+            }
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "baseSha": "s",
+              "branch": "b",
+              "cardId": "c",
+              "path": "/p",
+              "projectId": "prj_1",
+              "rootId": "prj_1"
+            },
+            "op": "insertWorktree"
+          },
+          "out": {
+            "ok": {
+              "baseSha": "s",
+              "branch": "b",
+              "cardId": "c",
+              "commonGitDir": null,
+              "createdAt": 1000004,
+              "dev": null,
+              "gitDir": null,
+              "id": "wt_1",
+              "ino": null,
+              "path": "/p",
+              "projectId": "prj_1",
+              "removedAt": null,
+              "rootId": "prj_1"
+            }
+          }
+        },
+        {
+          "op": {
+            "input": {
+              "baseSha": "s",
+              "branch": "b2",
+              "cardId": "c",
+              "path": "/p2",
+              "projectId": "prj_1",
+              "rootId": "prj_1"
+            },
+            "on": "b",
+            "op": "insertWorktree"
+          },
+          "out": {
+            "err": {
+              "raw": true
+            }
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "on": "b",
+            "op": "setRepo",
+            "repo": {
+              "baseBranch": "main",
+              "repoPath": "/r"
+            }
+          },
+          "out": {
+            "err": {
+              "code": "conflict",
+              "message": "remove live worktrees before rebinding",
+              "reason": "worktree-live"
+            }
+          }
+        },
+        {
+          "op": {
+            "op": "reopen"
+          },
+          "out": {
+            "ok": null
+          }
+        },
+        {
+          "op": {
+            "id": "prj_1",
+            "op": "getProject"
+          },
+          "out": {
+            "ok": {
+              "agents": [
+                "x"
+              ],
+              "archivedAt": null,
+              "createdAt": 1000000,
+              "id": "prj_1",
+              "members": [
+                {
+                  "role": "lead",
+                  "userId": "u-owner"
+                }
+              ],
+              "name": "alpha",
+              "owner": "u-owner",
+              "settings": {
+                "allowCrossProject": false,
+                "maxDepth": 2,
+                "maxFanout": 8,
+                "maxPairPerTurn": 4,
+                "maxTurns": 25,
+                "repeatWindowMs": 30000,
+                "returnTokens": 2000,
+                "timeoutMs": 300000,
+                "tokenBudget": null
+              },
+              "updatedAt": 1000003
+            }
+          }
+        },
+        {
+          "op": {
+            "on": "b",
+            "op": "listProjects"
+          },
+          "out": {
+            "ok": [
+              {
+                "agents": [
+                  "x"
+                ],
+                "archivedAt": null,
+                "createdAt": 1000000,
+                "id": "prj_1",
+                "members": [
+                  {
+                    "role": "lead",
+                    "userId": "u-owner"
+                  }
+                ],
+                "name": "alpha",
+                "owner": "u-owner",
+                "settings": {
+                  "allowCrossProject": false,
+                  "maxDepth": 2,
+                  "maxFanout": 8,
+                  "maxPairPerTurn": 4,
+                  "maxTurns": 25,
+                  "repeatWindowMs": 30000,
+                  "returnTokens": 2000,
+                  "timeoutMs": 300000,
+                  "tokenBudget": null
+                },
+                "updatedAt": 1000003
+              }
+            ]
+          }
+        }
+      ],
+      "step": 1
+    }
+  ]
+}

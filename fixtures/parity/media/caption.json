@@ -1,0 +1,538 @@
+{
+  "cloud": [
+    {
+      "events": [
+        "policy",
+        [
+          "reserve",
+          {
+            "agent": "a",
+            "estimatedInputTokens": 1500,
+            "maxOutputTokens": 120,
+            "model": "fixture-model",
+            "principal": "u",
+            "project": "media-caption",
+            "provider": "fixture-cloud"
+          }
+        ],
+        [
+          "request",
+          {
+            "maxTokens": 120,
+            "messages": [
+              {
+                "content": [
+                  {
+                    "text": "Describe this image in one short factual sentence for search. No preamble.",
+                    "type": "text"
+                  },
+                  {
+                    "detail": "low",
+                    "type": "image_url",
+                    "url": "data:image/png;base64,AQID"
+                  }
+                ],
+                "role": "user"
+              }
+            ],
+            "model": "fixture-model"
+          }
+        ],
+        [
+          "settle",
+          "hold",
+          {
+            "inputTokens": 11,
+            "outputTokens": 5
+          }
+        ]
+      ],
+      "name": "success",
+      "outcome": " a fixture caption "
+    },
+    {
+      "events": [
+        "policy",
+        [
+          "reserve",
+          {
+            "agent": "a",
+            "estimatedInputTokens": 1500,
+            "maxOutputTokens": 120,
+            "model": "fixture-model",
+            "principal": "u",
+            "project": "media-caption",
+            "provider": "fixture-cloud"
+          }
+        ],
+        [
+          "request",
+          {
+            "maxTokens": 120,
+            "messages": [
+              {
+                "content": [
+                  {
+                    "text": "Describe this image in one short factual sentence for search. No preamble.",
+                    "type": "text"
+                  },
+                  {
+                    "detail": "low",
+                    "type": "image_url",
+                    "url": "data:image/png;base64,AQID"
+                  }
+                ],
+                "role": "user"
+              }
+            ],
+            "model": "fixture-model"
+          }
+        ],
+        [
+          "settle",
+          "hold",
+          {
+            "inputTokens": 1500,
+            "outputTokens": 120
+          }
+        ]
+      ],
+      "name": "no usage",
+      "outcome": " a fixture caption "
+    },
+    {
+      "events": [],
+      "name": "pinned",
+      "outcome": {
+        "error": "E_MEDIA_PRIVACY",
+        "reason": null
+      }
+    },
+    {
+      "events": [],
+      "name": "missing",
+      "outcome": {
+        "error": "E_MEDIA_PRIVACY",
+        "reason": null
+      }
+    },
+    {
+      "events": [],
+      "name": "invalid",
+      "outcome": {
+        "error": "E_MEDIA_PRIVACY",
+        "reason": null
+      }
+    },
+    {
+      "events": [],
+      "name": "endpoint",
+      "outcome": {
+        "error": "E_MEDIA_PRIVACY",
+        "reason": null
+      }
+    },
+    {
+      "events": [
+        "policy",
+        [
+          "reserve",
+          {
+            "agent": "a",
+            "estimatedInputTokens": 1500,
+            "maxOutputTokens": 120,
+            "model": "fixture-model",
+            "principal": "u",
+            "project": "media-caption",
+            "provider": "fixture-cloud"
+          }
+        ]
+      ],
+      "name": "budget",
+      "outcome": {
+        "error": "E_MEDIA_UNAVAILABLE",
+        "reason": null
+      }
+    },
+    {
+      "events": [
+        "policy"
+      ],
+      "name": "unbound",
+      "outcome": {
+        "error": "E_MEDIA_UNAVAILABLE",
+        "reason": null
+      }
+    },
+    {
+      "events": [
+        "policy"
+      ],
+      "name": "policy denied",
+      "outcome": {
+        "error": "policy denied",
+        "reason": null
+      }
+    },
+    {
+      "events": [
+        "policy"
+      ],
+      "name": "pin during policy",
+      "outcome": {
+        "error": "E_MEDIA_PRIVACY",
+        "reason": null
+      }
+    },
+    {
+      "events": [],
+      "name": "cancelled",
+      "outcome": {
+        "error": "This operation was aborted",
+        "reason": null
+      }
+    },
+    {
+      "divergence": "charge-uncertain-provider-usage",
+      "events": [
+        "policy",
+        [
+          "reserve",
+          {
+            "agent": "a",
+            "estimatedInputTokens": 1500,
+            "maxOutputTokens": 120,
+            "model": "fixture-model",
+            "principal": "u",
+            "project": "media-caption",
+            "provider": "fixture-cloud"
+          }
+        ],
+        [
+          "request",
+          {
+            "maxTokens": 120,
+            "messages": [
+              {
+                "content": [
+                  {
+                    "text": "Describe this image in one short factual sentence for search. No preamble.",
+                    "type": "text"
+                  },
+                  {
+                    "detail": "low",
+                    "type": "image_url",
+                    "url": "data:image/png;base64,AQID"
+                  }
+                ],
+                "role": "user"
+              }
+            ],
+            "model": "fixture-model"
+          }
+        ],
+        [
+          "settle",
+          "hold",
+          {
+            "inputTokens": 1500,
+            "outputTokens": 0
+          }
+        ]
+      ],
+      "name": "aborted while sent",
+      "outcome": {
+        "error": "cancelled in port",
+        "reason": null
+      }
+    },
+    {
+      "divergence": "charge-uncertain-provider-usage",
+      "events": [
+        "policy",
+        [
+          "reserve",
+          {
+            "agent": "a",
+            "estimatedInputTokens": 1500,
+            "maxOutputTokens": 120,
+            "model": "fixture-model",
+            "principal": "u",
+            "project": "media-caption",
+            "provider": "fixture-cloud"
+          }
+        ],
+        [
+          "request",
+          {
+            "maxTokens": 120,
+            "messages": [
+              {
+                "content": [
+                  {
+                    "text": "Describe this image in one short factual sentence for search. No preamble.",
+                    "type": "text"
+                  },
+                  {
+                    "detail": "low",
+                    "type": "image_url",
+                    "url": "data:image/png;base64,AQID"
+                  }
+                ],
+                "role": "user"
+              }
+            ],
+            "model": "fixture-model"
+          }
+        ],
+        [
+          "release",
+          "hold"
+        ]
+      ],
+      "name": "failed while sent",
+      "outcome": {
+        "error": "fixture provider failure",
+        "reason": null
+      }
+    }
+  ],
+  "frameRows": [
+    {
+      "text": "Second   frame..",
+      "tsMs": 20
+    },
+    {
+      "text": "First frame;",
+      "tsMs": 10
+    },
+    {
+      "text": "second frame",
+      "tsMs": 30
+    },
+    {
+      "text": " ",
+      "tsMs": 0
+    },
+    {
+      "text": "Another frame",
+      "tsMs": 40
+    }
+  ],
+  "frames": [
+    {
+      "calls": [
+        {
+          "intervalSec": 10,
+          "maxFrames": 12,
+          "sceneDetect": true
+        },
+        0,
+        5,
+        9
+      ],
+      "caption": "frame 0; frame 5; frame 9",
+      "count": 1
+    },
+    {
+      "calls": [
+        {
+          "intervalSec": 10,
+          "maxFrames": 12,
+          "sceneDetect": true
+        },
+        0,
+        5,
+        9
+      ],
+      "caption": "frame 0; frame 5; frame 9",
+      "count": 3
+    },
+    {
+      "calls": [
+        {
+          "intervalSec": 10,
+          "maxFrames": 16,
+          "sceneDetect": true
+        },
+        0,
+        3,
+        6,
+        9
+      ],
+      "caption": "frame 0; frame 3; frame 6; frame 9",
+      "count": 4
+    },
+    {
+      "calls": [
+        {
+          "intervalSec": 10,
+          "maxFrames": 20,
+          "sceneDetect": true
+        },
+        0,
+        2,
+        5,
+        7,
+        9
+      ],
+      "caption": "frame 0; frame 2; frame 5; frame 7; frame 9",
+      "count": 5
+    },
+    {
+      "calls": [
+        {
+          "intervalSec": 10,
+          "maxFrames": 20,
+          "sceneDetect": true
+        },
+        0,
+        2,
+        5,
+        7,
+        9
+      ],
+      "caption": "frame 0; frame 2; frame 5; frame 7; frame 9",
+      "count": 7
+    }
+  ],
+  "merged": "First frame; Second…",
+  "normalise": [
+    {
+      "cap": 40,
+      "input": "  a\tcaption\n﻿ with spaces  ",
+      "outcome": "a caption with spaces"
+    },
+    {
+      "cap": 15,
+      "input": "One two, three and four",
+      "outcome": "One two, three…"
+    },
+    {
+      "cap": 6,
+      "input": "abcdefghijk",
+      "outcome": "abcde…"
+    },
+    {
+      "cap": 4,
+      "input": "abcde",
+      "outcome": "ab…"
+    },
+    {
+      "cap": 12,
+      "input": "🔵 do not lose words",
+      "outcome": "🔵 do not…"
+    },
+    {
+      "cap": 3,
+      "input": "  ",
+      "outcome": ""
+    }
+  ],
+  "prompt": "Describe this image in one short factual sentence for search. No preamble.",
+  "providers": [
+    {
+      "chosen": null,
+      "embeddingLocal": true,
+      "id": "off",
+      "pinned": true
+    },
+    {
+      "chosen": null,
+      "embeddingLocal": false,
+      "id": null,
+      "pinned": false
+    },
+    {
+      "chosen": "local",
+      "embeddingLocal": true,
+      "id": null,
+      "pinned": false
+    },
+    {
+      "chosen": "local",
+      "embeddingLocal": false,
+      "id": null,
+      "pinned": true
+    },
+    {
+      "chosen": "local",
+      "embeddingLocal": false,
+      "id": "local",
+      "pinned": false
+    },
+    {
+      "chosen": {
+        "error": "E_MEDIA_PRIVACY"
+      },
+      "embeddingLocal": false,
+      "id": "fixture-cloud",
+      "pinned": true
+    },
+    {
+      "chosen": "fixture-cloud",
+      "embeddingLocal": true,
+      "id": "fixture-cloud",
+      "pinned": false
+    }
+  ],
+  "service": [
+    {
+      "calls": 0,
+      "name": "off",
+      "outcome": null,
+      "prompt": "prompt",
+      "source": "off",
+      "userCaption": "user"
+    },
+    {
+      "calls": 0,
+      "name": "prompt",
+      "outcome": {
+        "source": "prompt",
+        "text": "a prompt"
+      },
+      "prompt": "  a prompt ",
+      "source": "prompt-then-user-then-auto",
+      "userCaption": "user"
+    },
+    {
+      "calls": 0,
+      "name": "user",
+      "outcome": {
+        "source": "user",
+        "text": "user caption"
+      },
+      "prompt": "  ",
+      "source": "prompt-then-user-then-auto",
+      "userCaption": "  user caption "
+    },
+    {
+      "calls": 0,
+      "name": "user only",
+      "outcome": null,
+      "prompt": "prompt",
+      "source": "user-only",
+      "userCaption": null
+    },
+    {
+      "calls": 1,
+      "name": "auto",
+      "outcome": {
+        "source": "auto",
+        "text": "local caption"
+      },
+      "prompt": null,
+      "source": "prompt-then-user-then-auto",
+      "userCaption": null
+    },
+    {
+      "calls": 0,
+      "name": "no provider",
+      "outcome": null,
+      "prompt": null,
+      "source": "prompt-then-user-then-auto",
+      "userCaption": null
+    }
+  ]
+}

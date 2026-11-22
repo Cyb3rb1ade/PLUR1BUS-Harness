@@ -1,0 +1,128 @@
+[
+  {
+    "compaction": {
+      "hardRatio": 0.88,
+      "maxMessageTokens": 819,
+      "softRatio": 0.65,
+      "summarizer": "llm",
+      "summaryMaxTokens": 1228,
+      "windowTokens": 8192
+    },
+    "defaultsCompaction": {
+      "hardRatio": 0.88,
+      "maxMessageTokens": 819,
+      "prune": {
+        "batchSize": 16,
+        "decider": "laya",
+        "enabled": true,
+        "keepLastTurns": 3,
+        "maxMs": 100
+      },
+      "softRatio": 0.65,
+      "summarizer": "llm",
+      "summaryMaxTokens": 1228
+    },
+    "override": {},
+    "prune": {
+      "batchSize": 16,
+      "decider": "laya",
+      "enabled": true,
+      "keepLastTurns": 3,
+      "maxMs": 100
+    }
+  },
+  {
+    "compaction": {
+      "hardRatio": 0.9,
+      "maxMessageTokens": 200,
+      "softRatio": 0.5,
+      "summarizer": "digest",
+      "summaryMaxTokens": 100,
+      "windowTokens": 8192
+    },
+    "defaultsCompaction": {
+      "hardRatio": 0.88,
+      "maxMessageTokens": 819,
+      "prune": {
+        "batchSize": 16,
+        "decider": "laya",
+        "enabled": true,
+        "keepLastTurns": 3,
+        "maxMs": 100
+      },
+      "softRatio": 0.65,
+      "summarizer": "llm",
+      "summaryMaxTokens": 1228
+    },
+    "override": {
+      "session": {
+        "compaction": {
+          "hardRatio": 0.9,
+          "maxMessageTokens": 200,
+          "prune": {
+            "batchSize": 3,
+            "decider": "heuristic",
+            "enabled": false,
+            "keepLastTurns": 7,
+            "maxMs": 5
+          },
+          "softRatio": 0.5,
+          "summarizer": "digest",
+          "summaryMaxTokens": 100
+        }
+      }
+    },
+    "prune": {
+      "batchSize": 3,
+      "decider": "heuristic",
+      "enabled": false,
+      "keepLastTurns": 7,
+      "maxMs": 5
+    }
+  },
+  {
+    "compaction": {
+      "hardRatio": 0.88,
+      "maxMessageTokens": 819,
+      "softRatio": 0.65,
+      "summarizer": "llm",
+      "summaryMaxTokens": 1228,
+      "windowTokens": 8192
+    },
+    "defaultsCompaction": {
+      "hardRatio": 0.88,
+      "maxMessageTokens": 819,
+      "prune": {
+        "batchSize": 16,
+        "decider": "laya",
+        "enabled": true,
+        "keepLastTurns": 3,
+        "maxMs": 100
+      },
+      "softRatio": 0.65,
+      "summarizer": "llm",
+      "summaryMaxTokens": 1228
+    },
+    "override": {
+      "session": {
+        "compaction": {
+          "prune": {
+            "batchSize": 1,
+            "decider": "off",
+            "enabled": true,
+            "keepLastTurns": 1,
+            "maxMs": 250.5
+          },
+          "summarizer": "llm"
+        }
+      }
+    },
+    "prune": {
+      "batchSize": 1,
+      "decider": "off",
+      "enabled": true,
+      "keepLastTurns": 1,
+      "maxMs": 250.5
+    }
+  }
+]

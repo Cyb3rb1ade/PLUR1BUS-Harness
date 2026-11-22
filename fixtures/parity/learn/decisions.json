@@ -1,0 +1,216 @@
+[
+  {
+    "expected": {
+      "action": {
+        "receipt": {
+          "operation": "memory.importText.apply",
+          "runId": "import-fixture"
+        },
+        "state": "completed"
+      },
+      "calls": [
+        {
+          "method": "memory.importText.apply",
+          "params": {
+            "dryRun": false,
+            "entries": [
+              {
+                "category": "Other",
+                "idempotencyKey": "learn-0032f0e9abf004b1de52c80203a41b4e1ce9865462c89548b754190d89554297-1",
+                "sourceType": "chat",
+                "text": "Learned fixture text",
+                "warnings": []
+              }
+            ],
+            "targets": [
+              {
+                "agentIds": [
+                  "alpha"
+                ],
+                "target": "agent"
+              }
+            ]
+          }
+        }
+      ],
+      "result": {
+        "receipt": {
+          "operation": "memory.importText.apply",
+          "runId": "import-fixture"
+        },
+        "status": "accepted"
+      },
+      "status": "accepted"
+    },
+    "finding": "{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"Learned fixture text\",\"contentKey\":\"fixture\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"0032f0e9abf004b1de52c80203a41b4e1ce9865462c89548b754190d89554297\",\"runId\":\"afb1ca708f53e6ee323408a82a1c7dbd401956e5e239620fe3192c47e57b7251\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"pending\"}",
+    "name": "accepted",
+    "snapshot": "{\"session\":{\"id\":\"s1\",\"kind\":\"direct\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"chatKey\":null,\"title\":\"\",\"pinned\":false,\"memoryMode\":\"remember\",\"createdAt\":1,\"updatedAt\":15,\"lastTurnAt\":15,\"archivedAt\":null,\"turnCount\":1},\"events\":[],\"days\":[\"1970-01-01\"],\"messages\":[{\"id\":\"msg1\",\"sessionId\":\"s1\",\"turnId\":\"t1\",\"seq\":1,\"role\":\"user\",\"text\":\"Learned fixture text\",\"tokens\":2,\"createdAt\":15}]}",
+    "target": {
+      "agentId": "alpha",
+      "owner": "ada",
+      "scope": "agent"
+    }
+  },
+  {
+    "expected": {
+      "action": null,
+      "calls": [],
+      "result": {
+        "status": "rejected"
+      },
+      "status": "rejected"
+    },
+    "finding": "{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"Learned fixture text\",\"contentKey\":\"fixture\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"0032f0e9abf004b1de52c80203a41b4e1ce9865462c89548b754190d89554297\",\"runId\":\"afb1ca708f53e6ee323408a82a1c7dbd401956e5e239620fe3192c47e57b7251\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"pending\"}",
+    "name": "rejected",
+    "snapshot": "{\"session\":{\"id\":\"s1\",\"kind\":\"direct\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"chatKey\":null,\"title\":\"\",\"pinned\":false,\"memoryMode\":\"remember\",\"createdAt\":1,\"updatedAt\":15,\"lastTurnAt\":15,\"archivedAt\":null,\"turnCount\":1},\"events\":[],\"days\":[\"1970-01-01\"],\"messages\":[{\"id\":\"msg1\",\"sessionId\":\"s1\",\"turnId\":\"t1\",\"seq\":1,\"role\":\"user\",\"text\":\"Learned fixture text\",\"tokens\":2,\"createdAt\":15}]}",
+    "target": {
+      "agentId": "alpha",
+      "owner": "ada",
+      "scope": "agent"
+    }
+  },
+  {
+    "expected": {
+      "action": null,
+      "calls": [],
+      "result": {
+        "error": "finding-changed"
+      },
+      "status": "pending"
+    },
+    "finding": "{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"Learned fixture text\",\"contentKey\":\"fixture\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"0032f0e9abf004b1de52c80203a41b4e1ce9865462c89548b754190d89554297\",\"runId\":\"afb1ca708f53e6ee323408a82a1c7dbd401956e5e239620fe3192c47e57b7251\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"pending\"}",
+    "name": "wrong hash",
+    "snapshot": "{\"session\":{\"id\":\"s1\",\"kind\":\"direct\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"chatKey\":null,\"title\":\"\",\"pinned\":false,\"memoryMode\":\"remember\",\"createdAt\":1,\"updatedAt\":15,\"lastTurnAt\":15,\"archivedAt\":null,\"turnCount\":1},\"events\":[],\"days\":[\"1970-01-01\"],\"messages\":[{\"id\":\"msg1\",\"sessionId\":\"s1\",\"turnId\":\"t1\",\"seq\":1,\"role\":\"user\",\"text\":\"Learned fixture text\",\"tokens\":2,\"createdAt\":15}]}",
+    "target": {
+      "agentId": "alpha",
+      "owner": "ada",
+      "scope": "agent"
+    }
+  },
+  {
+    "expected": {
+      "action": null,
+      "calls": [],
+      "result": {
+        "error": "learn-access"
+      },
+      "status": "withdrawn"
+    },
+    "finding": "{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"Learned fixture text\",\"contentKey\":\"fixture\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"0032f0e9abf004b1de52c80203a41b4e1ce9865462c89548b754190d89554297\",\"runId\":\"afb1ca708f53e6ee323408a82a1c7dbd401956e5e239620fe3192c47e57b7251\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"pending\"}",
+    "name": "revoked",
+    "snapshot": "{\"session\":{\"id\":\"s1\",\"kind\":\"direct\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"chatKey\":null,\"title\":\"\",\"pinned\":false,\"memoryMode\":\"remember\",\"createdAt\":1,\"updatedAt\":15,\"lastTurnAt\":15,\"archivedAt\":null,\"turnCount\":1},\"events\":[],\"days\":[\"1970-01-01\"],\"messages\":[{\"id\":\"msg1\",\"sessionId\":\"s1\",\"turnId\":\"t1\",\"seq\":1,\"role\":\"user\",\"text\":\"Learned fixture text\",\"tokens\":2,\"createdAt\":15}]}",
+    "target": {
+      "agentId": "alpha",
+      "owner": "ada",
+      "scope": "agent"
+    }
+  },
+  {
+    "expected": {
+      "action": null,
+      "calls": [],
+      "result": {
+        "error": "learn-access"
+      },
+      "status": "pending"
+    },
+    "finding": "{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"Learned fixture text\",\"contentKey\":\"fixture\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"0032f0e9abf004b1de52c80203a41b4e1ce9865462c89548b754190d89554297\",\"runId\":\"afb1ca708f53e6ee323408a82a1c7dbd401956e5e239620fe3192c47e57b7251\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"pending\"}",
+    "name": "other owner",
+    "snapshot": "{\"session\":{\"id\":\"s1\",\"kind\":\"direct\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"chatKey\":null,\"title\":\"\",\"pinned\":false,\"memoryMode\":\"remember\",\"createdAt\":1,\"updatedAt\":15,\"lastTurnAt\":15,\"archivedAt\":null,\"turnCount\":1},\"events\":[],\"days\":[\"1970-01-01\"],\"messages\":[{\"id\":\"msg1\",\"sessionId\":\"s1\",\"turnId\":\"t1\",\"seq\":1,\"role\":\"user\",\"text\":\"Learned fixture text\",\"tokens\":2,\"createdAt\":15}]}",
+    "target": {
+      "agentId": "alpha",
+      "owner": "ada",
+      "scope": "agent"
+    }
+  },
+  {
+    "expected": {
+      "action": {
+        "receipt": {},
+        "state": "refused"
+      },
+      "calls": [
+        {
+          "method": "memory.importText.apply",
+          "params": {
+            "dryRun": false,
+            "entries": [
+              {
+                "category": "Other",
+                "idempotencyKey": "learn-0032f0e9abf004b1de52c80203a41b4e1ce9865462c89548b754190d89554297-1",
+                "sourceType": "chat",
+                "text": "Learned fixture text",
+                "warnings": []
+              }
+            ],
+            "targets": [
+              {
+                "agentIds": [
+                  "alpha"
+                ],
+                "target": "agent"
+              }
+            ]
+          }
+        }
+      ],
+      "result": {
+        "error": "effect-refused"
+      },
+      "status": "pending"
+    },
+    "finding": "{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"Learned fixture text\",\"contentKey\":\"fixture\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"0032f0e9abf004b1de52c80203a41b4e1ce9865462c89548b754190d89554297\",\"runId\":\"afb1ca708f53e6ee323408a82a1c7dbd401956e5e239620fe3192c47e57b7251\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"pending\"}",
+    "name": "definite refusal",
+    "snapshot": "{\"session\":{\"id\":\"s1\",\"kind\":\"direct\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"chatKey\":null,\"title\":\"\",\"pinned\":false,\"memoryMode\":\"remember\",\"createdAt\":1,\"updatedAt\":15,\"lastTurnAt\":15,\"archivedAt\":null,\"turnCount\":1},\"events\":[],\"days\":[\"1970-01-01\"],\"messages\":[{\"id\":\"msg1\",\"sessionId\":\"s1\",\"turnId\":\"t1\",\"seq\":1,\"role\":\"user\",\"text\":\"Learned fixture text\",\"tokens\":2,\"createdAt\":15}]}",
+    "target": {
+      "agentId": "alpha",
+      "owner": "ada",
+      "scope": "agent"
+    }
+  },
+  {
+    "expected": {
+      "action": {
+        "receipt": {},
+        "state": "started"
+      },
+      "calls": [
+        {
+          "method": "memory.importText.apply",
+          "params": {
+            "dryRun": false,
+            "entries": [
+              {
+                "category": "Other",
+                "idempotencyKey": "learn-0032f0e9abf004b1de52c80203a41b4e1ce9865462c89548b754190d89554297-1",
+                "sourceType": "chat",
+                "text": "Learned fixture text",
+                "warnings": []
+              }
+            ],
+            "targets": [
+              {
+                "agentIds": [
+                  "alpha"
+                ],
+                "target": "agent"
+              }
+            ]
+          }
+        }
+      ],
+      "result": {
+        "error": "import-not-applied"
+      },
+      "status": "pending"
+    },
+    "finding": "{\"kind\":\"knowledge\",\"change\":\"add\",\"text\":\"Learned fixture text\",\"contentKey\":\"fixture\",\"evidence\":[{\"sessionId\":\"s1\",\"turnId\":\"t1\",\"sourceId\":\"msg1\",\"source\":\"message\",\"trust\":\"person\",\"day\":\"1970-01-01\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\"}],\"id\":\"0032f0e9abf004b1de52c80203a41b4e1ce9865462c89548b754190d89554297\",\"runId\":\"afb1ca708f53e6ee323408a82a1c7dbd401956e5e239620fe3192c47e57b7251\",\"target\":{\"scope\":\"agent\",\"owner\":\"ada\",\"agentId\":\"alpha\"},\"revision\":1,\"prevalence\":{\"sessions\":1,\"total\":1,\"days\":1,\"agents\":1,\"persons\":1},\"verify\":\"not-applicable\",\"agreement\":\"unknown\",\"score\":0,\"desiredTier\":\"C\",\"effectiveTier\":\"C\",\"skeptic\":\"not-required\",\"models\":[],\"promptVersion\":\"learn-2\",\"status\":\"pending\"}",
+    "name": "unconfirmed",
+    "snapshot": "{\"session\":{\"id\":\"s1\",\"kind\":\"direct\",\"agentId\":\"alpha\",\"owner\":\"user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029\",\"scope\":\"workspace\",\"chatKey\":null,\"title\":\"\",\"pinned\":false,\"memoryMode\":\"remember\",\"createdAt\":1,\"updatedAt\":15,\"lastTurnAt\":15,\"archivedAt\":null,\"turnCount\":1},\"events\":[],\"days\":[\"1970-01-01\"],\"messages\":[{\"id\":\"msg1\",\"sessionId\":\"s1\",\"turnId\":\"t1\",\"seq\":1,\"role\":\"user\",\"text\":\"Learned fixture text\",\"tokens\":2,\"createdAt\":15}]}",
+    "target": {
+      "agentId": "alpha",
+      "owner": "ada",
+      "scope": "agent"
+    }
+  }
+]

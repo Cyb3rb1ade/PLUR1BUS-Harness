@@ -1,0 +1,559 @@
+{
+  "catalog": {
+    "models": {
+      "google/embeddinggemma-2": {
+        "capabilities": {
+          "audio": true,
+          "image": true,
+          "text": true,
+          "video": true
+        },
+        "dimensions": [
+          128,
+          256,
+          512,
+          768
+        ],
+        "licence": {
+          "id": "Apache-2.0",
+          "nonCommercial": false
+        },
+        "local": true
+      }
+    },
+    "providers": [
+      "local",
+      "local-transformers",
+      "egemma2"
+    ]
+  },
+  "load": [
+    {
+      "after": {
+        "dimensions": 768,
+        "enabled": true,
+        "model": "google/embeddinggemma-2",
+        "provider": "local"
+      },
+      "before": {
+        "dimensions": 768,
+        "enabled": true,
+        "model": "google/embeddinggemma-2",
+        "provider": "local"
+      }
+    },
+    {
+      "after": {
+        "dimensions": 768,
+        "enabled": true,
+        "model": "google/embeddinggemma-2",
+        "provider": "local"
+      },
+      "before": {
+        "dimensions": 13,
+        "enabled": true,
+        "model": "legacy",
+        "provider": "local"
+      }
+    },
+    {
+      "after": {
+        "dimensions": 512,
+        "enabled": true,
+        "model": "google/embeddinggemma-2",
+        "provider": "local"
+      },
+      "before": {
+        "dimensions": 512,
+        "enabled": true,
+        "model": "google/embeddinggemma-2",
+        "provider": "local"
+      }
+    },
+    {
+      "after": {
+        "dimensions": 768,
+        "enabled": true,
+        "model": "google/embeddinggemma-2",
+        "provider": "local"
+      },
+      "before": {
+        "dimensions": 13,
+        "enabled": true,
+        "model": "google/embeddinggemma-2",
+        "provider": "local"
+      }
+    },
+    {
+      "after": {
+        "dimensions": 768,
+        "enabled": false,
+        "model": "legacy",
+        "provider": "local"
+      },
+      "before": {
+        "dimensions": 768,
+        "enabled": false,
+        "model": "legacy",
+        "provider": "local"
+      }
+    },
+    {
+      "after": {
+        "dimensions": 13,
+        "enabled": true,
+        "model": "google/embeddinggemma-2",
+        "provider": "unknown"
+      },
+      "before": {
+        "dimensions": 13,
+        "enabled": true,
+        "model": "google/embeddinggemma-2",
+        "provider": "unknown"
+      }
+    },
+    {
+      "after": {
+        "dimensions": 768,
+        "model": "google/embeddinggemma-2",
+        "provider": "local"
+      },
+      "before": {
+        "provider": "local"
+      }
+    }
+  ],
+  "validate": [
+    {
+      "calls": [
+        [
+          "lookup",
+          "local",
+          "google/embeddinggemma-2"
+        ],
+        [
+          "available",
+          "local",
+          "google/embeddinggemma-2"
+        ]
+      ],
+      "cfg": {
+        "dimensions": 768,
+        "enabled": true,
+        "model": "google/embeddinggemma-2",
+        "provider": "local"
+      },
+      "name": "local",
+      "outcome": "ok",
+      "section": "embedding"
+    },
+    {
+      "calls": [
+        [
+          "lookup",
+          "local",
+          "google/embeddinggemma-2"
+        ]
+      ],
+      "cfg": {
+        "dimensions": 12,
+        "enabled": true,
+        "model": "google/embeddinggemma-2",
+        "provider": "local"
+      },
+      "name": "local dimension",
+      "outcome": "E_MEDIA_DIMENSION",
+      "section": "embedding"
+    },
+    {
+      "calls": [],
+      "cfg": {
+        "dimensions": 8,
+        "enabled": false,
+        "modalities": [
+          "image"
+        ],
+        "model": "bad",
+        "privacyAck": {
+          "acknowledgedAt": "2026-01-01T00:00:00Z",
+          "by": "u",
+          "provider": "fixture-cloud"
+        },
+        "provider": "fixture-cloud"
+      },
+      "name": "disabled",
+      "outcome": "ok",
+      "section": "embedding"
+    },
+    {
+      "calls": [],
+      "cfg": {
+        "dimensions": 8,
+        "enabled": true,
+        "modalities": [
+          "image"
+        ],
+        "model": "bad",
+        "privacyAck": {
+          "acknowledgedAt": "2026-01-01T00:00:00Z",
+          "by": "u",
+          "provider": "fixture-cloud"
+        },
+        "provider": "off"
+      },
+      "name": "off",
+      "outcome": "ok",
+      "section": "embedding"
+    },
+    {
+      "calls": [
+        [
+          "lookup",
+          "fixture-cloud",
+          "bad"
+        ]
+      ],
+      "cfg": {
+        "dimensions": 8,
+        "enabled": true,
+        "modalities": [
+          "image"
+        ],
+        "model": "bad",
+        "privacyAck": {
+          "acknowledgedAt": "2026-01-01T00:00:00Z",
+          "by": "u",
+          "provider": "fixture-cloud"
+        },
+        "provider": "fixture-cloud"
+      },
+      "name": "unknown",
+      "outcome": "E_MEDIA_UNAVAILABLE",
+      "section": "embedding"
+    },
+    {
+      "calls": [],
+      "cfg": {
+        "dimensions": 8,
+        "enabled": true,
+        "modalities": [
+          "image"
+        ],
+        "model": "test",
+        "privacyAck": {
+          "acknowledgedAt": "2026-01-01T00:00:00Z",
+          "by": "u",
+          "provider": "fixture-cloud"
+        }
+      },
+      "name": "no provider",
+      "outcome": "ok",
+      "section": "embedding"
+    },
+    {
+      "calls": [
+        [
+          "lookup",
+          "fixture-cloud",
+          "test"
+        ],
+        [
+          "licence",
+          "test"
+        ],
+        [
+          "available",
+          "fixture-cloud",
+          "test"
+        ]
+      ],
+      "cfg": {
+        "dimensions": 8,
+        "enabled": true,
+        "modalities": [
+          "image"
+        ],
+        "model": "test",
+        "privacyAck": {
+          "acknowledgedAt": "2026-01-01T00:00:00Z",
+          "by": "u",
+          "provider": "fixture-cloud"
+        },
+        "provider": "fixture-cloud"
+      },
+      "name": "cloud",
+      "outcome": "ok",
+      "section": "embedding"
+    },
+    {
+      "calls": [
+        [
+          "lookup",
+          "fixture-cloud",
+          "test"
+        ]
+      ],
+      "cfg": {
+        "dimensions": 8,
+        "enabled": true,
+        "modalities": [
+          "image"
+        ],
+        "model": "test",
+        "privacyAck": {
+          "acknowledgedAt": "2026-01-01T00:00:00Z",
+          "by": "u",
+          "provider": "fixture-cloud"
+        },
+        "provider": "fixture-cloud"
+      },
+      "name": "pinned",
+      "outcome": "E_MEDIA_PRIVACY",
+      "section": "embedding"
+    },
+    {
+      "calls": [
+        [
+          "lookup",
+          "fixture-cloud",
+          "test"
+        ]
+      ],
+      "cfg": {
+        "dimensions": 8,
+        "enabled": true,
+        "modalities": [
+          "image"
+        ],
+        "model": "test",
+        "provider": "fixture-cloud"
+      },
+      "name": "no ack",
+      "outcome": "E_MEDIA_PRIVACY",
+      "section": "embedding"
+    },
+    {
+      "calls": [
+        [
+          "lookup",
+          "fixture-cloud",
+          "test"
+        ]
+      ],
+      "cfg": {
+        "dimensions": 8,
+        "enabled": true,
+        "modalities": [
+          "image"
+        ],
+        "model": "test",
+        "privacyAck": {
+          "acknowledgedAt": "2026-01-01T00:00:00Z",
+          "by": "u",
+          "provider": "different"
+        },
+        "provider": "fixture-cloud"
+      },
+      "name": "wrong ack",
+      "outcome": "E_MEDIA_PRIVACY",
+      "section": "embedding"
+    },
+    {
+      "calls": [
+        [
+          "lookup",
+          "fixture-cloud",
+          "test"
+        ]
+      ],
+      "cfg": {
+        "dimensions": 8,
+        "enabled": true,
+        "modalities": [
+          "audio"
+        ],
+        "model": "test",
+        "privacyAck": {
+          "acknowledgedAt": "2026-01-01T00:00:00Z",
+          "by": "u",
+          "provider": "fixture-cloud"
+        },
+        "provider": "fixture-cloud"
+      },
+      "name": "capability",
+      "outcome": "E_MEDIA_CAPABILITY",
+      "section": "embedding"
+    },
+    {
+      "calls": [
+        [
+          "lookup",
+          "fixture-cloud",
+          "test"
+        ]
+      ],
+      "cfg": {
+        "dimensions": 12,
+        "enabled": true,
+        "modalities": [
+          "image"
+        ],
+        "model": "test",
+        "privacyAck": {
+          "acknowledgedAt": "2026-01-01T00:00:00Z",
+          "by": "u",
+          "provider": "fixture-cloud"
+        },
+        "provider": "fixture-cloud"
+      },
+      "name": "dimension",
+      "outcome": "E_MEDIA_DIMENSION",
+      "section": "embedding"
+    },
+    {
+      "calls": [
+        [
+          "lookup",
+          "fixture-cloud",
+          "test"
+        ],
+        [
+          "licence",
+          "test"
+        ]
+      ],
+      "cfg": {
+        "dimensions": 8,
+        "enabled": true,
+        "modalities": [
+          "image"
+        ],
+        "model": "test",
+        "privacyAck": {
+          "acknowledgedAt": "2026-01-01T00:00:00Z",
+          "by": "u",
+          "provider": "fixture-cloud"
+        },
+        "provider": "fixture-cloud"
+      },
+      "name": "licence",
+      "outcome": "E_MEDIA_LICENSE",
+      "section": "embedding"
+    },
+    {
+      "calls": [
+        [
+          "lookup",
+          "fixture-cloud",
+          "test"
+        ],
+        [
+          "licence",
+          "test"
+        ],
+        [
+          "available",
+          "fixture-cloud",
+          "test"
+        ]
+      ],
+      "cfg": {
+        "dimensions": 8,
+        "enabled": true,
+        "modalities": [
+          "image"
+        ],
+        "model": "test",
+        "privacyAck": {
+          "acknowledgedAt": "2026-01-01T00:00:00Z",
+          "by": "u",
+          "provider": "fixture-cloud"
+        },
+        "provider": "fixture-cloud"
+      },
+      "name": "unavailable",
+      "outcome": "E_MEDIA_UNAVAILABLE",
+      "section": "embedding"
+    },
+    {
+      "calls": [
+        [
+          "lookup",
+          "fixture-cloud",
+          "test"
+        ],
+        [
+          "licence",
+          "test"
+        ],
+        [
+          "available",
+          "fixture-cloud",
+          "test"
+        ]
+      ],
+      "cfg": {
+        "caption": {
+          "model": "test",
+          "privacyAck": {
+            "acknowledgedAt": "2026-01-01T00:00:00Z",
+            "by": "u",
+            "provider": "fixture-cloud"
+          },
+          "provider": "fixture-cloud"
+        },
+        "dimensions": 768,
+        "enabled": true,
+        "model": "google/embeddinggemma-2",
+        "provider": "local"
+      },
+      "name": "caption",
+      "outcome": "ok",
+      "section": "caption"
+    },
+    {
+      "calls": [
+        [
+          "lookup",
+          "fixture-cloud",
+          "test"
+        ]
+      ],
+      "cfg": {
+        "caption": {
+          "model": "test",
+          "provider": "fixture-cloud"
+        },
+        "dimensions": 768,
+        "enabled": true,
+        "model": "google/embeddinggemma-2",
+        "provider": "local"
+      },
+      "name": "caption no ack",
+      "outcome": "E_MEDIA_PRIVACY",
+      "section": "caption"
+    },
+    {
+      "calls": [],
+      "cfg": {
+        "caption": {
+          "model": "test",
+          "privacyAck": {
+            "acknowledgedAt": "2026-01-01T00:00:00Z",
+            "by": "u",
+            "provider": "fixture-cloud"
+          },
+          "provider": "fixture-cloud",
+          "source": "off"
+        },
+        "dimensions": 768,
+        "enabled": true,
+        "model": "google/embeddinggemma-2",
+        "provider": "local"
+      },
+      "name": "caption off",
+      "outcome": "ok",
+      "section": "caption"
+    }
+  ]
+}

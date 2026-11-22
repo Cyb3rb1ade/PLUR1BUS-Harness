@@ -1,0 +1,2251 @@
+{
+  "review": [
+    {
+      "calls": [
+        {
+          "data": {
+            "evidence": [
+              {
+                "excerpt": "fixture token",
+                "ref": {
+                  "agentId": "alpha",
+                  "day": "1970-01-01",
+                  "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+                  "sessionId": "s1",
+                  "source": "message",
+                  "sourceId": "msg1",
+                  "trust": "person",
+                  "turnId": "t1"
+                }
+              }
+            ],
+            "finding": {
+              "change": "add",
+              "text": "Fixture claim"
+            },
+            "verify": "unknown"
+          },
+          "key": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+          "stage": "skeptic"
+        }
+      ],
+      "expected": {
+        "result": {
+          "agreement": "unknown",
+          "change": "add",
+          "checks": [
+            {
+              "contains": "fixture token",
+              "path": "docs/notes.md"
+            }
+          ],
+          "contentKey": "claim",
+          "desiredTier": "B",
+          "effectiveTier": "C",
+          "evidence": [
+            {
+              "agentId": "alpha",
+              "day": "1970-01-01",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "sessionId": "s1",
+              "source": "message",
+              "sourceId": "msg1",
+              "trust": "person",
+              "turnId": "t1"
+            }
+          ],
+          "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+          "kind": "knowledge",
+          "modelClasses": [
+            "large",
+            "small"
+          ],
+          "models": [
+            "large-fixture",
+            "small-fixture"
+          ],
+          "prevalence": {
+            "agents": 1,
+            "days": 1,
+            "persons": 1,
+            "sessions": 1,
+            "total": 1
+          },
+          "promptVersion": "learn-2",
+          "revision": 1,
+          "runId": "run",
+          "score": 0,
+          "skeptic": "holds",
+          "status": "pending",
+          "target": {
+            "agentId": "alpha",
+            "owner": "ada",
+            "projectId": "workspace",
+            "scope": "project"
+          },
+          "text": "Fixture claim",
+          "verify": "unknown"
+        }
+      },
+      "name": "holds",
+      "original": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "B",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "modelClasses": [
+          "small"
+        ],
+        "models": [
+          "small-fixture"
+        ],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "response": "{\"verdict\":\"holds\"}",
+      "sources": [
+        {
+          "days": [
+            "1970-01-01"
+          ],
+          "events": [],
+          "messages": [
+            {
+              "createdAt": 2,
+              "id": "msg1",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "s1",
+              "text": "fixture token",
+              "tokens": 1,
+              "turnId": "t1"
+            }
+          ],
+          "session": {
+            "agentId": "alpha",
+            "archivedAt": null,
+            "chatKey": null,
+            "createdAt": 0,
+            "id": "s1",
+            "kind": "direct",
+            "lastTurnAt": 2,
+            "memoryMode": "remember",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "pinned": false,
+            "scope": "workspace",
+            "title": "",
+            "turnCount": 1,
+            "updatedAt": 2
+          }
+        }
+      ],
+      "stage": "skeptic"
+    },
+    {
+      "calls": [
+        {
+          "data": {
+            "evidence": [
+              {
+                "excerpt": "fixture token",
+                "ref": {
+                  "agentId": "alpha",
+                  "day": "1970-01-01",
+                  "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+                  "sessionId": "s1",
+                  "source": "message",
+                  "sourceId": "msg1",
+                  "trust": "person",
+                  "turnId": "t1"
+                }
+              }
+            ],
+            "finding": {
+              "change": "add",
+              "text": "Fixture claim"
+            },
+            "verify": "unknown"
+          },
+          "key": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+          "stage": "skeptic"
+        }
+      ],
+      "expected": {
+        "result": {
+          "agreement": "unknown",
+          "change": "add",
+          "checks": [
+            {
+              "contains": "fixture token",
+              "path": "docs/notes.md"
+            }
+          ],
+          "contentKey": "claim",
+          "desiredTier": "B",
+          "effectiveTier": "C",
+          "evidence": [
+            {
+              "agentId": "alpha",
+              "day": "1970-01-01",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "sessionId": "s1",
+              "source": "message",
+              "sourceId": "msg1",
+              "trust": "person",
+              "turnId": "t1"
+            }
+          ],
+          "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+          "kind": "knowledge",
+          "modelClasses": [
+            "large",
+            "small"
+          ],
+          "models": [
+            "large-fixture",
+            "small-fixture"
+          ],
+          "prevalence": {
+            "agents": 1,
+            "days": 1,
+            "persons": 1,
+            "sessions": 1,
+            "total": 1
+          },
+          "promptVersion": "learn-2",
+          "revision": 1,
+          "runId": "run",
+          "score": 0,
+          "skeptic": "refuted",
+          "status": "pending",
+          "target": {
+            "agentId": "alpha",
+            "owner": "ada",
+            "projectId": "workspace",
+            "scope": "project"
+          },
+          "text": "Fixture claim",
+          "verify": "unknown"
+        }
+      },
+      "name": "refuted",
+      "original": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "B",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "modelClasses": [
+          "small"
+        ],
+        "models": [
+          "small-fixture"
+        ],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "response": "{\"verdict\":\"refuted\"}",
+      "sources": [
+        {
+          "days": [
+            "1970-01-01"
+          ],
+          "events": [],
+          "messages": [
+            {
+              "createdAt": 2,
+              "id": "msg1",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "s1",
+              "text": "fixture token",
+              "tokens": 1,
+              "turnId": "t1"
+            }
+          ],
+          "session": {
+            "agentId": "alpha",
+            "archivedAt": null,
+            "chatKey": null,
+            "createdAt": 0,
+            "id": "s1",
+            "kind": "direct",
+            "lastTurnAt": 2,
+            "memoryMode": "remember",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "pinned": false,
+            "scope": "workspace",
+            "title": "",
+            "turnCount": 1,
+            "updatedAt": 2
+          }
+        }
+      ],
+      "stage": "skeptic"
+    },
+    {
+      "calls": [
+        {
+          "data": {
+            "evidence": [
+              {
+                "excerpt": "fixture token",
+                "ref": {
+                  "agentId": "alpha",
+                  "day": "1970-01-01",
+                  "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+                  "sessionId": "s1",
+                  "source": "message",
+                  "sourceId": "msg1",
+                  "trust": "person",
+                  "turnId": "t1"
+                }
+              }
+            ],
+            "finding": {
+              "change": "add",
+              "text": "Fixture claim"
+            },
+            "verify": "unknown"
+          },
+          "key": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+          "stage": "skeptic"
+        }
+      ],
+      "expected": {
+        "result": {
+          "agreement": "unknown",
+          "change": "add",
+          "checks": [
+            {
+              "contains": "fixture token",
+              "path": "docs/notes.md"
+            }
+          ],
+          "contentKey": "claim",
+          "desiredTier": "B",
+          "effectiveTier": "C",
+          "evidence": [
+            {
+              "agentId": "alpha",
+              "day": "1970-01-01",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "sessionId": "s1",
+              "source": "message",
+              "sourceId": "msg1",
+              "trust": "person",
+              "turnId": "t1"
+            }
+          ],
+          "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+          "kind": "knowledge",
+          "modelClasses": [
+            "large",
+            "small"
+          ],
+          "models": [
+            "large-fixture",
+            "small-fixture"
+          ],
+          "prevalence": {
+            "agents": 1,
+            "days": 1,
+            "persons": 1,
+            "sessions": 1,
+            "total": 1
+          },
+          "promptVersion": "learn-2",
+          "revision": 1,
+          "runId": "run",
+          "score": 0,
+          "skeptic": "insufficient",
+          "status": "pending",
+          "target": {
+            "agentId": "alpha",
+            "owner": "ada",
+            "projectId": "workspace",
+            "scope": "project"
+          },
+          "text": "Fixture claim",
+          "verify": "unknown"
+        }
+      },
+      "name": "insufficient",
+      "original": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "B",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "modelClasses": [
+          "small"
+        ],
+        "models": [
+          "small-fixture"
+        ],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "response": "{\"verdict\":\"insufficient\"}",
+      "sources": [
+        {
+          "days": [
+            "1970-01-01"
+          ],
+          "events": [],
+          "messages": [
+            {
+              "createdAt": 2,
+              "id": "msg1",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "s1",
+              "text": "fixture token",
+              "tokens": 1,
+              "turnId": "t1"
+            }
+          ],
+          "session": {
+            "agentId": "alpha",
+            "archivedAt": null,
+            "chatKey": null,
+            "createdAt": 0,
+            "id": "s1",
+            "kind": "direct",
+            "lastTurnAt": 2,
+            "memoryMode": "remember",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "pinned": false,
+            "scope": "workspace",
+            "title": "",
+            "turnCount": 1,
+            "updatedAt": 2
+          }
+        }
+      ],
+      "stage": "skeptic"
+    },
+    {
+      "calls": [
+        {
+          "data": {
+            "evidence": [
+              {
+                "excerpt": "fixture token",
+                "ref": {
+                  "agentId": "alpha",
+                  "day": "1970-01-01",
+                  "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+                  "sessionId": "s1",
+                  "source": "message",
+                  "sourceId": "msg1",
+                  "trust": "person",
+                  "turnId": "t1"
+                }
+              }
+            ],
+            "finding": {
+              "change": "add",
+              "text": "Fixture claim"
+            },
+            "verify": "unknown"
+          },
+          "key": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+          "stage": "skeptic"
+        }
+      ],
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "unknown verdict",
+      "original": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "B",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "modelClasses": [
+          "small"
+        ],
+        "models": [
+          "small-fixture"
+        ],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "response": "{\"verdict\":\"other\"}",
+      "sources": [
+        {
+          "days": [
+            "1970-01-01"
+          ],
+          "events": [],
+          "messages": [
+            {
+              "createdAt": 2,
+              "id": "msg1",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "s1",
+              "text": "fixture token",
+              "tokens": 1,
+              "turnId": "t1"
+            }
+          ],
+          "session": {
+            "agentId": "alpha",
+            "archivedAt": null,
+            "chatKey": null,
+            "createdAt": 0,
+            "id": "s1",
+            "kind": "direct",
+            "lastTurnAt": 2,
+            "memoryMode": "remember",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "pinned": false,
+            "scope": "workspace",
+            "title": "",
+            "turnCount": 1,
+            "updatedAt": 2
+          }
+        }
+      ],
+      "stage": "skeptic"
+    },
+    {
+      "calls": [
+        {
+          "data": {
+            "evidence": [
+              {
+                "excerpt": "fixture token",
+                "ref": {
+                  "agentId": "alpha",
+                  "day": "1970-01-01",
+                  "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+                  "sessionId": "s1",
+                  "source": "message",
+                  "sourceId": "msg1",
+                  "trust": "person",
+                  "turnId": "t1"
+                }
+              }
+            ],
+            "finding": {
+              "change": "add",
+              "text": "Fixture claim"
+            },
+            "verify": "unknown"
+          },
+          "key": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+          "stage": "skeptic"
+        }
+      ],
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "extra field",
+      "original": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "B",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "modelClasses": [
+          "small"
+        ],
+        "models": [
+          "small-fixture"
+        ],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "response": "{\"verdict\":\"holds\",\"memoryId\":\"fake\"}",
+      "sources": [
+        {
+          "days": [
+            "1970-01-01"
+          ],
+          "events": [],
+          "messages": [
+            {
+              "createdAt": 2,
+              "id": "msg1",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "s1",
+              "text": "fixture token",
+              "tokens": 1,
+              "turnId": "t1"
+            }
+          ],
+          "session": {
+            "agentId": "alpha",
+            "archivedAt": null,
+            "chatKey": null,
+            "createdAt": 0,
+            "id": "s1",
+            "kind": "direct",
+            "lastTurnAt": 2,
+            "memoryMode": "remember",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "pinned": false,
+            "scope": "workspace",
+            "title": "",
+            "turnCount": 1,
+            "updatedAt": 2
+          }
+        }
+      ],
+      "stage": "skeptic"
+    },
+    {
+      "calls": [],
+      "expected": {
+        "error": "rights-changed"
+      },
+      "name": "missing evidence",
+      "original": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "B",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "modelClasses": [
+          "small"
+        ],
+        "models": [
+          "small-fixture"
+        ],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "response": "{\"verdict\":\"missing evidence\"}",
+      "sources": [],
+      "stage": "skeptic"
+    },
+    {
+      "calls": [],
+      "expected": {
+        "result": {
+          "agreement": "unknown",
+          "change": "add",
+          "checks": [
+            {
+              "contains": "fixture token",
+              "path": "docs/notes.md"
+            }
+          ],
+          "contentKey": "claim",
+          "desiredTier": "C",
+          "effectiveTier": "C",
+          "evidence": [
+            {
+              "agentId": "alpha",
+              "day": "1970-01-01",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "sessionId": "s1",
+              "source": "message",
+              "sourceId": "msg1",
+              "trust": "person",
+              "turnId": "t1"
+            }
+          ],
+          "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+          "kind": "knowledge",
+          "modelClasses": [
+            "small"
+          ],
+          "models": [
+            "small-fixture"
+          ],
+          "prevalence": {
+            "agents": 1,
+            "days": 1,
+            "persons": 1,
+            "sessions": 1,
+            "total": 1
+          },
+          "promptVersion": "learn-2",
+          "revision": 1,
+          "runId": "run",
+          "score": 0,
+          "skeptic": "not-required",
+          "status": "pending",
+          "target": {
+            "agentId": "alpha",
+            "owner": "ada",
+            "projectId": "workspace",
+            "scope": "project"
+          },
+          "text": "Fixture claim",
+          "verify": "unknown"
+        }
+      },
+      "name": "C bypass",
+      "original": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "modelClasses": [
+          "small"
+        ],
+        "models": [
+          "small-fixture"
+        ],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "response": "{\"verdict\":\"C bypass\"}",
+      "sources": [
+        {
+          "days": [
+            "1970-01-01"
+          ],
+          "events": [],
+          "messages": [
+            {
+              "createdAt": 2,
+              "id": "msg1",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "s1",
+              "text": "fixture token",
+              "tokens": 1,
+              "turnId": "t1"
+            }
+          ],
+          "session": {
+            "agentId": "alpha",
+            "archivedAt": null,
+            "chatKey": null,
+            "createdAt": 0,
+            "id": "s1",
+            "kind": "direct",
+            "lastTurnAt": 2,
+            "memoryMode": "remember",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "pinned": false,
+            "scope": "workspace",
+            "title": "",
+            "turnCount": 1,
+            "updatedAt": 2
+          }
+        }
+      ],
+      "stage": "skeptic"
+    },
+    {
+      "calls": [
+        {
+          "data": {
+            "change": "add",
+            "skeptic": "not-required",
+            "text": "Fixture claim",
+            "verify": "unknown"
+          },
+          "key": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+          "stage": "wording"
+        }
+      ],
+      "expected": {
+        "result": {
+          "agreement": "unknown",
+          "change": "add",
+          "checks": [
+            {
+              "contains": "fixture token",
+              "path": "docs/notes.md"
+            }
+          ],
+          "contentKey": "claim",
+          "desiredTier": "B",
+          "effectiveTier": "C",
+          "evidence": [
+            {
+              "agentId": "alpha",
+              "day": "1970-01-01",
+              "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+              "sessionId": "s1",
+              "source": "message",
+              "sourceId": "msg1",
+              "trust": "person",
+              "turnId": "t1"
+            }
+          ],
+          "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+          "kind": "knowledge",
+          "modelClasses": [
+            "large",
+            "small"
+          ],
+          "models": [
+            "large-fixture",
+            "small-fixture"
+          ],
+          "prevalence": {
+            "agents": 1,
+            "days": 1,
+            "persons": 1,
+            "sessions": 1,
+            "total": 1
+          },
+          "promptVersion": "learn-2",
+          "revision": 1,
+          "runId": "run",
+          "score": 0,
+          "skeptic": "not-required",
+          "status": "pending",
+          "target": {
+            "agentId": "alpha",
+            "owner": "ada",
+            "projectId": "workspace",
+            "scope": "project"
+          },
+          "text": "Clearer claim.",
+          "verify": "unknown"
+        }
+      },
+      "name": "worded",
+      "original": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "B",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "modelClasses": [
+          "small"
+        ],
+        "models": [
+          "small-fixture"
+        ],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "response": "{\"text\":\"  Clearer claim.  \"}",
+      "sources": [
+        {
+          "days": [
+            "1970-01-01"
+          ],
+          "events": [],
+          "messages": [
+            {
+              "createdAt": 2,
+              "id": "msg1",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "s1",
+              "text": "fixture token",
+              "tokens": 1,
+              "turnId": "t1"
+            }
+          ],
+          "session": {
+            "agentId": "alpha",
+            "archivedAt": null,
+            "chatKey": null,
+            "createdAt": 0,
+            "id": "s1",
+            "kind": "direct",
+            "lastTurnAt": 2,
+            "memoryMode": "remember",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "pinned": false,
+            "scope": "workspace",
+            "title": "",
+            "turnCount": 1,
+            "updatedAt": 2
+          }
+        }
+      ],
+      "stage": "wording"
+    },
+    {
+      "calls": [
+        {
+          "data": {
+            "change": "add",
+            "skeptic": "not-required",
+            "text": "Fixture claim",
+            "verify": "unknown"
+          },
+          "key": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+          "stage": "wording"
+        }
+      ],
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "empty wording",
+      "original": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "B",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "modelClasses": [
+          "small"
+        ],
+        "models": [
+          "small-fixture"
+        ],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "response": "{\"text\":\"  \"}",
+      "sources": [
+        {
+          "days": [
+            "1970-01-01"
+          ],
+          "events": [],
+          "messages": [
+            {
+              "createdAt": 2,
+              "id": "msg1",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "s1",
+              "text": "fixture token",
+              "tokens": 1,
+              "turnId": "t1"
+            }
+          ],
+          "session": {
+            "agentId": "alpha",
+            "archivedAt": null,
+            "chatKey": null,
+            "createdAt": 0,
+            "id": "s1",
+            "kind": "direct",
+            "lastTurnAt": 2,
+            "memoryMode": "remember",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "pinned": false,
+            "scope": "workspace",
+            "title": "",
+            "turnCount": 1,
+            "updatedAt": 2
+          }
+        }
+      ],
+      "stage": "wording"
+    },
+    {
+      "calls": [
+        {
+          "data": {
+            "change": "add",
+            "skeptic": "not-required",
+            "text": "Fixture claim",
+            "verify": "unknown"
+          },
+          "key": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+          "stage": "wording"
+        }
+      ],
+      "expected": {
+        "error": "invalid-output"
+      },
+      "name": "bad wording",
+      "original": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "B",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "modelClasses": [
+          "small"
+        ],
+        "models": [
+          "small-fixture"
+        ],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "response": "{\"text\":123}",
+      "sources": [
+        {
+          "days": [
+            "1970-01-01"
+          ],
+          "events": [],
+          "messages": [
+            {
+              "createdAt": 2,
+              "id": "msg1",
+              "role": "user",
+              "seq": 1,
+              "sessionId": "s1",
+              "text": "fixture token",
+              "tokens": 1,
+              "turnId": "t1"
+            }
+          ],
+          "session": {
+            "agentId": "alpha",
+            "archivedAt": null,
+            "chatKey": null,
+            "createdAt": 0,
+            "id": "s1",
+            "kind": "direct",
+            "lastTurnAt": 2,
+            "memoryMode": "remember",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "pinned": false,
+            "scope": "workspace",
+            "title": "",
+            "turnCount": 1,
+            "updatedAt": 2
+          }
+        }
+      ],
+      "stage": "wording"
+    }
+  ],
+  "verification": [
+    {
+      "calls": [
+        {
+          "args": {
+            "maxBytes": 32768,
+            "path": "docs/notes.md"
+          },
+          "method": "file.read"
+        }
+      ],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "expected": "supported",
+      "name": "supported"
+    },
+    {
+      "calls": [
+        {
+          "args": {
+            "maxBytes": 32768,
+            "path": "docs/notes.md"
+          },
+          "method": "file.read"
+        }
+      ],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "expected": "contradicted",
+      "name": "contradicted"
+    },
+    {
+      "calls": [],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "expected": "unknown",
+      "name": "no read port"
+    },
+    {
+      "calls": [
+        {
+          "args": {
+            "maxBytes": 32768,
+            "path": "docs/notes.md"
+          },
+          "method": "file.read"
+        }
+      ],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "expected": "unknown",
+      "name": "missing"
+    },
+    {
+      "calls": [
+        {
+          "args": {
+            "maxBytes": 32768,
+            "path": "docs/notes.md"
+          },
+          "method": "file.read"
+        }
+      ],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "expected": "unknown",
+      "name": "truncated"
+    },
+    {
+      "calls": [
+        {
+          "args": {
+            "maxBytes": 32768,
+            "path": "docs/notes.md"
+          },
+          "method": "file.read"
+        }
+      ],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "expected": "unknown",
+      "name": "byte cap"
+    },
+    {
+      "calls": [],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "docs/notes.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "9db172e34079650226af6f9a382d59478288d3bb1252cd78825409f4c0e89ec7",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "scope": "agent"
+        },
+        "text": "Fixture claim",
+        "verify": "not-applicable"
+      },
+      "expected": "not-applicable",
+      "name": "agent"
+    },
+    {
+      "calls": [],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "../outside"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "expected": "unknown",
+      "name": "../outside"
+    },
+    {
+      "calls": [],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "/rooted"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "expected": "unknown",
+      "name": "/rooted"
+    },
+    {
+      "calls": [],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "C:\\absolute"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "expected": "unknown",
+      "name": "C:\\absolute"
+    },
+    {
+      "calls": [],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": ".env"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "expected": "unknown",
+      "name": ".env"
+    },
+    {
+      "calls": [],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": ".git/config"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "expected": "unknown",
+      "name": ".git/config"
+    },
+    {
+      "calls": [],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "foo//doc"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "expected": "unknown",
+      "name": "foo//doc"
+    },
+    {
+      "calls": [],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "notes/secret.md"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "expected": "unknown",
+      "name": "notes/secret.md"
+    },
+    {
+      "calls": [],
+      "checked": {
+        "agreement": "unknown",
+        "change": "add",
+        "checks": [
+          {
+            "contains": "fixture token",
+            "path": "notes/PRIVATE_key.txt"
+          }
+        ],
+        "contentKey": "claim",
+        "desiredTier": "C",
+        "effectiveTier": "C",
+        "evidence": [
+          {
+            "agentId": "alpha",
+            "day": "1970-01-01",
+            "owner": "user:v2:fdee430d40bd57deeac186cd9790033d0f06f909a8806e7ce6e717ab7c7d5029",
+            "sessionId": "s1",
+            "source": "message",
+            "sourceId": "msg1",
+            "trust": "person",
+            "turnId": "t1"
+          }
+        ],
+        "id": "1f9ddd333c3e4232e86b4afe91af75e8d77b45cbf73442b59386434c5c44e388",
+        "kind": "knowledge",
+        "models": [],
+        "prevalence": {
+          "agents": 1,
+          "days": 1,
+          "persons": 1,
+          "sessions": 1,
+          "total": 1
+        },
+        "promptVersion": "learn-2",
+        "revision": 1,
+        "runId": "run",
+        "score": 0,
+        "skeptic": "not-required",
+        "status": "pending",
+        "target": {
+          "agentId": "alpha",
+          "owner": "ada",
+          "projectId": "workspace",
+          "scope": "project"
+        },
+        "text": "Fixture claim",
+        "verify": "unknown"
+      },
+      "expected": "unknown",
+      "name": "notes/PRIVATE_key.txt"
+    }
+  ]
+}

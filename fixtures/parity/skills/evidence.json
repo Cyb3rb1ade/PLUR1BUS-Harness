@@ -1,0 +1,164 @@
+{
+  "failed": {
+    "agentId": "alpha",
+    "callId": "failed",
+    "owner": "owner-a",
+    "sessionId": "session-a",
+    "success": false,
+    "tool": "file.read",
+    "turnId": "turn-a",
+    "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "finalized": {
+    "after": false,
+    "changed": {
+      "agentId": "alpha",
+      "callId": "call-a",
+      "owner": "owner-a",
+      "sessionId": "session-a",
+      "success": false,
+      "tool": "file.read",
+      "turnId": "turn-a",
+      "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "divergence": "finalized-evidence-is-immutable"
+  },
+  "known": {
+    "agentId": "alpha",
+    "callId": "call-a",
+    "owner": "owner-a",
+    "sessionId": "session-a",
+    "success": true,
+    "tool": "file.read",
+    "turnId": "turn-a",
+    "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "verified": [
+    {
+      "name": "known",
+      "value": {
+        "agentId": "alpha",
+        "callId": "call-a",
+        "owner": "owner-a",
+        "sessionId": "session-a",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-a",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "verified": true
+    },
+    {
+      "name": "failed",
+      "value": {
+        "agentId": "alpha",
+        "callId": "failed",
+        "owner": "owner-a",
+        "sessionId": "session-a",
+        "success": false,
+        "tool": "file.read",
+        "turnId": "turn-a",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "verified": false
+    },
+    {
+      "name": "wrong owner",
+      "value": {
+        "agentId": "alpha",
+        "callId": "call-a",
+        "owner": "owner-b",
+        "sessionId": "session-a",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-a",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "verified": false
+    },
+    {
+      "name": "wrong agent",
+      "value": {
+        "agentId": "other",
+        "callId": "call-a",
+        "owner": "owner-a",
+        "sessionId": "session-a",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-a",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "verified": false
+    },
+    {
+      "name": "other session",
+      "value": {
+        "agentId": "alpha",
+        "callId": "call-a",
+        "owner": "owner-a",
+        "sessionId": "session-b",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-a",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "verified": false
+    },
+    {
+      "name": "other turn",
+      "value": {
+        "agentId": "alpha",
+        "callId": "call-a",
+        "owner": "owner-a",
+        "sessionId": "session-a",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-b",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "verified": false
+    },
+    {
+      "name": "other call",
+      "value": {
+        "agentId": "alpha",
+        "callId": "call-b",
+        "owner": "owner-a",
+        "sessionId": "session-a",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-a",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "verified": false
+    },
+    {
+      "name": "other tool",
+      "value": {
+        "agentId": "alpha",
+        "callId": "call-a",
+        "owner": "owner-a",
+        "sessionId": "session-a",
+        "success": true,
+        "tool": "file.list",
+        "turnId": "turn-a",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "verified": false
+    },
+    {
+      "name": "other version",
+      "value": {
+        "agentId": "alpha",
+        "callId": "call-a",
+        "owner": "owner-a",
+        "sessionId": "session-a",
+        "success": true,
+        "tool": "file.read",
+        "turnId": "turn-a",
+        "version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "verified": false
+    }
+  ]
+}

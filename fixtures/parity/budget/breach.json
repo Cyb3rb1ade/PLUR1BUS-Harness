@@ -1,0 +1,698 @@
+[
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 1791331200000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global daily tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets 2026-10-07T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 1793516400000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global daily tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets 2026-11-01T07:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 0,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global daily tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets 1970-01-01T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 8640000000000000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global daily tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets +275760-09-13T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 1791331200000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global daily images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets 2026-10-07T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 1793516400000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global daily images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets 2026-11-01T07:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 0,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global daily images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets 1970-01-01T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 8640000000000000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global daily images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets +275760-09-13T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 1791331200000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global daily videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets 2026-10-07T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 1793516400000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global daily videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets 2026-11-01T07:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 0,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global daily videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets 1970-01-01T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 8640000000000000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global daily videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets +275760-09-13T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 1791331200000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global monthly tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets 2026-10-07T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 1793516400000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global monthly tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets 2026-11-01T07:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 0,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global monthly tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets 1970-01-01T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 8640000000000000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global monthly tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets +275760-09-13T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 1791331200000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global monthly images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets 2026-10-07T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 1793516400000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global monthly images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets 2026-11-01T07:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 0,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global monthly images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets 1970-01-01T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 8640000000000000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global monthly images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets +275760-09-13T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 1791331200000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global monthly videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets 2026-10-07T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 1793516400000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global monthly videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets 2026-11-01T07:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 0,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global monthly videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets 1970-01-01T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 8640000000000000,
+      "scope": "global",
+      "used": 1900
+    },
+    "text": "global monthly videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets +275760-09-13T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 1791331200000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 daily tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets 2026-10-07T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 1793516400000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 daily tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets 2026-11-01T07:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 0,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 daily tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets 1970-01-01T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 8640000000000000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 daily tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets +275760-09-13T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 1791331200000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 daily images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets 2026-10-07T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 1793516400000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 daily images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets 2026-11-01T07:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 0,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 daily images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets 1970-01-01T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 8640000000000000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 daily images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets +275760-09-13T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 1791331200000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 daily videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets 2026-10-07T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 1793516400000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 daily videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets 2026-11-01T07:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 0,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 daily videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets 1970-01-01T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "day",
+      "periodKey": "k",
+      "resetsAt": 8640000000000000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 daily videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets +275760-09-13T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 1791331200000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 monthly tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets 2026-10-07T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 1793516400000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 monthly tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets 2026-11-01T07:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 0,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 monthly tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets 1970-01-01T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "tokens",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 8640000000000000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 monthly tokens hard limit 2000 tokens would be exceeded (used 1900 tokens, this call ~200 tokens; resets +275760-09-13T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 1791331200000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 monthly images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets 2026-10-07T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 1793516400000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 monthly images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets 2026-11-01T07:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 0,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 monthly images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets 1970-01-01T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "images",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 8640000000000000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 monthly images hard limit 2000 images would be exceeded (used 1900 images, this call ~200 images; resets +275760-09-13T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 1791331200000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 monthly videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets 2026-10-07T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 1793516400000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 monthly videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets 2026-11-01T07:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 0,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 monthly videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets 1970-01-01T00:00:00.000Z)"
+  },
+  {
+    "breach": {
+      "agentId": "a1",
+      "estimate": 200,
+      "kind": "hard",
+      "limit": 2000,
+      "metric": "videoSeconds",
+      "period": "month",
+      "periodKey": "k",
+      "resetsAt": 8640000000000000,
+      "scope": "agent",
+      "used": 1900
+    },
+    "text": "agent a1 monthly videoSeconds hard limit 2000 video seconds would be exceeded (used 1900 video seconds, this call ~200 video seconds; resets +275760-09-13T00:00:00.000Z)"
+  }
+]

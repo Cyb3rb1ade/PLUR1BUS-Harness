@@ -1,3 +1,16 @@
+import { buildCodingCheckVectors } from "./export-coding-checks.ts";
+import { buildChatPromotionVectors } from "./export-chat-promotion.ts";
+import { buildCodingGitViewVectors } from "./export-coding-git-view.ts";
+import { buildCodingSessionVectors } from "./export-coding-sessions.ts";
+import { buildCodingRootVectors } from "./export-coding-root.ts";
+import { buildCodingRunnerVectors } from "./export-coding-runner.ts";
+import { buildCodingVerifierVectors } from "./export-coding-verifier.ts";
+import { buildCodingSurfaceVectors } from "./export-coding-surface.ts";
+import { buildCodingGateVectors } from "./export-coding-gate.ts";
+import { buildCollabRunVectors } from "./export-collab-run.ts";
+import { buildCollabDelegationVectors } from "./export-collab-delegations.ts";
+import { buildCollabServiceVectors } from "./export-collab-service.ts";
+import { buildCollabHandoffVectors } from "./export-collab-handoff.ts";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -9,6 +22,7 @@ import { buildWireFixtures } from "./export-wire.ts";
 import { buildFormatVectors } from "./export-formats.ts";
 import { buildAuthVectors, credentials, substitute } from "./export-auth.ts";
 import { buildConfigVectors } from "./export-config.ts";
+import { buildEndpointVectors } from "./export-endpoint.ts";
 import { buildLogsVectors } from "./export-logs.ts";
 import { buildDoctorVectors } from "./export-doctor.ts";
 import { buildMetricsVectors } from "./export-metrics.ts";
@@ -22,7 +36,33 @@ import { buildIdentityAdminVectors } from "./export-identity-admin.ts";
 import { buildRbacGuardVectors } from "./export-rbac-guard.ts";
 import { buildSensitivityVectors } from "./export-sensitivity.ts";
 import { buildSecretsVectors } from "./export-secrets.ts";
+import { buildAcpVectors } from "./export-acp.ts";
 import { buildSecretsStoreVectors } from "./export-secrets-store.ts";
+import { buildBudgetVectors } from "./export-budget.ts";
+import { buildHandoffVectors } from "./export-handoff.ts";
+import { buildDeliveryVectors } from "./export-delivery.ts";
+import { buildInboxVectors } from "./export-inbox.ts";
+import { buildJobsVectors } from "./export-jobs.ts";
+import { buildEgressVectors } from "./export-egress.ts";
+import { buildPolicyVectors } from "./export-policy.ts";
+import { buildAttestationVectors } from "./export-attestation.ts";
+import { buildApprovalsVectors } from "./export-approvals.ts";
+import { RECORDED_ON as POLICY_FS_OS, buildPolicyFsVectors } from "./export-policy-fs.ts";
+import { RECORDED_ON as TOOLS_OS, buildToolsPureVectors, buildToolsRecordedVectors } from "./export-tools.ts";
+import { buildProviderAuthVectors } from "./export-provider-auth.ts";
+import { buildOpenAIAuthVectors } from "./export-openai-auth.ts";
+import { buildSessionVectors } from "./export-sessions.ts";
+import { buildCollabVectors } from "./export-collab.ts";
+import { buildMaintenanceVectors } from "./export-session-maintenance.ts";
+import { buildRewindVectors } from "./export-session-rewind.ts";
+import { buildPromptVectors } from "./export-prompt.ts";
+import { buildTriageVectors } from "./export-triage.ts";
+import { buildDecisionVectors } from "./export-decision.ts";
+import { buildToolcallVectors } from "./export-toolcall.ts";
+import { buildSkillTools } from "./export-skill-tools.ts";
+import { buildLiveIndex } from "./export-live-index.ts";
+import { buildModelToolError } from "./export-model-tool-error.ts";
+import { buildCapabilityVectors, fdlibmLog, logArguments } from "./export-capabilities.ts";
 import { POLICY } from "../../packages/core/src/rbac/policy.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
@@ -223,6 +263,21 @@ describe("config vectors (P4-11 task 4a)", () => {
     assert.ok(built.validate.length >= 60 && built.warnings.some((c: any) => c.warnings.length === 50));
     assert.ok(built.engine.some((c: any) => c.ok) && built.engine.some((c: any) => !c.ok && c.error.reason === "local-only") && built.engine.some((c: any) => c.catalog));
     assert.ok(built.patch.some((c: any) => !c.ok) && built.disclosure.length >= 10);
+  });
+});
+
+describe("endpoint vectors (the small URL reader of the Rust configuration policy)", () => {
+  it("the committed fixture is exactly what Node's URL constructor reads today, with refused and accepted address spellings", async () => {
+    const built = await buildEndpointVectors() as any;
+    assert.deepEqual(Object.keys(built), ["url"]);
+    assert.equal(readFileSync(fixturePath("endpoint", "url"), "utf8"), fixtureText(built.url), "fixtures/parity/endpoint/url.json is stale: run scripts/parity/export-endpoint.ts");
+    const cases: Array<{ url: string; ok: boolean; hostname?: string }> = built.url.cases;
+    const read = (url: string) => cases.find((c) => c.url === url);
+    // A sign is no digit of an IPv4 part: the constructor refuses it before the last part and reads a domain when it is in the last.
+    for (const url of ["https://+1.2.3.4/", "https://1.+2.3.4/", "https://%2b1.2.3.4/", "https://0x+7f.1/", "https://-1.2.3.4/"]) assert.equal(read(url)?.ok, false, url);
+    assert.equal(read("https://1.2.3.+4/")?.hostname, "1.2.3.+4");
+    assert.equal(read("https://0x7f.1/")?.hostname, "127.0.0.1");
+    assert.ok(cases.filter((c) => !c.ok).length >= 100 && cases.filter((c) => c.ok).length >= 100);
   });
 });
 
@@ -534,5 +589,804 @@ describe("secrets vectors (P4-20, mode V)", () => {
     // Strings JSON cannot hold are in the vectors, and randomness is scripted, never recorded (the real source is restored).
     assert.ok(JSON.stringify(built.validation).includes('"u16"'));
     assert.notEqual(randomBytes(16).toString("hex"), randomBytes(16).toString("hex"));
+  });
+});
+
+describe("budget vectors (P4-K K1, plan P4-24)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildBudgetVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["breach", "context", "media", "period", "retry", "subagent", "weight"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("budget", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/budget/${name}.json is stale: run scripts/parity/export-budget.ts`);
+      assert.ok(text.length < 5_000_000, `${name}: a fixture file stays under about 5 MB (split it)`);
+    }
+    // The zones the Rust replay cannot model without a time-zone database are in the vectors, so the replay names what it skips.
+    assert.ok(built.period.rows.some((r: unknown[]) => r[0] === "Pacific/Apia"));
+  });
+});
+
+describe("handoff vectors (P4-K K3b, plan P4-22)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildHandoffVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["rules", "web-base"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("handoff", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/handoff/${name}.json is stale: run scripts/parity/export-handoff.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    // The boundaries of the security rule are scenarios, and randomness is scripted, never recorded.
+    const names = built.rules.map((s: any) => s.name);
+    for (const n of ["redeem-lifetime-boundary", "taint-for-good", "taint-by-kind", "link-limit-per-person", "audit-before-effect"]) assert.ok(names.includes(n), n);
+  });
+});
+
+describe("delivery vectors (P4-K K3b, plan P4-22)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildDeliveryVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["policy", "rules"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("delivery", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/delivery/${name}.json is stale: run scripts/parity/export-delivery.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    const names = built.rules.map((s: any) => s.name);
+    for (const n of ["code-boundaries-time", "code-boundaries-tries", "confirm-text-shapes", "quota-race-across-the-dm-lookup", "remove-and-revocation-during-delivery"]) assert.ok(names.includes(n), n);
+    // Both answers of the allowlist rule are recorded, and the Buzz key answers the replay hands to its port.
+    assert.ok(built.policy.cases.some((c: any) => c.allowed) && built.policy.cases.some((c: any) => !c.allowed));
+    assert.ok(Object.keys(built.policy.buzzKeys).length > 0);
+  });
+});
+
+describe("inbox vectors (P4-K K3b, plan P4-22)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildInboxVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["producers", "service", "store"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("inbox", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/inbox/${name}.json is stale: run scripts/parity/export-inbox.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    const names = built.store.map((s: any) => s.name);
+    for (const n of ["rate-limit-boundary", "retention-by-age", "retention-by-count", "cursor-decoding", "validation"]) assert.ok(names.includes(n), n);
+    // The strings JSON cannot hold (a clip that cut an emoji in two, K3-D4) are recorded as unit lists.
+    assert.ok(JSON.stringify(built.producers).includes('"$u16"'));
+  });
+});
+
+describe("sessions vectors (P4-K K5a, plan P4-40)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildSessionVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["fts", "overlays", "pure", "schema", "sessions", "turns"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("sessions", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/sessions/${name}.json is stale: run scripts/parity/export-sessions.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    assert.equal(built.schema.version, 11);
+    assert.ok(built.sessions.some((s: any) => s.name === "chat-pages"));
+  });
+});
+
+describe("collab vectors (P4-K K6a, plan P4-50)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildCollabVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["board", "pure", "schema", "store"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("collab", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/collab/${name}.json is stale: run scripts/parity/export-collab.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    assert.equal(built.schema.version, 9);
+    assert.ok(built.pure.guardrails.length >= 60 && built.pure.limits.length >= 100);
+  });
+});
+
+describe("session maintenance vectors (P4-K K5b, plan P4-40)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildMaintenanceVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["chat-models", "compaction-1", "compaction-2", "compaction-3", "compaction-4", "context-fit", "maintenance", "pruning-1", "pruning-2", "pruning-3", "pruning-4", "pruning-5", "pure", "role-routing", "summarizer", "telemetry"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("session-maintenance", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/session-maintenance/${name}.json is stale: run scripts/parity/export-session-maintenance.ts`);
+      assert.ok(text.length <= 1024 * 1024, `${name}: a vector file stays at or under 1 MiB`);
+    }
+  });
+});
+
+describe("session rewind vectors (P4-K K5c, plan P4-40)", () => {
+  // The vectors record the argument lists of real git runs with unix paths; Windows spells the null device and the paths otherwise.
+  it("the committed fixture is exactly what the exporter records", { skip: process.platform === "win32" }, async () => {
+    const built = await buildRewindVectors() as any;
+    assert.deepEqual(Object.keys(built), ["cases"]);
+    const text = readFileSync(fixturePath("session-rewind", "cases"), "utf8");
+    assert.equal(text, fixtureText(built.cases), "fixtures/parity/session-rewind/cases.json is stale: run scripts/parity/export-session-rewind.ts");
+    assert.ok(text.length <= 1024 * 1024, "a vector file stays at or under 1 MiB");
+  });
+});
+
+describe("egress vectors (P4-K K2, plan P4-21)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildEgressVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["decide", "gate", "model", "policy", "urls"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("egress", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/egress/${name}.json is stale: run scripts/parity/export-egress.ts`);
+      assert.ok(text.length < 5_000_000, `${name}: a fixture file stays under about 5 MB (split it)`);
+    }
+    // The cases the Rust side refuses for want of IDNA are in the vectors, with their note.
+    assert.ok(built.policy.some((c: any) => c.note !== undefined));
+    assert.ok(built.gate.cases.some((c: any) => c.note !== undefined && c.urlError === undefined));
+    // The hostile URL corpus (review A of K2): every named class holds at least two URLs, and the file stays under 1 MiB.
+    assert.ok(Object.values(built.urls.classes).every((rows: any) => rows.length >= 2));
+    assert.ok(fixtureText(built.urls).length < 1_048_576);
+  });
+});
+
+describe("policy vectors (P4-K K2, plan P4-21)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildPolicyVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["audit", "decide", "effects", "helpers", "paths", "tables", "values"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("policy", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/policy/${name}.json is stale: run scripts/parity/export-policy.ts`);
+      assert.ok(text.length < 5_000_000, `${name}: a fixture file stays under about 5 MB (split it)`);
+    }
+    // Every platform is recorded, whatever machine records them, and the attack/benign table is in.
+    assert.deepEqual(built.paths.platforms.map((p: any) => p.platform), ["darwin", "linux", "win32", "win32", "darwin", "win32", "freebsd"]);
+    assert.ok(built.decide.some((c: any) => c.name === "ssh-read:attack"));
+    // JavaScript value semantics (review A of K2): some conversions throw, and `decide` records the K2-D8 rows.
+    assert.ok(built.values.coerce.some((c: any) => c.number.threw === "TypeError"));
+    assert.ok(built.values.decide.some((g: any) => g.rows.some((r: any) => r.divergence === "K2-D8")));
+  });
+});
+
+describe("attestation vectors (P4-K K2, plan P4-21)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildAttestationVectors() as any;
+    assert.deepEqual(Object.keys(built), ["service"]);
+    const text = readFileSync(fixturePath("attestation", "service"), "utf8");
+    assert.equal(text, fixtureText(built.service), "fixtures/parity/attestation/service.json is stale: run scripts/parity/export-attestation.ts");
+    assert.ok(built.service.some((s: any) => s.name === "replay"));
+  });
+});
+
+// The grant paths in these vectors are POSIX spellings, which the Windows path rules refuse: compared on POSIX only.
+describe("approvals vectors (P4-K K3a, plan P4-22)", { skip: process.platform === "win32" ? "the grant paths are POSIX spellings; the Windows rules refuse them" : false }, () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildApprovalsVectors() as any;
+    assert.deepEqual(Object.keys(built), ["canonical", "cells", "cells-grants", "chain", "ed25519", "regex", "rules", "semantic", "signing"]);
+    for (const name of Object.keys(built)) {
+      const text = readFileSync(fixturePath("approvals", name), "utf8");
+      assert.equal(text, fixtureText(built[name]), `fixtures/parity/approvals/${name}.json is stale: run scripts/parity/export-approvals.ts`);
+      assert.ok(text.length <= 1024 * 1024, `${name}: R-K-10, a vector file stays at or under 1 MiB`);
+    }
+    assert.ok(built.chain.tampers.some((t: any) => t.name === "signature-byte"));
+    // Review B, RB-1: every group of Ed25519 edge cases is on record, Node accepts none where the equation does not hold,
+    // and it refuses every key and every R of small order although the equation holds for them.
+    const ed = built.ed25519;
+    for (const g of ["honest", "small-a", "small-r", "mixed-a", "mixed-r", "s-range", "noncanonical"]) assert.ok(ed.verify.some((c: any) => c.group === g), g);
+    assert.equal(ed.smallOrder.length, 14);
+    assert.ok(ed.verify.every((c: any) => c.equation || !c.ok));
+    assert.ok(ed.verify.filter((c: any) => c.group === "small-a" || c.group === "small-r").every((c: any) => !c.ok));
+    assert.ok(ed.verify.filter((c: any) => c.group === "small-a" && c.equation).length >= 28);
+    assert.ok(ed.verify.some((c: any) => c.group === "mixed-a" && c.ok));
+    assert.deepEqual([...ed.spellings, ...ed.keys].filter((c: any) => c.divergence).map((c: any) => c.divergence).sort(), ["K3-D5", "K3-D5", "K3-D5", "K3-D6", "K3-D6", "K3-D6"]);
+  });
+});
+
+// The file-system answers are those of the system the vectors were recorded on; elsewhere this one file is not compared
+// (the Rust replay plays its portable cases there and counts the rest).
+describe("policy file-system vectors (P4-K K2, plan P4-21)", { skip: process.platform === POLICY_FS_OS ? false : `fixtures/parity/policy-fs/${POLICY_FS_OS}.json is recorded on ${POLICY_FS_OS}; this is ${process.platform}, so it is not compared` }, () => {
+  it("the committed fixture is exactly what the exporter records on the recording system", async () => {
+    const built = await buildPolicyFsVectors() as any;
+    assert.deepEqual(Object.keys(built), [POLICY_FS_OS]);
+    const text = readFileSync(fixturePath("policy-fs", POLICY_FS_OS), "utf8");
+    assert.equal(text, fixtureText(built[POLICY_FS_OS]), `fixtures/parity/policy-fs/${POLICY_FS_OS}.json is stale: run scripts/parity/export-policy-fs.ts on ${POLICY_FS_OS}`);
+    assert.ok(text.length <= 1024 * 1024, "R-K-10: a vector file stays at or under 1 MiB");
+    // Since P4D-43 the truncation follows the identity check (formerly K2-D5): the other file keeps its contents, and a
+    // target missing at the check is not opened without a create. The file-system-dependent cases are marked.
+    const fsCase = (n: string) => built[POLICY_FS_OS].cases.find((c: any) => c.name === n);
+    assert.deepEqual(fsCase("swap-write-for-hard-link").results.at(-1), { text: "outside-secret" });
+    assert.equal(fsCase("late-hard-link-without-create").results[2].reason, "not-found");
+    assert.ok(built[POLICY_FS_OS].cases.every((c: any) => c.divergence === undefined));
+    assert.ok(built[POLICY_FS_OS].cases.some((c: any) => c.portable === false));
+  });
+});
+
+describe("provider auth vectors (P4-K K4, plan P4-23)", () => {
+  it("the committed fixtures are exactly what the exporter records, in pieces where they hold a secret", async () => {
+    const built = await buildProviderAuthVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["adc", "credentials", "http", "ladder", "login", "pem", "pool", "profile", "records", "redact", "refresh"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("provider-auth", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/provider-auth/${name}.json is stale: run scripts/parity/export-provider-auth.ts`);
+      assert.ok(text.length <= 1024 * 1024, `${name}: R-K-10, a vector file stays at or under 1 MiB`);
+      // Every invented secret is stored in pieces: no whole marker, no whole key header.
+      assert.ok(!/CANARY-[A-Z]+-/.test(text) && !/BEGIN [A-Z ]*PRIVATE KEY/.test(text), `${name}: a secret is stored whole`);
+    }
+    const names = built.refresh.scenarios.map((s: any) => s.name);
+    for (const n of ["concurrent-callers-share-one-refresh", "invalid-grant-is-reauth-and-stops", "skew-boundary-no-jitter", "backoff-boundary", "clock-jumps-back-and-forward"]) assert.ok(names.includes(n), n);
+    assert.equal(built.refresh.scenarios.find((s: any) => s.name === "concurrent-callers-share-one-refresh").requests.length, 1);
+  });
+});
+
+describe("OpenAI auth vectors (P4-K K4, plan P4-23)", () => {
+  it("the committed fixtures are exactly what the exporter records, in pieces where they hold a secret", async () => {
+    const built = await buildOpenAIAuthVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["http", "jwks", "listener", "plan", "pure", "service", "workload"]);
+    // Review B: a target that is no URL is answered 404 (P4D-45, formerly K4-D4), and no request divergence remains.
+    const unparsable = built.listener.requests.filter((r: any) => r.target === "//[" || r.target === "http://[");
+    assert.equal(unparsable.length, 2);
+    assert.ok(unparsable.every((r: any) => r.response.status === 404 && r.threw === undefined));
+    assert.ok(built.listener.requests.every((r: any) => r.divergence === undefined));
+    // P4D-44 closed K4-D5 and K4-D6; of the identity divergences only K4-D7 (a key carrying `d`) remains.
+    assert.deepEqual([...new Set(built.jwks.members.filter((c: any) => c.divergence).map((c: any) => c.divergence))], ["K4-D7"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("openai-auth", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/openai-auth/${name}.json is stale: run scripts/parity/export-openai-auth.ts`);
+      assert.ok(text.length <= 1024 * 1024, `${name}: R-K-10, a vector file stays at or under 1 MiB`);
+      assert.ok(!/CANARY-[A-Z]+-/.test(text) && !/BEGIN [A-Z ]*PRIVATE KEY/.test(text), `${name}: a secret is stored whole`);
+    }
+    assert.equal(built.jwks.eddsa.length, 200);
+    assert.ok(built.jwks.eddsa.filter((c: any) => c.group === "small-a" || c.group === "small-r").every((c: any) => !c.ok));
+    const names = built.plan.scenarios.map((s: any) => s.name);
+    for (const n of ["spent-marker-survives-network-failure", "repeated-refresh-token-refused", "narrow-scope-at-refresh", "wrong-state", "oidc-rejects-signature"]) assert.ok(names.includes(n), n);
+  });
+});
+
+describe("prompt vectors (P4-K K9a, plan P4-42)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildPromptVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["canonical", "join", "model-table", "render", "session", "skills", "telemetry"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("prompt", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/prompt/${name}.json is stale: run scripts/parity/export-prompt.ts`);
+      assert.ok(text.length <= 1024 * 1024, `${name}: R-K-10, a vector file stays at or under 1 MiB`);
+    }
+    // Every rendered prompt carries the digest of its whole JSON text; refusals are recorded with what was emitted before them.
+    const steps = built.render.scenarios.flatMap((s: any) => s.steps);
+    assert.ok(steps.filter((s: any) => typeof s.digest === "string").length > 200);
+    assert.ok(steps.some((s: any) => s.error !== undefined && s.emitted.length > 0));
+    const names = built.render.scenarios.map((s: any) => s.name);
+    for (const n of ["b6-corpus-2", "prefix-stability", "interior-all-zones", "ttl-warmth-5m", "memory-cap-surrogate-5", "conversation-refused-tool-result-assistant"]) assert.ok(names.includes(n), n);
+    // A description cut inside a surrogate pair is recorded as code units (K9a-D1).
+    assert.ok(JSON.stringify(built.skills.describe).includes('"$u16"'));
+  });
+});
+
+describe("triage vectors (P4-K K9a, plan P4-42)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildTriageVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["classes", "message-eval", "rules", "runtime", "triage"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("triage", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/triage/${name}.json is stale: run scripts/parity/export-triage.ts`);
+      assert.ok(text.length <= 1024 * 1024, `${name}: R-K-10, a vector file stays at or under 1 MiB`);
+    }
+    // Every threshold has a case on each side: the class tails, the confidence bump, the evaluation gates.
+    assert.ok(built.classes.choose.some((c: any) => c.error !== undefined) && built.classes.choose.some((c: any) => c.result === "frontier"));
+    assert.deepEqual(built["message-eval"].sets.filter((s: any) => s.result.passed).map((s: any) => s.name), ["all-good-60", "extra-13-of-60", "under-3-of-60", "wrong-category", "prototype-category"]);
+    assert.ok(built.runtime.scenarios.some((s: any) => s.steps.some((x: any) => x.aborted === true)));
+  });
+});
+
+describe("decision vectors (P4-K K9a, plan P4-42)", () => {
+  it("the committed fixtures are exactly what the exporter records, the credential in pieces", async () => {
+    const built = await buildDecisionVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["adapters", "client", "role", "skills", "system-one"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("decision", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/decision/${name}.json is stale: run scripts/parity/export-decision.ts`);
+      assert.ok(text.length <= 1024 * 1024, `${name}: R-K-10, a vector file stays at or under 1 MiB`);
+      // The credential of the System One cases is never stored as one literal, and no request id is a real UUID.
+      assert.ok(!text.includes(built["system-one"].secret.parts.join("")), `${name}: the test credential is stored whole`);
+    }
+    const reasons = new Set(built.client.scenarios.flatMap((s: any) => s.calls.map((c: any) => JSON.parse(c.json).reason ?? "accepted")));
+    for (const r of ["accepted", "unavailable", "timeout", "invalid", "low-confidence", "privacy", "cancelled"]) assert.ok(reasons.has(r), r);
+    assert.ok(built["system-one"].cases.some((c: any) => c.name === "lease-value-with-a-line-break" && c.error.reason === "unavailable"));
+    assert.ok(built.role.runs.some((r: any) => r.name === "tool-call" && r.error.reason === "invalid"));
+  });
+});
+
+describe("tool-call runtime vectors (P4-K K9b, plan P4-42)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildToolcallVectors() as any;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("toolcall", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/toolcall/${name}.json is stale: run scripts/parity/export-toolcall.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    // The hostile corpus is large enough to matter and carries its seed.
+    assert.ok(built.arguments.fuzz.cases.length >= 2000);
+    assert.equal(built.arguments.fuzz.seed, "0x70011c");
+    // Every repair kind and every refusal text of the decoder appears in a named case with its full answer.
+    const named = JSON.stringify(built.arguments.named);
+    for (const needle of ["trailing-comma", "unwrap-json-string", "numeric-string", "JSON parse failed", "arguments too large", "invalid JSON arguments", "required property missing", "unknown property"]) assert.ok(named.includes(needle), needle);
+  });
+  it("the model-tool-error fixture is exactly what its exporter records", () => {
+    const text = readFileSync(fixturePath("toolcall", "model-tool-error"), "utf8");
+    assert.equal(text, fixtureText(buildModelToolError()), "fixtures/parity/toolcall/model-tool-error.json is stale: run scripts/parity/export-model-tool-error.ts");
+    assert.ok(text.length < 1_048_576, "a fixture file stays under 1 MiB");
+  });
+  it("the Rust table of shipped tools is the one generated from the vector", () => {
+    const rows = JSON.parse(readFileSync(fixturePath("toolcall", "tables"), "utf8")).firstParty as string[][];
+    const rust = readFileSync(new URL("../../crates/plur1bus-core/src/toolcall/first_party_table.rs", import.meta.url), "utf8");
+    assert.ok(rows.length > 50);
+    for (const row of rows) assert.ok(rust.includes(`    (${row.slice(0, 5).map(x => JSON.stringify(x)).join(", ")}),\n`), `${row[0]}: run scripts/parity/toolcall-first-party.mjs`);
+    assert.equal(rust.split("\n").filter(line => line.startsWith("    (")).length, rows.length);
+  });
+});
+
+describe("skill tool vectors (P4-K K9b, plan P4-42)", { skip: process.platform === "win32" ? "the skill-tools scenarios need symlinks and FIFOs to record" : false }, () => {
+  it("the committed fixture is exactly what the exporter records", async () => {
+    const text = readFileSync(fixturePath("toolcall", "skill-tools"), "utf8");
+    assert.equal(text, fixtureText(await buildSkillTools()), "fixtures/parity/toolcall/skill-tools.json is stale: run scripts/parity/export-skill-tools.ts");
+    assert.ok(text.length < 1_048_576, "a fixture file stays under 1 MiB");
+  });
+});
+
+describe("capability index vectors (P4-K K9b, plan P4-42)", () => {
+  it("the committed fixtures are exactly what the exporter records", async () => {
+    const built = await buildCapabilityVectors() as any;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("capabilities", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/capabilities/${name}.json is stale: run scripts/parity/export-capabilities.ts`);
+      assert.ok(text.length < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+  });
+  it("the live-index fixture is exactly what its exporter records", async () => {
+    const text = readFileSync(fixturePath("capabilities", "live-index"), "utf8");
+    assert.equal(text, fixtureText(await buildLiveIndex()), "fixtures/parity/capabilities/live-index.json is stale: run scripts/parity/export-live-index.ts");
+    assert.ok(text.length < 1_048_576, "a fixture file stays under 1 MiB");
+  });
+  it("Math.log of this machine is the recorded routine to within one unit in the last place (K9b-D1)", () => {
+    // The vector holds fdlibm's routine with every operation rounded on its own. A V8 compiled with fused multiply-add
+    // (arm64) differs from it in the last place for a few arguments in a hundred; no V8 may differ by more.
+    const bits = (x: number) => new BigUint64Array(new Float64Array([x]).buffer)[0]!;
+    let differ = 0;
+    for (const x of logArguments()) {
+      const a = Math.log(x), b = fdlibmLog(x);
+      if (Object.is(a, b)) continue;
+      differ++;
+      const distance = bits(a) - bits(b);
+      assert.ok(distance === 1n || distance === -1n, `Math.log(${x}) is ${a}, the routine gives ${b}`);
+    }
+    assert.ok(differ < logArguments().length / 10, `${differ} arguments differ`);
+  });
+});
+
+describe("ACP server transcripts (P4-K K8, plan P4-71)", () => {
+  it("the committed transcripts are exactly what the exporter records, and every file stays under 1 MiB", async () => {
+    const built = await buildAcpVectors() as Record<string, { scenarios: { name: string; transcript: string[] }[] }>;
+    let scenarios = 0;
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("acp", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/acp/${name}.json is stale: run scripts/parity/export-acp.ts`);
+      assert.ok(Buffer.byteLength(text) < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+      scenarios += data.scenarios.length;
+      // Only the scenario about a turn that never ends after the end of input is meant to leave `run()` pending.
+      for (const sc of data.scenarios) assert.equal(sc.transcript.includes("HUNG"), sc.name === "end-of-input-with-a-turn-that-ignores-cancel", `${sc.name}: the server finished`);
+    }
+    assert.ok(scenarios >= 400, `${scenarios} scenarios`);
+  });
+});
+
+describe("tool vectors (P4-K K10a, plan P4-30)", () => {
+  it("the pure fixtures are exactly what the exporter records", () => {
+    const built = buildToolsPureVectors() as any;
+    assert.deepEqual(Object.keys(built), ["exec-rules", "fs-meta"]);
+    for (const name of Object.keys(built)) {
+      assert.equal(readFileSync(fixturePath("tools", name), "utf8"), fixtureText(built[name]), `fixtures/parity/tools/${name}.json is stale: run scripts/parity/export-tools.ts`);
+    }
+    assert.ok(built["exec-rules"].patterns.some((p: any) => !p.subset && p.matches.some(Boolean)), "a pattern outside the Rust subset that TypeScript reads");
+  });
+  it("the fixtures recorded against real files are exactly what the exporter records", { skip: process.platform === TOOLS_OS ? false : `fixtures/parity/tools/{exec-runs,fs}.json are recorded on ${TOOLS_OS}; this is ${process.platform}, so they are not compared` }, async () => {
+    const built = await buildToolsRecordedVectors() as any;
+    assert.deepEqual(Object.keys(built), ["exec-runs", "fs"]);
+    for (const name of Object.keys(built)) {
+      assert.equal(readFileSync(fixturePath("tools", name), "utf8"), fixtureText(built[name]), `fixtures/parity/tools/${name}.json is stale: run scripts/parity/export-tools.ts on ${TOOLS_OS}`);
+    }
+    assert.ok(built.fs.cases.some((c: any) => c.divergence === "K10-D2"));
+  });
+});
+
+describe("jobs vectors (P4-K K7a, plan P4-51)", () => {
+  it("the committed fixtures are exactly what the exporter records, and every file stays under 1 MiB", async () => {
+    const built = await buildJobsVectors() as { cron: any; user: any[]; rpc: any[]; system: any[] };
+    assert.deepEqual(Object.keys(built).sort(), ["cron", "rpc", "system", "user"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("jobs", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/jobs/${name}.json is stale: run scripts/parity/export-jobs.ts`);
+      assert.ok(Buffer.byteLength(text) < 1_048_576, `${name}: a fixture file stays under 1 MiB`);
+    }
+    // The boundaries the port must keep are scenarios, and randomness is scripted, never recorded.
+    const user = built.user.map((s: any) => s.name);
+    for (const n of ["create-rights", "update", "rights-lost-since-the-job-was-saved", "skipped-runs-switch-the-job-off", "concurrency-through-the-turn", "restart-abandons-interrupted-runs"]) assert.ok(user.includes(n), n);
+    assert.deepEqual(built.rpc.map((s: any) => s.name), ["rpc-list", "rpc-history", "rpc-run"]);
+    const system = built.system.map((s: any) => s.name);
+    for (const n of ["exclusive-lock", "ledger-lenient-reader", "ledger-rotation", "arm-and-fire"]) assert.ok(system.includes(n), n);
+    assert.ok(built.cron.next.some((c: any) => c.tz === "Europe/Berlin" && c.next !== null) && built.cron.parse.some((c: any) => c.err !== undefined));
+  });
+});
+
+describe("collab handoff vectors (P4-K K6a, plan P4-50)", () => {
+  it("the fixture is current and under 1 MiB", async () => {
+    const { handoff } = await buildCollabHandoffVectors();
+    const committed = readFileSync(fixturePath("collab", "handoff"), "utf8");
+    assert.equal(committed, fixtureText(handoff), "collab/handoff.json is stale: run scripts/parity/export-collab-handoff.ts");
+    assert.ok(Buffer.byteLength(committed) < 1_048_576);
+  });
+});
+
+describe("collab service vectors (P4-K K6a, plan P4-50)", () => {
+  it("the fixtures are current and under 1 MiB", async () => {
+    for (const [name, fixture] of Object.entries(await buildCollabServiceVectors())) {
+      const committed = readFileSync(fixturePath("collab", name), "utf8");
+      assert.equal(committed, fixtureText(fixture), "collab/" + name + ".json is stale: run scripts/parity/export-collab-service.ts");
+      assert.ok(Buffer.byteLength(committed) < 1_048_576, name);
+    }
+  });
+});
+
+describe("collab turn-local delegation vectors (P4-K K6a, plan P4-50)", () => {
+  it("the fixture is current and under 1 MiB", async () => {
+    const { delegations } = await buildCollabDelegationVectors();
+    const committed = readFileSync(fixturePath("collab", "delegations"), "utf8");
+    assert.equal(committed, fixtureText(delegations), "collab/delegations.json is stale: run scripts/parity/export-collab-delegations.ts");
+    assert.ok(Buffer.byteLength(committed) < 1_048_576);
+  });
+});
+
+describe("collab delegate run vectors (P4-K K6a, plan P4-50)", () => {
+  it("the fixture is current and under 1 MiB", async () => {
+    const { run } = await buildCollabRunVectors();
+    const committed = readFileSync(fixturePath("collab", "run"), "utf8");
+    assert.equal(committed, fixtureText(run), "collab/run.json is stale: run scripts/parity/export-collab-run.ts");
+    assert.ok(Buffer.byteLength(committed) < 1_048_576);
+  });
+});
+
+describe("coding parity vectors (P4-K K6b, plan P4-50)", () => {
+  const exporters = [
+    ["the verifier plan", buildCodingVerifierVectors],
+    ["the gate", buildCodingGateVectors],
+    ["the card surface", buildCodingSurfaceVectors],
+    ["chat promotion", buildChatPromotionVectors],
+    ["the runner", buildCodingRunnerVectors],
+    ["coding roots", buildCodingRootVectors],
+    ["coding sessions", buildCodingSessionVectors],
+    ["the profile and tool diffs", async () => {
+      const { buildCodingActionVectors } = await import("./export-coding-actions.ts");
+      return buildCodingActionVectors();
+    }],
+    ["the Git view", buildCodingGitViewVectors],
+    ["advisory checks", buildCodingCheckVectors],
+  ] as const;
+  for (const [label, build] of exporters) {
+    it(label + " fixtures are current and under 1 MiB", async () => {
+      for (const [name, fixture] of Object.entries(await build())) {
+        const committed = readFileSync(fixturePath("coding", name), "utf8");
+        assert.equal(committed, fixtureText(fixture), "coding/" + name + ".json is stale");
+        assert.ok(Buffer.byteLength(committed) < 1_048_576, name);
+      }
+    });
+  }
+});
+
+describe("dreaming candidate vectors (P4-K K7b, plan P4-51)", () => {
+  it("the recorded candidate guards are current and under 1 MiB", async () => {
+    const { buildDreamCandidateVectors } = await import("./export-dream-candidates.ts");
+    const { candidates } = buildDreamCandidateVectors();
+    const actual = readFileSync(fixturePath("dreams", "candidates"), "utf8");
+    assert.equal(actual, fixtureText(candidates), "dreams/candidates.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("dreaming store vectors (P4-K K7b, plan P4-51)", () => {
+  it("the recorded SQLite transitions are current and under 1 MiB", async () => {
+    const { buildDreamStoreVectors } = await import("./export-dream-store.ts");
+    const { store } = buildDreamStoreVectors();
+    const actual = readFileSync(fixturePath("dreams", "store"), "utf8");
+    assert.equal(actual, fixtureText(store), "dreams/store.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("dreaming schedule plans (P4-K K7b, plan P4-51)", () => {
+  it("the recorded plans are current and under 1 MiB", async () => {
+    const { buildDreamPlanVectors } = await import("./export-dream-plans.ts");
+    const actual = readFileSync(fixturePath("dreams", "plans"), "utf8");
+    assert.equal(actual, fixtureText(buildDreamPlanVectors().plans), "dreams/plans.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("dreaming run outcomes (P4-K K7b, plan P4-51)", () => {
+  it("the recorded run outcomes are current and under 1 MiB", async () => {
+    const { buildDreamRunVectors } = await import("./export-dream-runs.ts");
+    const actual = readFileSync(fixturePath("dreams", "runs"), "utf8");
+    assert.equal(actual, fixtureText((await buildDreamRunVectors()).runs), "dreams/runs.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("learning transcript selection (P4-K K7b, plan P4-51)", () => {
+  it("the recorded selections are current and under 1 MiB", async () => {
+    const { buildLearnSelectionVectors } = await import("./export-learn-selection.ts");
+    const actual = readFileSync(fixturePath("learn", "selection"), "utf8");
+    assert.equal(actual, fixtureText(buildLearnSelectionVectors().selection), "learn/selection.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("dreaming lifecycle (P4-K K7b, plan P4-51)", () => {
+  it("the recorded lifecycle is current and under 1 MiB", async () => {
+    const { buildDreamLifecycleVectors } = await import("./export-dream-lifecycle.ts");
+    const actual = readFileSync(fixturePath("dreams", "lifecycle"), "utf8");
+    assert.equal(actual, fixtureText((await buildDreamLifecycleVectors()).lifecycle), "dreams/lifecycle.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("learning run store (P4-K K7b, plan P4-51)", () => {
+  it("the recorded learn store transitions are current and under 1 MiB", async () => {
+    const { buildLearnStoreVectors } = await import("./export-learn-store.ts");
+    const actual = readFileSync(fixturePath("learn", "store"), "utf8");
+    assert.equal(actual, fixtureText(buildLearnStoreVectors().store), "learn/store.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("dreaming promotion receipts (P4-K K7b, plan P4-51)", () => {
+  it("the recorded promotion receipts are current and under 1 MiB", async () => {
+    const { buildDreamPromotionVectors } = await import("./export-dream-promotions.ts");
+    const actual = readFileSync(fixturePath("dreams", "promotions"), "utf8");
+    assert.equal(actual, fixtureText((await buildDreamPromotionVectors()).promotions), "dreams/promotions.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("learning finding extraction and shadow scoring (P4-K K7b, plan P4-51)", () => {
+  it("the recorded learning rules are current and under 1 MiB", async () => {
+    const { buildLearnFindingVectors } = await import("./export-learn-findings.ts");
+    const actual = readFileSync(fixturePath("learn", "findings"), "utf8");
+    assert.equal(actual, fixtureText(buildLearnFindingVectors().findings), "learn/findings.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("learning finding lifecycle (P4-K K7b, plan P4-51)", () => {
+  it("the recorded decisions and predictions are current and under 1 MiB", async () => {
+    const { buildLearnFindingStoreVectors } = await import("./export-learn-finding-store.ts");
+    const actual = readFileSync(fixturePath("learn", "finding-store"), "utf8");
+    assert.equal(actual, fixtureText(buildLearnFindingStoreVectors()["finding-store"]), "learn/finding-store.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("learning evidence review (P4-K K7b, plan P4-51)", () => {
+  it("the recorded review rules are current and under 1 MiB", async () => {
+    const { buildLearnReviewVectors } = await import("./export-learn-review.ts");
+    const actual = readFileSync(fixturePath("learn", "review"), "utf8");
+    assert.equal(actual, fixtureText((await buildLearnReviewVectors()).review), "learn/review.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("learning runs (P4-K K7b, plan P4-51)", () => {
+  it("the recorded run workflow is current and under 1 MiB", async () => {
+    const { buildLearnRunVectors } = await import("./export-learn-runs.ts");
+    const actual = readFileSync(fixturePath("learn", "runs"), "utf8");
+    assert.equal(actual, fixtureText((await buildLearnRunVectors()).runs), "learn/runs.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("content-free installation learning (P4-K K7b, plan P4-51)", () => {
+  it("the recorded installation rules are current and under 1 MiB", async () => {
+    const { buildLearnInstallationVectors } = await import("./export-learn-installation.ts");
+    const actual = readFileSync(fixturePath("learn", "installation"), "utf8");
+    assert.equal(actual, fixtureText(buildLearnInstallationVectors().installation), "learn/installation.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("explicit learning decisions (P4-K K7b, plan P4-51)", () => {
+  it("the recorded review actions are current and under 1 MiB", async () => {
+    const { buildLearnDecisionVectors } = await import("./export-learn-decisions.ts");
+    const actual = readFileSync(fixturePath("learn", "decisions"), "utf8");
+    assert.equal(actual, fixtureText((await buildLearnDecisionVectors()).decisions), "learn/decisions.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("learning settings and UTC schedules (P4-K K7b, plan P4-51)", () => {
+  it("the recorded settings are current and under 1 MiB", async () => {
+    const { buildLearnConfigVectors } = await import("./export-learn-config.ts");
+    const actual = readFileSync(fixturePath("learn", "config"), "utf8");
+    assert.equal(actual, fixtureText(buildLearnConfigVectors().config), "learn/config.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("procedural learning handoff (P4-K K7b, plan P4-51)", () => {
+  it("the recorded handoff is current and under 1 MiB", async () => {
+    const { buildLearnHandoffVectors } = await import("./export-learn-handoff.ts");
+    const actual = readFileSync(fixturePath("learn", "handoff"), "utf8");
+    assert.equal(actual, fixtureText((await buildLearnHandoffVectors()).handoff), "learn/handoff.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("dreaming candidate source (P4-K K7b, plan P4-51)", () => {
+  it("the recorded candidate source is current and under 1 MiB", async () => {
+    const { buildDreamSourceVectors } = await import("./export-dream-source.ts");
+    const actual = readFileSync(fixturePath("dreams", "source"), "utf8");
+    assert.equal(actual, fixtureText((await buildDreamSourceVectors()).source), "dreams/source.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("skill mining execution evidence (P4-K K7c, plan P4-51)", () => {
+  it("the recorded execution proofs are current and under 1 MiB", async () => {
+    const { buildSkillEvidenceVectors } = await import("./export-skill-evidence.ts");
+    const actual = readFileSync(fixturePath("skills", "evidence"), "utf8");
+    assert.equal(actual, fixtureText(buildSkillEvidenceVectors().evidence), "skills/evidence.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("scoped skill mining (P4-K K7c, plan P4-51)", () => {
+  it("the recorded mining workflows are current and under 1 MiB", async () => {
+    const { buildSkillMiningVectors } = await import("./export-skill-mining.ts");
+    const actual = readFileSync(fixturePath("skills", "mining"), "utf8");
+    assert.equal(actual, fixtureText(buildSkillMiningVectors().mining), "skills/mining.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("human skill review (P4-K K7c, plan P4-51)", () => {
+  it("the recorded skill approvals are current and under 1 MiB", async () => {
+    const { buildSkillReviewVectors } = await import("./export-skill-review.ts");
+    const actual = readFileSync(fixturePath("skills", "review"), "utf8");
+    assert.equal(actual, fixtureText((await buildSkillReviewVectors()).review), "skills/review.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("skill proposal queue (P4-K K7c, plan P4-51)", () => {
+  it("the recorded proposal-only workflow is current and under 1 MiB", async () => {
+    const { buildSkillProposalVectors } = await import("./export-skill-proposals.ts");
+    const actual = readFileSync(fixturePath("skills", "proposals"), "utf8");
+    assert.equal(actual, fixtureText((await buildSkillProposalVectors()).proposals), "skills/proposals.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("self-knowledge artifact provenance (P4-K K7c, plan P4-51)", () => {
+  it("the recorded attribution and approval rules are current and under 1 MiB", async () => {
+    const { buildArtifactProvenanceVectors } = await import("./export-artifact-provenance.ts");
+    const actual = readFileSync(fixturePath("skills", "artifact-provenance"), "utf8");
+    assert.equal(actual, fixtureText((await buildArtifactProvenanceVectors())["artifact-provenance"]), "skills/artifact-provenance.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("knowledge file migration (P4-K K7c, plan P4-51)", () => {
+  it("the recorded knowledge transitions are current and under 1 MiB", async () => {
+    const { buildKnowledgeFileVectors } = await import("./export-knowledge-file.ts");
+    const actual = readFileSync(fixturePath("knowledge", "file"), "utf8");
+    assert.equal(actual, fixtureText(buildKnowledgeFileVectors().file), "knowledge/file.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("knowledge update scheduling (P4-K K7c, plan P4-51)", () => {
+  it("the recorded job state transitions are current and under 1 MiB", async () => {
+    const { buildKnowledgeJobVectors } = await import("./export-knowledge-job.ts");
+    const actual = readFileSync(fixturePath("knowledge", "job"), "utf8");
+    assert.equal(actual, fixtureText((await buildKnowledgeJobVectors()).job), "knowledge/job.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("media reference search (P4-K K7c, plan P4-51)", () => {
+  it("the recorded scope and rank rules are current and under 1 MiB", async () => {
+    const { buildMediaIndexVectors } = await import("./export-media-index.ts");
+    const actual = readFileSync(fixturePath("media", "index"), "utf8");
+    assert.equal(actual, fixtureText((await buildMediaIndexVectors()).index), "media/index.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("media encoding admission (P4-K K7c, plan P4-51)", () => {
+  it("the recorded policy and reservations are current and under 1 MiB", async () => {
+    const { buildMediaAdmissionVectors } = await import("./export-media-admission.ts");
+    const actual = readFileSync(fixturePath("media", "admission"), "utf8");
+    assert.equal(actual, fixtureText((await buildMediaAdmissionVectors()).admission), "media/admission.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("media captions (P4-K K7c, plan P4-51)", () => {
+  it("the recorded caption choices and fake cloud wire are current and under 1 MiB", async () => {
+    const { buildMediaCaptionVectors } = await import("./export-media-caption.ts");
+    const actual = readFileSync(fixturePath("media", "caption"), "utf8");
+    assert.equal(actual, fixtureText((await buildMediaCaptionVectors()).caption), "media/caption.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("media backfill (P4-K K7c, plan P4-51)", () => {
+  it("the recorded backfill controls and fingerprint state are current and under 1 MiB", async () => {
+    const { buildMediaBackfillVectors } = await import("./export-media-backfill.ts");
+    const actual = readFileSync(fixturePath("media", "backfill"), "utf8");
+    assert.equal(actual, fixtureText((await buildMediaBackfillVectors()).backfill), "media/backfill.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("media codec limits (P4-K K7c, plan P4-51)", () => {
+  it("the recorded codec plans and fake outputs are current and under 1 MiB", async () => {
+    const { buildMediaCodecVectors } = await import("./export-media-codec.ts");
+    const actual = readFileSync(fixturePath("media", "codec"), "utf8");
+    assert.equal(actual, fixtureText((await buildMediaCodecVectors()).codec), "media/codec.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("stored media work (P4-K K7c, plan P4-51)", () => {
+  it("the recorded queue outcomes are current and under 1 MiB", async () => {
+    const { buildMediaHookVectors } = await import("./export-media-hook.ts");
+    const actual = readFileSync(fixturePath("media", "hook"), "utf8");
+    assert.equal(actual, fixtureText((await buildMediaHookVectors()).hook), "media/hook.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("media model configuration (P4-K K7c, plan P4-51)", () => {
+  it("the recorded catalog and validation vectors are current and under 1 MiB", async () => {
+    const { buildMediaConfigVectors } = await import("./export-media-config.ts");
+    const actual = readFileSync(fixturePath("media", "config"), "utf8");
+    assert.equal(actual, fixtureText((await buildMediaConfigVectors()).config), "media/config.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("federation loan model (P4-K K6c, plan P4-50)", () => {
+  it("the recorded deadline and lease state vectors are current and under 1 MiB", async () => {
+    const { buildFederationLoanVectors } = await import("./export-federation-loan.ts");
+    const actual = readFileSync(fixturePath("federation", "loan"), "utf8");
+    assert.equal(actual, fixtureText(buildFederationLoanVectors().loan), "federation/loan.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("federation memory descriptors (P4-K K6c, plan P4-50)", () => {
+  it("the recorded descriptors and replay receipts are current and under 1 MiB", async () => {
+    const { buildFederationMemoryVectors } = await import("./export-federation-memory.ts");
+    const actual = readFileSync(fixturePath("federation", "memory"), "utf8");
+    assert.equal(actual, fixtureText(buildFederationMemoryVectors().memory), "federation/memory.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("external turn library (P4-K K6c, plan P4-50)", () => {
+  it("the recorded scoped turns are current and under 1 MiB", async () => {
+    const { buildExternalTurnVectors } = await import("./export-external-turn.ts");
+    const actual = readFileSync(fixturePath("external-turn", "turn"), "utf8");
+    assert.equal(actual, fixtureText((await buildExternalTurnVectors()).turn), "external-turn/turn.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("Hostctl contract (P4-K K10b)", () => {
+  it("keeps the catalog, configuration and literal vectors current", async () => {
+    const { buildHostctl } = await import("./export-hostctl.ts");
+    const actual = readFileSync(fixturePath("host", "hostctl"), "utf8");
+    assert.equal(actual, fixtureText(await buildHostctl()), "host/hostctl.json is stale");
+    assert.ok(Buffer.byteLength(actual) < 1_048_576);
   });
 });

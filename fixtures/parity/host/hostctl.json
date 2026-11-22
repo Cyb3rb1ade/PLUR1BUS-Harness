@@ -1,0 +1,1240 @@
+{
+  "appExtensions": [
+    {
+      "extension": "txt",
+      "launchable": false
+    },
+    {
+      "extension": "workflow",
+      "launchable": true
+    },
+    {
+      "extension": "action",
+      "launchable": true
+    },
+    {
+      "extension": "mpkg",
+      "launchable": true
+    },
+    {
+      "extension": "app",
+      "launchable": true
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "lnk",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "url",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "scf",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "appref-ms",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "settingcontent-ms",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "library-ms",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "chm",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "terminal",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "fileloc",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "webloc",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "inetloc",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "mobileconfig",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "prefPane",
+      "launchable": false
+    },
+    {
+      "divergence": "K10-D22",
+      "extension": "saver",
+      "launchable": false
+    }
+  ],
+  "commandPolicy": [
+    {
+      "input": {
+        "args": [
+          "report",
+          "notes.txt"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "ordinary arguments",
+      "operation": "exec",
+      "refusal": null
+    },
+    {
+      "input": {
+        "args": [
+          "sudoer"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "near prefix is ordinary",
+      "operation": "exec",
+      "refusal": null
+    },
+    {
+      "input": {
+        "args": [
+          "sudo.exe"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "privilege helper as argument",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "su"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "user switch as argument",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "doas"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "alternate privilege helper",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "pkexec"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "policy helper",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "diskpart.exe"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "disk tool as argument",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "format.com"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "format tool as argument",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "mkfs.fixture"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "filesystem tool as argument",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "runas.exe"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "managed runner as argument",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "gsudo"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "graphical escalation helper",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "expect"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "interaction helper",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "sshpass"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "credential helper",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "fixture/doas"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "argument path separator",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "note﻿sudo"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "argument ECMAScript space",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "rm",
+          "-rf",
+          "/"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "recursive root marker in arguments",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "HKEY_LOCAL_MACHINE"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "machine registry hive",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "delete"
+        ],
+        "cwd": ".",
+        "program": "reg.exe"
+      },
+      "name": "registry delete",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "load"
+        ],
+        "cwd": ".",
+        "program": "reg.exe"
+      },
+      "name": "registry load",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "restore"
+        ],
+        "cwd": ".",
+        "program": "reg.exe"
+      },
+      "name": "registry restore",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "\\Device\\Fixture"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "device namespace",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "input": {
+        "args": [
+          "\\\\.\\Fixture"
+        ],
+        "cwd": ".",
+        "program": "fixture"
+      },
+      "name": "raw device prefix",
+      "operation": "exec",
+      "refusal": "DENIED"
+    },
+    {
+      "divergence": "K10-D15",
+      "input": {
+        "args": [
+          "fixture"
+        ],
+        "cwd": ".",
+        "program": "env"
+      },
+      "name": "wrapper delegation",
+      "operation": "exec",
+      "refusal": null
+    },
+    {
+      "divergence": "K10-D15",
+      "input": {
+        "args": [
+          "fixture"
+        ],
+        "cwd": ".",
+        "program": "rm"
+      },
+      "name": "direct destructive tool",
+      "operation": "exec",
+      "refusal": null
+    },
+    {
+      "input": {
+        "command": "printf fixture",
+        "cwd": "."
+      },
+      "name": "ordinary shell tokens",
+      "operation": "shell",
+      "refusal": null
+    },
+    {
+      "divergence": "K10-D15",
+      "input": {
+        "command": "eval fixture",
+        "cwd": "."
+      },
+      "name": "literal shell builtin eval",
+      "operation": "shell",
+      "refusal": null
+    },
+    {
+      "divergence": "K10-D15",
+      "input": {
+        "command": "builtin fixture",
+        "cwd": "."
+      },
+      "name": "literal shell builtin builtin",
+      "operation": "shell",
+      "refusal": null
+    },
+    {
+      "divergence": "K10-D15",
+      "input": {
+        "command": "coproc fixture",
+        "cwd": "."
+      },
+      "name": "literal shell builtin coproc",
+      "operation": "shell",
+      "refusal": null
+    },
+    {
+      "divergence": "K10-D15",
+      "input": {
+        "command": "source fixture",
+        "cwd": "."
+      },
+      "name": "literal shell builtin source",
+      "operation": "shell",
+      "refusal": null
+    },
+    {
+      "divergence": "K10-D15",
+      "input": {
+        "command": "iex fixture",
+        "cwd": "."
+      },
+      "name": "literal shell builtin iex",
+      "operation": "shell",
+      "refusal": null
+    }
+  ],
+  "config": [
+    {
+      "input": {},
+      "result": {
+        "denyPatterns": [],
+        "enabled": true,
+        "env": {
+          "allow": [
+            "PATH",
+            "LANG",
+            "LC_ALL",
+            "TZ",
+            "TERM",
+            "SystemRoot",
+            "PATHEXT",
+            "TEMP",
+            "TMP"
+          ]
+        },
+        "exec": {
+          "timeoutMs": 30000
+        },
+        "output": {
+          "maxBytes": 65536
+        },
+        "search": {
+          "maxResults": 100
+        },
+        "shell": {
+          "allowed": false,
+          "default": "bash"
+        }
+      }
+    },
+    {
+      "input": {
+        "enabled": false
+      },
+      "result": {
+        "denyPatterns": [],
+        "enabled": false,
+        "env": {
+          "allow": [
+            "PATH",
+            "LANG",
+            "LC_ALL",
+            "TZ",
+            "TERM",
+            "SystemRoot",
+            "PATHEXT",
+            "TEMP",
+            "TMP"
+          ]
+        },
+        "exec": {
+          "timeoutMs": 30000
+        },
+        "output": {
+          "maxBytes": 65536
+        },
+        "search": {
+          "maxResults": 100
+        },
+        "shell": {
+          "allowed": false,
+          "default": "bash"
+        }
+      }
+    },
+    {
+      "input": {
+        "shell": {
+          "allowed": true,
+          "default": "pwsh"
+        }
+      },
+      "result": {
+        "denyPatterns": [],
+        "enabled": true,
+        "env": {
+          "allow": [
+            "PATH",
+            "LANG",
+            "LC_ALL",
+            "TZ",
+            "TERM",
+            "SystemRoot",
+            "PATHEXT",
+            "TEMP",
+            "TMP"
+          ]
+        },
+        "exec": {
+          "timeoutMs": 30000
+        },
+        "output": {
+          "maxBytes": 65536
+        },
+        "search": {
+          "maxResults": 100
+        },
+        "shell": {
+          "allowed": true,
+          "default": "pwsh"
+        }
+      }
+    },
+    {
+      "input": {
+        "exec": {
+          "timeoutMs": 0
+        },
+        "output": {
+          "maxBytes": 31
+        },
+        "search": {
+          "maxResults": 0
+        }
+      },
+      "result": {
+        "denyPatterns": [],
+        "enabled": true,
+        "env": {
+          "allow": [
+            "PATH",
+            "LANG",
+            "LC_ALL",
+            "TZ",
+            "TERM",
+            "SystemRoot",
+            "PATHEXT",
+            "TEMP",
+            "TMP"
+          ]
+        },
+        "exec": {
+          "timeoutMs": 1
+        },
+        "output": {
+          "maxBytes": 32
+        },
+        "search": {
+          "maxResults": 1
+        },
+        "shell": {
+          "allowed": false,
+          "default": "bash"
+        }
+      }
+    },
+    {
+      "input": {
+        "exec": {
+          "timeoutMs": 300001
+        },
+        "output": {
+          "maxBytes": 1048577
+        },
+        "search": {
+          "maxResults": 1001
+        }
+      },
+      "result": {
+        "denyPatterns": [],
+        "enabled": true,
+        "env": {
+          "allow": [
+            "PATH",
+            "LANG",
+            "LC_ALL",
+            "TZ",
+            "TERM",
+            "SystemRoot",
+            "PATHEXT",
+            "TEMP",
+            "TMP"
+          ]
+        },
+        "exec": {
+          "timeoutMs": 300000
+        },
+        "output": {
+          "maxBytes": 1048576
+        },
+        "search": {
+          "maxResults": 1000
+        },
+        "shell": {
+          "allowed": false,
+          "default": "bash"
+        }
+      }
+    },
+    {
+      "input": {
+        "denyPatterns": [
+          "example"
+        ],
+        "env": {
+          "allow": [
+            "PATH",
+            "TZ"
+          ]
+        },
+        "output": {
+          "maxBytes": 96
+        }
+      },
+      "result": {
+        "denyPatterns": [
+          "example"
+        ],
+        "enabled": true,
+        "env": {
+          "allow": [
+            "PATH",
+            "TZ"
+          ]
+        },
+        "exec": {
+          "timeoutMs": 30000
+        },
+        "output": {
+          "maxBytes": 96
+        },
+        "search": {
+          "maxResults": 100
+        },
+        "shell": {
+          "allowed": false,
+          "default": "bash"
+        }
+      }
+    },
+    {
+      "input": {
+        "exec": {
+          "timeoutMs": 2.5
+        },
+        "search": {
+          "maxResults": 3.5
+        }
+      },
+      "result": {
+        "denyPatterns": [],
+        "enabled": true,
+        "env": {
+          "allow": [
+            "PATH",
+            "LANG",
+            "LC_ALL",
+            "TZ",
+            "TERM",
+            "SystemRoot",
+            "PATHEXT",
+            "TEMP",
+            "TMP"
+          ]
+        },
+        "exec": {
+          "timeoutMs": 2.5
+        },
+        "output": {
+          "maxBytes": 65536
+        },
+        "search": {
+          "maxResults": 3.5
+        },
+        "shell": {
+          "allowed": false,
+          "default": "bash"
+        }
+      }
+    }
+  ],
+  "files": [
+    {
+      "input": {
+        "length": 4,
+        "offset": 6,
+        "path": "note"
+      },
+      "name": "hostctl.fs.read",
+      "output": {
+        "bytesRead": 4,
+        "content": "note",
+        "truncated": false
+      }
+    },
+    {
+      "input": {
+        "path": "note"
+      },
+      "name": "hostctl.fs.stat",
+      "output": {
+        "size": 10,
+        "type": "file"
+      }
+    },
+    {
+      "input": {
+        "depth": 0,
+        "path": "."
+      },
+      "name": "hostctl.fs.list",
+      "output": {
+        "entries": [
+          {
+            "path": "note",
+            "type": "file"
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "input": {
+        "mode": "content",
+        "path": ".",
+        "query": "alpha"
+      },
+      "name": "hostctl.fs.search",
+      "output": {
+        "backend": "bounded-js",
+        "matches": [
+          {
+            "path": "note"
+          }
+        ],
+        "truncated": false
+      }
+    }
+  ],
+  "literal": [
+    {
+      "matches": [
+        true,
+        false,
+        false,
+        true
+      ],
+      "query": "a.b",
+      "texts": [
+        "a.b",
+        "ab",
+        "a-b",
+        "x a.b y"
+      ]
+    },
+    {
+      "matches": [
+        true,
+        false,
+        true
+      ],
+      "query": "\nb",
+      "texts": [
+        "a\nb",
+        "ab",
+        "a\r\nb"
+      ]
+    },
+    {
+      "matches": [
+        false,
+        false,
+        true,
+        true
+      ],
+      "query": "ab",
+      "texts": [
+        "Ab",
+        "aB",
+        "ab",
+        "\u0000ab"
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "capability": "fs.read",
+      "effect": "read",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.fs.read",
+      "properties": [
+        "length",
+        "offset",
+        "path"
+      ],
+      "required": [
+        "path"
+      ],
+      "risk": "low"
+    },
+    {
+      "capability": "fs.write",
+      "effect": "local-write",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.fs.write",
+      "properties": [
+        "content",
+        "path"
+      ],
+      "required": [
+        "content",
+        "path"
+      ],
+      "risk": "low"
+    },
+    {
+      "capability": "fs.write",
+      "effect": "local-write",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.fs.append",
+      "properties": [
+        "content",
+        "path"
+      ],
+      "required": [
+        "content",
+        "path"
+      ],
+      "risk": "low"
+    },
+    {
+      "capability": "fs.write",
+      "effect": "local-write",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.fs.edit",
+      "properties": [
+        "newText",
+        "oldText",
+        "path"
+      ],
+      "required": [
+        "newText",
+        "oldText",
+        "path"
+      ],
+      "risk": "low"
+    },
+    {
+      "capability": "fs.read",
+      "effect": "read",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.fs.list",
+      "properties": [
+        "depth",
+        "limit",
+        "path"
+      ],
+      "required": [
+        "path"
+      ],
+      "risk": "low"
+    },
+    {
+      "capability": "fs.read",
+      "effect": "read",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.fs.search",
+      "properties": [
+        "depth",
+        "limit",
+        "mode",
+        "path",
+        "query"
+      ],
+      "required": [
+        "path",
+        "query"
+      ],
+      "risk": "low"
+    },
+    {
+      "capability": "fs.read",
+      "effect": "read",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.fs.stat",
+      "properties": [
+        "path"
+      ],
+      "required": [
+        "path"
+      ],
+      "risk": "low"
+    },
+    {
+      "capability": "fs.write",
+      "effect": "local-write",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.fs.mkdir",
+      "properties": [
+        "path"
+      ],
+      "required": [
+        "path"
+      ],
+      "risk": "low"
+    },
+    {
+      "capability": "fs.write",
+      "effect": "local-write",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.fs.copy",
+      "properties": [
+        "destination",
+        "path"
+      ],
+      "required": [
+        "destination",
+        "path"
+      ],
+      "risk": "low"
+    },
+    {
+      "capability": "fs.write",
+      "effect": "local-write",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.fs.move",
+      "properties": [
+        "destination",
+        "path"
+      ],
+      "required": [
+        "destination",
+        "path"
+      ],
+      "risk": "low"
+    },
+    {
+      "capability": "hostctl.fs.trash",
+      "effect": "local-destructive",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.fs.trash",
+      "properties": [
+        "path"
+      ],
+      "required": [
+        "path"
+      ],
+      "risk": "medium"
+    },
+    {
+      "capability": "shell.exec",
+      "effect": "local-write",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.proc.exec",
+      "properties": [
+        "args",
+        "cwd",
+        "env",
+        "program",
+        "timeoutMs"
+      ],
+      "required": [
+        "cwd",
+        "program"
+      ],
+      "risk": "medium"
+    },
+    {
+      "capability": "shell.exec",
+      "effect": "local-write",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.proc.start",
+      "properties": [
+        "args",
+        "cwd",
+        "env",
+        "program",
+        "timeoutMs"
+      ],
+      "required": [
+        "cwd",
+        "program"
+      ],
+      "risk": "medium"
+    },
+    {
+      "capability": "shell.exec",
+      "effect": "local-write",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.proc.shell",
+      "properties": [
+        "command",
+        "cwd",
+        "env",
+        "timeoutMs"
+      ],
+      "required": [
+        "command",
+        "cwd"
+      ],
+      "risk": "medium"
+    },
+    {
+      "capability": "hostctl.proc.session.read",
+      "effect": "read",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.proc.list",
+      "properties": [],
+      "required": [],
+      "risk": "low"
+    },
+    {
+      "capability": "hostctl.proc.session.read",
+      "effect": "read",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.proc.read_output",
+      "properties": [
+        "id"
+      ],
+      "required": [
+        "id"
+      ],
+      "risk": "low"
+    },
+    {
+      "capability": "hostctl.proc.session.write",
+      "effect": "local-write",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.proc.write_stdin",
+      "properties": [
+        "eof",
+        "id",
+        "text"
+      ],
+      "required": [
+        "id",
+        "text"
+      ],
+      "risk": "medium"
+    },
+    {
+      "capability": "proc.signal",
+      "effect": "local-destructive",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.proc.kill",
+      "properties": [
+        "id"
+      ],
+      "required": [
+        "id"
+      ],
+      "risk": "medium"
+    },
+    {
+      "capability": "hostctl.proc.kill_foreign",
+      "effect": "local-destructive",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.proc.kill_foreign",
+      "properties": [
+        "pid",
+        "signal"
+      ],
+      "required": [
+        "pid"
+      ],
+      "risk": "high"
+    },
+    {
+      "capability": "sys.read",
+      "effect": "read",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.sys.info",
+      "properties": [],
+      "required": [],
+      "risk": "low"
+    },
+    {
+      "capability": "apps.launch",
+      "effect": "local-write",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.app.open",
+      "properties": [
+        "target"
+      ],
+      "required": [
+        "target"
+      ],
+      "risk": "medium"
+    },
+    {
+      "capability": "clipboard.read",
+      "effect": "read",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.clipboard.read",
+      "properties": [],
+      "required": [],
+      "risk": "low"
+    },
+    {
+      "capability": "clipboard.read",
+      "effect": "local-write",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.clipboard.write",
+      "properties": [
+        "text"
+      ],
+      "required": [
+        "text"
+      ],
+      "risk": "low"
+    },
+    {
+      "capability": "os.script",
+      "effect": "local-write",
+      "limits": {
+        "maxResultBytes": 135168,
+        "timeoutMs": 31000
+      },
+      "name": "hostctl.notify",
+      "properties": [
+        "body",
+        "title"
+      ],
+      "required": [
+        "title"
+      ],
+      "risk": "medium"
+    }
+  ]
+}

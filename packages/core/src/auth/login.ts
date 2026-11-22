@@ -102,9 +102,10 @@ async function pkce(o: LoginOptions, method: LoginMethod, signal: AbortSignal): 
   const server = createServer((req, res) => {
     res.setHeader("content-type", "text/html; charset=utf-8"); res.setHeader("cache-control", "no-store"); res.setHeader("referrer-policy", "no-referrer"); res.setHeader("content-security-policy", "default-src 'none'");
     if (consumed) { res.writeHead(410); res.end("Sign-in closed."); return; }
-    if (req.method !== "GET" || new URL(req.url ?? "/", redirect).pathname !== "/auth/callback") { res.writeHead(404); res.end("Not found."); return; }
-    const raw = new URL(req.url!, redirect).href;
-    const states = new URL(raw).searchParams.getAll("state");
+    const target = req.method === "GET" ? URL.parse(req.url ?? "/", redirect) : null;
+    if (target?.pathname !== "/auth/callback") { res.writeHead(404); res.end("Not found."); return; }
+    const raw = target.href;
+    const states = target.searchParams.getAll("state");
     const genuine = req.headers.host === new URL(redirect).host && states.length === 1 && timingSafeEqual(createHash("sha256").update(states[0]!).digest(), wantedState);
     if (!genuine) {
       const now = Date.now();

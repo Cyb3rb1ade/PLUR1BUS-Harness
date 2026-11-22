@@ -101,7 +101,7 @@ pub fn check(
             }],
             model: model.map(str::to_owned),
             temperature: None,
-            max_tokens: Some(300.into()),
+            max_tokens: Some(crate::jobs::llm::Purpose::MergeDecision.max_tokens().into()),
         },
         &cancel,
     );
