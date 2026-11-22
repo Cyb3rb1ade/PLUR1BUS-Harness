@@ -846,7 +846,20 @@ impl Shared {
         params: &Value,
     ) -> Result<Value, WireError> {
         if let Some(method) = MaintenanceMethod::from_wire(method) {
-            let instance = self.core_instance(connection)?;
+            let instance = match method {
+                MaintenanceMethod::Migrate => self.core_instance(connection),
+                // During the Front Door transition, the verified legacy Core child
+                // still owns the re-embedding driver and its durable checkpoint.
+                MaintenanceMethod::Plan
+                | MaintenanceMethod::Apply
+                | MaintenanceMethod::Resume
+                | MaintenanceMethod::Status
+                | MaintenanceMethod::Validate
+                | MaintenanceMethod::Switch
+                | MaintenanceMethod::Rollback
+                | MaintenanceMethod::CheckpointGet
+                | MaintenanceMethod::CheckpointPut => self.live_core_instance(connection),
+            }?;
             let port = self
                 .maintenance
                 .as_deref()
