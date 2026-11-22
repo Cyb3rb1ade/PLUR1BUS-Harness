@@ -226,6 +226,13 @@ projection and usage. The cloud library has no production caller.
   CDP-Abfolge, unterschiedliche Font-/Plattformausgaben und die existierenden PDF-Goldens.
   Die Downloads und Prozesse im Rust-Test durch Fixtures oder mitgelieferte Testassets steuern.
 
+**W4 local partial delivery.** The Markdown fragment renderer and contrast
+arithmetic replay the document package's original TypeScript outputs. Media
+request validation and accounting cover metadata-only requests. Binary inputs
+remain outside that entry point until the owner supplies typed image and video
+ports. The browser/CDP, PDF goldens, assembled template and output-store
+acceptance remain open. Neither crate is installed by the Core.
+
 ### W5 · Erkennung und Katalog (P4-44)
 
 - **Dateien.** [Discovery](../../packages/core/src/discovery) mit `scanners/`, HTTP, Reconcile,

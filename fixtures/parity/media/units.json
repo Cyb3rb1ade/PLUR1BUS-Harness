@@ -1,0 +1,150 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "delivered": {
+          "quantity": 1,
+          "unit": "image"
+        },
+        "requested": {
+          "quantity": 1,
+          "unit": "image"
+        }
+      },
+      "files": [
+        null
+      ],
+      "input": {
+        "prompt": "Draw a blue circle"
+      }
+    },
+    {
+      "expected": {
+        "delivered": {
+          "quantity": 2,
+          "unit": "image"
+        },
+        "requested": {
+          "quantity": 3,
+          "unit": "image"
+        }
+      },
+      "files": [
+        null,
+        null
+      ],
+      "input": {
+        "n": 3,
+        "prompt": "Three blue circles",
+        "size": {
+          "height": 512,
+          "width": 512
+        }
+      }
+    },
+    {
+      "expected": {
+        "delivered": {
+          "quantity": 10.25,
+          "unit": "videoSecond"
+        },
+        "requested": {
+          "quantity": 8,
+          "unit": "videoSecond"
+        }
+      },
+      "files": [
+        2.25,
+        null
+      ],
+      "input": {
+        "fps": 24,
+        "kind": "video",
+        "prompt": "Slow sunrise"
+      }
+    },
+    {
+      "expected": {
+        "delivered": {
+          "quantity": 1.5,
+          "unit": "videoSecond"
+        },
+        "requested": {
+          "quantity": 600,
+          "unit": "videoSecond"
+        }
+      },
+      "files": [
+        1.5
+      ],
+      "input": {
+        "durationSeconds": 600,
+        "kind": "video",
+        "prompt": "Slow sunrise"
+      }
+    },
+    {
+      "expected": {
+        "error": "unsupported_parameter"
+      },
+      "files": [],
+      "input": {
+        "durationSeconds": 601,
+        "kind": "video",
+        "prompt": "Slow sunrise"
+      }
+    },
+    {
+      "expected": {
+        "error": "unsupported_parameter"
+      },
+      "files": [],
+      "input": {
+        "fps": 20,
+        "prompt": "Image"
+      }
+    },
+    {
+      "expected": {
+        "error": "unsupported_parameter"
+      },
+      "files": [],
+      "input": {
+        "prompt": "Image",
+        "steps": 0
+      }
+    },
+    {
+      "expected": {
+        "error": "unsupported_parameter"
+      },
+      "files": [],
+      "input": {
+        "prompt": "Image",
+        "size": {
+          "height": 1,
+          "width": 8193
+        }
+      }
+    },
+    {
+      "expected": {
+        "error": "unsupported_parameter"
+      },
+      "files": [],
+      "input": {
+        "prompt": "   "
+      }
+    },
+    {
+      "expected": {
+        "error": "too_large"
+      },
+      "files": [],
+      "input": {
+        "promptRepeat": 32001
+      }
+    }
+  ],
+  "source": "packages/media/src/units.ts"
+}

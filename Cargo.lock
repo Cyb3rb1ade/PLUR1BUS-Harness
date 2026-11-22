@@ -6132,6 +6132,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "plur1bus-documents"
+version = "0.1.0"
+dependencies = [
+ "regex",
+ "serde_json",
+]
+
+[[package]]
 name = "plur1bus-engine"
 version = "0.1.0"
 dependencies = [
@@ -6213,6 +6221,13 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+]
+
+[[package]]
+name = "plur1bus-media"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]
