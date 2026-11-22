@@ -530,20 +530,25 @@ impl<F: PathFs> RewindCheckpoints<F> {
         run(&opts, &index_hash)
     }
 
+    fn refreshed_tree(&self, root: &str, opts: &GitOpts<'_>) -> Result<String, RewindError> {
+        // Remove unstaged deletions from the private index first: --renormalize alone tries to stat them and fails.
+        self.git(root, &["add", "--update", "--", "."], opts)?;
+        // Re-read all tracked contents: a normal index may cache an EOL-normalized blob for an otherwise unchanged file.
+        self.git(root, &["add", "--renormalize", "--update", "--", "."], opts)?;
+        let tree = self.git(root, &["write-tree"], opts)?;
+        let tree = trim(&tree).to_owned();
+        if !is_oid(&tree) {
+            return Err(storage(
+                "invalid checkpoint tree",
+                Some("rewind-checkpoint"),
+            ));
+        }
+        Ok(tree)
+    }
+
     fn working_tree(&self, root: &str, cancel: &Cancel) -> Result<Tree, RewindError> {
         self.working_index(root, cancel, |opts, index_hash| {
-            // Remove unstaged deletions from the private index first: --renormalize alone tries to stat them and fails.
-            self.git(root, &["add", "--update", "--", "."], opts)?;
-            // Re-read all tracked contents: a normal index may cache an EOL-normalized blob for an otherwise unchanged file.
-            self.git(root, &["add", "--renormalize", "--update", "--", "."], opts)?;
-            let tree = self.git(root, &["write-tree"], opts)?;
-            let tree = trim(&tree).to_owned();
-            if !is_oid(&tree) {
-                return Err(storage(
-                    "invalid checkpoint tree",
-                    Some("rewind-checkpoint"),
-                ));
-            }
+            let tree = self.refreshed_tree(root, opts)?;
             if self.index_digest(root, cancel)? != index_hash {
                 return Err(conflict(
                     "index changed while preparing the checkpoint",
@@ -1251,8 +1256,8 @@ impl<F: PathFs> RewindCheckpoints<F> {
                 ));
             }
             self.protect_untracked(&bound.root, &checkpoint, cancel)?;
-            let last = self.working_tree(&bound.root, cancel)?;
-            if last.tree != before.tree || last.index_hash != before.index_hash {
+            let tree = self.refreshed_tree(&bound.root, opts)?;
+            if tree != before.tree || self.index_digest(&bound.root, cancel)? != before.index_hash {
                 return Err(conflict(
                     "worktree changed before approved restore",
                     "rewind-files-changed",

@@ -1096,6 +1096,26 @@ fn the_preview_bound_is_200_paths_inclusive() {
     w.repo.write("a0", "one\n");
     restore(&mut w, &turn).unwrap();
     assert_eq!(w.repo.read("a5").as_deref(), Some("one\n"));
+
+    // Git checks the index stat cache before rewriting a path. Restore must see
+    // the content-verified index, including a same-size worktree change.
+    fn scratch_index(call: &Call) -> &str {
+        call.env
+            .iter()
+            .find(|(key, _)| key == "GIT_INDEX_FILE")
+            .map(|(_, value)| value.as_str())
+            .unwrap()
+    }
+    let calls = w.log.borrow();
+    let checked = calls
+        .iter()
+        .rfind(|call| call.args.iter().any(|arg| arg == "--renormalize"))
+        .unwrap();
+    let restore = calls
+        .iter()
+        .rfind(|call| call.args.iter().any(|arg| arg == "restore"))
+        .unwrap();
+    assert_eq!(scratch_index(restore), scratch_index(checked));
 }
 
 /// The preview text may be 4096 UTF-16 units and not one more. The size is calibrated from a first run, so the test does not

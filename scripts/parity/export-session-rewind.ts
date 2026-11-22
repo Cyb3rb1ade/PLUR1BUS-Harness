@@ -120,11 +120,11 @@ async function run(c: Case) {
         const invokes = (call: (typeof recorded.calls)[number], name: string) => call.args.includes(name);
         const apply = recorded.calls.findIndex(call => invokes(call, "restore"));
         const writeTree = recorded.calls.findLastIndex(call => invokes(call, "write-tree"));
-        const workTree = recorded.calls.findLastIndex((call, i) => i < writeTree && call.args.at(-2) === "--git-path" && call.args.at(-1) === "index");
+        const refresh = recorded.calls.findLastIndex((call, i) => i < writeTree && invokes(call, "add") && !invokes(call, "--renormalize"));
         const list = recorded.calls.findLastIndex((call, i) => i < apply && invokes(call, "ls-tree"));
         const recheck = apply < 0 ? undefined : {
           divergence: "K5-D8", beforeCall: apply,
-          calls: [...recorded.calls.slice(list, list + 2), ...recorded.calls.slice(workTree, writeTree + 2)],
+          calls: [...recorded.calls.slice(list, list + 2), ...recorded.calls.slice(refresh, writeTree + 2)],
         };
         results.push({ step: verb, ...recorded, ...(recheck ? { recheck } : {}) });
         onAsk = undefined;
