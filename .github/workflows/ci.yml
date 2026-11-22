@@ -718,11 +718,6 @@ jobs:
           export GIT_CONFIG_KEY_1="url.${base}.insteadOf" GIT_CONFIG_VALUE_1="git@github.com:"
           export GIT_CONFIG_KEY_2="url.${base}.insteadOf" GIT_CONFIG_VALUE_2="ssh://git@github.com/"
           pnpm test:prep
-      - name: Pinned tokenizer cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ${{ runner.temp }}/plur1bus-tokenizers
-          key: tokenizers-v1-${{ hashFiles('crates/plur1bus-tokens/src/artifacts.json', 'scripts/tokens/tiktoken-to-json.mjs') }}
       - name: Install pinned tokenizer files
         run: node scripts/tokens/setup-tokenizers.mjs
         timeout-minutes: 10
