@@ -6132,6 +6132,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "plur1bus-documents"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "plur1bus-channels",
+ "plur1bus-providers",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "ureq",
+ "url",
+]
+
+[[package]]
 name = "plur1bus-engine"
 version = "0.1.0"
 dependencies = [
@@ -6213,6 +6229,26 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+]
+
+[[package]]
+name = "plur1bus-media"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "crc32fast",
+ "flate2",
+ "log",
+ "plur1bus-providers",
+ "plur1bus-wire-fixtures",
+ "plur1bus-wire-log",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "ureq",
+ "url",
 ]
 
 [[package]]

@@ -1,0 +1,414 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "events": [
+          [
+            "reserve",
+            {
+              "quantity": 1,
+              "unit": "image"
+            }
+          ],
+          [
+            "adapter",
+            {
+              "mask": {
+                "bytes": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+                "format": "png"
+              },
+              "parameters": {
+                "prompt": "Edit fixture"
+              },
+              "referenceVideo": null,
+              "references": [
+                {
+                  "bytes": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+                  "format": "png"
+                },
+                {
+                  "bytes": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+                  "format": "png"
+                }
+              ]
+            }
+          ],
+          [
+            "publish",
+            {
+              "mask": {
+                "bytes": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+                "format": "png"
+              },
+              "parameters": {
+                "prompt": "Edit fixture"
+              },
+              "referenceVideo": null,
+              "references": [
+                {
+                  "bytes": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+                  "format": "png"
+                },
+                {
+                  "bytes": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+                  "format": "png"
+                }
+              ]
+            }
+          ],
+          [
+            "settle",
+            {
+              "quantity": 1,
+              "unit": "image"
+            }
+          ]
+        ],
+        "state": "succeeded"
+      },
+      "input": {
+        "adapter": "fixture",
+        "createdAt": 100,
+        "id": "fixture-job",
+        "operation": "edit",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "request": {
+          "mask": {
+            "bytes": {
+              "0": 137,
+              "1": 80,
+              "2": 78,
+              "3": 71,
+              "4": 13,
+              "5": 10,
+              "6": 26,
+              "7": 10,
+              "8": 0,
+              "9": 0,
+              "10": 0,
+              "11": 13,
+              "12": 73,
+              "13": 72,
+              "14": 68,
+              "15": 82,
+              "16": 0,
+              "17": 0,
+              "18": 0,
+              "19": 1,
+              "20": 0,
+              "21": 0,
+              "22": 0,
+              "23": 1,
+              "24": 8,
+              "25": 0,
+              "26": 0,
+              "27": 0,
+              "28": 0,
+              "29": 58,
+              "30": 126,
+              "31": 155,
+              "32": 85,
+              "33": 0,
+              "34": 0,
+              "35": 0,
+              "36": 10,
+              "37": 73,
+              "38": 68,
+              "39": 65,
+              "40": 84,
+              "41": 120,
+              "42": 156,
+              "43": 99,
+              "44": 104,
+              "45": 0,
+              "46": 0,
+              "47": 0,
+              "48": 130,
+              "49": 0,
+              "50": 129,
+              "51": 119,
+              "52": 205,
+              "53": 114,
+              "54": 182,
+              "55": 0,
+              "56": 0,
+              "57": 0,
+              "58": 0,
+              "59": 73,
+              "60": 69,
+              "61": 78,
+              "62": 68,
+              "63": 174,
+              "64": 66,
+              "65": 96,
+              "66": 130
+            },
+            "format": "png"
+          },
+          "prompt": "Edit fixture",
+          "referenceImages": [
+            {
+              "bytes": {
+                "data": [
+                  137,
+                  80,
+                  78,
+                  71,
+                  13,
+                  10,
+                  26,
+                  10,
+                  0,
+                  0,
+                  0,
+                  13,
+                  73,
+                  72,
+                  68,
+                  82,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  1,
+                  8,
+                  0,
+                  0,
+                  0,
+                  0,
+                  58,
+                  126,
+                  155,
+                  85,
+                  0,
+                  0,
+                  0,
+                  10,
+                  73,
+                  68,
+                  65,
+                  84,
+                  120,
+                  156,
+                  99,
+                  104,
+                  0,
+                  0,
+                  0,
+                  130,
+                  0,
+                  129,
+                  119,
+                  205,
+                  114,
+                  182,
+                  0,
+                  0,
+                  0,
+                  0,
+                  73,
+                  69,
+                  78,
+                  68,
+                  174,
+                  66,
+                  96,
+                  130
+                ],
+                "type": "Buffer"
+              },
+              "format": "png"
+            },
+            {
+              "bytes": {
+                "0": 137,
+                "1": 80,
+                "2": 78,
+                "3": 71,
+                "4": 13,
+                "5": 10,
+                "6": 26,
+                "7": 10,
+                "8": 0,
+                "9": 0,
+                "10": 0,
+                "11": 13,
+                "12": 73,
+                "13": 72,
+                "14": 68,
+                "15": 82,
+                "16": 0,
+                "17": 0,
+                "18": 0,
+                "19": 1,
+                "20": 0,
+                "21": 0,
+                "22": 0,
+                "23": 1,
+                "24": 8,
+                "25": 0,
+                "26": 0,
+                "27": 0,
+                "28": 0,
+                "29": 58,
+                "30": 126,
+                "31": 155,
+                "32": 85,
+                "33": 0,
+                "34": 0,
+                "35": 0,
+                "36": 10,
+                "37": 73,
+                "38": 68,
+                "39": 65,
+                "40": 84,
+                "41": 120,
+                "42": 156,
+                "43": 99,
+                "44": 104,
+                "45": 0,
+                "46": 0,
+                "47": 0,
+                "48": 130,
+                "49": 0,
+                "50": 129,
+                "51": 119,
+                "52": 205,
+                "53": 114,
+                "54": 182,
+                "55": 0,
+                "56": 0,
+                "57": 0,
+                "58": 0,
+                "59": 73,
+                "60": 69,
+                "61": 78,
+                "62": 68,
+                "63": 174,
+                "64": 66,
+                "65": 96,
+                "66": 130
+              },
+              "format": "png"
+            }
+          ]
+        },
+        "state": "queued",
+        "updatedAt": 100
+      }
+    },
+    {
+      "expected": {
+        "events": [
+          [
+            "reserve",
+            {
+              "quantity": 4,
+              "unit": "videoSecond"
+            }
+          ],
+          [
+            "adapter",
+            {
+              "mask": null,
+              "parameters": {
+                "durationSeconds": 4,
+                "kind": "video",
+                "prompt": "Video fixture"
+              },
+              "referenceVideo": {
+                "bytes": "AAAAGGZ0eXBpc29tAAAAAAAAAAAAAAAAAAAAAA==",
+                "format": "mp4"
+              },
+              "references": []
+            }
+          ],
+          [
+            "publish",
+            {
+              "mask": null,
+              "parameters": {
+                "durationSeconds": 4,
+                "kind": "video",
+                "prompt": "Video fixture"
+              },
+              "referenceVideo": {
+                "bytes": "AAAAGGZ0eXBpc29tAAAAAAAAAAAAAAAAAAAAAA==",
+                "format": "mp4"
+              },
+              "references": []
+            }
+          ],
+          [
+            "settle",
+            {
+              "quantity": 3.5,
+              "unit": "videoSecond"
+            }
+          ]
+        ],
+        "state": "succeeded"
+      },
+      "input": {
+        "adapter": "fixture",
+        "createdAt": 100,
+        "id": "fixture-job",
+        "operation": "edit",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "request": {
+          "durationSeconds": 4,
+          "kind": "video",
+          "prompt": "Video fixture",
+          "referenceVideo": {
+            "bytes": {
+              "data": [
+                0,
+                0,
+                0,
+                24,
+                102,
+                116,
+                121,
+                112,
+                105,
+                115,
+                111,
+                109,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "type": "Buffer"
+            },
+            "format": "mp4"
+          }
+        },
+        "state": "queued",
+        "updatedAt": 100
+      }
+    }
+  ],
+  "source": "packages/media/src/jobs.ts"
+}

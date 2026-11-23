@@ -1,0 +1,67 @@
+{
+  "exchanges": [
+    {
+      "request": {
+        "bodyText": "{\"contents\":[{\"parts\":[{\"text\":\"A paper tree 🌳\"}]}],\"generationConfig\":{\"responseModalities\":[\"TEXT\",\"IMAGE\"],\"imageConfig\":{\"aspectRatio\":\"1:1\"}}}",
+        "headers": {
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "path": "/models/fixture-model:generateContent"
+      },
+      "response": {
+        "body": {
+          "candidates": [
+            {
+              "content": {
+                "parts": [
+                  {
+                    "inlineData": {
+                      "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+                      "mimeType": "image/png"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "status": 200
+      }
+    }
+  ],
+  "expected": {
+    "checkpoints": [],
+    "files": [
+      {
+        "bytes": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+        "format": "png"
+      }
+    ],
+    "metadata": {
+      "adapter": "google",
+      "model": "fixture-model"
+    },
+    "partial": false,
+    "progress": [
+      {
+        "fraction": 0,
+        "stage": "running"
+      },
+      {
+        "fraction": 0.9,
+        "stage": "downloading"
+      }
+    ]
+  },
+  "input": {
+    "id": "google",
+    "model": "fixture-model",
+    "request": {
+      "aspect": "1:1",
+      "prompt": "A paper tree 🌳"
+    }
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "http"
+}

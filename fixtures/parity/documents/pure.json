@@ -1,0 +1,94 @@
+{
+  "markdown": [
+    {
+      "html": "<h1>Heading</h1>\n<p>First line Second line</p>",
+      "input": "# Heading\r\n\r\nFirst line\rSecond line"
+    },
+    {
+      "html": "<ul>\n<li>alpha</li>\n<li><strong>beta</strong></li>\n</ul>\n<ol>\n<li>ordered</li>\n<li>text with <em>emphasis</em></li>\n</ol>",
+      "input": "- alpha\n- **beta**\n\n1. ordered\n2) text with *emphasis*"
+    },
+    {
+      "html": "<h2>Small &amp; useful</h2>\n<blockquote>Literal &lt;value&gt;</blockquote>\n<hr>",
+      "input": "## Small & useful\n\n> Literal <value>\n\n---"
+    },
+    {
+      "html": "<p><a href=\"https://example.invalid/guide\" rel=\"noopener noreferrer\">Documentation</a> and <a href=\"#chapter_1\" rel=\"noopener noreferrer\">Chapter</a></p>",
+      "input": "[Documentation](https://example.invalid/guide) and [Chapter](#chapter_1)"
+    },
+    {
+      "html": "<p>A plain label and inline <code>&lt;fixture&gt;</code></p>",
+      "input": "[A plain label](urn:example) and inline `<fixture>`"
+    },
+    {
+      "html": "<pre><code>A &lt; B\n&#39;b&#39; uses quotes</code></pre>",
+      "input": "```text\nA < B\n'b' uses quotes\n```"
+    },
+    {
+      "html": "<pre><code>unclosed fence &amp; input</code></pre>",
+      "input": "```\nunclosed fence & input"
+    },
+    {
+      "html": "<p>Two <strong>strong</strong> words, <em>italic</em>, and &quot;quotes&quot;.</p>",
+      "input": "Two **strong** words, *italic*, and \"quotes\"."
+    }
+  ],
+  "ratios": [
+    {
+      "background": "#ffffff",
+      "foreground": "#1a1c20",
+      "ratio": 17.060952416536836
+    },
+    {
+      "background": "#ffffff",
+      "foreground": "#4b5563",
+      "ratio": 7.557378129674007
+    },
+    {
+      "background": "#ffffff",
+      "foreground": "#2563eb",
+      "ratio": 5.168555560022562
+    },
+    {
+      "background": "#2563eb",
+      "foreground": "#ffffff",
+      "ratio": 5.168555560022562
+    },
+    {
+      "background": "#2563eb",
+      "foreground": "#ffffff",
+      "ratio": 5.168555560022562
+    },
+    {
+      "background": "#111827",
+      "foreground": "#f5f7fa",
+      "ratio": 16.52938401664317
+    },
+    {
+      "background": "#000",
+      "foreground": "#fff",
+      "ratio": 21
+    },
+    {
+      "background": "#808080FE",
+      "foreground": "#1111",
+      "ratio": 4.781200030217594
+    },
+    {
+      "background": "#0fd",
+      "foreground": "aaFFcc",
+      "ratio": 1.0940198176043254
+    },
+    {
+      "background": "#000",
+      "foreground": "#xyz",
+      "ratio": null
+    },
+    {
+      "background": "#000",
+      "foreground": "#f1",
+      "ratio": null
+    }
+  ],
+  "source": "packages/documents/src"
+}

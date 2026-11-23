@@ -1,0 +1,198 @@
+{
+  "exchanges": [
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/videos/models"
+      },
+      "response": {
+        "body": {
+          "data": [
+            {
+              "id": "fixture-model",
+              "supported_durations": [
+                4
+              ]
+            }
+          ]
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"prompt\":\"A short scene 🌳\",\"duration\":4}",
+        "headers": {
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "path": "/videos"
+      },
+      "response": {
+        "body": {
+          "id": "fixture-id",
+          "status": "queued"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/videos/fixture-id"
+      },
+      "response": {
+        "body": {
+          "progress": 20,
+          "status": "running"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/videos/fixture-id"
+      },
+      "response": {
+        "body": {
+          "status": "completed"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/videos/fixture-id/content"
+      },
+      "response": {
+        "chunksBase64": [
+          "AAAAGGZ0eXBpcw==",
+          "b20AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        ],
+        "headers": {
+          "content-type": "video/mp4"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/videos/fixture-id"
+      },
+      "response": {
+        "body": {
+          "status": "completed"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/videos/fixture-id/content"
+      },
+      "response": {
+        "chunksBase64": [
+          "AAAAGGZ0eXBpcw==",
+          "b20AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        ],
+        "headers": {
+          "content-type": "video/mp4"
+        },
+        "status": 200
+      }
+    }
+  ],
+  "expected": {
+    "bytes": "AAAAGGZ0eXBpc29tAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+    "checkpoints": [
+      {
+        "id": "fixture-id",
+        "model": "fixture-model"
+      }
+    ],
+    "metadata": {
+      "adapter": "openrouter",
+      "model": "fixture-model"
+    },
+    "progress": [
+      {
+        "fraction": 0.2,
+        "stage": "queued"
+      },
+      {
+        "fraction": 0.2,
+        "stage": "running"
+      },
+      {
+        "fraction": 0.9,
+        "stage": "downloading"
+      }
+    ],
+    "resume": {
+      "bytes": "AAAAGGZ0eXBpc29tAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+      "progress": [
+        {
+          "fraction": 0.2,
+          "stage": "running"
+        },
+        {
+          "fraction": 0.9,
+          "stage": "downloading"
+        }
+      ],
+      "waits": [
+        7
+      ]
+    },
+    "waits": [
+      7,
+      7
+    ]
+  },
+  "input": {
+    "capabilities": {
+      "durationSeconds": [
+        1,
+        5
+      ],
+      "imageToVideo": true,
+      "inputSchema": {
+        "duration": {
+          "maximum": 5,
+          "minimum": 1,
+          "type": "number"
+        },
+        "prompt": {
+          "type": "string"
+        }
+      },
+      "textToVideo": true,
+      "videoToVideo": false
+    },
+    "id": "openrouter",
+    "model": "fixture-model",
+    "request": {
+      "durationSeconds": 4,
+      "kind": "video",
+      "prompt": "A short scene 🌳"
+    }
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "http"
+}

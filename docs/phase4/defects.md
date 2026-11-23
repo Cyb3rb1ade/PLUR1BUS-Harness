@@ -1366,6 +1366,18 @@ on unfinished text. The Rust realtime host supplies the Gemini session
 identifier used to deduplicate usage events. Audio and transcripts remain
 application data and are omitted from event Debug output.
 
+<a id="p4d-212"></a>
+
+## P4D-212 — retry after publishing a media result
+
+The TypeScript JobRunner can publish a result and then persist a failed job when
+budget settlement fails. Recovery scans queued and running jobs, so it never
+reconciles that failed row with its already published output. The Rust runner
+returns the settlement error with the durable row still running. On recovery it
+finds the output, retries settlement under the same job id, and persists the
+success without calling the provider again. The budget port owns durable,
+idempotent settlement. The focused Rust failure test covers the retry boundary.
+
 <a id="p4d-219"></a>
 
 ## P4D-219 — Polly diagnostic body admission
@@ -1375,3 +1387,45 @@ failure. The Rust transport classifies a known error header without reading
 the body. A body-only error is decoded under the original request deadline
 and limited to 64 KiB. Overflow yields `bad_response`. Provider message text
 is discarded. The boundary and delayed-body tests cover both restrictions.
+
+<a id="p4d-220"></a>
+
+## P4D-220 — generated media manifest admission
+
+The Rust output store bounds a generated manifest to 1 MiB when reading it.
+The storage port applies the size limit during the read. The library checks
+the returned size, schema and output identity before handing the manifest to
+its caller, and applies the same bound before publishing new manifests.
+
+<a id="p4d-221"></a>
+
+## P4D-221 — document review font family matching
+
+The TypeScript font check in the document library compares lowercased
+font references against the original case of the embedded families. This
+reports an error for embedded Inter. Rust normalizes both names and still
+flags families absent from the document and the system fallback list. The
+fixture records the TypeScript finding. The Rust check also resolves the
+template's three CSS font variables against their declared family lists.
+
+<a id="p4d-222"></a>
+
+## P4D-222 — document widow check with inline markup
+
+The Chromium layout check addresses the last words of each paragraph
+relative to the complete paragraph text. The TypeScript script applies
+those offsets to the first child alone. A paragraph with emphasis or a
+link can therefore abort the check. The Rust asset maps word offsets to
+the corresponding text nodes before comparing line positions.
+
+<a id="p4d-223"></a>
+
+## P4D-223 — media adapter structured response and diagnostics limits
+
+The TypeScript media transport reads successful JSON and diagnostic responses
+under one 64 MiB limit. Under R-W-13 the Rust transport bounds decoded JSON
+at 1 MiB and diagnostic bodies at 64 KiB. Declared lengths can reject early.
+The reader counts the bytes it receives, including after gzip decoding.
+HTTP setup, retry waits and body reads share the absolute operation deadline.
+An in-flight blocking read can defer cancellation until that deadline (R-W-9).
+The adapters apply separate file limits to binary media.

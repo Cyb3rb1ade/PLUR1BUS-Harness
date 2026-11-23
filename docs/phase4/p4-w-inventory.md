@@ -249,9 +249,42 @@ JSON values.
   W für CDP und PDF-Goldens für `documents-golden`. RPC-/Composition-Tests sind T beim Flip.
 - **Ports.** Credential-, Egress-, Clock-, Zufalls- und Abbruchports, Job- und Ergebnisdatenpfade,
   atomare Dateien, Upload-Quelle und Fortschritt, Child-Process/ffmpeg/ffprobe, Chromium und Font-/Asset-Pfade.
-- **Lücken.** Bild-/Video-Uploads, Binär- und Statusantworten, Job-Resume/Cancel, Storage-Fehler,
-  CDP-Abfolge, unterschiedliche Font-/Plattformausgaben und die existierenden PDF-Goldens.
-  Die Downloads und Prozesse im Rust-Test durch Fixtures oder mitgelieferte Testassets steuern.
+- **Bibliothek.** Bild-HTTP für OpenAI, OpenRouter, Gemini, xAI, Together, Draw Things, Replicate
+  und fal. Video-HTTP für OpenRouter, Gemini, xAI, Replicate und fal mit Checkpoints,
+  Resume und getrennt geöffnetem Download. CoreML zeichnet den Legacy- und JSONL-Prozessdialog
+  einschließlich Abbruch auf. Der Medien-JobRunner verbindet persistierte Zustände,
+  Budget-Port und Veröffentlichung. Der OutputStore prüft Roh-Uploads und schreibt
+  generierte Bilder und Videos mit gemeinsamem Speicherbudget, Integritätsnachweis,
+  privatem Staging und Retention. Die Bildaufzeichnungen prüfen auch die Übertragung
+  von Bearbeitungsreferenzen und Maske nach Entfernung fremder Metadaten.
+- **Flip-Ports.** Der Host bleibt zuständig für Credentials, DNS-Pin, Warteplan, Takt, Zufall,
+  Abbruch, dauerhafte Job- und Store-Backends, Upload-Bindungen, die privaten ffmpeg-
+  und CoreML-Prozesse sowie Chromium- und Asset-Pfade. R-W-13 begrenzt die dekodierte
+  JSON-Antwort und die Diagnose in [P4D-223](defects.md#p4d-223).
+  Abbruch einer blockierten HTTP-Leseoperation wirkt spätestens nach ihrer absoluten Frist
+  (R-W-9). Das CoreML-JSONL-Cancel verwendet die explizite, separat begrenzte Grace-Zeit
+  des Ports, bevor der Kindprozess bei ausbleibender Bestätigung beendet wird.
+
+Das Rust-Dokumentmodul rendert Markdown in alle neun Vorlagen und bindet die drei ausgelieferten Fonts
+über einen Asset-Port ein. Der Chromium-Adapter öffnet eine private Profilinstanz und begrenzt den
+DevTools-Transport auf deren Loopback-Endpunkt. Mit konfiguriertem Asset verwendet er das unveränderte
+Paged.js aus dem Workspace. R-W-9 erlaubt den blockierenden CDP-Aufruf bis zu der vom Host gesetzten
+absoluten Frist. Die statische und die Chromium-Layout-Prüfung führen die Abweichungen
+[P4D-221](defects.md#p4d-221) und [P4D-222](defects.md#p4d-222).
+Der Golden-Treiber liest dieselben neun Eingaben wie `documents-golden`, vergleicht die gerenderten
+Bilder mit dessen Schwellenwerten und prüft PDF-Seitenzahlen und eingebettete Schrift. Der lokale Lauf
+mit Chrome 158 verglich Rust und TypeScript auf demselben macOS-Host. Die reproduzierbare Abnahme
+gegen die eingecheckten PNGs verwendet die in `golden/manifest.json` genannte Chrome-Version.
+
+Der JobRunner lädt bestehende TypeScript-Jobdatensätze mit Buffer- und
+Uint8Array-Referenzen. Die Adapter und die Veröffentlichung erhalten
+Bildreferenzen, Masken und Videos getrennt von den Anfrageparametern.
+Der Video-Prozessport verwendet absolute, private Staging-Pfade und begrenzt
+stdout beim Lesen. Bei Abbruch oder Fristüberschreitung beendet der Host den
+Prozess. Der Renderer schließt Chromium und überprüft, ob das private Profil
+entfernt wurde. Wenn das Betriebssystem das Löschen beim Schließen der letzten
+Dateihandles vorübergehend verweigert, wiederholt der Renderer es bis zu einer
+Sekunde auf dem eigenen temporären Verzeichnis.
 
 ### W5 · Erkennung und Katalog (P4-44)
 

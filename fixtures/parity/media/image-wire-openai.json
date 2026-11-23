@@ -1,0 +1,61 @@
+{
+  "exchanges": [
+    {
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"prompt\":\"A paper tree 🌳\",\"n\":1,\"output_format\":\"png\",\"size\":\"256x256\"}",
+        "headers": {
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "path": "/images/generations"
+      },
+      "response": {
+        "body": {
+          "data": [
+            {
+              "b64_json": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg=="
+            }
+          ]
+        },
+        "status": 200
+      }
+    }
+  ],
+  "expected": {
+    "checkpoints": [],
+    "files": [
+      {
+        "bytes": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+        "format": "png"
+      }
+    ],
+    "metadata": {
+      "adapter": "openai",
+      "model": "fixture-model"
+    },
+    "partial": false,
+    "progress": [
+      {
+        "fraction": 0,
+        "stage": "running"
+      },
+      {
+        "fraction": 0.9,
+        "stage": "downloading"
+      }
+    ]
+  },
+  "input": {
+    "id": "openai",
+    "model": "fixture-model",
+    "request": {
+      "prompt": "A paper tree 🌳",
+      "size": {
+        "height": 256,
+        "width": 256
+      }
+    }
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "http"
+}

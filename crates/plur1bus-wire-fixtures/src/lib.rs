@@ -8,6 +8,7 @@
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde_json::{json, Value};
+use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
@@ -75,10 +76,21 @@ pub struct FakeServer {
 impl FakeServer {
     /// Serves a fixture on an ephemeral loopback port.
     pub fn start(fixture: &Value) -> Self {
+        Self::bind(|_| Cow::Borrowed(fixture))
+    }
+
+    /// Materialize fixture URLs for this server after binding its loopback port.
+    pub fn start_with(fixture: impl FnOnce(SocketAddr) -> Value) -> Self {
+        Self::bind(|address| Cow::Owned(fixture(address)))
+    }
+
+    fn bind<'a>(fixture: impl FnOnce(SocketAddr) -> Cow<'a, Value>) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let addr = listener.local_addr().unwrap();
-        let worker = Worker::spawn(fixture, move || listener.accept().map(|(stream, _)| stream));
+        let worker = Worker::spawn(&fixture(addr), move || {
+            listener.accept().map(|(stream, _)| stream)
+        });
         Self { addr, worker }
     }
 
