@@ -253,6 +253,13 @@ JSON values.
   CDP-Abfolge, unterschiedliche Font-/Plattformausgaben und die existierenden PDF-Goldens.
   Die Downloads und Prozesse im Rust-Test durch Fixtures oder mitgelieferte Testassets steuern.
 
+Der generierte Bildspeicher übernimmt Manifest, Hashes, Kontingent und
+Aufbewahrung aus dem TypeScript-Replay. Der Host liefert den privaten
+Filesystem-Port und hält eine gemeinsame Sperre für Kontingent und
+Veröffentlichung. Der Speicher schreibt Dateien und Manifest ins Staging
+und übergibt die Veröffentlichung erst nach dem Schreiben aller Dateien.
+Fehler beim Schreiben lassen keinen sichtbaren Eintrag zurück.
+
 Die Markdown-Fragmente, die Kontrastrechnung und die reinen Medien-Einheiten
 spielen aufgezeichnete TypeScript-Ausgaben ab. Der Video-Port belegt die
 Container-Erkennung und die Argumente von ffprobe, Remux und Poster-Export.

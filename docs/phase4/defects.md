@@ -1387,3 +1387,12 @@ failure. The Rust transport classifies a known error header without reading
 the body. A body-only error is decoded under the original request deadline
 and limited to 64 KiB. Overflow yields `bad_response`. Provider message text
 is discarded. The boundary and delayed-body tests cover both restrictions.
+
+<a id="p4d-220"></a>
+
+## P4D-220 — generated media manifest admission
+
+The Rust output store bounds a generated manifest to 1 MiB when reading it.
+The storage port applies the size limit during the read. The library checks
+the returned size, schema and output identity before handing the manifest to
+its caller, and applies the same bound before publishing new manifests.

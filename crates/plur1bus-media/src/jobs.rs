@@ -23,6 +23,7 @@ pub enum Error {
     ContentPolicy,
     Interrupted,
     InvalidResponse,
+    Quota,
     Timeout,
     TooLarge,
     UnsupportedParameter,

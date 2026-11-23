@@ -1455,6 +1455,14 @@ describe("media video codec process port (P4-W W4)", () => {
   });
 });
 
+describe("media output publication (P4-W W4)", () => {
+  it("matches the TypeScript manifest, charge, refusal and pruning recording", async () => {
+    const { recordMediaStore } = await import("./export-media-store.ts");
+    const expected = fixtureText((await recordMediaStore())["output-store"]);
+    assert.equal(readFileSync(fixturePath("media", "output-store"), "utf8"), expected);
+  });
+});
+
 describe("media job orchestration (P4-W W4)", () => {
   it("matches the production TypeScript job and budget port calls", async () => {
     const { recordMediaJobs } = await import("./export-media-jobs.ts");
