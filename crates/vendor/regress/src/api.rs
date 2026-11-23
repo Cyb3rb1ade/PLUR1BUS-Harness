@@ -487,20 +487,21 @@ impl Regex {
     ///
     /// Exhaustion is independent of the match result. The budget is charged
     /// across search starts, nested assertions, instructions, backtracks and
-    /// string comparison or repetition work.
+    /// string comparison or repetition work. The remaining steps are written
+    /// back to the caller, or set to zero on exhaustion.
     #[cfg(feature = "utf16")]
     pub fn test_utf16_with_budget(
         &self,
         text: &[u16],
         start: usize,
-        steps: usize,
+        steps_left: &mut usize,
     ) -> Result<bool, MatchBudgetExceeded> {
         let input = Utf16Input::new(text, self.cr.flags.unicode);
         classicalbacktrack::BacktrackExecutor::new(
             input,
             MatchAttempter::new(&self.cr, input.left_end()),
         )
-        .test_with_budget(start, steps)
+        .test_with_budget(start, steps_left)
     }
 
     /// Returns an iterator for matches found in 'text' starting at index `start`.
@@ -1007,12 +1008,12 @@ mod budget_tests {
             let regex = Regex::with_flags(pattern, "u").unwrap();
             let units: Vec<_> = text.encode_utf16().collect();
             assert_eq!(
-                regex.test_utf16_with_budget(&units, 0, 2),
+                regex.test_utf16_with_budget(&units, 0, &mut 2),
                 Err(MatchBudgetExceeded),
                 "{pattern}"
             );
             assert_eq!(
-                regex.test_utf16_with_budget(&units, 0, 256),
+                regex.test_utf16_with_budget(&units, 0, &mut 256),
                 Ok(true),
                 "{pattern}"
             );
@@ -1020,19 +1021,76 @@ mod budget_tests {
     }
 
     #[test]
+    fn ordinary_patterns_account_for_each_kind_of_matcher_work() {
+        for (label, pattern, text, start, matched, steps) in [
+            ("instruction", "^A$", "A", 0, true, 4),
+            ("search", "Z", "notes", 0, false, 12),
+            ("offset", "A", "notesA", 5, true, 7),
+            ("backtrack", "^(blue|black)$", "black", 0, true, 15),
+            ("loop minimum", "^[a-z]{3,5}$", "abc", 0, true, 8),
+            ("loop maximum", "^[a-z]+$", "catalogue", 0, true, 14),
+            ("lazy loop", "^[a-z]+?s$", "notes", 0, true, 17),
+            (
+                "captured lookahead",
+                "^(?=(note))note$",
+                "note",
+                0,
+                true,
+                16,
+            ),
+            (
+                "backreference",
+                r"^([a-z]{4})-\1$",
+                "note-note",
+                0,
+                true,
+                15,
+            ),
+            ("astral backreference", r"^(😀)-\1$", "😀-😀", 0, true, 10),
+        ] {
+            let re = Regex::with_flags(pattern, "u").unwrap();
+            let units = text.encode_utf16().collect::<Vec<_>>();
+            assert_eq!(
+                re.find_from_utf16(&units, start).next().is_some(),
+                matched,
+                "{label}"
+            );
+
+            let mut remaining = steps;
+            assert_eq!(
+                re.test_utf16_with_budget(&units, start, &mut remaining),
+                Ok(matched),
+                "{label}"
+            );
+            assert_eq!(remaining, 0, "{label}");
+
+            let mut one_step_short = steps - 1;
+            assert_eq!(
+                re.test_utf16_with_budget(&units, start, &mut one_step_short),
+                Err(MatchBudgetExceeded),
+                "{label}"
+            );
+            assert_eq!(one_step_short, 0, "{label}");
+        }
+    }
+
+    #[test]
     fn budget_is_distinct_from_no_match_and_preserves_unicode() {
         let input: Vec<_> = "a𐐀".encode_utf16().collect();
         let regex = Regex::with_flags("^a.$", "u").unwrap();
-        assert_eq!(regex.test_utf16_with_budget(&input, 0, 32), Ok(true));
+        assert_eq!(regex.test_utf16_with_budget(&input, 0, &mut 32), Ok(true));
         let regex = Regex::with_flags("^b", "u").unwrap();
-        assert_eq!(regex.test_utf16_with_budget(&input, 0, 32), Ok(false));
+        assert_eq!(regex.test_utf16_with_budget(&input, 0, &mut 32), Ok(false));
         assert_eq!(
-            regex.test_utf16_with_budget(&input, 0, 0),
+            regex.test_utf16_with_budget(&input, 0, &mut 0),
             Err(MatchBudgetExceeded)
         );
         assert!(regex.find_from_utf16(&input, 0).next().is_none());
         let regex = Regex::with_flags(r"^\uD800$", "u").unwrap();
-        assert_eq!(regex.test_utf16_with_budget(&[0xd800], 0, 32), Ok(true));
+        assert_eq!(
+            regex.test_utf16_with_budget(&[0xd800], 0, &mut 32),
+            Ok(true)
+        );
     }
 
     #[test]
@@ -1040,9 +1098,9 @@ mod budget_tests {
         let regex = Regex::with_flags("^(?!main)backup$", "u").unwrap();
         let input: Vec<_> = "backup".encode_utf16().collect();
         assert_eq!(
-            regex.test_utf16_with_budget(&input, 0, 2),
+            regex.test_utf16_with_budget(&input, 0, &mut 2),
             Err(MatchBudgetExceeded)
         );
-        assert_eq!(regex.test_utf16_with_budget(&input, 0, 32), Ok(true));
+        assert_eq!(regex.test_utf16_with_budget(&input, 0, &mut 32), Ok(true));
     }
 }

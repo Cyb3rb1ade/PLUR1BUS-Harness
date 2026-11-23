@@ -1143,21 +1143,24 @@ impl<'r, Input: InputIndexer> BacktrackExecutor<'r, Input> {
     pub(crate) fn test_with_budget(
         &mut self,
         start: usize,
-        steps: usize,
+        steps_left: &mut usize,
     ) -> Result<bool, crate::MatchBudgetExceeded> {
         use exec::MatchProducer;
-        self.matcher.budget = StepBudget::Metered(steps);
-        if !self.matcher.budget.spend(start) {
-            return Err(crate::MatchBudgetExceeded);
-        }
-        let found = self
-            .initial_position(start)
-            .and_then(|pos| self.next_match(pos, &mut None))
-            .is_some();
-        if self.matcher.budget.exhausted() {
-            Err(crate::MatchBudgetExceeded)
-        } else {
-            Ok(found)
+        self.matcher.budget = StepBudget::Metered(*steps_left);
+        let found = self.matcher.budget.spend(start)
+            && self
+                .initial_position(start)
+                .and_then(|pos| self.next_match(pos, &mut None))
+                .is_some();
+        match self.matcher.budget {
+            StepBudget::Metered(remaining) => {
+                *steps_left = remaining;
+                Ok(found)
+            }
+            _ => {
+                *steps_left = 0;
+                Err(crate::MatchBudgetExceeded)
+            }
         }
     }
 }

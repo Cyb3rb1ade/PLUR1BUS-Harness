@@ -8,8 +8,9 @@ upstream copy is commit `fe7f884bbcf9b9bec4dbf5a6c5dd0f75cd70012a`.
 
 R-K-33b adds one bounded UTF-16 API in `src/api.rs` and debits shared work
 in `src/classicalbacktrack.rs`. The old constructors still use the
-unmetered executor. The new tests use small ordinary patterns and an injected
-step budget. The standalone test lock resolves the same memchr and hashbrown
+unmetered executor. R-K-37 returns the remaining steps to the bounded caller so
+a single validation can share its budget. The step tests use ordinary
+patterns and check each measured charge at its exact budget boundary. The standalone test lock resolves the same memchr and hashbrown
 versions as the root lock.
 
 When updating, first commit the new unmodified registry source and licenses.
