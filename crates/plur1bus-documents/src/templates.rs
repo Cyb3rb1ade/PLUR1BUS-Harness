@@ -248,6 +248,8 @@ fn slides(body: &str) -> String {
 
 /// Assemble the template over escaped Markdown, using only the renderer's HTML
 /// vocabulary. External links are removed from the fragment before assembly.
+pub const DOCUMENT_CSP: &str = "default-src 'none'; base-uri 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; worker-src 'none'; script-src 'none'; connect-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:";
+
 pub fn assemble(template: Template, document: &Document<'_>) -> String {
     let title = markdown::escape_html(document.title);
     let subtitle = markdown::escape_html(document.subtitle);
@@ -283,6 +285,7 @@ pub fn assemble(template: Template, document: &Document<'_>) -> String {
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{DOCUMENT_CSP}">
 <title>{title}</title>
 <style>
 {base}

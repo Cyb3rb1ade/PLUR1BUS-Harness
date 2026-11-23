@@ -1,0 +1,480 @@
+{
+  "cases": [
+    {
+      "escaped": "<p>The manual labels this &lt;entry style=plain&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The manual labels this <entry style=plain>.",
+        "template": "report"
+      },
+      "sanitized": "<p>The manual labels this &lt;entry>",
+      "typescriptSha256": "f44cc277277c54a45197969b88be9f0b967ea703271cc6b015c6a0b38b1a15eb"
+    },
+    {
+      "escaped": "<p>The catalogue shows &lt;entry onlabel=visible&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The catalogue shows <entry onlabel=visible>.",
+        "template": "report"
+      },
+      "sanitized": "<p>The catalogue shows &lt;entry>",
+      "typescriptSha256": "7d3116ed94783866898b084522eedadf65310feae94452702b5ef42b0a5ca3f6"
+    },
+    {
+      "escaped": "<p>The example reads &lt;entry src=about:blank&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The example reads <entry src=about:blank>.",
+        "template": "report"
+      },
+      "sanitized": "<p>The example reads &lt;entry>",
+      "typescriptSha256": "be2afea472b4c568527f35e94231c787913a631f77c44066e32d7324221bd2cf"
+    },
+    {
+      "escaped": "<p>The note uses &lt;entry href=data:,catalogue&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The note uses <entry href=data:,catalogue>.",
+        "template": "report"
+      },
+      "sanitized": "<p>The note uses &lt;entry>",
+      "typescriptSha256": "2aa99acc4b7114270746504367759f9bdd20335b6bf77f556b019ee5addbf99f"
+    },
+    {
+      "escaped": "<p>Example notation &lt;entry style=&#39;ordinary value&#39;&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "Example notation <entry style='ordinary value'>.",
+        "template": "report"
+      },
+      "sanitized": "<p>Example notation &lt;entry value&#39;&gt;.</p>",
+      "typescriptSha256": "5c8d42eae446f48df85d8760f5efff19bc090c753ccbd7cb46bd7caf3a45d410"
+    },
+    {
+      "escaped": "<p>Envelope &lt;entry label=approved&gt;.</p>",
+      "input": {
+        "markdown": "Envelope <entry label=approved>.",
+        "template": "report"
+      },
+      "sanitized": "<p>Envelope &lt;entry label=approved&gt;.</p>",
+      "typescriptSha256": "0f6677764579158f7d1639c42604599d3eee026f355e8843ca2341c6d2445ab0"
+    },
+    {
+      "escaped": "<p>Draft &lt;entry title=&#39;review copy&#39;&gt;.</p>",
+      "input": {
+        "markdown": "Draft <entry title='review copy'>.",
+        "template": "report"
+      },
+      "sanitized": "<p>Draft &lt;entry title=&#39;review copy&#39;&gt;.</p>",
+      "typescriptSha256": "61f3a241a580dd3238a221bf32ee7baa6e65f0b26329e1f6adb9d3ef05b6b1ab"
+    },
+    {
+      "escaped": "<p>Literal text describes A &lt; B &amp; C &gt; D.</p>",
+      "input": {
+        "markdown": "Literal text describes A < B & C > D.",
+        "template": "report"
+      },
+      "sanitized": "<p>Literal text describes A &lt; B &amp; C &gt; D.</p>",
+      "typescriptSha256": "9abb0fcc11fe89d278eb687293168c27b8b4d357d916a50f661866e98b26b9da"
+    },
+    {
+      "escaped": "<p>The note quotes &quot;edition&quot; and &#39;proof&#39;.</p>",
+      "input": {
+        "markdown": "The note quotes \"edition\" and 'proof'.",
+        "template": "report"
+      },
+      "sanitized": "<p>The note quotes &quot;edition&quot; and &#39;proof&#39;.</p>",
+      "typescriptSha256": "9f7ef32348c1d3a19dec11ef3c5bccf9515687802e6e2871889aa7bb0f94ee31"
+    },
+    {
+      "escaped": "<p>An example reads &lt;entry src=cover.png&gt;.</p>",
+      "input": {
+        "markdown": "An example reads <entry src=cover.png>.",
+        "template": "report"
+      },
+      "sanitized": "<p>An example reads &lt;entry src=cover.png&gt;.</p>",
+      "typescriptSha256": "5bd036b46711537242ef1cd9bb72cf83736aa75032b8c9cd09dc0968d2c3d1cf"
+    },
+    {
+      "escaped": "<p>The manual labels this &lt;entry style=plain&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The manual labels this <entry style=plain>.",
+        "template": "letter"
+      },
+      "sanitized": "<p>The manual labels this &lt;entry>",
+      "typescriptSha256": "2cfa6bd935806da357304c6b92eeb7a7444f1bd0e97ee89f6434873c79ff90c3"
+    },
+    {
+      "escaped": "<p>The catalogue shows &lt;entry onlabel=visible&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The catalogue shows <entry onlabel=visible>.",
+        "template": "letter"
+      },
+      "sanitized": "<p>The catalogue shows &lt;entry>",
+      "typescriptSha256": "9cffd56098d539d4944f9464c2b2f8442ab0b35d53b50bdcb4f5f0b00784359f"
+    },
+    {
+      "escaped": "<p>The example reads &lt;entry src=about:blank&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The example reads <entry src=about:blank>.",
+        "template": "letter"
+      },
+      "sanitized": "<p>The example reads &lt;entry>",
+      "typescriptSha256": "e01c160d35b96b1f1f746b9c648050a90b791e18ac89c2768575744973b2f281"
+    },
+    {
+      "escaped": "<p>The note uses &lt;entry href=data:,catalogue&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The note uses <entry href=data:,catalogue>.",
+        "template": "letter"
+      },
+      "sanitized": "<p>The note uses &lt;entry>",
+      "typescriptSha256": "a5623bf3bb63d3cbf53d1bf53840ed2250b893c2cdc1ebdef74582c0b083a309"
+    },
+    {
+      "escaped": "<p>Example notation &lt;entry style=&#39;ordinary value&#39;&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "Example notation <entry style='ordinary value'>.",
+        "template": "letter"
+      },
+      "sanitized": "<p>Example notation &lt;entry value&#39;&gt;.</p>",
+      "typescriptSha256": "66e7cbd0c487752e57f8cf91748e8e0f4576e44b2a68e08e94b5a867520e3206"
+    },
+    {
+      "escaped": "<p>Envelope &lt;entry label=approved&gt;.</p>",
+      "input": {
+        "markdown": "Envelope <entry label=approved>.",
+        "template": "letter"
+      },
+      "sanitized": "<p>Envelope &lt;entry label=approved&gt;.</p>",
+      "typescriptSha256": "74518a22df610a1972cc0297aed39ae0113c8b49befe1264beabe9e8e474e04e"
+    },
+    {
+      "escaped": "<p>Draft &lt;entry title=&#39;review copy&#39;&gt;.</p>",
+      "input": {
+        "markdown": "Draft <entry title='review copy'>.",
+        "template": "letter"
+      },
+      "sanitized": "<p>Draft &lt;entry title=&#39;review copy&#39;&gt;.</p>",
+      "typescriptSha256": "e7227be620640c28947f1f5d5434b200e14d64904d11d0f349a7b824cd9fe123"
+    },
+    {
+      "escaped": "<p>Literal text describes A &lt; B &amp; C &gt; D.</p>",
+      "input": {
+        "markdown": "Literal text describes A < B & C > D.",
+        "template": "letter"
+      },
+      "sanitized": "<p>Literal text describes A &lt; B &amp; C &gt; D.</p>",
+      "typescriptSha256": "b2351271d155dc881b93edd5cbe2e20f9a647aaa8d8307f022ff5e102e79ec44"
+    },
+    {
+      "escaped": "<p>The note quotes &quot;edition&quot; and &#39;proof&#39;.</p>",
+      "input": {
+        "markdown": "The note quotes \"edition\" and 'proof'.",
+        "template": "letter"
+      },
+      "sanitized": "<p>The note quotes &quot;edition&quot; and &#39;proof&#39;.</p>",
+      "typescriptSha256": "485acf32d5520867a05b847344ffdd3ca8b8abff7ac99ea70d28c2dfc301cbf2"
+    },
+    {
+      "escaped": "<p>An example reads &lt;entry src=cover.png&gt;.</p>",
+      "input": {
+        "markdown": "An example reads <entry src=cover.png>.",
+        "template": "letter"
+      },
+      "sanitized": "<p>An example reads &lt;entry src=cover.png&gt;.</p>",
+      "typescriptSha256": "d58cf4ce9131f176491282c83548ab73071a979349221ec7a7924df9eeeb3205"
+    },
+    {
+      "escaped": "<p>The manual labels this &lt;entry style=plain&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The manual labels this <entry style=plain>.",
+        "template": "invoice"
+      },
+      "sanitized": "<p>The manual labels this &lt;entry>",
+      "typescriptSha256": "d8f190d439650cc0bcb6832cbceb526e1368fb95c8674f6aa892ba9820336a03"
+    },
+    {
+      "escaped": "<p>The catalogue shows &lt;entry onlabel=visible&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The catalogue shows <entry onlabel=visible>.",
+        "template": "invoice"
+      },
+      "sanitized": "<p>The catalogue shows &lt;entry>",
+      "typescriptSha256": "ac36c7705eaf9773468e7232422ff8e8e99eb58d217dbd43bd0cace31517ffb0"
+    },
+    {
+      "escaped": "<p>The example reads &lt;entry src=about:blank&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The example reads <entry src=about:blank>.",
+        "template": "invoice"
+      },
+      "sanitized": "<p>The example reads &lt;entry>",
+      "typescriptSha256": "47ac6864d2b219301158d5eb60fe15afba3ceed8f73808e71accacd13c5cb14d"
+    },
+    {
+      "escaped": "<p>The note uses &lt;entry href=data:,catalogue&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The note uses <entry href=data:,catalogue>.",
+        "template": "invoice"
+      },
+      "sanitized": "<p>The note uses &lt;entry>",
+      "typescriptSha256": "4abdbf6cf1c16cdf543d51733061c470f8dcd2261cd74f7dbc8c833ca4ba3577"
+    },
+    {
+      "escaped": "<p>Example notation &lt;entry style=&#39;ordinary value&#39;&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "Example notation <entry style='ordinary value'>.",
+        "template": "invoice"
+      },
+      "sanitized": "<p>Example notation &lt;entry value&#39;&gt;.</p>",
+      "typescriptSha256": "6a73b69e71bede7e32d00f7fd8f81d66b204624dffedadb9af6cd83f3cebf114"
+    },
+    {
+      "escaped": "<p>Envelope &lt;entry label=approved&gt;.</p>",
+      "input": {
+        "markdown": "Envelope <entry label=approved>.",
+        "template": "invoice"
+      },
+      "sanitized": "<p>Envelope &lt;entry label=approved&gt;.</p>",
+      "typescriptSha256": "eae4f9867706d72ca12b1a27526a69237db1487d60fe5fdbb71d4219e75bff5d"
+    },
+    {
+      "escaped": "<p>Draft &lt;entry title=&#39;review copy&#39;&gt;.</p>",
+      "input": {
+        "markdown": "Draft <entry title='review copy'>.",
+        "template": "invoice"
+      },
+      "sanitized": "<p>Draft &lt;entry title=&#39;review copy&#39;&gt;.</p>",
+      "typescriptSha256": "a5c09c5059a697e6449856f2d9db85af7564dd844bf1bb5c7bf31b1d6fb9dc62"
+    },
+    {
+      "escaped": "<p>Literal text describes A &lt; B &amp; C &gt; D.</p>",
+      "input": {
+        "markdown": "Literal text describes A < B & C > D.",
+        "template": "invoice"
+      },
+      "sanitized": "<p>Literal text describes A &lt; B &amp; C &gt; D.</p>",
+      "typescriptSha256": "35e201e1784aa2fb059e25c8a0dbf32c01caf0fd11e44cde9b11346040b42803"
+    },
+    {
+      "escaped": "<p>The note quotes &quot;edition&quot; and &#39;proof&#39;.</p>",
+      "input": {
+        "markdown": "The note quotes \"edition\" and 'proof'.",
+        "template": "invoice"
+      },
+      "sanitized": "<p>The note quotes &quot;edition&quot; and &#39;proof&#39;.</p>",
+      "typescriptSha256": "aac444f79acb78a506dd4422a1b95b56f280d29238c37a783eb127f8074f3098"
+    },
+    {
+      "escaped": "<p>An example reads &lt;entry src=cover.png&gt;.</p>",
+      "input": {
+        "markdown": "An example reads <entry src=cover.png>.",
+        "template": "invoice"
+      },
+      "sanitized": "<p>An example reads &lt;entry src=cover.png&gt;.</p>",
+      "typescriptSha256": "7459cb27a8140e87b952053cb3ce33a292f260eca2926d2b6d76e2d49b56533b"
+    },
+    {
+      "escaped": "<p>The manual labels this &lt;entry style=plain&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The manual labels this <entry style=plain>.",
+        "template": "cv"
+      },
+      "sanitized": "<p>The manual labels this &lt;entry>",
+      "typescriptSha256": "32422ca596035a0380b81bf729d0f67b63f3951fd3a1b9cdccd3daa2b1d143a8"
+    },
+    {
+      "escaped": "<p>The catalogue shows &lt;entry onlabel=visible&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The catalogue shows <entry onlabel=visible>.",
+        "template": "cv"
+      },
+      "sanitized": "<p>The catalogue shows &lt;entry>",
+      "typescriptSha256": "1b612249a7cae8ba40b2114e8468734789250f1ac8a869179fef440bff390d63"
+    },
+    {
+      "escaped": "<p>The example reads &lt;entry src=about:blank&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The example reads <entry src=about:blank>.",
+        "template": "cv"
+      },
+      "sanitized": "<p>The example reads &lt;entry>",
+      "typescriptSha256": "9879caf84689d5fadbf690c381804a6c4386761147c58bcf3e873dc0d1af6a88"
+    },
+    {
+      "escaped": "<p>The note uses &lt;entry href=data:,catalogue&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The note uses <entry href=data:,catalogue>.",
+        "template": "cv"
+      },
+      "sanitized": "<p>The note uses &lt;entry>",
+      "typescriptSha256": "742efe88f79d8317bdfee7570d522c0530c58af71bf9871fb2d1b1d6d94206e1"
+    },
+    {
+      "escaped": "<p>Example notation &lt;entry style=&#39;ordinary value&#39;&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "Example notation <entry style='ordinary value'>.",
+        "template": "cv"
+      },
+      "sanitized": "<p>Example notation &lt;entry value&#39;&gt;.</p>",
+      "typescriptSha256": "cc8322aa890140e8da985b7bb20555f2d7f04899dd84130e11d194175c76b08c"
+    },
+    {
+      "escaped": "<p>Envelope &lt;entry label=approved&gt;.</p>",
+      "input": {
+        "markdown": "Envelope <entry label=approved>.",
+        "template": "cv"
+      },
+      "sanitized": "<p>Envelope &lt;entry label=approved&gt;.</p>",
+      "typescriptSha256": "0e48cc32e3925e4f3731d5b0c6aa6f495f33384947af3de019f02ec5ac455581"
+    },
+    {
+      "escaped": "<p>Draft &lt;entry title=&#39;review copy&#39;&gt;.</p>",
+      "input": {
+        "markdown": "Draft <entry title='review copy'>.",
+        "template": "cv"
+      },
+      "sanitized": "<p>Draft &lt;entry title=&#39;review copy&#39;&gt;.</p>",
+      "typescriptSha256": "821f06dee3a68b9d3f0010a71464d04db77d7b7c079c40a8cbc302ede6c8bf9f"
+    },
+    {
+      "escaped": "<p>Literal text describes A &lt; B &amp; C &gt; D.</p>",
+      "input": {
+        "markdown": "Literal text describes A < B & C > D.",
+        "template": "cv"
+      },
+      "sanitized": "<p>Literal text describes A &lt; B &amp; C &gt; D.</p>",
+      "typescriptSha256": "65abf2d2d28b5adf3782a72b73b665644c8ab63081befd231cef12e533931f8c"
+    },
+    {
+      "escaped": "<p>The note quotes &quot;edition&quot; and &#39;proof&#39;.</p>",
+      "input": {
+        "markdown": "The note quotes \"edition\" and 'proof'.",
+        "template": "cv"
+      },
+      "sanitized": "<p>The note quotes &quot;edition&quot; and &#39;proof&#39;.</p>",
+      "typescriptSha256": "f6d4238531ae0c533384c2ff9e5a56ee7e0513287caeb6f292d4f72daed3856e"
+    },
+    {
+      "escaped": "<p>An example reads &lt;entry src=cover.png&gt;.</p>",
+      "input": {
+        "markdown": "An example reads <entry src=cover.png>.",
+        "template": "cv"
+      },
+      "sanitized": "<p>An example reads &lt;entry src=cover.png&gt;.</p>",
+      "typescriptSha256": "05406d1fef496606d45869db82840e8b6e2b584e0eeaba2bbe3b1937b840a4c7"
+    },
+    {
+      "escaped": "<p>The manual labels this &lt;entry style=plain&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The manual labels this <entry style=plain>.",
+        "template": "slides"
+      },
+      "sanitized": "<p>The manual labels this &lt;entry>",
+      "typescriptSha256": "755d80017dcbe7ea9c7caf5587fd4f60f8ff585670540e4d0f8dd90b11ea2bc3"
+    },
+    {
+      "escaped": "<p>The catalogue shows &lt;entry onlabel=visible&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The catalogue shows <entry onlabel=visible>.",
+        "template": "slides"
+      },
+      "sanitized": "<p>The catalogue shows &lt;entry>",
+      "typescriptSha256": "9ba40ca3ed96988bf49c57eaf6023e5d66994aec4f19d81675de958cdf5c0fba"
+    },
+    {
+      "escaped": "<p>The example reads &lt;entry src=about:blank&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The example reads <entry src=about:blank>.",
+        "template": "slides"
+      },
+      "sanitized": "<p>The example reads &lt;entry>",
+      "typescriptSha256": "e6714e12923419561ed2622500436b8d24d821abd6709f03fb53f8568edfb5da"
+    },
+    {
+      "escaped": "<p>The note uses &lt;entry href=data:,catalogue&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "The note uses <entry href=data:,catalogue>.",
+        "template": "slides"
+      },
+      "sanitized": "<p>The note uses &lt;entry>",
+      "typescriptSha256": "7139dc7921e41e2128eb1aa346e604f869528f1f1ec8cf84ecb25471276be0af"
+    },
+    {
+      "escaped": "<p>Example notation &lt;entry style=&#39;ordinary value&#39;&gt;.</p>",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "Example notation <entry style='ordinary value'>.",
+        "template": "slides"
+      },
+      "sanitized": "<p>Example notation &lt;entry value&#39;&gt;.</p>",
+      "typescriptSha256": "06232d9efa2d103305528d02556783b07d1435335e2e3900e3755572d44a315e"
+    },
+    {
+      "escaped": "<p>Envelope &lt;entry label=approved&gt;.</p>",
+      "input": {
+        "markdown": "Envelope <entry label=approved>.",
+        "template": "slides"
+      },
+      "sanitized": "<p>Envelope &lt;entry label=approved&gt;.</p>",
+      "typescriptSha256": "079cd37e6b242ec8546e8ac1aaac55143e8d87353077320a5da7644e3ae79d33"
+    },
+    {
+      "escaped": "<p>Draft &lt;entry title=&#39;review copy&#39;&gt;.</p>",
+      "input": {
+        "markdown": "Draft <entry title='review copy'>.",
+        "template": "slides"
+      },
+      "sanitized": "<p>Draft &lt;entry title=&#39;review copy&#39;&gt;.</p>",
+      "typescriptSha256": "4ec0c7c0122497918276ae79b0b348de09b9983861b7647f5a5b22bb5a4bbce7"
+    },
+    {
+      "escaped": "<p>Literal text describes A &lt; B &amp; C &gt; D.</p>",
+      "input": {
+        "markdown": "Literal text describes A < B & C > D.",
+        "template": "slides"
+      },
+      "sanitized": "<p>Literal text describes A &lt; B &amp; C &gt; D.</p>",
+      "typescriptSha256": "275d216a7518cea84a6368561ed1b07f993fa836620233a74ea3593bd8b41af7"
+    },
+    {
+      "escaped": "<p>The note quotes &quot;edition&quot; and &#39;proof&#39;.</p>",
+      "input": {
+        "markdown": "The note quotes \"edition\" and 'proof'.",
+        "template": "slides"
+      },
+      "sanitized": "<p>The note quotes &quot;edition&quot; and &#39;proof&#39;.</p>",
+      "typescriptSha256": "f732be2804552e92f5a18451d7447bbe9cbb14e1dae74cda0c5077c49ca45c32"
+    },
+    {
+      "escaped": "<p>An example reads &lt;entry src=cover.png&gt;.</p>",
+      "input": {
+        "markdown": "An example reads <entry src=cover.png>.",
+        "template": "slides"
+      },
+      "sanitized": "<p>An example reads &lt;entry src=cover.png&gt;.</p>",
+      "typescriptSha256": "8de1a6a909e9338752a43c1a4a95401078167710622c849ebc31a373cfe60bce"
+    }
+  ],
+  "source": "packages/documents/src/sanitize.ts"
+}

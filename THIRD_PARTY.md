@@ -6,7 +6,7 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: 4b3c965dc05fc91562b22243aae37c326a24d3c5e8c6a83821bec84f9f3730f0
-Cargo.lock: f9c8c242bbea18f7c629028d664a2dd5bd5d0cf0038a9b06a6cc36ca1ce8173e
+Cargo.lock: 8584daf2ad3a46ed5347dbf89afb453d232738bee4c6693d4c33da06caac4a9c
 apps/desktop/Cargo.lock: b03303bdf16ec6ab57ae3fd0c4d9f6756e9a4c36be1b3ab7a940d365d546f992
 ```
 

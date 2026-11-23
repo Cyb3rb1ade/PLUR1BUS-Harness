@@ -1589,6 +1589,10 @@ describe("document template assembly (P4-W W4)", () => {
     const expected = fixtureText(recordDocumentTemplates().templates);
     assert.equal(readFileSync(fixturePath("documents", "templates"), "utf8"), expected);
   });
+  it("matches the TypeScript sanitizer observations for escaped document text", async () => {
+    const { recordDocumentSanitizer } = await import("./export-document-sanitizer.ts");
+    assert.equal(readFileSync(fixturePath("documents", "sanitizer"), "utf8"), fixtureText(recordDocumentSanitizer().sanitizer));
+  });
   it("matches the full HTML with all shipped font faces", async () => {
     const { recordDocumentTemplates } = await import("./export-document-templates.ts");
     const expected = fixtureText(recordDocumentTemplates()["render-html"]);

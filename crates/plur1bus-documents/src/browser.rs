@@ -1,25 +1,21 @@
-//! Launch the configured Chromium binary in a private profile and connect to DevTools.
+//! Launch the configured Chromium binary in a private profile and connect to DevTools over private pipes.
 
 use std::{
     fs::{self, File},
     io::{self, Read as _},
-    net::{Ipv4Addr, SocketAddr, TcpStream},
     path::Path,
     process::{Child, Command, Stdio},
     thread,
     time::{Duration, Instant},
 };
 
-use plur1bus_channels::websocket::{self, Limits, Peer, Socket, SocketPorts, TimedStream};
-use plur1bus_providers::pinned_http_agent;
 use serde_json::Value;
-use url::Url;
 
 use crate::chromium::{Client, Control, Error, Result, Transport};
 
-const CONTROL_FILE_LIMIT: u64 = 4096;
-const TARGETS_LIMIT: u64 = 64 * 1024;
-const CDP_MESSAGE_LIMIT: usize = 32 * 1024 * 1024;
+mod pipe;
+use pipe::Pipe;
+
 const MAX_HTML: usize = 20 * 1024 * 1024;
 const MAX_PAGED_JS: u64 = 2 * 1024 * 1024;
 const POLL: Duration = Duration::from_millis(25);
@@ -79,12 +75,11 @@ impl<'a> Chromium<'a> {
         &self,
         html: &str,
         control: Control<'_>,
-        run: impl FnOnce(&mut Client<'_, LocalWire>) -> Result<T>,
+        run: impl FnOnce(&mut Client<'_, Pipe>) -> Result<T>,
     ) -> Result<T> {
+        let control = control.capped();
         control.check()?;
-        if html.len() > MAX_HTML {
-            return Err(Error::TooLarge);
-        }
+        check_html_size(html.len())?;
         if !self.binary.is_absolute() || !self.private_root.is_absolute() {
             return Err(Error::BrowserUnavailable);
         }
@@ -102,39 +97,24 @@ impl<'a> Chromium<'a> {
         directory: &Path,
         html: &str,
         control: Control<'_>,
-        run: impl FnOnce(&mut Client<'_, LocalWire>) -> Result<T>,
+        run: impl FnOnce(&mut Client<'_, Pipe>) -> Result<T>,
     ) -> Result<T> {
-        let document = directory.join("document.html");
-        fs::write(&document, html).map_err(|_| Error::BrowserUnavailable)?;
-        let file_url = Url::from_file_path(&document).map_err(|()| Error::BrowserUnavailable)?;
         let profile = directory.join("profile");
         let mut browser = BrowserProcess::spawn(self.binary, &profile)?;
-        let address = discover(&mut browser, &profile, control)?;
-        let endpoint = find_page(address, control)?;
-        let remaining = control.deadline.saturating_duration_since(Instant::now());
-        control.check()?;
-        let limits = Limits {
-            message_bytes: CDP_MESSAGE_LIMIT,
-            frame_bytes: CDP_MESSAGE_LIMIT,
-            handshake: remaining,
-            read: remaining,
-            write: remaining,
-        };
-        let socket = Socket::connect(&endpoint, &[], &Loopback(address), limits, true)
-            .map_err(|error| wire_error(error, control))?;
-        let mut wire = LocalWire { socket, control };
+        let write_end = browser.0.stdin.take().ok_or(Error::BrowserUnavailable)?;
+        let read_end = browser.0.stdout.take().ok_or(Error::BrowserUnavailable)?;
+        let mut wire = Pipe::start(read_end, write_end, control)?;
         let result = (|| {
             let mut cdp = Client::new(&mut wire, control);
-            cdp.navigate(file_url.as_str())?;
-            while cdp.evaluate("document.URL", false)? != file_url.as_str() {
-                pause(control, POLL, control.deadline)?;
-            }
+            cdp.load_document(html)?;
             if let Some(path) = self.paged_js {
                 paginate(&mut cdp, path, control)?;
             }
             run(&mut cdp)
         })();
-        browser.close(&mut wire.socket, control.deadline);
+        if control.check().is_ok() {
+            browser.close(&mut wire, control.deadline);
+        }
         result
     }
 }
@@ -167,7 +147,7 @@ fn remove_profile(directory: tempfile::TempDir) -> Result<()> {
     }
 }
 
-fn paginate(cdp: &mut Client<'_, LocalWire<'_>>, asset: &Path, control: Control<'_>) -> Result<()> {
+fn paginate(cdp: &mut Client<'_, Pipe<'_>>, asset: &Path, control: Control<'_>) -> Result<()> {
     if !asset.is_absolute() {
         return Err(Error::BrowserUnavailable);
     }
@@ -188,38 +168,47 @@ fn paginate(cdp: &mut Client<'_, LocalWire<'_>>, asset: &Path, control: Control<
     Ok(())
 }
 
+fn check_html_size(bytes: usize) -> Result<()> {
+    if bytes > MAX_HTML {
+        return Err(Error::TooLarge);
+    }
+    Ok(())
+}
+
 struct BrowserProcess(Child);
 
 impl BrowserProcess {
     fn spawn(binary: &Path, profile: &Path) -> Result<Self> {
         let mut profile_arg = std::ffi::OsString::from("--user-data-dir=");
         profile_arg.push(profile);
-        Command::new(binary)
+        let mut command = pipe_command(binary)?;
+        command
+            .env_clear()
             .args([
                 "--headless=new",
-                "--remote-debugging-port=0",
-                "--remote-debugging-address=127.0.0.1",
+                "--remote-debugging-pipe",
                 "--disable-gpu",
                 "--disable-dev-shm-usage",
                 "--hide-scrollbars",
                 "--no-first-run",
                 "--no-default-browser-check",
                 "--disable-background-networking",
-                "--no-proxy-server",
+                "--disable-extensions",
+                "--host-resolver-rules=MAP * ~NOTFOUND",
             ])
             .arg(profile_arg)
             .arg("about:blank")
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
             .map(Self)
             .map_err(|_| Error::BrowserUnavailable)
     }
 
-    fn close(&mut self, socket: &mut Socket, deadline: Instant) {
+    fn close(&mut self, pipe: &mut Pipe<'_>, deadline: Instant) {
         let deadline = deadline.min(Instant::now() + PROFILE_CLOSE_GRACE);
-        let _ = socket.send_text_until(
+        let _ = pipe.send(
             r#"{"id":9007199254740991,"method":"Browser.close"}"#,
             deadline,
         );
@@ -232,6 +221,48 @@ impl BrowserProcess {
     }
 }
 
+#[cfg(unix)]
+fn pipe_command(binary: &Path) -> Result<Command> {
+    // Only fixed descriptor actions are interpreted by the shell. The binary
+    // and every argument are passed as distinct argv elements to exec.
+    let mut command = Command::new("/bin/sh");
+    command
+        .args([
+            "-c",
+            "exec /usr/bin/env -i \"$@\" 3<&0 4>&1 </dev/null >/dev/null",
+            "plur1bus-chromium",
+        ])
+        .arg(binary);
+    Ok(command)
+}
+
+#[cfg(windows)]
+fn pipe_command(binary: &Path) -> Result<Command> {
+    // Node's native child-process launcher transfers the two Chromium pipe
+    // descriptors on Windows. The helper and Chromium both get an empty env.
+    let node = std::env::var_os("PLUR1BUS_NODE")
+        .map(std::path::PathBuf::from)
+        .filter(|path| path.is_absolute() && path.is_file())
+        .or_else(|| {
+            let search = std::env::var_os("PATH")?;
+            std::env::split_paths(&search)
+                .filter(|path| path.is_absolute())
+                .map(|path| path.join("node.exe"))
+                .find(|path| path.is_file())
+        })
+        .ok_or(Error::BrowserUnavailable)?;
+    let mut command = Command::new(node);
+    command
+        .args(["--eval", include_str!("browser/windows-pipe.cjs"), "--"])
+        .arg(binary);
+    Ok(command)
+}
+
+#[cfg(not(any(unix, windows)))]
+fn pipe_command(_: &Path) -> Result<Command> {
+    Err(Error::BrowserUnavailable)
+}
+
 impl Drop for BrowserProcess {
     fn drop(&mut self) {
         if self.0.try_wait().ok().flatten().is_none() {
@@ -241,175 +272,13 @@ impl Drop for BrowserProcess {
     }
 }
 
-fn discover(
-    browser: &mut BrowserProcess,
-    profile: &Path,
-    control: Control<'_>,
-) -> Result<SocketAddr> {
-    let path = profile.join("DevToolsActivePort");
-    loop {
-        control.check()?;
-        if !matches!(browser.0.try_wait(), Ok(None)) {
-            return Err(Error::BrowserUnavailable);
-        }
-        match File::open(&path) {
-            Ok(file) => {
-                let mut value = String::new();
-                file.take(CONTROL_FILE_LIMIT + 1)
-                    .read_to_string(&mut value)
-                    .map_err(|_| Error::Protocol)?;
-                if value.len() as u64 > CONTROL_FILE_LIMIT {
-                    return Err(Error::TooLarge);
-                }
-                // A partial first write is permitted until the deadline.
-                if let Some((port, _)) = value.split_once('\n') {
-                    let port = port
-                        .trim_end_matches('\r')
-                        .parse::<u16>()
-                        .ok()
-                        .filter(|port| *port != 0)
-                        .ok_or(Error::Protocol)?;
-                    return Ok(SocketAddr::from((Ipv4Addr::LOCALHOST, port)));
-                }
-            }
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-            Err(_) => return Err(Error::BrowserUnavailable),
-        }
-        pause(control, POLL, control.deadline)?;
+#[cfg(test)]
+mod tests {
+    use super::{check_html_size, Error, MAX_HTML};
+
+    #[test]
+    fn html_size_is_bounded_before_the_browser_starts() {
+        assert_eq!(check_html_size(MAX_HTML), Ok(()));
+        assert_eq!(check_html_size(MAX_HTML + 1), Err(Error::TooLarge));
     }
-}
-
-fn find_page(address: SocketAddr, control: Control<'_>) -> Result<Url> {
-    control.check()?;
-    let config = ureq::Agent::config_builder()
-        .proxy(None)
-        .max_redirects(0)
-        .max_response_header_size(TARGETS_LIMIT as usize)
-        .timeout_global(Some(
-            control.deadline.saturating_duration_since(Instant::now()),
-        ))
-        .build();
-    let agent = pinned_http_agent(config, address, control.deadline);
-    let mut response = agent
-        .get(format!("http://{address}/json/list"))
-        .call()
-        .map_err(|error| {
-            control
-                .check()
-                .err()
-                .unwrap_or(if matches!(error, ureq::Error::Timeout(_)) {
-                    Error::Timeout
-                } else {
-                    Error::BrowserUnavailable
-                })
-        })?;
-    if response.status() != 200 {
-        return Err(Error::Protocol);
-    }
-    let mut bytes = Vec::new();
-    let read = response
-        .body_mut()
-        .as_reader()
-        .take(TARGETS_LIMIT + 1)
-        .read_to_end(&mut bytes);
-    control.check()?;
-    read.map_err(|_| Error::Protocol)?;
-    if bytes.len() as u64 > TARGETS_LIMIT {
-        return Err(Error::TooLarge);
-    }
-    let targets: Vec<Value> = serde_json::from_slice(&bytes).map_err(|_| Error::Protocol)?;
-    let endpoint = targets
-        .iter()
-        .find(|target| target["type"] == "page")
-        .and_then(|target| target["webSocketDebuggerUrl"].as_str())
-        .ok_or(Error::Protocol)?;
-    let endpoint = Url::parse(endpoint).map_err(|_| Error::Protocol)?;
-    if !permitted(&endpoint, address) {
-        return Err(Error::Protocol);
-    }
-    Ok(endpoint)
-}
-
-fn permitted(endpoint: &Url, address: SocketAddr) -> bool {
-    endpoint.scheme() == "ws"
-        && endpoint.host_str() == Some("127.0.0.1")
-        && endpoint.port_or_known_default() == Some(address.port())
-        && endpoint.path().starts_with("/devtools/page/")
-        && endpoint.query().is_none()
-}
-
-struct Loopback(SocketAddr);
-
-impl SocketPorts for Loopback {
-    fn pin(&self, endpoint: &Url, _: Instant) -> Option<SocketAddr> {
-        permitted(endpoint, self.0).then_some(self.0)
-    }
-
-    fn dial(
-        &self,
-        _: &Url,
-        pin: SocketAddr,
-        deadline: Instant,
-    ) -> io::Result<Box<dyn TimedStream>> {
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        if pin != self.0 || remaining.as_millis() == 0 {
-            return Err(io::Error::from(io::ErrorKind::TimedOut));
-        }
-        TcpStream::connect_timeout(&pin, remaining)
-            .map(|stream| Box::new(stream) as Box<dyn TimedStream>)
-    }
-}
-
-struct LocalWire<'a> {
-    socket: Socket,
-    control: Control<'a>,
-}
-
-impl Transport for LocalWire<'_> {
-    fn send(&mut self, text: &str, deadline: Instant) -> Result<()> {
-        self.control.check()?;
-        self.socket
-            .send_text_until(text, deadline)
-            .map_err(|error| wire_error(error, self.control))?;
-        self.control.check()
-    }
-
-    fn receive(&mut self, deadline: Instant) -> Result<String> {
-        for _ in 0..128 {
-            self.control.check()?;
-            let message = self
-                .socket
-                .receive_until(deadline)
-                .map_err(|error| wire_error(error, self.control))?;
-            self.control.check()?;
-            match message {
-                Peer::Text(text) => return Ok(text),
-                Peer::Ping | Peer::Pong => {}
-                Peer::Binary(_) | Peer::Closed(_) => return Err(Error::Protocol),
-            }
-        }
-        Err(Error::Protocol)
-    }
-
-    fn wait(&mut self, delay: Duration, deadline: Instant) -> Result<()> {
-        pause(self.control, delay, deadline)
-    }
-}
-
-fn pause(control: Control<'_>, delay: Duration, deadline: Instant) -> Result<()> {
-    control.check()?;
-    thread::sleep(delay.min(deadline.saturating_duration_since(Instant::now())));
-    control.check()
-}
-
-fn wire_error(error: websocket::Error, control: Control<'_>) -> Error {
-    control.check().err().unwrap_or(match error {
-        websocket::Error::Denied
-        | websocket::Error::Protocol
-        | websocket::Error::Closed
-        | websocket::Error::Handshake { .. } => Error::Protocol,
-        websocket::Error::Timeout => Error::Timeout,
-        websocket::Error::Capacity => Error::TooLarge,
-        websocket::Error::Network => Error::BrowserUnavailable,
-    })
 }

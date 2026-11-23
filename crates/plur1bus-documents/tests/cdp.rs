@@ -125,3 +125,23 @@ fn navigation_waits_for_the_document_and_fonts_under_one_deadline() {
     assert_eq!(expired.print_pdf(), Err(Error::Timeout));
     assert!(port.commands.is_empty());
 }
+
+#[test]
+fn navigation_rejects_unowned_schemes_before_sending_commands() {
+    let mut port = Fixture {
+        commands: Vec::new(),
+        responses: VecDeque::new(),
+    };
+    let mut client = Client::new(
+        &mut port,
+        Control {
+            deadline: Instant::now() + Duration::from_secs(2),
+            cancelled: &|| false,
+        },
+    );
+    assert_eq!(
+        client.navigate("https://example.invalid/fixture"),
+        Err(Error::Protocol)
+    );
+    assert!(port.commands.is_empty());
+}

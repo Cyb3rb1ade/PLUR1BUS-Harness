@@ -359,6 +359,16 @@ impl<'a> Client<'a> {
         if !web_url(&url) {
             return Err(Error::InvalidResponse);
         }
+        self.check_download_url(&url, authenticated)?;
+        let deadline = deadline.min(Instant::now() + MAX_DEADLINE);
+        let response = self.request(&url, Method::Get, None, authenticated, deadline)?;
+        if !response.status().is_success() {
+            return Err(classify(response.status().as_u16(), &Value::Null).code);
+        }
+        Binary::new(response, limit, self.ports, deadline)
+    }
+
+    fn check_download_url(&self, url: &Url, authenticated: bool) -> Result<()> {
         if url.origin() != self.base.origin()
             && (authenticated
                 || url.scheme() != "https"
@@ -368,12 +378,15 @@ impl<'a> Client<'a> {
         {
             return Err(Error::BackendUnavailable);
         }
-        let deadline = deadline.min(Instant::now() + MAX_DEADLINE);
-        let response = self.request(&url, Method::Get, None, authenticated, deadline)?;
-        if !response.status().is_success() {
-            return Err(classify(response.status().as_u16(), &Value::Null).code);
+        Ok(())
+    }
+
+    fn check_download_pin(&self, url: &Url, ip: IpAddr, same_origin: bool) -> Result<()> {
+        let local = private(ip);
+        if (!same_origin && local) || (url.scheme() == "http" && !self.cleartext(ip)) {
+            return Err(Error::BackendUnavailable);
         }
-        Binary::new(response, limit, self.ports, deadline)
+        Ok(())
     }
 
     fn request(
@@ -401,9 +414,7 @@ impl<'a> Client<'a> {
         }
         let same_origin = url.origin() == self.base.origin();
         let local = private(pin.ip());
-        if (!same_origin && local) || (url.scheme() == "http" && !self.cleartext(pin.ip())) {
-            return Err(Error::BackendUnavailable);
-        }
+        self.check_download_pin(url, pin.ip(), same_origin)?;
         let mut request = Request::builder()
             .method(method.name())
             .uri(url.as_str())
@@ -535,12 +546,7 @@ impl<'a> Binary<'a> {
             .and_then(|value| value.to_str().ok())
             .is_some_and(|encoding| encoding.eq_ignore_ascii_case("gzip"));
         let body = response.into_body();
-        if body
-            .content_length()
-            .is_some_and(|size| size > limit as u64)
-        {
-            return Err(Error::TooLarge);
-        }
+        check_content_length(body.content_length(), limit)?;
         let reader = body.into_reader();
         let reader: Box<dyn Read> = if gzip {
             Box::new(flate2::read::MultiGzDecoder::new(reader))
@@ -593,10 +599,22 @@ impl Read for Binary<'_> {
     }
 }
 
-fn decode_base64(data: &str) -> Result<Vec<u8>> {
-    if data.len() > MAX_IMAGE.div_ceil(3) * 4 {
+fn check_content_length(length: Option<u64>, limit: usize) -> Result<()> {
+    if length.is_some_and(|size| size > limit as u64) {
         return Err(Error::TooLarge);
     }
+    Ok(())
+}
+
+fn check_encoded_size(length: usize, limit: usize) -> Result<()> {
+    if length > limit.div_ceil(3) * 4 {
+        return Err(Error::TooLarge);
+    }
+    Ok(())
+}
+
+fn decode_base64(data: &str) -> Result<Vec<u8>> {
+    check_encoded_size(data.len(), MAX_IMAGE)?;
     if data.is_empty() {
         return Err(Error::InvalidResponse);
     }
@@ -678,5 +696,67 @@ fn truthy(value: &Value) -> bool {
         Value::String(value) => !value.is_empty(),
         Value::Number(value) => value.as_f64().is_some_and(|value| value != 0.0),
         _ => true,
+    }
+}
+
+#[cfg(test)]
+mod policy_tests {
+    use super::{
+        check_content_length, check_encoded_size, Auth, Client, Duration, Error, Instant, IpAddr,
+        Ipv4Addr, Options, Ports, Result, SocketAddr, Url,
+    };
+
+    struct Offline;
+    impl Ports for Offline {
+        fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
+            None
+        }
+        fn credential(&self, _: Auth, _: Instant) -> Result<Option<String>> {
+            Ok(None)
+        }
+        fn random(&self) -> f64 {
+            0.0
+        }
+        fn wait(&self, _: Duration, _: Instant) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn download_policy_checks_the_configured_host_and_private_addresses(
+    ) -> std::result::Result<(), url::ParseError> {
+        let base = Url::parse("https://api.example.invalid/")?;
+        let allowed = Url::parse("https://cdn.example.invalid/image")?;
+        let other = Url::parse("https://other.example.invalid/image")?;
+        let client = Client {
+            ports: &Offline,
+            base,
+            options: Options {
+                download_hosts: &["cdn.example.invalid"],
+                ..Options::default()
+            },
+        };
+        assert_eq!(client.check_download_url(&allowed, false), Ok(()));
+        assert_eq!(
+            client.check_download_url(&other, false),
+            Err(Error::BackendUnavailable)
+        );
+        assert_eq!(
+            client.check_download_pin(&allowed, IpAddr::V4(Ipv4Addr::LOCALHOST), false),
+            Err(Error::BackendUnavailable)
+        );
+        assert_eq!(
+            client.check_download_pin(&client.base, IpAddr::V4(Ipv4Addr::LOCALHOST), true),
+            Ok(())
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn encoded_data_and_declared_lengths_have_preflight_ceilings() {
+        assert_eq!(check_content_length(Some(3), 3), Ok(()));
+        assert_eq!(check_content_length(Some(4), 3), Err(Error::TooLarge));
+        assert_eq!(check_encoded_size(4, 3), Ok(()));
+        assert_eq!(check_encoded_size(5, 3), Err(Error::TooLarge));
     }
 }

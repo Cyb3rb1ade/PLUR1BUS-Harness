@@ -182,6 +182,20 @@ fn check(deadline: Instant, cancelled: &dyn Fn() -> bool) -> Result<(), Error> {
     Ok(())
 }
 
+fn check_absolute_paths(paths: [&Path; 3]) -> Result<(), Error> {
+    if !paths.iter().all(|path| path.is_absolute()) {
+        return Err(Error::InvalidResponse);
+    }
+    Ok(())
+}
+
+fn check_stdout_size(len: usize) -> Result<(), Error> {
+    if len > MAX_STDOUT {
+        return Err(Error::InvalidResponse);
+    }
+    Ok(())
+}
+
 pub fn process(
     host: &dyn ProcessPort,
     request: &VideoRequest<'_>,
@@ -193,19 +207,12 @@ pub fn process(
         output,
         poster,
     } = request.paths;
-    if ![input, output, poster]
-        .iter()
-        .all(|path| path.is_absolute())
-    {
-        return Err(Error::InvalidResponse);
-    }
+    check_absolute_paths([input, output, poster])?;
     let run = |codec, args: &[OsString]| {
         check(deadline, cancelled)?;
         let stdout = host.run(codec, args, MAX_STDOUT, deadline, cancelled)?;
         check(deadline, cancelled)?;
-        if stdout.len() > MAX_STDOUT {
-            return Err(Error::InvalidResponse);
-        }
+        check_stdout_size(stdout.len())?;
         Ok(stdout)
     };
 
@@ -279,4 +286,25 @@ pub fn process(
 
 fn options<const N: usize>(values: [&str; N]) -> [OsString; N] {
     values.map(OsString::from)
+}
+
+#[cfg(test)]
+mod bounds_tests {
+    use super::{check_absolute_paths, check_stdout_size, Error, MAX_STDOUT};
+    use std::path::Path;
+
+    #[test]
+    fn video_staging_requires_absolute_paths_and_bounded_stdout() {
+        let temp = std::env::temp_dir();
+        assert_eq!(check_absolute_paths([&temp, &temp, &temp]), Ok(()));
+        assert_eq!(
+            check_absolute_paths([&temp, &temp, Path::new("poster.png")]),
+            Err(Error::InvalidResponse)
+        );
+        assert_eq!(check_stdout_size(MAX_STDOUT), Ok(()));
+        assert_eq!(
+            check_stdout_size(MAX_STDOUT + 1),
+            Err(Error::InvalidResponse)
+        );
+    }
 }

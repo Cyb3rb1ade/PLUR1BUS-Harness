@@ -1760,3 +1760,25 @@ It accounts for formatting prefixes and table delimiters before constructing
 the expanded output, and checks the fetch deadline and cancellation while
 walking the HTML tree. The final token check still governs the returned result.
 TypeScript applies its token check after rendering.
+
+<a id="p4d-251"></a>
+
+## P4D-251 — Private Chromium pipe and document resource policy (R-W-26)
+
+Rust uses the Chromium DevTools pipe and attaches to a single private target.
+It supplies the document through interception, without opening a DevTools
+listener. The content policy allows inline styles and embedded fonts and
+images. The installed Paged.js asset is read from the trusted host path and
+evaluated through the controlled session. Redirects, off-document requests,
+workers and frames are refused. Chromium starts with a cleared environment.
+The driver caps the deadline at 600 seconds and checks cancellation while
+waiting on the pipe. On Windows the process launcher uses the configured Node
+binary to attach the Chromium pipe descriptors.
+
+<a id="p4d-252"></a>
+
+## P4D-252 — Escaped document text survives assembly (R-W-27)
+
+The Rust templates preserve attribute-like text after escaping. The TypeScript
+post-processing pass can remove part of that text. The Rust document policy
+described in P4D-251 also applies to document inputs outside template assembly.

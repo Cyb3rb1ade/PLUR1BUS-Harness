@@ -109,8 +109,18 @@ fn authored_templates_replay_complete_typescript_markup() {
             meta,
             kit,
         };
+        // P4D-251 adds the resource policy to the Rust template.
+        let policy = format!(
+            "<meta http-equiv=\"Content-Security-Policy\" content=\"{}\">\n",
+            templates::DOCUMENT_CSP
+        );
         let actual = templates::assemble(template, &document);
-        assert_eq!(actual, vector["expected"], "{kind}");
+        assert_eq!(actual.matches(&policy).count(), 1);
+        assert_eq!(
+            actual.replacen(&policy, "", 1),
+            vector["expected"],
+            "{kind}"
+        );
         let html = assemble_html(template, &document, &fonts).unwrap();
         assert!(
             plur1bus_documents::checks::static_checks(&html)
@@ -118,11 +128,88 @@ fn authored_templates_replay_complete_typescript_markup() {
                 .all(|finding| finding.check != "fonts"),
             "{kind}"
         );
+        let html = html.replacen(&policy, "", 1);
         assert_eq!(html.len() as u64, rendered["bytes"], "{kind}");
         assert_eq!(
             format!("{:x}", Sha256::digest(html.as_bytes())),
             rendered["sha256"],
             "{kind}"
         );
+    }
+}
+
+#[test]
+fn templates_declare_a_closed_resource_policy() {
+    use plur1bus_documents::templates::{assemble, Document, Kit, Meta, Template};
+    let html = assemble(
+        Template::Report,
+        &Document {
+            title: "Fixture",
+            subtitle: "",
+            markdown: "An ordinary paragraph.",
+            meta: Meta::default(),
+            kit: Kit::default(),
+        },
+    );
+    let policy = html
+        .lines()
+        .find(|line| line.contains("Content-Security-Policy"))
+        .unwrap();
+    assert!(policy.contains("default-src 'none'"));
+    assert!(policy.contains("connect-src 'none'"));
+    assert!(policy.contains("frame-src 'none'"));
+    assert!(policy.contains("font-src data:"));
+}
+
+#[test]
+fn brand_kit_accepts_hex_colours_and_refuses_other_literals() {
+    use plur1bus_documents::templates::Kit;
+    let mut kit = Kit::default();
+    assert!(kit.set("accent", "#134280").is_ok());
+    assert!(kit.set("accent", "red").is_err());
+    assert!(kit.set("accent", "#12345").is_err());
+    assert!(kit.set("accent", "#fff ").is_err());
+}
+
+#[test]
+fn escaped_attribute_like_text_remains_readable_in_authored_templates() {
+    use plur1bus_documents::templates::{self, Document, Kit, Meta};
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/documents/sanitizer.json"
+    ))
+    .unwrap();
+    let cases = fixture["cases"].as_array().unwrap();
+    assert_eq!(cases.len(), 50);
+    for case in cases {
+        let input = &case["input"];
+        let markdown = input["markdown"].as_str().unwrap();
+        let template = input["template"].as_str().unwrap().parse().unwrap();
+        let escaped = case["escaped"].as_str().unwrap();
+        let actual = templates::assemble(
+            template,
+            &Document {
+                title: "Fixture",
+                subtitle: "",
+                markdown,
+                meta: Meta::default(),
+                kit: Kit::default(),
+            },
+        );
+        assert!(actual.contains(escaped), "{input}");
+        assert!(!actual.contains("<entry"));
+        if case["expectedDivergence"] == "P4D-252" {
+            assert_ne!(escaped, case["sanitized"].as_str().unwrap());
+        } else {
+            let directive = format!(
+                "<meta http-equiv=\"Content-Security-Policy\" content=\"{}\">\n",
+                templates::DOCUMENT_CSP
+            );
+            let comparable = actual.replacen(&directive, "", 1);
+            assert_eq!(
+                format!("{:x}", Sha256::digest(comparable.as_bytes())),
+                case["typescriptSha256"],
+                "{input}"
+            );
+        }
     }
 }

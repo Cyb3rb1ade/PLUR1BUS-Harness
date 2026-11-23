@@ -243,9 +243,7 @@ impl<'a, B: Backend> OutputStore<'a, B> {
         else {
             return Ok(None);
         };
-        if bytes.len() > MAX_MANIFEST_BYTES {
-            return Err(Error::Storage);
-        }
+        check_manifest_length(bytes.len())?;
         check_deadline(deadline)?;
         let manifest: Value = serde_json::from_slice(&bytes).map_err(|_| Error::Storage)?;
         if manifest["schema"] != SCHEMA || manifest["id"] != id {
@@ -440,6 +438,13 @@ pub(crate) fn hash(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
+fn check_manifest_length(bytes: usize) -> Result<()> {
+    if bytes > MAX_MANIFEST_BYTES {
+        return Err(Error::Storage);
+    }
+    Ok(())
+}
+
 fn verify_id(id: &str) -> Result<()> {
     if !(1..=100).contains(&id.len())
         || !id
@@ -457,5 +462,24 @@ fn check_deadline(deadline: Instant) -> Result<()> {
         Err(Error::Timeout)
     } else {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod id_tests {
+    use super::{check_manifest_length, verify_id, Error, MAX_MANIFEST_BYTES};
+
+    #[test]
+    fn output_ids_and_manifest_lengths_keep_their_inclusive_limits() {
+        assert_eq!(verify_id("edition_1"), Ok(()));
+        assert_eq!(
+            verify_id("category/edition"),
+            Err(Error::UnsupportedParameter)
+        );
+        assert_eq!(check_manifest_length(MAX_MANIFEST_BYTES), Ok(()));
+        assert_eq!(
+            check_manifest_length(MAX_MANIFEST_BYTES + 1),
+            Err(Error::Storage)
+        );
     }
 }

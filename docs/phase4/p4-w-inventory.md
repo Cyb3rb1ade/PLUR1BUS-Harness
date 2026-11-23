@@ -303,6 +303,19 @@ entfernt wurde. Wenn das Betriebssystem das Löschen beim Schließen der letzten
 Dateihandles vorübergehend verweigert, wiederholt der Renderer es bis zu einer
 Sekunde auf dem eigenen temporären Verzeichnis.
 
+
+Native Chromium attachment and the independent CSP and interception policy
+are specified in [P4D-251](defects.md#p4d-251). Escaped template text follows
+[P4D-252](defects.md#p4d-252).
+
+At the flip the host supplies approved absolute ffmpeg/ffprobe and Chromium
+paths, clears the child environment, and owns a separate process group or
+Windows job. It must stop the complete tree on close, timeout, cancellation
+and host failure. The job store must assign bounded IDs equivalent to
+`verify_id`. A Windows storage backend refuses reserved device names in
+every path component. Full-page bitmap dimensions need a host-side limit
+before capture.
+
 ### W5 · Erkennung und Katalog (P4-44)
 
 - **Dateien.** [Discovery](../../packages/core/src/discovery) mit `scanners/`, HTTP, Reconcile,

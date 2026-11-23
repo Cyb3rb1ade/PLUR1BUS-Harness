@@ -97,14 +97,19 @@ fn display_filename(value: &str) -> String {
         .to_owned()
 }
 
+fn check_upload_length(bytes: usize) -> Result<()> {
+    if bytes > MAX_BYTES {
+        return Err(Error::TooLarge);
+    }
+    Ok(())
+}
+
 impl Manifest {
     pub(crate) fn admit(id: &str, created_at: i64, upload: &Upload<'_>) -> Result<Self> {
         if upload.bytes.is_empty() || !(0..=MAX_SAFE_INTEGER).contains(&created_at) {
             return Err(Error::UnsupportedParameter);
         }
-        if upload.bytes.len() > MAX_BYTES {
-            return Err(Error::TooLarge);
-        }
+        check_upload_length(upload.bytes.len())?;
         let (kind, format) = upload_type(upload.mime_type).ok_or(Error::UnsupportedParameter)?;
         if kind != upload.kind {
             return Err(Error::UnsupportedParameter);
@@ -339,5 +344,27 @@ impl Entry {
             Health::Unavailable => (account.created_at, retention),
         };
         limit.is_some_and(|ms| i128::from(now) - i128::from(start) >= i128::from(ms))
+    }
+}
+
+#[cfg(test)]
+mod bounds_tests {
+    use super::{check_upload_length, Error, Manifest, MAX_BYTES};
+    use serde_json::json;
+
+    #[test]
+    fn upload_manifests_keep_the_exact_payload_name_and_size_limit() -> Result<(), serde_json::Error>
+    {
+        assert_eq!(check_upload_length(MAX_BYTES), Ok(()));
+        assert_eq!(check_upload_length(MAX_BYTES + 1), Err(Error::TooLarge));
+        let mut fixture = json!({"schema":"media.upload/1","id":"fixture","createdAt":1,"kind":"image",
+            "mimeType":"image/png","file":{"path":"0.png","sha256":"0".repeat(64),"bytes":3,"format":"png"}});
+        assert!(Manifest::decode("fixture", &serde_json::to_vec(&fixture)?).is_ok());
+        fixture["file"]["path"] = json!("renamed.png");
+        assert_eq!(
+            Manifest::decode("fixture", &serde_json::to_vec(&fixture)?).err(),
+            Some(Error::Storage)
+        );
+        Ok(())
     }
 }
