@@ -6,7 +6,7 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: 4b3c965dc05fc91562b22243aae37c326a24d3c5e8c6a83821bec84f9f3730f0
-Cargo.lock: e7edcdf3c778b0b6b4b7a685dc067a723483e5812f32fc360aec9f0bf9f631a6
+Cargo.lock: 9e0e198871ccce261d98d486894eb5c754451efeb802a2eccc1e38ac09a7e02f
 apps/desktop/Cargo.lock: b03303bdf16ec6ab57ae3fd0c4d9f6756e9a4c36be1b3ab7a940d365d546f992
 ```
 
@@ -800,6 +800,7 @@ apps/desktop/Cargo.lock: b03303bdf16ec6ab57ae3fd0c4d9f6756e9a4c36be1b3ab7a940d36
 | cargo | reqwest | 0.13.5 | MIT OR Apache-2.0 | Sean McArthur <sean@seanmonstar.com> |
 | cargo | rfc6979 | 0.6.0 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | ring | 0.17.14 | Apache-2.0 AND ISC |  |
+| cargo | rmcp | 3.9.0 | Apache-2.0 |  |
 | cargo | roaring | 0.10.12 | MIT OR Apache-2.0 | Wim Looman <wim@nemo157.com>, Kerollmops <kero@meilisearch.com> |
 | cargo | robust | 1.2.0 | MIT OR Apache-2.0 | The Spade Developers, The GeoRust Developers |
 | cargo | roff | 1.1.1 | MIT OR Apache-2.0 |  |
@@ -845,6 +846,7 @@ apps/desktop/Cargo.lock: b03303bdf16ec6ab57ae3fd0c4d9f6756e9a4c36be1b3ab7a940d36
 | cargo | schemars | 1.2.2 | MIT | Graham Esau <gesau@hotmail.co.uk> |
 | cargo | schemars | 1.2.3 | MIT | Graham Esau <gesau@hotmail.co.uk> |
 | cargo | schemars_derive | 0.8.22 | MIT | Graham Esau <gesau@hotmail.co.uk> |
+| cargo | schemars_derive | 1.2.3 | MIT | Graham Esau <gesau@hotmail.co.uk> |
 | cargo | scoped-tls | 1.0.1 | MIT/Apache-2.0 | Alex Crichton <alex@alexcrichton.com> |
 | cargo | scopeguard | 1.2.0 | MIT OR Apache-2.0 | bluss |
 | cargo | scrypt | 0.11.0 | MIT OR Apache-2.0 | RustCrypto Developers |
@@ -868,6 +870,7 @@ apps/desktop/Cargo.lock: b03303bdf16ec6ab57ae3fd0c4d9f6756e9a4c36be1b3ab7a940d36
 | cargo | serde_derive | 1.0.228 | MIT OR Apache-2.0 | Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com> |
 | cargo | serde_derive | 1.0.229 | MIT OR Apache-2.0 | Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com> |
 | cargo | serde_derive_internals | 0.29.1 | MIT OR Apache-2.0 | Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com> |
+| cargo | serde_derive_internals | 0.30.0 | MIT OR Apache-2.0 | Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com> |
 | cargo | serde_json | 1.0.150 | MIT OR Apache-2.0 | Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com> |
 | cargo | serde_json | 1.0.151 | MIT OR Apache-2.0 | Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com> |
 | cargo | serde_path_to_error | 0.1.20 | MIT OR Apache-2.0 | David Tolnay <dtolnay@gmail.com> |
@@ -920,6 +923,7 @@ apps/desktop/Cargo.lock: b03303bdf16ec6ab57ae3fd0c4d9f6756e9a4c36be1b3ab7a940d36
 | cargo | sqlite-wasm-rs | 0.6.3 | MIT | Spxg <noz@live.com> |
 | cargo | sqlparser | 0.59.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
 | cargo | sqlparser_derive | 0.3.0 | Apache-2.0 | sqlparser-rs authors |
+| cargo | sse-stream | 0.2.6 | MIT OR Apache-2.0 | 4t145 <u4t145@163.com> |
 | cargo | ssh-cipher | 0.3.0 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | ssh-encoding | 0.3.0 | Apache-2.0 OR MIT | RustCrypto Developers |
 | cargo | ssh-key | 0.7.0-rc.11 | Apache-2.0 OR MIT | RustCrypto Developers |

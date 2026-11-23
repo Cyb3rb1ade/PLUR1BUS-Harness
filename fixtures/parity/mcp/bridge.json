@@ -1,0 +1,30 @@
+{
+  "cases": [
+    {
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"tools\":[]}}",
+      "input": {
+        "id": 1,
+        "jsonrpc": "2.0",
+        "method": "tools/list"
+      },
+      "result": {
+        "id": 1,
+        "jsonrpc": "2.0",
+        "result": {
+          "tools": []
+        }
+      },
+      "status": 200
+    },
+    {
+      "body": "",
+      "input": {
+        "jsonrpc": "2.0",
+        "method": "notifications/initialized"
+      },
+      "result": null,
+      "status": 202
+    }
+  ],
+  "source": "packages/core/src/mcp/stdio-server.ts"
+}

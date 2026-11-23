@@ -1364,6 +1364,17 @@ body over 500 KiB of UTF-8 bytes. Its eventual fetch port must limit decoded
 bytes before parsing and map overflow to a denied crawl, keeping an incomplete
 policy out of the crawler's cache.
 
+<a id="p4d-208"></a>
+
+## P4D-208 — stdio MCP bridge HTTP replies
+
+The local stdio server calls `fetch` and buffers the API's response with
+`Response.text()`. This forwarding path has no explicit body byte ceiling
+or deadline. The Rust JSON reader enforces 1 MiB on decoded replies and uses
+the request's absolute deadline for every read. Rejected HTTP statuses return
+only their numeric code. The host connection must enforce the deadline while
+blocked in a read and release the body after a failure.
+
 <a id="p4d-210"></a>
 
 ## P4D-210 — cloud synthesis stream deadline and completion
@@ -1490,3 +1501,67 @@ The Rust renderer refuses table grids whose padded projection would exceed
 300,000 cells. It retains the legacy HTML element and nesting limits.
 Oversized tables fail the extraction as a whole. The TypeScript renderer
 does not apply a separate bound to the padded table grid.
+
+<a id="p4d-229"></a>
+
+## P4D-229 — MCP HTTP response deadlines and limits
+
+The generic Rust MCP backend reads structured HTTP replies up to the 16 MiB
+SDK ceiling and caps error replies at 64 KiB. It applies a single finite
+deadline from the egress decision through the last read and counts raw SSE
+event bytes before parsing. The composed connection keeps the TypeScript
+1 MiB frame limit. The HTTP adapter asks for identity coding and rejects
+other encodings. Error diagnostics contain status and category. The adapter
+discards peer-provided error text and arbitrary error data. It keeps only
+known version names for a bounded discovery fallback.
+
+<a id="p4d-230"></a>
+
+## P4D-230 — bounds for MCP OAuth exchanges
+
+Rust applies a finite, shared deadline to discovery, the authorization
+interaction and token exchange. It accepts at most 1 MiB of structured
+metadata or token data and at most 64 KiB from unsuccessful replies. The
+credential-free discovery and token requests use the pinned HTTP transport.
+Errors retain a fixed category and omit response bodies.
+
+<a id="p4d-231"></a>
+
+## P4D-231 — deadline for incomplete MCP stdio frames
+
+Rust keeps the 1 MiB line boundary and sets one deadline when an incomplete
+line starts. The deadline survives read cancellation and applies to the
+remainder of that line. If a send stops after taking the writer, the stream
+closes so a partial write cannot prefix a new frame. Process-group termination
+and stderr ownership remain with the launcher port.
+
+<a id="p4d-232"></a>
+
+## P4D-232 — MCP runtime request IDs and SDK logging
+
+The rmcp client numbers its own modern requests from zero. The TypeScript
+modern peer numbers them from one. The IDs are local correlation values,
+and the replay accounts for the offset while comparing the other request
+bytes. The Rust SDK runs on a dedicated thread with a scoped tracing
+dispatcher so that SDK events carrying peer data cannot enter host logs.
+The host still applies the shared wire-record filter to the HTTP library.
+
+<a id="p4d-233"></a>
+
+## P4D-233 — content-free MCP server diagnostics
+
+The Rust HTTP protocol uses the same JSON-RPC codes for mismatched
+MCP parameter headers. Its message omits parameter-header names and
+values. Tool lookup likewise uses one response for both an unavailable
+tool and a name the actor is not allowed to use.
+
+<a id="p4d-234"></a>
+
+## P4D-234 — MCP tool output schema admission
+
+Like TypeScript, the native client checks a structural copy of a tool's output
+schema with regex keywords removed. Rust also refuses schema references and
+caps schema and instance nodes, nesting, container sizes and validation work.
+The original descriptor remains available to the caller. A refused schema
+does not authorize the call. Validation errors omit peer diagnostics and
+response contents.

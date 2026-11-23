@@ -352,8 +352,24 @@ Robots-Cache sowie die Freigabe für Provider-Credentials anbinden.
   eignen sich auch für V. OS-Job-Prozessbindung und Extension-Aktivierung bleiben S am Laufzeitpfad.
 - **Ports.** Egress und Auth-Eingaben, OAuth-Interaktion und State, Uhr/Zufall, stdio-Streams,
   Prozess- und Env-Launcher, Tool-Registry und Tool-Aufruf.
-- **Lücken.** stdio-Fake, Transport-Fallback, Session-/SSE-Fehler, Auth-Antworten, Wiederverbindung,
-  Umgebungs- und Redaction-Verträge. Response-Bounds stehen unter den Abhängigkeitsauflagen.
+Die Rust-Registry isoliert Namen nach Agent und Installation, hält Start und
+Leases am Eintrag und fährt bei Leerlauf über den Host-Timer herunter. Eine
+frische Tool-Liste bleibt im privaten Cache. Der Client spielt moderne
+Request-Streams und Legacy-Sitzungen mit GET-Wiederaufnahme und DELETE ab.
+Das MCP-Serverprotokoll deckt die moderne und Legacy-HTTP-Projektion sowie
+Initialisierung und Aufrufe über stdio-Pipes ab. Der Host bindet die geprüfte
+Identität, Tool-Freigaben, tatsächlichen Prozess-/Umgebungslaunch und sichere
+Ergebnisredaktion an. Browser, Secret-Store und Core-Komposition folgen beim Flip. Roots,
+Sampling und Elicitation werden nur durch explizite Host-Ports angeboten.
+
+OAuth verwendet die gepinnte HTTP-Strecke für credential-freie Discovery,
+PKCE, Refresh und Gerätecode. Ein privater Interaktionsport erhält Hinweise
+aus der Challenge. Die Attempt-Tabelle bindet eine explizit gestartete
+Interaktion an Person, Server und Frist. Der SDK-Thread unterdrückt fremde
+Tracing-Inhalte einschließlich WARN und INFO. Der Host verwendet für HTTP
+den gemeinsamen Wire-Logfilter nach R-W-11. Die begrenzten Portverträge und
+Abweichungen stehen in [P4D-208](defects.md#p4d-208) und
+[P4D-229–234](defects.md#p4d-229).
 
 ### W8 · A2A (P4-72)
 
