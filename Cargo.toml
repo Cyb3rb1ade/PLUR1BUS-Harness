@@ -1,5 +1,5 @@
 [workspace]
-exclude = ["apps", "fuzz", "vendor/zune-jpeg"]
+exclude = ["apps", "fuzz", "vendor/zune-jpeg", "crates/vendor", "crates/vendor/regress"]
 resolver = "2"
 members = ["crates/*"]
 
@@ -25,6 +25,8 @@ chrono-tz = "0.10"
 regress = "0.10"
 
 [patch.crates-io]
+# R-K-33b: bounded UTF-16 tool-schema matching, patch instructions in crates/vendor/regress.
+regress = { path = "crates/vendor/regress" }
 # MM-1 owner decision 2026-11-01: fused JPEG 4:2:0 upsampling; provenance and diff in vendor/zune-jpeg.
 zune-jpeg = { path = "vendor/zune-jpeg" }
 # lance-index 2.0.0 (pinned through lancedb 0.26.2, RE-D3) depends on tantivy 0.24.2, which pins lru 0.12

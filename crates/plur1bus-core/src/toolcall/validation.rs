@@ -10,6 +10,7 @@ use super::quirks::lookup_quirks;
 use crate::metrics::registry::js_number_to_string;
 use plur1bus_log_schema::redact::matcher::SecretMatcher;
 use plur1bus_log_schema::redact::utf16::{utf8_len, well_formed_prefix};
+use std::collections::{hash_map::Entry, HashMap};
 use std::sync::Arc;
 
 /// A thrown `Error`: a programmer's mistake (an unsupported schema, a tool name a provider refuses), never a model's.
@@ -249,6 +250,8 @@ const MAX_VALUE_DEPTH: usize = 64;
 const MAX_SCHEMA_DEPTH: usize = 32;
 const MAX_SCHEMA_PATTERN_UNITS: usize = 256;
 const MAX_PATTERN_INPUT_UNITS: usize = 1024;
+const MATCH_STEP_BUDGET: usize = 4_000_000;
+const MAX_DISTINCT_PATTERNS: usize = 256;
 
 /// `pointer(p, key)`: one more JSON pointer segment, `~` and `/` escaped.
 pub fn pointer(p: &JsStr, key: &JsStr) -> JsStr {
@@ -279,11 +282,6 @@ pub(super) fn unicode_regex(pattern: &JsStr) -> Result<regress::Regex, Thrown> {
     })
 }
 
-/// `regex.test(text)` over code units.
-pub(super) fn regex_test(regex: &regress::Regex, text: &[u16]) -> bool {
-    regex.find_from_utf16(text, 0).next().is_some()
-}
-
 fn is_safe_integer(n: f64) -> bool {
     n.is_finite() && n.fract() == 0.0 && n.abs() <= 9_007_199_254_740_991.0
 }
@@ -302,10 +300,18 @@ fn matches(t: &V, v: &V) -> bool {
 /// `assertSchema`: the schema vocabulary is checked before any argument is, so that a constraint this validator does not
 /// know can never pass silently. Keywords are read in the schema's own order, and the first problem is the one reported.
 pub fn assert_schema(s: &V) -> Result<(), Thrown> {
-    assert_at(s, 0)
+    compile_patterns(s).map(|_| ())
 }
 
-fn assert_at(s: &V, depth: usize) -> Result<(), Thrown> {
+type Patterns<'a> = HashMap<&'a JsStr, regress::Regex>;
+
+fn compile_patterns(schema: &V) -> Result<Patterns<'_>, Thrown> {
+    let mut patterns = HashMap::new();
+    assert_at(schema, 0, &mut patterns)?;
+    Ok(patterns)
+}
+
+fn assert_at<'a>(s: &'a V, depth: usize, patterns: &mut Patterns<'a>) -> Result<(), Thrown> {
     let Some(o) = s.as_obj().filter(|_| depth <= MAX_SCHEMA_DEPTH) else {
         return Err(Thrown::error("invalid or overly deep tool schema"));
     };
@@ -322,12 +328,12 @@ fn assert_at(s: &V, depth: usize) -> Result<(), Thrown> {
                     return invalid();
                 };
                 for (_, sub) in props.entries() {
-                    assert_at(sub, depth + 1)?;
+                    assert_at(sub, depth + 1, patterns)?;
                 }
             }
-            "items" => assert_at(v, depth + 1)?,
+            "items" => assert_at(v, depth + 1, patterns)?,
             "additionalProperties" => match v {
-                V::Obj(_) => assert_at(v, depth + 1)?,
+                V::Obj(_) => assert_at(v, depth + 1, patterns)?,
                 V::Bool(_) => {}
                 _ => return invalid(),
             },
@@ -336,7 +342,7 @@ fn assert_at(s: &V, depth: usize) -> Result<(), Thrown> {
                     return invalid();
                 };
                 for sub in subs {
-                    assert_at(sub, depth + 1)?;
+                    assert_at(sub, depth + 1, patterns)?;
                 }
             }
             "pattern" => {
@@ -346,7 +352,13 @@ fn assert_at(s: &V, depth: usize) -> Result<(), Thrown> {
                 else {
                     return invalid();
                 };
-                unicode_regex(pattern)?;
+                let at_capacity = patterns.len() == MAX_DISTINCT_PATTERNS;
+                if let Entry::Vacant(entry) = patterns.entry(pattern) {
+                    if at_capacity {
+                        return Err(Thrown::error("too many distinct tool schema patterns"));
+                    }
+                    entry.insert(unicode_regex(pattern)?);
+                }
             }
             "type" => {
                 let types = v.as_arr().unwrap_or(std::slice::from_ref(v));
@@ -388,12 +400,13 @@ fn js_round(x: f64) -> f64 {
     }
 }
 
-struct Checker<'a> {
+struct Checker<'a, 's> {
     known: Option<KnownSecrets<'a>>,
+    patterns: &'s Patterns<'s>,
+    steps_left: usize,
 }
 
-impl Checker<'_> {
-    /// One issue about `v`: what came is `JSON.stringify(v)` with known secrets masked, cut to 80 code units.
+impl Checker<'_, '_> {
     fn issue(
         &self,
         v: &V,
@@ -402,6 +415,11 @@ impl Checker<'_> {
         expected: JsStr,
         message: Option<&str>,
     ) {
+        out.push(self.issue_for(v, path, expected, message));
+    }
+
+    /// Show the JSON argument with known secrets masked, cut to 80 code units.
+    fn issue_for(&self, v: &V, path: &JsStr, expected: JsStr, message: Option<&str>) -> Issue {
         let mut shown = v.stringify();
         if let Some(known) = self.known {
             shown = match known() {
@@ -411,25 +429,32 @@ impl Checker<'_> {
         }
         let message =
             message.map_or_else(|| JsStr::from("expected ").plus_js(&expected), JsStr::from);
-        out.push(Issue {
+        Issue {
             path: path.clone(),
             expected,
             got: JsStr::from(well_formed_prefix(&shown, 80)),
             message,
-        });
+        }
     }
 
-    fn check(&self, s: &V, v: &V, path: &JsStr, out: &mut Vec<Issue>, depth: usize) {
+    fn check(
+        &mut self,
+        s: &V,
+        v: &V,
+        path: &JsStr,
+        out: &mut Vec<Issue>,
+        depth: usize,
+    ) -> Result<(), Issue> {
         let text = |t: String| JsStr::from(t);
         if depth > MAX_VALUE_DEPTH {
             self.issue(v, path, out, JsStr::from("bounded JSON value"), None);
-            return;
+            return Ok(());
         }
         if let Some(t) = s.get("type") {
             let types = t.as_arr().unwrap_or(std::slice::from_ref(t));
             if !types.iter().any(|t| matches(t, v)) {
                 self.issue(v, path, out, t.to_js_string(), None);
-                return;
+                return Ok(());
             }
         }
         if let Some(list) = s.get("enum").filter(|e| e.as_arr().is_some()) {
@@ -455,14 +480,12 @@ impl Checker<'_> {
             let Some(subs) = s.get(k).and_then(V::as_arr) else {
                 continue;
             };
-            let good = subs
-                .iter()
-                .filter(|sub| {
-                    let mut errors = Vec::new();
-                    self.check(sub, v, path, &mut errors, depth + 1);
-                    errors.is_empty()
-                })
-                .count();
+            let mut good = 0;
+            for sub in subs {
+                let mut errors = Vec::new();
+                self.check(sub, v, path, &mut errors, depth + 1)?;
+                good += usize::from(errors.is_empty());
+            }
             if (k == "anyOf" && good == 0)
                 || (k == "oneOf" && good != 1)
                 || (k == "allOf" && good != subs.len())
@@ -488,7 +511,7 @@ impl Checker<'_> {
                 let additional = s.get("additionalProperties");
                 for (key, val) in o.entries() {
                     if let Some(sub) = props.and_then(|p| p.get_js(key)) {
-                        self.check(sub, val, &pointer(path, key), out, depth + 1);
+                        self.check(sub, val, &pointer(path, key), out, depth + 1)?;
                     } else if matches!(additional, Some(V::Bool(false))) {
                         out.push(Issue::new(
                             &pointer(path, key),
@@ -497,7 +520,7 @@ impl Checker<'_> {
                             "unknown property",
                         ));
                     } else if let Some(sub) = additional.filter(|a| a.as_obj().is_some()) {
-                        self.check(sub, val, &pointer(path, key), out, depth + 1);
+                        self.check(sub, val, &pointer(path, key), out, depth + 1)?;
                     }
                 }
                 let count = o.len() as f64;
@@ -555,7 +578,7 @@ impl Checker<'_> {
                             &pointer(path, &JsStr::from(i.to_string())),
                             out,
                             depth + 1,
-                        );
+                        )?;
                     }
                 }
             }
@@ -581,13 +604,21 @@ impl Checker<'_> {
                     );
                 }
                 if let Some(pattern) = s.get("pattern").and_then(V::as_js) {
-                    // The compiled ECMAScript matcher has no step budget. Bound the input before matching.
-                    let too_long = string.units().len() > MAX_PATTERN_INPUT_UNITS;
-                    let refused = if too_long {
+                    let refused = if string.units().len() > MAX_PATTERN_INPUT_UNITS {
                         // The existing length issue already refuses the value.
                         over_schema_limit.is_none()
                     } else {
-                        !unicode_regex(pattern).is_ok_and(|re| regex_test(&re, string.units()))
+                        let matched = self.patterns[pattern]
+                            .test_utf16_with_budget(string.units(), 0, &mut self.steps_left)
+                            .map_err(|_| {
+                                self.issue_for(
+                                    v,
+                                    path,
+                                    JsStr::from("pattern ").plus_js(pattern),
+                                    Some("pattern match budget exhausted"),
+                                )
+                            })?;
+                        !matched
                     };
                     if refused {
                         self.issue(v, path, out, JsStr::from("pattern ").plus_js(pattern), None);
@@ -625,6 +656,7 @@ impl Checker<'_> {
             }
             V::Null | V::Bool(_) => {}
         }
+        Ok(())
     }
 }
 
@@ -660,7 +692,7 @@ pub fn validate_arguments(
     value: Option<&V>,
     known: Option<KnownSecrets<'_>>,
 ) -> Result<Vec<Issue>, Thrown> {
-    assert_schema(schema)?;
+    let patterns = compile_patterns(schema)?;
     let Some(value) = value else {
         return Ok(unsafe_value("undefined"));
     };
@@ -668,7 +700,14 @@ pub fn validate_arguments(
         return Ok(unsafe_value(value.type_of()));
     }
     let mut issues = Vec::new();
-    Checker { known }.check(schema, value, &JsStr::default(), &mut issues, 0);
+    let mut checker = Checker {
+        known,
+        patterns: &patterns,
+        steps_left: MATCH_STEP_BUDGET,
+    };
+    if let Err(exhausted) = checker.check(schema, value, &JsStr::default(), &mut issues, 0) {
+        issues.push(exhausted);
+    }
     Ok(issues)
 }
 
@@ -928,4 +967,56 @@ pub fn prepare_call(
         repair_rounds,
         outcome,
     })
+}
+
+#[cfg(test)]
+mod budget_tests {
+    use super::{validate_arguments, V};
+    use crate::toolcall::json::parse;
+
+    #[test]
+    fn ordinary_items_share_the_validation_budget() {
+        let schema = parse(r#"{"type":"array","items":{"pattern":"^[a-z]+$"}}"#).unwrap();
+        let item = V::Str("a".repeat(768).into());
+        let started = std::time::Instant::now();
+        let issues = validate_arguments(&schema, Some(&V::Arr(vec![item; 8_000])), None).unwrap();
+        if !cfg!(debug_assertions) {
+            assert!(started.elapsed() < std::time::Duration::from_millis(100));
+        }
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].message, "pattern match budget exhausted".into());
+    }
+
+    #[test]
+    fn exhausting_a_branch_refuses_the_whole_value() {
+        let branch = r#"{"items":{"pattern":"^[a-z]+$"}}"#;
+        let alternatives = std::iter::repeat_n(branch, 20)
+            .collect::<Vec<_>>()
+            .join(",");
+        let schema = parse(&format!(r#"{{"anyOf":[{{}},{alternatives}]}}"#)).unwrap();
+        let item = V::Str("a".repeat(512).into());
+        let value = V::Arr(vec![item; 512]);
+        let started = std::time::Instant::now();
+        let issues = validate_arguments(&schema, Some(&value), None).unwrap();
+        if !cfg!(debug_assertions) {
+            assert!(started.elapsed() < std::time::Duration::from_millis(100));
+        }
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].message, "pattern match budget exhausted".into());
+    }
+
+    #[test]
+    fn schema_compiles_at_most_256_distinct_patterns() {
+        let field = |i| format!(r#""field{i}":{{"pattern":"^value{i}$"}}"#);
+        let value = |i| format!(r#""field{i}":"value{i}""#);
+        let schema = (0..256).map(field).collect::<Vec<_>>().join(",");
+        let args = (0..256).map(value).collect::<Vec<_>>().join(",");
+        let accepted = parse(&format!(r#"{{"properties":{{{schema}}}}}"#)).unwrap();
+        let args = parse(&format!("{{{args}}}")).unwrap();
+        assert!(validate_arguments(&accepted, Some(&args), None)
+            .unwrap()
+            .is_empty());
+        let too_many = parse(&format!(r#"{{"properties":{{{schema},{}}}}}"#, field(256))).unwrap();
+        assert!(validate_arguments(&too_many, Some(&args), None).is_err());
+    }
 }

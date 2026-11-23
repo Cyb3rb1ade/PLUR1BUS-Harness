@@ -154,6 +154,26 @@ describe("parsers", () => {
     ]);
     assert.equal(verdict(rows[2].license), "unknown");
   });
+  it("checks licenses of vendored Cargo path patches", () => {
+    const workspace = mkdtempSync(join(tmpdir(), "audit-vendored-"));
+    try {
+      const dir = join(workspace, "crates/vendor/fixture");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "Cargo.toml"), "[package]\nname = 'fixture'\n");
+      const rows = parseCargoMetadata({
+        workspace_root: workspace,
+        workspace_members: ["root"],
+        packages: [
+          { id: "root", name: "root", source: null, dependencies: [{ name: "fixture" }] },
+          { id: "fixture", name: "fixture", source: null, version: "1.0.0",
+            license: "MIT", manifest_path: join(dir, "Cargo.toml") },
+        ],
+      });
+      assert.deepEqual(rows, [{ ecosystem: "cargo", name: "fixture", version: "1.0.0", license: "MIT", direct: true }]);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
   it("pyproject: reads licence and a multi-line dependency array with comments", () => {
     const p = parsePyproject([
       "[build-system]", 'requires = ["setuptools"]', "", "[project]", 'name = "demo"', 'license = "MIT"  # spdx',

@@ -10,6 +10,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { vendoredPackage } from "./release/third-party.mjs";
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Policy and exceptions
@@ -204,14 +205,15 @@ export function pnpmDirectNames(root) {
   return names;
 }
 
-/** `cargo metadata --format-version 1`: every package with a registry/git source; workspace members are skipped. */
+/** Collect registry, Git and vendored licenses. First-party path packages are skipped. */
 export function parseCargoMetadata(doc, ecosystem = "cargo") {
   const members = new Set(doc.workspace_members ?? []);
   const isLocal = (p) => members.has(p.id) || p.source == null;
   const direct = new Set((doc.packages ?? []).filter(isLocal).flatMap((p) => (p.dependencies ?? []).map((d) => d.name)));
   const out = [];
   for (const p of doc.packages ?? []) {
-    if (isLocal(p)) continue;
+    const vendored = p.source == null && typeof doc.workspace_root === "string" && vendoredPackage(doc.workspace_root, p);
+    if (isLocal(p) && !vendored) continue;
     const license = p.license ?? (p.license_file ? `unknown (license-file ${p.license_file})` : null);
     out.push({ ecosystem, name: p.name, version: p.version, license, direct: direct.has(p.name) });
   }
