@@ -1,0 +1,51 @@
+{
+  "cases": [
+    {
+      "input": {
+        "descriptionUnits": 8200,
+        "label": "report.summary",
+        "name": "ordinary",
+        "titleUnits": 130
+      },
+      "observed": {
+        "descriptionUnits": 8192,
+        "inputSchema": {
+          "type": "object"
+        },
+        "name": "report.summary",
+        "titleUnits": 128,
+        "uiResourceUri": "ui://preview/summary"
+      }
+    },
+    {
+      "input": {
+        "descriptionUnits": 20,
+        "deviation": "P4D-244",
+        "label": "report​.summary",
+        "name": "display-controls",
+        "titleUnits": 10
+      },
+      "observed": {
+        "descriptionUnits": 20,
+        "inputSchema": {
+          "type": "object"
+        },
+        "name": "report​.summary",
+        "titleUnits": 10,
+        "uiResourceUri": "ui://preview/summary"
+      }
+    },
+    {
+      "input": {
+        "descriptionUnits": 8,
+        "label": "report\t.summary",
+        "name": "invalid-name",
+        "titleUnits": 4
+      },
+      "observed": {
+        "error": "protocol"
+      }
+    }
+  ],
+  "source": "packages/core/src/mcp/connection.ts"
+}

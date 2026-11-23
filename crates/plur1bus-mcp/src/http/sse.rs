@@ -124,7 +124,12 @@ impl Parser {
                     self.event.data = Some(value.to_owned());
                 }
             }
-            "id" if !value.contains('\0') => self.event.id = Some(value.to_owned()),
+            "id" if !value.contains('\0') => {
+                if !value.is_empty() {
+                    super::check_peer_id(value)?;
+                }
+                self.event.id = Some(value.to_owned());
+            }
             "retry" if !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()) => {
                 self.event.retry = value.parse().ok();
             }

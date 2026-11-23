@@ -1671,6 +1671,57 @@ limit and shares the existing 64 MiB total with metadata. The reader
 charges literal bytes before allocating their buffer. The existing
 SMTP/IMAP error projection uses static protocol descriptions.
 
+<a id="p4d-242"></a>
+
+## P4D-242 — MCP reply backpressure (R-W-16)
+
+The Rust client and stdio server reserve capacity before giving a peer request
+to the SDK. Per connection they reserve up to 64 replies and 1 MiB of encoded
+response capacity until the corresponding writes complete. The frame limit is
+reserved when the response size is unknown. If the closing deadline runs out
+while admission is blocked, the connection fails with a separate backpressure
+error. The TypeScript transports have no corresponding reply budget.
+
+<a id="p4d-243"></a>
+
+## P4D-243 — MCP event stream reconnect budget (R-W-17)
+
+The Rust HTTP adapter waits at least one second between attempts, doubles that
+delay up to 60 seconds and fails after ten consecutive reconnects without a
+received protocol message. Server retry hints are clamped to the same range.
+The TypeScript implementation has no equivalent bound across successfully
+opened streams.
+
+<a id="p4d-244"></a>
+
+## P4D-244 — MCP and discovery display text (R-W-25)
+
+The Rust MCP descriptor removes invisible display controls from names, titles
+and descriptions. It rejects an empty or ambiguous name after cleaning, and
+uses the original wire name on the connection. Unicode truncation keeps
+complete scalars. Only the supported descriptor fields are projected, including
+an optional `ui://` resource name. The shared display rule also applies to
+model labels when ported in W5.
+
+<a id="p4d-245"></a>
+
+## P4D-245 — MCP call cancellation and connection lifecycle at the flip
+
+The Rust library limits calls to at most 600 seconds and returns on deadline.
+The flip must expose per-call cancellation and terminate the corresponding
+connection and owned process tree on deadline or cancellation, as the
+TypeScript path does. It must notify the registry promptly of termination so
+idle caches and restart state follow the connection.
+
+<a id="p4d-246"></a>
+
+## P4D-246 — MCP session and resume identifiers
+
+Rust accepts only visible ASCII and at most 1 KiB for a peer's session ID
+or a nonempty SSE event ID before retaining it. Empty SSE IDs still clear
+the resume cursor. Plain-HTTP `localhost` admitted by the host must also be
+pinned to loopback.
+
 <a id="p4d-247"></a>
 
 ## P4D-247 — Incremental speech sentence boundaries (W3-R1)

@@ -1673,6 +1673,14 @@ describe("MCP server and stdio exchanges (P4-W W7)", () => {
     const { recordMcpServer } = await import("./export-mcp-server.ts");
     assert.equal(readFileSync(fixturePath("mcp", "server"), "utf8"), fixtureText((await recordMcpServer()).server));
   });
+  it("matches the TypeScript tool descriptor acceptances and refusals", async () => {
+    const { recordMcpDescriptors } = await import("./export-mcp-descriptors.ts");
+    assert.equal(readFileSync(fixturePath("mcp", "descriptors"), "utf8"), fixtureText((await recordMcpDescriptors()).descriptors));
+  });
+  it("matches the TypeScript result provenance and truncations", async () => {
+    const { recordMcpProvenance } = await import("./export-mcp-provenance.ts");
+    assert.equal(readFileSync(fixturePath("mcp", "provenance"), "utf8"), fixtureText((await recordMcpProvenance()).provenance));
+  });
   it("matches the TypeScript stdio and bridge frames", async () => {
     const { recordMcpStdio } = await import("./export-mcp-stdio.ts");
     const { recordBridge } = await import("./export-mcp-bridge.ts");

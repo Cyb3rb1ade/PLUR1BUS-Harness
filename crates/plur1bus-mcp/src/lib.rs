@@ -3,8 +3,11 @@
 
 pub mod auth;
 pub mod bridge_body;
+mod connection_fault;
 pub mod http;
+mod provenance;
 pub mod registry;
+mod replies;
 mod runtime;
 pub mod server;
 pub mod session;

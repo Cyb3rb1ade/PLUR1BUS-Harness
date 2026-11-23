@@ -99,6 +99,15 @@ impl Handler {
         })
     }
 
+    fn acquire(&self) -> Result<tokio::sync::OwnedSemaphorePermit, ErrorData> {
+        let permit = self
+            .available
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| refused())?;
+        Ok(permit)
+    }
+
     async fn request<P: Serialize, T: DeserializeOwned>(
         &self,
         feature: Feature,
@@ -113,11 +122,7 @@ impl Handler {
             ));
         };
         let ports = Arc::clone(ports);
-        let permit = self
-            .available
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| refused())?;
+        let permit = self.acquire()?;
         let deadline = Instant::now() + self.ttl;
         let cancel = context.ct.clone();
         let params = serde_json::to_value(params).map_err(|_| invalid())?;
@@ -153,13 +158,7 @@ impl ClientHandler for Handler {
         context: RequestContext<RoleClient>,
     ) -> Result<ListRootsResult, ErrorData> {
         let result: ListRootsResult = self.request(Feature::Roots, json!({}), context).await?;
-        if result
-            .roots
-            .iter()
-            .any(|root| !root.uri.starts_with("file://"))
-        {
-            return Err(invalid());
-        }
+        check_roots(&result)?;
         Ok(result)
     }
 
@@ -194,10 +193,7 @@ impl ClientHandler for Handler {
                 {
                     return Err(invalid());
                 }
-                let parsed = crate::http::checked_url(url).map_err(|_| invalid())?;
-                if parsed.scheme() != "https" {
-                    return Err(invalid());
-                }
+                check_elicitation_url(url)?;
                 None
             }
             ElicitRequestParams::FormElicitationParams {
@@ -231,10 +227,66 @@ impl ClientHandler for Handler {
     }
 }
 
+fn check_roots(result: &ListRootsResult) -> Result<(), ErrorData> {
+    if result
+        .roots
+        .iter()
+        .any(|root| !root.uri.starts_with("file://"))
+    {
+        return Err(invalid());
+    }
+    Ok(())
+}
+
+fn check_elicitation_url(url: &str) -> Result<(), ErrorData> {
+    let parsed = crate::http::checked_url(url).map_err(|_| invalid())?;
+    if parsed.scheme() != "https" {
+        return Err(invalid());
+    }
+    Ok(())
+}
+
 fn refused() -> ErrorData {
     ErrorData::internal_error("MCP client port failed validation or execution", None)
 }
 
 fn invalid() -> ErrorData {
     ErrorData::invalid_params("MCP client request refused", None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Error, ErrorCode, Handler};
+    use std::{sync::Arc, time::Duration};
+
+    #[test]
+    fn roots_and_elicitation_use_the_expected_url_schemes() -> Result<(), Box<dyn std::error::Error>>
+    {
+        use rmcp::model::ListRootsResult;
+        use serde_json::json;
+
+        let fixture =
+            |url| serde_json::from_value::<ListRootsResult>(json!({"roots":[{"uri":url}]}));
+        assert!(super::check_roots(&fixture("file:///fixture/workspace")?).is_ok());
+        assert!(super::check_roots(&fixture("https://example.invalid/workspace")?).is_err());
+        assert!(super::check_elicitation_url("https://example.invalid/confirmation").is_ok());
+        assert!(super::check_elicitation_url("http://example.invalid/confirmation").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn host_callback_slot_is_released_with_its_permit() -> Result<(), Error> {
+        let handler = Handler::new(None, Duration::from_secs(1), Arc::default(), false)?;
+        let permits: Vec<_> = (0..8)
+            .map(|_| handler.acquire())
+            .collect::<Result<_, _>>()
+            .map_err(|_| Error::Busy)?;
+        assert_eq!(
+            handler.acquire().err().map(|error| error.code),
+            Some(ErrorCode::INTERNAL_ERROR)
+        );
+        drop(permits);
+        assert!(handler.acquire().is_ok());
+        Ok(())
+    }
 }

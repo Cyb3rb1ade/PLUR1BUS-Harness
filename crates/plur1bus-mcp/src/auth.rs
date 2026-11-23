@@ -409,7 +409,11 @@ impl<'a> Client<'a> {
         if uri.scheme() != "https" || !issuer.client_metadata {
             return Err(Error::Binding);
         }
-        let metadata: Registration = self.get(&uri, deadline)?;
+        let metadata = self.get(&uri, deadline)?;
+        self.validate_registration(&metadata)
+    }
+
+    fn validate_registration(&self, metadata: &Registration) -> Result<(), Error> {
         if metadata.client_id != self.client_id
             || metadata
                 .token_endpoint_auth_method
@@ -772,3 +776,34 @@ fn scopes(raw: Option<&str>) -> Result<BTreeSet<String>, Error> {
 pub mod attempts;
 
 pub mod challenge;
+
+#[cfg(test)]
+mod registration_tests {
+    use super::{Admission, Client, Error, Registration, Url};
+    use crate::http;
+    use std::{net::SocketAddr, time::Instant};
+
+    struct Offline;
+
+    impl Admission for Offline {
+        fn pin(&self, _: &Url, _: Instant) -> Result<SocketAddr, http::Error> {
+            Err(http::Error::Denied)
+        }
+    }
+
+    #[test]
+    fn client_metadata_identifies_the_registered_client() -> Result<(), Error> {
+        let client_id = "https://example.invalid/client";
+        let redirect = "http://127.0.0.1:7081/callback";
+        let client = Client::new("https://example.invalid/mcp", client_id, redirect, &Offline)?;
+        let mut metadata = Registration {
+            client_id: client_id.into(),
+            token_endpoint_auth_method: Some("none".into()),
+            redirect_uris: vec![redirect.into()],
+        };
+        assert_eq!(client.validate_registration(&metadata), Ok(()));
+        metadata.client_id = "https://example.invalid/alternate".into();
+        assert_eq!(client.validate_registration(&metadata), Err(Error::Binding));
+        Ok(())
+    }
+}

@@ -110,3 +110,13 @@ async fn native_stdio_preserves_recorded_typescript_request_frames() {
         );
     }
 }
+
+#[tokio::test]
+async fn sending_a_frame_applies_the_same_byte_limit_as_receiving() {
+    let (mut stdio, _peer) = paired();
+    let request = serde_json::from_value(json!({
+        "jsonrpc":"2.0","id":"i".repeat(LIMIT),"method":"ping"
+    }))
+    .unwrap();
+    assert_eq!(stdio.send(request).await, Err(Error::FrameLimit));
+}

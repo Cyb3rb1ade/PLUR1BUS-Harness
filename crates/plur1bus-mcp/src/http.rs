@@ -8,7 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use futures::stream::BoxStream;
+use futures::{stream::BoxStream, StreamExt};
 use plur1bus_providers::pinned_http_agent;
 use rmcp::{
     model::{
@@ -25,9 +25,14 @@ use tokio::task::spawn_blocking;
 use ureq::http::{header, HeaderMap, HeaderName, HeaderValue, Method, Request, Response};
 use url::{Host, Url};
 
-use crate::auth::challenge::{Challenge, Observer};
+use crate::{
+    auth::challenge::{Challenge, Observer},
+    connection_fault::Fault,
+};
 
 pub(crate) mod encode;
+mod reconnect;
+pub(crate) use reconnect::BackendRetry;
 mod sse;
 
 pub const MAX_FRAME_BYTES: usize = 16 * 1024 * 1024;
@@ -48,6 +53,7 @@ pub enum Error {
     Timeout,
     BodyCoding,
     FrameLimit,
+    ReconnectLimit,
 }
 
 impl fmt::Display for Error {
@@ -61,6 +67,7 @@ impl fmt::Display for Error {
             Self::Timeout => "MCP request deadline reached",
             Self::BodyCoding => "unsupported MCP body coding",
             Self::FrameLimit => "MCP frame exceeds byte limit",
+            Self::ReconnectLimit => "MCP event stream reconnect limit reached",
         })
     }
 }
@@ -81,6 +88,7 @@ pub struct HttpClient {
     include_progress: bool,
     challenges: Option<Arc<dyn Observer>>,
     allow_legacy_probe: bool,
+    reconnect: Option<Arc<reconnect::Reconnect>>,
 }
 
 impl fmt::Debug for HttpClient {
@@ -116,6 +124,7 @@ impl HttpClient {
             include_progress: true,
             challenges: None,
             allow_legacy_probe: false,
+            reconnect: None,
         })
     }
 
@@ -202,6 +211,26 @@ impl HttpClient {
         self
     }
 
+    pub(crate) fn with_reconnect_limit(mut self, fault: Fault) -> Self {
+        self.reconnect = Some(Arc::new(reconnect::Reconnect::new(fault)));
+        self
+    }
+
+    fn event_stream(&self, body: ureq::Body, deadline: Instant, limit: usize) -> SseStream {
+        let events = sse::stream(body, deadline, limit);
+        let Some(reconnect) = self.reconnect.clone() else {
+            return events;
+        };
+        events
+            .map(move |mut event| {
+                if let Ok(event) = &mut event {
+                    reconnect.observe(event);
+                }
+                event
+            })
+            .boxed()
+    }
+
     fn open(&self, request: Outbound) -> Result<(Response<ureq::Body>, Instant), Error> {
         let target = checked_url(&request.uri)?;
         if target != self.endpoint {
@@ -261,7 +290,7 @@ impl HttpClient {
         insert_header(
             &mut headers,
             "last-event-id",
-            request.last_event_id.as_deref(),
+            request.last_event_id.as_deref().filter(|id| !id.is_empty()),
             true,
         )?;
         if let Some(bearer) = &request.bearer {
@@ -307,10 +336,13 @@ impl HttpClient {
             let session = response
                 .headers()
                 .get("mcp-session-id")
-                .map(HeaderValue::to_str)
+                .map(|value| {
+                    let id = value.to_str().map_err(|_| Error::InvalidHeader)?;
+                    check_peer_id(id)?;
+                    Ok(id.to_owned())
+                })
                 .transpose()
-                .map_err(|_| SdkError::Client(Error::InvalidHeader))?
-                .map(ToOwned::to_owned);
+                .map_err(SdkError::Client)?;
             return match mime {
                 Mime::Json => {
                     let body = read_bounded(&mut response, deadline, self.frame_limit)?;
@@ -319,7 +351,7 @@ impl HttpClient {
                     Ok(StreamableHttpPostResponse::Json(reply, session))
                 }
                 Mime::Sse => Ok(StreamableHttpPostResponse::Sse(
-                    sse::stream(response.into_body(), deadline, sse_limit),
+                    self.event_stream(response.into_body(), deadline, sse_limit),
                     session,
                 )),
                 _ => Err(SdkError::UnexpectedContentType(None)),
@@ -363,7 +395,7 @@ impl HttpClient {
             405 => Err(SdkError::ServerDoesNotSupportSse),
             404 => Err(SdkError::SessionExpired),
             200 if media_type(response.headers()) == Mime::Sse => {
-                Ok(sse::stream(response.into_body(), deadline, sse_limit))
+                Ok(self.event_stream(response.into_body(), deadline, sse_limit))
             }
             200..=299 => Err(SdkError::UnexpectedContentType(None)),
             status => {
@@ -455,6 +487,12 @@ impl StreamableHttpClient for HttpClient {
         custom_headers: Headers,
         max_sse_event_size: usize,
     ) -> SdkResult<SseStream> {
+        if let Some(reconnect) = &self.reconnect {
+            reconnect
+                .before_get(last_event_id.is_some())
+                .await
+                .map_err(SdkError::Client)?;
+        }
         let client = self.clone();
         spawn_blocking(move || {
             client.get(
@@ -573,9 +611,18 @@ fn insert_header(
     sensitive: bool,
 ) -> Result<(), Error> {
     if let Some(value) = value {
+        check_peer_id(value)?;
         let mut value = HeaderValue::from_str(value).map_err(|_| Error::InvalidHeader)?;
         value.set_sensitive(sensitive);
         headers.insert(name, value);
+    }
+    Ok(())
+}
+
+fn check_peer_id(value: &str) -> Result<(), Error> {
+    if value.is_empty() || value.len() > 1024 || !value.bytes().all(|byte| byte.is_ascii_graphic())
+    {
+        return Err(Error::InvalidHeader);
     }
     Ok(())
 }
@@ -598,6 +645,14 @@ fn pin_matches(url: &Url, pin: SocketAddr) -> bool {
     let address = match url.host() {
         Some(Host::Ipv4(ip)) => Some(IpAddr::V4(ip)),
         Some(Host::Ipv6(ip)) => Some(IpAddr::V6(ip)),
+        Some(Host::Domain(host))
+            if url.scheme() == "http" && host.trim_end_matches('.') == "localhost" =>
+        {
+            if !pin.ip().to_canonical().is_loopback() {
+                return false;
+            }
+            None
+        }
         _ => None,
     };
     url.port_or_known_default() == Some(pin.port()) && address.is_none_or(|ip| ip == pin.ip())
@@ -725,4 +780,19 @@ fn status_error(headers: &HeaderMap, status: u16) -> SdkError {
         .filter(|value| !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()))
         .map(ToOwned::to_owned);
     HttpStatusError::new(status, retry_after).into()
+}
+
+#[cfg(test)]
+mod pin_tests {
+    use super::{pin_matches, SocketAddr, Url};
+
+    #[test]
+    fn plain_http_localhost_is_pinned_to_loopback() -> Result<(), Box<dyn std::error::Error>> {
+        let local = Url::parse("http://localhost:8080/mcp")?;
+        let loopback: SocketAddr = "127.0.0.1:8080".parse()?;
+        let other: SocketAddr = "192.0.2.1:8080".parse()?;
+        assert!(pin_matches(&local, loopback));
+        assert!(!pin_matches(&local, other));
+        Ok(())
+    }
 }

@@ -346,3 +346,173 @@ fn host_callbacks_are_advertised_and_dispatched_only_when_present() {
         session.close().unwrap();
     }
 }
+
+#[test]
+fn a_legacy_event_stream_waits_before_reopening() {
+    let fixture = FakeServer::start(&json!({"transport":"http","exchanges":[
+        {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,
+            "headers":{"mcp-session-id":"fixture-session"},
+            "body":{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-11-25","capabilities":{},
+            "serverInfo":{"name":"fixture","version":"1"}}}}},
+        {"request":{"method":"POST","path":"/mcp"},"response":{"status":202,"chunksBase64":[]}},
+        {"request":{"method":"GET","path":"/mcp"},"response":{"status":200,
+            "headers":{"content-type":"text/event-stream"},
+            "chunksBase64":[STANDARD.encode(b"retry: 0\n\n")]}},
+        {"request":{"method":"GET","path":"/mcp"},"response":{"status":405,"chunksBase64":[]}},
+        {"request":{"method":"DELETE","path":"/mcp"},"response":{"status":204,"chunksBase64":[]}}
+    ]}));
+    let session = Session::open_http(HttpOptions {
+        endpoint: format!("http://{}/mcp", fixture.addr),
+        admission: Arc::new(Pin(fixture.addr)),
+        bearer: None,
+        headers: Default::default(),
+        protocol: Protocol::Legacy,
+        timing: Timing::default(),
+    })
+    .unwrap();
+    let until = Instant::now() + Duration::from_secs(2);
+    let gets = || {
+        fixture
+            .received()
+            .iter()
+            .filter(|request| request["method"] == "GET")
+            .count()
+    };
+    while gets() == 0 && Instant::now() < until {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    std::thread::sleep(Duration::from_millis(400));
+    assert_eq!(gets(), 1);
+    while gets() == 1 && Instant::now() < until {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(gets(), 2);
+    session.close().unwrap();
+}
+
+#[test]
+fn listed_tools_expose_only_the_bounded_display_descriptor() {
+    let description = format!("Résumé\u{200b}{}", "x".repeat(8200));
+    let fixture = FakeServer::start(&json!({"transport":"http","exchanges":[
+        {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,"body":{
+            "jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{}},
+                "serverInfo":{"name":"fixture","version":"1"}}
+        }}},
+        {"request":{"method":"POST","path":"/mcp"},"response":{"status":202,"chunksBase64":[]}},
+        {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,"body":{
+            "jsonrpc":"2.0","id":1,"result":{"tools":[{
+                "name":"report\u{200b}.summary","title":"t".repeat(130),"description":description,
+                "inputSchema":{"type":"object"},
+                "_meta":{"ui":{"resourceUri":"ui://preview/summary"},"unused":"fixture"}
+            }]}
+        }}},
+        {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,"body":{
+            "jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"summary"}]}
+        }}}
+    ]}));
+    let session = Session::open_http(HttpOptions {
+        endpoint: format!("http://{}/mcp", fixture.addr),
+        admission: Arc::new(Pin(fixture.addr)),
+        bearer: None,
+        headers: Default::default(),
+        protocol: Protocol::Legacy,
+        timing: Timing::default(),
+    })
+    .unwrap();
+    let deadline = || Instant::now() + Duration::from_secs(2);
+    let list = session.invoke(Call::ListTools, deadline()).unwrap();
+    let tool = &list["tools"][0];
+    assert_eq!(tool["name"], "report.summary");
+    assert_eq!(tool["title"], "t".repeat(128));
+    assert_eq!(
+        tool["description"],
+        format!("Résumé{}", "x".repeat(8192 - 6))
+    );
+    assert_eq!(tool["uiResourceUri"], "ui://preview/summary");
+    assert!(tool.get("_meta").is_none());
+    session
+        .invoke(
+            Call::CallTool {
+                name: "report.summary".into(),
+                arguments: Default::default(),
+            },
+            deadline(),
+        )
+        .unwrap();
+    session.close().unwrap();
+    let requests = fixture.received();
+    let call = STANDARD
+        .decode(requests[3]["bodyBase64"].as_str().unwrap())
+        .unwrap();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&call).unwrap()["params"]["name"],
+        "report\u{200b}.summary"
+    );
+}
+
+#[test]
+fn tool_descriptors_replay_typescript_acceptance_and_display_bounds() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/mcp/descriptors.json"
+    ))
+    .unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let input = &case["input"];
+        let repeat = |key: &str, unit: &str| {
+            unit.repeat(usize::try_from(input[key].as_u64().unwrap()).unwrap())
+        };
+        let wire_tool = json!({
+            "name":input["label"],"title":repeat("titleUnits", "t"),"description":repeat("descriptionUnits", "d"),
+            "inputSchema":{"type":"object"},
+            "_meta":{"ui":{"resourceUri":"ui://preview/summary"},"unused":"fixture"}
+        });
+        let fixture = FakeServer::start(&json!({"transport":"http","exchanges":[
+            {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,"body":{
+                "jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{}},
+                    "serverInfo":{"name":"fixture","version":"1"}}
+            }}},
+            {"request":{"method":"POST","path":"/mcp"},"response":{"status":202,"chunksBase64":[]}},
+            {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,"body":{
+                "jsonrpc":"2.0","id":1,"result":{"tools":[wire_tool]}
+            }}}
+        ]}));
+        let session = Session::open_http(HttpOptions {
+            endpoint: format!("http://{}/mcp", fixture.addr),
+            admission: Arc::new(Pin(fixture.addr)),
+            bearer: None,
+            headers: Default::default(),
+            protocol: Protocol::Legacy,
+            timing: Timing::default(),
+        })
+        .unwrap();
+        let result = session.invoke(Call::ListTools, Instant::now() + Duration::from_secs(2));
+        let mut expected = case["observed"].clone();
+        if expected["error"] == "protocol" {
+            assert_eq!(result, Err(plur1bus_mcp::session::Error::Protocol));
+        } else {
+            if input["deviation"] == "P4D-244" {
+                expected["name"] = json!("report.summary");
+            }
+            let mut descriptor = result.unwrap()["tools"][0].clone();
+            let fields = descriptor.as_object_mut().unwrap();
+            let title = fields
+                .remove("title")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .encode_utf16()
+                .count();
+            let description = fields
+                .remove("description")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .encode_utf16()
+                .count();
+            fields.insert("titleUnits".into(), json!(title));
+            fields.insert("descriptionUnits".into(), json!(description));
+            assert_eq!(descriptor, expected);
+        }
+        session.close().unwrap();
+    }
+}

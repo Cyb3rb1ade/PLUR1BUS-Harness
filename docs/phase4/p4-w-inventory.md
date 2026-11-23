@@ -388,6 +388,24 @@ den gemeinsamen Wire-Logfilter nach R-W-11. Die begrenzten Portverträge und
 Abweichungen stehen in [P4D-208](defects.md#p4d-208) und
 [P4D-229–234](defects.md#p4d-229).
 
+
+Reply pressure, SSE reconnects and tool display are covered by
+[P4D-242–246](defects.md#p4d-242). The registry attaches D19 origin and trust
+from its definition and the authenticated caller, records redaction and truncation,
+and budgets tool result payloads in their source order.
+
+At the flip the host must emit the own-server `mcp.server.call` and
+`mcp.server.denied` audit events. The stdio launcher must allowlist commands,
+launch without a shell, and use a minimal filtered process environment with
+`LD_*`, `DYLD_*` and `NODE_OPTIONS` blocked and the harness PATH. It must
+own a separate process group or Windows job and stop the entire tree on close,
+deadline and cancellation. The host bounds and redacts stderr at 64 KiB.
+Only the framed stdio transport is admitted. Per-tool and per-argument
+authorization belongs to the host and must be checked again after a tool
+generation change. The secret port owns refresh serialization and disposition
+of invalid stored tokens. The host admits attempt server names against the
+registry and reserves OAuth attempt capacity per principal.
+
 ### W8 · A2A (P4-72)
 
 - **Dateien.** [A2A](../../packages/core/src/a2a) mit Cards, Handler, Parts, Events, Push-/Status-
