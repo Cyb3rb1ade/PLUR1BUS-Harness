@@ -12,6 +12,9 @@ use ureq::unversioned::resolver::{ResolvedSocketAddrs, Resolver};
 use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
 use url::{Host, Url};
 
+pub(crate) const STRUCTURED_LIMIT: usize = 1024 * 1024;
+pub(crate) const DIAGNOSTIC_LIMIT: usize = 64 * 1024;
+
 pub trait HttpPorts {
     /// Verify policy and resolve with a bounded deadline. Returning no address denies the request.
     fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr>;
@@ -197,6 +200,24 @@ impl<'a> Http<'a> {
                     Failure::Network
                 }
             })
+    }
+
+    #[cfg(any(feature = "telegram", feature = "slack"))]
+    pub(crate) fn api_payload(
+        self,
+        response: &mut Response<ureq::Body>,
+    ) -> Result<serde_json::Value, Failure> {
+        let success = response.status().is_success();
+        let limit = if success {
+            STRUCTURED_LIMIT
+        } else {
+            DIAGNOSTIC_LIMIT
+        };
+        match self.body(response, limit) {
+            Ok(body) => Ok(serde_json::from_slice(&body).unwrap_or_default()),
+            Err(Failure::TooLarge) if !success => Ok(serde_json::Value::Null),
+            Err(error) => Err(error),
+        }
     }
 
     pub(crate) fn body(

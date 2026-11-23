@@ -166,6 +166,12 @@ Der Loopback-Test zeigt denselben synthetischen Close-Grund mit ungefiltertem Lo
 weist seine Unterdrückung mit Filter nach. HYG-018 sperrt direkte Logger-Registrierungen im
 Anwendungscode. Ein Host außerhalb des Repos muss den Filter ebenfalls einsetzen.
 
+REST-Antworten enden spätestens an der Anfragefrist. Strukturierte Antworten
+sind auf 1 MiB begrenzt, HTTP-Fehlerkörper auf 64 KiB. Bei einem zu großen
+Fehlerkörper bleiben HTTP-Status und Retry-Header verfügbar. Abweichungen:
+[Telegram P4D-253](defects.md#p4d-253), [Slack P4D-254](defects.md#p4d-254)
+und [Discord P4D-255](defects.md#p4d-255).
+
 Alle 27 neuen Registry-Einträge wurden gegen Veröffentlichungsdatum, Yank-Status und
 Lizenzliste geprüft. Die aktivierten direkten Neuzugänge sind `tungstenite =0.30.0` (MIT OR
 Apache-2.0, nur `handshake`), `nostr =0.45.5` (MIT, `std` und `nip44`) und

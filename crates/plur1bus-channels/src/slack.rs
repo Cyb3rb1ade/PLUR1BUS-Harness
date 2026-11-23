@@ -7,7 +7,6 @@ use ureq::http::HeaderMap;
 use url::Url;
 
 const TIMEOUT: Duration = Duration::from_secs(30);
-const API_LIMIT: usize = 8 * 1024 * 1024;
 const FILE_HOST: &str = "files.slack.com";
 
 #[derive(Clone, Copy)]
@@ -80,11 +79,10 @@ impl<'a> Slack<'a> {
             return Err(api_transport(method, Failure::Network));
         }
         let status = response.status().as_u16();
-        let body = self
+        let payload = self
             .http
-            .body(&mut response, API_LIMIT)
+            .api_payload(&mut response)
             .map_err(|e| api_transport(method, e))?;
-        let payload: Value = serde_json::from_slice(&body).unwrap_or_default();
         let code = payload["error"].as_str();
         if status == 429 || matches!(code, Some("ratelimited" | "rate_limited")) {
             return Err(rate_limited(

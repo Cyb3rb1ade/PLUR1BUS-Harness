@@ -10,7 +10,6 @@ use std::time::Duration;
 use url::Url;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
-const API_LIMIT: usize = 8 * 1024 * 1024;
 const COMPONENT: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
     .remove(b'_')
@@ -219,11 +218,10 @@ impl<'a> Telegram<'a> {
             return Err(transport_error(Failure::Network));
         }
         let status = response.status().as_u16();
-        let body = self
+        let payload = self
             .http
-            .body(&mut response, API_LIMIT)
+            .api_payload(&mut response)
             .map_err(transport_error)?;
-        let payload: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
         if response.status().is_success() && payload["ok"] == true {
             return Ok(payload.get("result").cloned().unwrap_or(Value::Null));
         }

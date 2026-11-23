@@ -1782,3 +1782,30 @@ binary to attach the Chromium pipe descriptors.
 The Rust templates preserve attribute-like text after escaping. The TypeScript
 post-processing pass can remove part of that text. The Rust document policy
 described in P4D-251 also applies to document inputs outside template assembly.
+
+<a id="p4d-253"></a>
+
+## P4D-253 — Bound Telegram REST responses (R-W-13)
+
+The Rust Telegram client accepts up to 1 MiB of structured response data and
+64 KiB of diagnostic response data. The request deadline covers the body.
+TypeScript reads REST JSON without these byte limits. An oversized diagnostic
+body is discarded; the HTTP status and available retry header still apply.
+
+<a id="p4d-254"></a>
+
+## P4D-254 — Bound Slack REST responses (R-W-13)
+
+The Rust Slack client accepts up to 1 MiB of structured response data and
+64 KiB of diagnostic response data. The request deadline covers the body.
+TypeScript reads REST JSON without these byte limits. An oversized diagnostic
+body is discarded; the HTTP status and available retry header still apply.
+
+<a id="p4d-255"></a>
+
+## P4D-255 — Bound Discord REST responses (R-W-13)
+
+The Rust Discord client accepts up to 1 MiB of structured response data and
+64 KiB of diagnostic response data. The request deadline covers the body.
+TypeScript reads REST JSON without these byte limits. An oversized diagnostic
+body is discarded; the HTTP status and available retry header still apply.

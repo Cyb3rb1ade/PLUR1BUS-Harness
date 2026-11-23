@@ -9,8 +9,6 @@ use ureq::http::HeaderMap;
 use url::Url;
 
 const TIMEOUT: Duration = Duration::from_secs(30);
-const API_LIMIT: usize = 8 * 1024 * 1024;
-const ERROR_LIMIT: usize = 64 * 1024;
 pub const CDN_HOSTS: &[&str] = &["cdn.discordapp.com", "media.discordapp.net"];
 
 pub trait Clock {
@@ -227,7 +225,7 @@ impl<'a> Discord<'a> {
                 }
                 let body = self
                     .http
-                    .body(&mut response, API_LIMIT)
+                    .body(&mut response, http::STRUCTURED_LIMIT)
                     .map_err(rest_transport)?;
                 return if body.is_empty() {
                     Ok(Value::Null)
@@ -237,7 +235,7 @@ impl<'a> Discord<'a> {
                     })
                 };
             }
-            let body = match self.http.body(&mut response, ERROR_LIMIT) {
+            let body = match self.http.body(&mut response, http::DIAGNOSTIC_LIMIT) {
                 Ok(body) => serde_json::from_slice::<Value>(&body).unwrap_or_default(),
                 Err(Failure::Aborted) => return Err(aborted()),
                 Err(_) => Value::Null,
