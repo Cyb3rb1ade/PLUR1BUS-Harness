@@ -464,3 +464,20 @@ Fehlerstatus, Header-Normalisierung, Request-Framing, Body-Grenze und Byteprotok
 SSE-Chunk-Länge und -Abschluss sowie WebSocket-Accept, Maskierung, Close-Code und
 serverseitige Erstnachricht. Die Laufzeit- und Plattformabnahme gehört zum Abschluss
 des Pakets.
+
+## W10 · Paketabnahme
+
+Die Modulkarte ordnet die 328 Quell- und 397 Testzeilen im Prüfbereich
+den Bibliotheken, den beteiligten Core-Ports und ihren Paritätsmodi zu.
+Das schließt die gemeinsam genutzte Egress-Klassifikation und die explizit
+ausgenommene lokale Voice-Laufzeit ein. Die Modulkarte führt außerdem
+Speicher-, Prozess-, Sitzungs- und RPC-Tests zu den Hosts, die sie beim
+Flip ausführen. Die zwölf Generator-Tests prüfen unter anderem vollständige
+Erfassung, verwendete Regeln und Reproduzierbarkeit.
+
+Die lokale Abnahme umfasst alle W-Crates und ihre gemeinsamen
+Transport-Fixtures, die TypeScript-Suite, die Paritätsexporter und die
+Dokument-Goldens mit demselben Chromium für beide Renderer. Die
+gezielten Rücknahmen und ihre Testnamen liegen im Lauf-Ledger. Native
+Linux- und Windows-Checks und die unabhängigen Reviews gehören zum
+Paketnachweis im PR.
