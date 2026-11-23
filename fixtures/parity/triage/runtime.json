@@ -265,7 +265,7 @@
       ]
     },
     {
-      "name": "summary-type-followup",
+      "name": "summary-number-followup",
       "steps": [
         {
           "answer": {
@@ -278,6 +278,120 @@
           "result": {
             "coreOnly": false,
             "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":7,\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "low",
+            "fallback": false,
+            "modelClass": "medium"
+          },
+          "scope": "summary"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "low",
+            "fallback": false,
+            "modelClass": "medium"
+          },
+          "scope": "summary"
+        }
+      ]
+    },
+    {
+      "name": "summary-object-followup",
+      "steps": [
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":{\"title\":\"fix the bug\"},\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "divergence": "P4D-200",
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":{\"title\":\"fix the bug\"},\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":{\"title\":\"fix the bug\"},\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "low",
+            "fallback": false,
+            "modelClass": "medium"
+          },
+          "scope": "summary"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "low",
+            "fallback": false,
+            "modelClass": "medium"
+          },
+          "scope": "summary"
+        }
+      ]
+    },
+    {
+      "name": "summary-array-followup",
+      "steps": [
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":[\"fix the bug\"],\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "divergence": "P4D-200",
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":[\"fix the bug\"],\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":[\"fix the bug\"],\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "low",
+            "fallback": false,
+            "modelClass": "medium"
+          },
+          "scope": "summary"
+        },
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\"do it\",\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+            "effort": "low",
+            "fallback": false,
+            "modelClass": "medium"
+          },
+          "scope": "summary"
+        }
+      ]
+    },
+    {
+      "name": "summary-true-followup",
+      "steps": [
+        {
+          "answer": {
+            "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":true,\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}"
+          },
+          "divergence": "P4D-200",
+          "fallbacks": 0,
+          "json": "{\"decision\":{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":true,\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]},\"modelClass\":\"medium\",\"effort\":\"low\",\"coreOnly\":false,\"fallback\":false}",
+          "message": "do it",
+          "result": {
+            "coreOnly": false,
+            "decisionJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":true,\"start\":0,\"end\":5,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
             "effort": "low",
             "fallback": false,
             "modelClass": "medium"

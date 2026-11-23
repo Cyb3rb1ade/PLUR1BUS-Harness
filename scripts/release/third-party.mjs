@@ -40,13 +40,15 @@ function insideDirectory(parent, child) {
 
 // Cargo path patches have source:null too. Only checked-in vendor packages are third-party;
 // ordinary workspace/path packages stay excluded, and symlinks cannot widen the vendor boundary.
-function vendoredPackage(directory, pkg) {
+export function vendoredPackage(directory, pkg) {
   if (typeof pkg.manifest_path !== 'string') return false;
-  const vendor = resolve(directory, 'vendor');
   const manifest = resolve(directory, pkg.manifest_path);
-  if (!insideDirectory(vendor, dirname(manifest))) return false;
+  const vendorRoot = ['vendor', 'crates/vendor'].find(path =>
+    insideDirectory(resolve(directory, path), dirname(manifest)));
+  if (!vendorRoot) return false;
+  const vendor = resolve(directory, vendorRoot);
   const resolvedVendor = realpathSync(vendor);
-  if (resolvedVendor !== join(realpathSync(directory), 'vendor') ||
+  if (resolvedVendor !== join(realpathSync(directory), vendorRoot) ||
       !insideDirectory(resolvedVendor, realpathSync(dirname(manifest))) ||
       !insideDirectory(resolvedVendor, dirname(realpathSync(manifest)))) {
     throw new Error('vendored Cargo package resolves outside the checkout vendor directory');

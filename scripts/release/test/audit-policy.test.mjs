@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { validateAllowlist, cvssSeverity, parsePnpm, parseCargo, evaluate, renderSummary, assertOwnerChange, assertNoPnpmIgnores } from '../audit-policy.mjs';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { validateAllowlist, cvssSeverity, parsePnpm, parseCargo, collectVendoredRust, evaluate, renderSummary, assertOwnerChange, assertNoPnpmIgnores } from '../audit-policy.mjs';
 
 const id = 'RUSTSEC-2026-0001';
 const ghsaId = 'GHSA-aaaa-bbbb-cccc';
@@ -207,4 +210,102 @@ test('unused interval warnings preserve both comparison operators when rendered'
   const summary = renderSummary([], [], approved);
   assert.ok(summary.includes(`Warning: unused audit exception: ${id}/runtime/&gt;=1.0.0, &lt;2.0.0`),
     'warning must retain both comparison operators in its rendered version range');
+});
+
+
+function vendoredFixture(t) {
+  const dir = mkdtempSync(join(tmpdir(), 'plur1bus-vendor-audit-test-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const db = join(dir, 'db');
+  const scratch = join(dir, 'scratch');
+  mkdirSync(scratch);
+  const write = (path, body) => {
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, body);
+  };
+  const packages = [];
+  for (const [folder, name, version] of [
+    ['crates/vendor', 'runtime', '1.0.0'],
+    ['vendor', 'patched', '1.2.0'],
+  ]) {
+    const manifestPath = join(dir, folder, name, 'Cargo.toml');
+    packages.push({ name, version, manifest_path: manifestPath });
+    write(manifestPath, `[package]\nname = "${name}"\nversion = "${version}"\n[lib]\n`);
+    write(join(dir, folder, name, 'src/lib.rs'), '');
+    const advisoryId = name === 'runtime' ? id : 'RUSTSEC-2026-0002';
+    write(join(db, 'crates', name, `${advisoryId}.md`), [
+      '```toml',
+      '[advisory]',
+      `id = "${advisoryId}"`,
+      `package = "${name}"`,
+      'date = "2026-10-15"',
+      'cvss = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"',
+      '[versions]',
+      'patched = [">= 1.1.0"]',
+      '```',
+      '',
+      '# Synthetic audit fixture',
+      '',
+      'Exercises local path-patch advisory coverage.',
+      '',
+    ].join('\n'));
+  }
+
+  return { dir, db, scratch, packages };
+}
+
+function assertVendoredPolicy(found) {
+  assert.deepEqual(found.map(item => [item.id, item.crate, item.version, item.severity]), [
+    [id, 'runtime', '1.0.0', 'critical'],
+  ]);
+  assert.equal(evaluate(found, found, new Map())[0].block, true);
+  assert.equal(evaluate(found, found, validateAllowlist(policy(exception), now))[0].block, false);
+}
+
+test('vendored audit submits both roots as registry identities and enforces release policy', t => {
+  const { dir, db, scratch, packages } = vendoredFixture(t);
+  const metadata = [];
+  const vulnerable = { advisory: { id, cvss: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H' }, package: packages[0] };
+  const report = {
+    database: { 'advisory-count': 2 }, lockfile: { 'dependency-count': 2 },
+    settings: { severity: null, ignore: [], target_arch: [], target_os: [], informational_warnings: ['unsound', 'unmaintained', 'notice'] },
+    vulnerabilities: { found: true, count: 1, list: [vulnerable] }, warnings: {},
+  };
+  function invoke(command, args, cwd) {
+    assert.equal(command, 'cargo');
+    if (args[1] === '--version') {
+      assert.deepEqual(args, ['audit', '--version']);
+      assert.equal(cwd, scratch);
+      return { status: 0, stdout: 'cargo-audit 0.22.2\n' };
+    }
+    if (args[0] === 'metadata') {
+      assert.equal(cwd, dir);
+      const manifest = args.at(-1);
+      assert.deepEqual(args, ['metadata', '--format-version=1', '--no-deps', '--offline', '--manifest-path', manifest]);
+      metadata.push(manifest);
+      return { status: 0, stdout: JSON.stringify({ packages: packages.filter(pkg => pkg.manifest_path === manifest) }) };
+    }
+    assert.equal(cwd, scratch);
+    const lock = join(scratch, 'vendored.Cargo.lock');
+    assert.deepEqual(args, ['audit', '--no-fetch', '--no-yanked', '--json', '--db', db, '--file', lock]);
+    assert.equal(readFileSync(lock, 'utf8'), `version = 3\n\n${packages.map(({ name, version }) =>
+      `[[package]]\nname = "${name}"\nversion = "${version}"\nsource = "registry+https://github.com/rust-lang/crates.io-index"`).join('\n\n')}\n\n`);
+    return { status: 1, stdout: JSON.stringify(report) };
+  }
+  assertVendoredPolicy(collectVendoredRust(dir, db, scratch, invoke));
+  assert.deepEqual(metadata, packages.map(pkg => pkg.manifest_path));
+  report.settings.ignore = [id];
+  assert.throws(() => collectVendoredRust(dir, db, scratch, invoke), /Incomplete or filtered/);
+});
+
+// The named release workflow installs the exact tool before this test and
+// must fail if it is missing. Generic release-script CI only tests the command
+// contract above because that job has no RustSec installation step.
+const realAudit = process.env.GITHUB_WORKFLOW === 'release-quality'
+  || (!process.env.GITHUB_WORKFLOW && spawnSync('cargo', ['audit', '--version']).status === 0);
+test('vendored crates use RustSec version requirements and the regular release policy', {
+  skip: !realAudit && 'pinned cargo-audit integration runs in release-quality',
+}, t => {
+  const { dir, db, scratch } = vendoredFixture(t);
+  assertVendoredPolicy(collectVendoredRust(dir, db, scratch));
 });

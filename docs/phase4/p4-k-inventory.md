@@ -966,7 +966,8 @@ builder, the decision service and triage are K9a.
   Both operations require identity verification against the opened handle before Windows can enable them.
   A failing registry inside the lexical port gives no lexical score instead of an exception. A thrown `TypeError` is compared by name.
   **K9b-D2 (K9b-R2)**: schema patterns are capped at 256 UTF-16 units and their input at 1,024 units.
-  R-K-33 blocks the flip until the UTF-16 ECMAScript matcher meters its work and reports exhaustion as an invalid rule. The pinned matcher exposes no step budget.
+  R-K-33b meters UTF-16 matching and closes the flip blocker. R-K-37 shares 4,000,000 steps across
+  one argument validation and caches up to 256 distinct compiled patterns. Exceeding either limit refuses the arguments.
 - *Ports for the flip:* the model repair port, the secret matcher, the full-result store and the idempotency store of `results`, the
   clock (`budget::Clock`), `EmbeddingPort`, `LexicalPort` and `PriorPort` of the index, `LocalEmbedding`, `SkillSource`,
   `ExtensionFeed` and `CalibrationSource` of the live index, `skill_tools::Cancelled`, and the process's home directory and its
@@ -1125,10 +1126,15 @@ unchanged). K10b uses this gate and the same path and process layers.
   The environment inherits only the approved names, and callers cannot replace the program lookup path.
 - **K10-D23 (R-K-31, P4D-197):** Hostctl requires ASCII program names for direct execution and at the program position of a shell command.
   The host must preserve this check when wiring both process adapters. The shell deny patterns cover the actual launcher and arguments.
+- **K10-D24 (RE-6, R-K-30, R-K-36, [P4D-198](defects.md#p4d-198)):** A native effect may complete before audit delivery or result validation fails.
+  Rust reserves an output-free receipt bound to principal, agent and session before invoking the native port.
+  The end audit can report success only after receipt completion. The compensation stop gets a separate audit event.
+  A failed delivery returns the operation ID. A newly started process remains managed until the stop port confirms termination.
+  The flip must supply durable receipt storage, the native stop and authenticated lookup ports. Receipts expire after seven days
+  from reservation or when replaced by newer reservations beyond 10,000 per identity, whichever comes first.
 - **K10-D25 (R-K-34, [P4D-203](defects.md#p4d-203)):** The process environment excludes BASHOPTS, SHELLOPTS and PS4, and the shell literal subset excludes arithmetic assignment through the shell builtin.
-- **K10-D24 (RE-6, R-K-30, P4D-198):** A native effect may complete before audit delivery or result validation fails.
-  The flip requires an authenticated operation ID before dispatch, a private bounded receipt without output and a stop port for started processes.
-  Rust reserves an output-free receipt bound to principal, agent and session before invoking the native port. A failed delivery returns the operation ID. A newly started process remains managed unless the stop port confirms termination. The flip must supply durable bounded storage and wire the native stop and authenticated lookup ports.
+- **K10-D26 (R-K-35, [P4D-225](defects.md#p4d-225)):** Rust launches zsh with `-f` and bash with `--norc --noprofile`.
+  The process environment excludes ZDOTDIR. Bash builtins capable of invoking a command through a callback are refused at the program position.
 - **K10-D16:** Rust requires exclusive publication for copy and move. There is no path-based fallback for native trash,
   directory creation or no-replace movement. A move is limited to a singly linked file on one filesystem. Local application
   opening is limited to verified document types and directories; an adapter must preserve the held identity.
@@ -1223,7 +1229,7 @@ real host adapters and the single-writer handoff.
 | K8 | ACP transcripts and connection bounds | [K8-D1](defects.md#p4d-151), [K8-D2](defects.md#p4d-152), [K8-D3](defects.md#p4d-153), [K8-D4](defects.md#p4d-154), [K8-D5](defects.md#p4d-155), [K8-D6](defects.md#p4d-156), [K8-D7](defects.md#p4d-157) |
 | K9a | prompt, triage and decision vectors | [K9a-D1](defects.md#p4d-158), [K9a-D2](defects.md#p4d-159), [K9a-D3](defects.md#p4d-160), [K9a-D6](defects.md#p4d-161), [K9a-D7](defects.md#p4d-162), [K9a-D8](defects.md#p4d-200) |
 | K9b | tool-call registry B round-trip and ranking vectors | [K9b-D1](defects.md#p4d-163), [K9b-D2](defects.md#p4d-164), [K9b-D3](defects.md#p4d-165) |
-| K10 | exec, filesystem, gate and Hostctl vectors and negative-effect tests | [K10-D1](defects.md#p4d-166), [K10-D2](defects.md#p4d-167), [K10-D3](defects.md#p4d-168), [K10-D4](defects.md#p4d-169), [K10-D5](defects.md#p4d-170), [K10-D6](defects.md#p4d-171), [K10-D7](defects.md#p4d-172), [K10-D8](defects.md#p4d-173), [K10-D9](defects.md#p4d-174), [K10-D10](defects.md#p4d-175), [K10-D11](defects.md#p4d-176), [K10-D12](defects.md#p4d-177), [K10-D13](defects.md#p4d-178), [K10-D14](defects.md#p4d-179), [K10-D15](defects.md#p4d-180), [K10-D16](defects.md#p4d-181), [K10-D21](defects.md#p4d-182), [K10-D22](defects.md#p4d-183), [K10-D23](defects.md#p4d-197), [K10-D24](defects.md#p4d-198) |
+| K10 | exec, filesystem, gate and Hostctl vectors and negative-effect tests | [K10-D1](defects.md#p4d-166), [K10-D2](defects.md#p4d-167), [K10-D3](defects.md#p4d-168), [K10-D4](defects.md#p4d-169), [K10-D5](defects.md#p4d-170), [K10-D6](defects.md#p4d-171), [K10-D7](defects.md#p4d-172), [K10-D8](defects.md#p4d-173), [K10-D9](defects.md#p4d-174), [K10-D10](defects.md#p4d-175), [K10-D11](defects.md#p4d-176), [K10-D12](defects.md#p4d-177), [K10-D13](defects.md#p4d-178), [K10-D14](defects.md#p4d-179), [K10-D15](defects.md#p4d-180), [K10-D16](defects.md#p4d-181), [K10-D21](defects.md#p4d-182), [K10-D22](defects.md#p4d-183), [K10-D23](defects.md#p4d-197), [K10-D24](defects.md#p4d-198), [K10-D25](defects.md#p4d-203), [K10-D26](defects.md#p4d-225) |
 | K11 | receipt content markers, adoption recovery and live-rights gate tests | [K11-D1](defects.md#p4d-184), [K11-D2](defects.md#p4d-185), [K11-D3](defects.md#p4d-186), [K11-D4](defects.md#p4d-187), [K11-D5](defects.md#p4d-188), [K11-D6](defects.md#p4d-189), [K11-D7](defects.md#p4d-190), [K11-D8](defects.md#p4d-191), [K11-D9](defects.md#p4d-192), [K11-D10](defects.md#p4d-193), [K11-D11](defects.md#p4d-194) |
 
 ### Store owners and Windows

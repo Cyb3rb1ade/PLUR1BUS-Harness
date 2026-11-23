@@ -49,10 +49,12 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
       - run: node --test scripts/release/test/portable-backup.test.mjs scripts/release/test/source-quality.test.mjs scripts/release/test/check-checklist.test.mjs
       - run: node scripts/release/check-checklist.mjs --run-local
-      - run: node --test scripts/release/test/audit-policy.test.mjs
       - name: install pinned Rust advisory tooling
         if: ${{ !cancelled() }}
-        run: cargo install cargo-deny --version 0.20.2 --locked
+        run: |
+          cargo install cargo-deny --version 0.20.2 --locked
+          cargo install cargo-audit --version 0.22.2 --locked
+      - run: node --test scripts/release/test/audit-policy.test.mjs
       - name: production advisory gate and development warnings
         if: ${{ !cancelled() }}
         run: node scripts/release/audit-policy.mjs

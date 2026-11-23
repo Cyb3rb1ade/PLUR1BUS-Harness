@@ -94,6 +94,9 @@ The owner selected this policy on 2026-10-15:
   includes build dependencies used to produce the release; purely development dependencies warn.
   RustSec CVSS 3.0/3.1 base vectors determine severity. Unscored/unsupported vulnerability vectors
   and unsoundness advisories fail closed for production; unmaintained/yanked notices warn.
+- The gate also uses pinned `cargo-audit 0.22.2` against the same refreshed RustSec database
+  for crate copies under `vendor/` and `crates/vendor/`. It checks their manifest names and versions
+  as upstream crates.io identities and applies the production policy to every copy.
 - Invalid reports, unavailable tools/databases/network, invalid policy and expired exceptions fail
   the job. The script still attempts each ecosystem and writes the summary on failure.
 - Only `audit-allowlist.json` can exempt a finding. Entries require `advisoryId` (RUSTSEC),

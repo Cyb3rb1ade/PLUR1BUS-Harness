@@ -11,7 +11,7 @@ pub mod native;
 mod policy;
 mod processes;
 mod receipts;
-pub use receipts::{Receipt, ReceiptOwner, Receipts};
+pub use receipts::{Receipt, ReceiptOwner, Receipts, RECEIPTS_PER_IDENTITY, RECEIPT_TTL_MS};
 mod search;
 
 #[cfg(test)]
@@ -323,7 +323,7 @@ impl<F: PathFs> Hostctl<'_, F> {
                 process: process_id.filter(|_| spec.operation == O::Start),
                 stopped: false,
             };
-            if !self.receipts.reserve(owner, receipt) {
+            if !self.receipts.reserve(owner, receipt, self.clock.now()) {
                 if let Some(id) = process_id.filter(|_| starting) {
                     self.processes.forget(id);
                 }
@@ -389,6 +389,14 @@ impl<F: PathFs> Hostctl<'_, F> {
                 .map_err(|_| Failure::too_large("The result exceeds its byte limit."))?;
             Ok(result)
         })();
+        if let Some(receipt) = recovery {
+            if !self.receipts.finish(owner, receipt, self.clock.now()) {
+                result = Err(Failure::new(
+                    "IO_ERROR",
+                    "The recovery record could not be completed.",
+                ));
+            }
+        }
         let code = result
             .as_ref()
             .map_or_else(|error: &Failure| error.code, |_| "OK");
@@ -402,22 +410,20 @@ impl<F: PathFs> Hostctl<'_, F> {
                 "The operation result could not be recorded.",
             ));
         }
-        if let Some(mut receipt) = recovery {
-            if !self.receipts.finish(owner, receipt) {
-                result = Err(Failure::new(
-                    "IO_ERROR",
-                    "The recovery record could not be completed.",
-                ));
-            }
-            if let Err(error) = &mut result {
-                error.operation_id = Some(id);
-                if let Some(process) = receipt.process.filter(|_| receipt.confirmed) {
-                    if self.effects.stop_after_failure(process) {
-                        self.processes.finished(process);
-                        receipt.stopped = true;
-                        self.receipts.finish(owner, receipt);
-                    }
+        if let (Err(error), Some(mut receipt)) = (&mut result, recovery) {
+            error.operation_id = Some(id);
+            if let Some(process) = receipt.process.filter(|_| receipt.confirmed) {
+                let stopped = self.effects.stop_after_failure(process);
+                let code = if stopped { "STOPPED" } else { "UNCONFIRMED" };
+                let mut fields = audit_fields(code);
+                fields["processId"] = json!(process.to_string());
+                if stopped {
+                    self.processes.finished(process);
+                    receipt.stopped = true;
+                    fields["receiptUpdated"] =
+                        json!(self.receipts.finish(owner, receipt, self.clock.now()));
                 }
+                let _ = self.audit.record("hostctl.compensate", &fields);
             }
         }
         result

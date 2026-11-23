@@ -96,6 +96,12 @@ function ruleVectors() {
 // --- triage(): validation of a classifier's decision --------------------------------------------------------------------------
 const MESSAGE = "fix the bug 😀 and then write the report";
 const task = (over: Record<string, unknown> = {}) => ({ id: "k1", summary: "fix the bug", start: 0, end: 11, categories: { "code.edit": 1 }, modelClass: { small: 0.1, medium: 0.75, large: 0.12, frontier: 0.03 }, chosenClass: "small", effort: "low", dependsOn: [], confidence: 0.9, reason: "test", ...over });
+const summaryDivergences = [
+  ["summary-number", 7],
+  ["summary-object", { title: "fix the bug" }],
+  ["summary-array", ["fix the bug"]],
+  ["summary-true", true],
+] as const;
 const second = (over: Record<string, unknown> = {}) => task({ id: "k2", summary: "write the report", start: 24, end: 40, categories: { "docs.create": 0.6, "comm.email": 0.4 }, dependsOn: ["k1"], ...over });
 const decision = (tasks: unknown[], over: Record<string, unknown> = {}) => ({ schema: "plur1bus.triage/1", shape: tasks.length > 1 ? "multi" : "single", tasks, ...over });
 function without(o: Record<string, unknown>, key: string) { const { [key]: _drop, ...rest } = o; return rest; }
@@ -114,7 +120,8 @@ function triageVectors() {
     ["end-unsafe", decision([task({ end: 2 ** 53 })])], ["overlap", decision([task(), second({ start: 10 })])], ["touching", decision([task(), second({ start: 11 })])], ["out-of-order", decision([second({ dependsOn: [] }), task()])],
     ["id-empty", decision([task({ id: "" })])], ["id-number", decision([task({ id: 1 })])], ["id-duplicate", decision([task(), second({ id: "k1", dependsOn: [] })])], ["effort-unknown", decision([task({ effort: "max" })])], ["effort-missing", decision([without(task(), "effort")])],
     ["reason-missing", decision([without(task(), "reason")])], ["reason-empty", decision([task({ reason: "" })])], ["reason-number", decision([task({ reason: 1 })])], ["summary-empty", decision([task({ summary: "" })])], ["summary-missing", decision([without(task(), "summary")])],
-    ["summary-number", decision([task({ summary: 7 })])], ["summary-zero", decision([task({ summary: 0 })])], ["depends-missing", decision([without(task(), "dependsOn")])], ["depends-string", decision([task({ dependsOn: "k0" })])], ["depends-unknown", decision([task({ dependsOn: ["k9"] })])],
+    ...summaryDivergences.map(([name, summary]): [string, unknown] => [name, decision([task({ summary })])]),
+    ["summary-whitespace", decision([task({ summary: " " })])], ["summary-zero", decision([task({ summary: 0 })])], ["depends-missing", decision([without(task(), "dependsOn")])], ["depends-string", decision([task({ dependsOn: "k0" })])], ["depends-unknown", decision([task({ dependsOn: ["k9"] })])],
     ["depends-self", decision([task({ dependsOn: ["k1"] })])], ["depends-later", decision([task({ dependsOn: ["k2"] }), second()])], ["depends-number", decision([task(), second({ dependsOn: [1] })])], ["depends-twice", decision([task(), second({ dependsOn: ["k1", "k1"] })])],
     ["categories-missing", decision([without(task(), "categories")])], ["categories-null", decision([task({ categories: null })])], ["categories-array", decision([task({ categories: ["code.edit"] })])], ["categories-string", decision([task({ categories: "code.edit" })])],
     ["categories-empty", decision([task({ categories: {} })])], ["categories-three", decision([task({ categories: { "a.b": 0.5, "c.d": 0.25, "e-f.g-h": 0.25 } })])], ["categories-four", decision([task({ categories: { "a.b": 0.25, "c.d": 0.25, "e.f": 0.25, "g.h": 0.25 } })])],
@@ -127,7 +134,7 @@ function triageVectors() {
   for (const [name, answer] of answers) {
     for (const cost of [undefined, "economy", "quality"] as const) {
       const classifiedJson = JSON.stringify(answer);
-      const base = { name, message: MESSAGE, classifiedJson, ...(cost ? { cost } : {}), ...(name === "thirty-three-tasks" ? { divergence: "K9a-D6" } : name === "summary-number" ? { divergence: "P4D-200" } : {}) };
+      const base = { name, message: MESSAGE, classifiedJson, ...(cost ? { cost } : {}), ...(name === "thirty-three-tasks" ? { divergence: "K9a-D6" } : summaryDivergences.some(([kind]) => name === kind) ? { divergence: "P4D-200" } : {}) };
       try { cases.push({ ...base, json: JSON.stringify(triage(MESSAGE, { classifier: () => JSON.parse(classifiedJson) as TriageDecision, ...(cost ? { cost } : {}) })) }); } catch (e) { cases.push({ ...base, ...failure(e) }); }
     }
   }
@@ -162,10 +169,13 @@ async function runtimeVectors() {
       { message: MESSAGE, scope: "m", answer: { json: JSON.stringify(decision([task({ effort: "low" }), second({ modelClass: large, effort: "high" })])) } },
       { message: MESSAGE, scope: "n", answer: { json: JSON.stringify(decision([task({ effort: "medium" }), second({ effort: "high" })])) } }, { message: MESSAGE, scope: "n", answer: { json: JSON.stringify(decision([task(), second()])) }, cost: "quality" },
       { message: MESSAGE, scope: "n", answer: { json: JSON.stringify(decision([task(), second()])) }, cost: "economy" }] },
-    { name: "summary-type-followup", steps: [
-      { message: "do it", scope: "summary", answer: { json: single("do it", { summary: 7 }) } },
-      { message: "do it", scope: "summary", answer: { json: valid } }
-    ] },
+    ...summaryDivergences.map(([name, summary]) => ({
+      name: `${name}-followup`,
+      steps: [
+        { message: "do it", scope: "summary", answer: { json: single("do it", { summary }) } },
+        { message: "do it", scope: "summary", answer: { json: valid } },
+      ],
+    })),
     { name: "fallbacks", steps: [
       { message: "debug the code; then write a report", scope: "f", answer: "fail" }, { message: "debug the code", scope: "f", answer: "hang", timeoutMs: 5 }, { message: "debug the code", scope: "f", answer: { json: "{}" } }, { message: "debug the code", scope: "f", answer: { json: "null" } },
       { message: "do it", scope: "f", answer: { json: JSON.stringify(decision([task()], { shape: "multi" })) } }, { message: MESSAGE, scope: "f", answer: { json: JSON.stringify(decision([task(), second()], { shape: "single" })) } },
@@ -201,7 +211,7 @@ async function runtimeVectors() {
       try {
         const r = await runtime.decide(step.message, step.scope, classify, { signal: controller.signal, onFallback: () => { fallbacks += 1; }, ...(step.cost ? { cost: step.cost } : {}), ...(step.task ? { task: step.task } : {}), ...(step.timeoutMs ? { timeoutMs: step.timeoutMs } : {}) });
         const { decision: d, ...rest } = r;
-        const divergence = script.name === "summary-type-followup" && steps.length === 0 ? { divergence: "P4D-200" } : {};
+        const divergence = summaryDivergences.some(([kind]) => script.name === `${kind}-followup`) && steps.length === 0 ? { divergence: "P4D-200" } : {};
         steps.push({ ...step, ...divergence, result: { ...rest, decisionJson: JSON.stringify(d) }, json: JSON.stringify(r), fallbacks });
       } catch (e) { steps.push({ ...step, aborted: (e as Error).name === "AbortError", fallbacks }); }
     }

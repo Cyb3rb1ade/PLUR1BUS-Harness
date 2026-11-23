@@ -32,10 +32,11 @@ impl Owner {
 }
 
 pub(super) fn shell_args<'a>(shell: &str, command: &'a str) -> Vec<&'a str> {
-    if shell == "pwsh" {
-        vec!["-NoProfile", "-NonInteractive", "-Command", command]
-    } else {
-        vec!["-c", command]
+    match shell {
+        "bash" => vec!["--norc", "--noprofile", "-c", command],
+        "zsh" => vec!["-f", "-c", command],
+        "pwsh" => vec!["-NoProfile", "-NonInteractive", "-Command", command],
+        _ => vec!["-c", command],
     }
 }
 

@@ -67,6 +67,10 @@ pub(super) fn validate_runtime(
                     | "let"
                     | "builtin"
                     | "coproc"
+                    | "compgen"
+                    | "complete"
+                    | "mapfile"
+                    | "readarray"
                     | "source"
                     | "."
                     | "trap"
@@ -94,6 +98,10 @@ pub(super) fn validate_runtime(
                 .collect::<Vec<_>>()
                 .join(" ");
             validate_command(config, program, &launch)?;
+            // Existing deny patterns can name the launcher with its prior argv.
+            if matches!(config.shell.as_str(), "bash" | "zsh") {
+                validate_deny_patterns(config, &format!("{} -c {command}", config.shell))?;
+            }
         }
         O::Exec | O::Start => {
             let program = input["program"]
@@ -153,15 +161,7 @@ fn matches_hard_argument_rule(command: &str) -> bool {
     RULES.as_ref().is_none_or(|rules| rules.is_match(command))
 }
 
-fn validate_command(config: &Config, program: &str, command: &str) -> Result<(), Failure> {
-    if !program.is_ascii() {
-        return Err(Failure::denied("Program names must be ASCII."));
-    }
-    if matches_hard_argument_rule(command) {
-        return Err(Failure::denied(
-            "Dangerous command refused; use a bounded file operation instead.",
-        ));
-    }
+fn validate_deny_patterns(config: &Config, command: &str) -> Result<(), Failure> {
     let command = command.to_lowercase();
     if config
         .deny_patterns
@@ -172,6 +172,19 @@ fn validate_command(config: &Config, program: &str, command: &str) -> Result<(),
             "The command matches a configured deny pattern.",
         ));
     }
+    Ok(())
+}
+
+fn validate_command(config: &Config, program: &str, command: &str) -> Result<(), Failure> {
+    if !program.is_ascii() {
+        return Err(Failure::denied("Program names must be ASCII."));
+    }
+    if matches_hard_argument_rule(command) {
+        return Err(Failure::denied(
+            "Dangerous command refused; use a bounded file operation instead.",
+        ));
+    }
+    validate_deny_patterns(config, command)?;
     let name = program
         .rsplit(['/', '\\'])
         .next()
