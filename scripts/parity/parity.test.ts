@@ -1130,6 +1130,18 @@ describe("dreaming lifecycle (P4-K K7b, plan P4-51)", () => {
   });
 });
 
+describe("dreaming ledger cutover (RE-10 T5)", () => {
+  it("keeps the recorded status and crash log current and under 1 MiB", async () => {
+    const { recordDreamLedgerCrash, recordDreamLedgerStatus } = await import("./export-dream-ledger-status.ts");
+    const fixtures = { ...await recordDreamLedgerStatus(), ...await recordDreamLedgerCrash() };
+    for (const [name, fixture] of Object.entries(fixtures)) {
+      const actual = readFileSync(fixturePath("dreams", name), "utf8");
+      assert.equal(actual, fixtureText(fixture), `dreams/${name}.json is stale`);
+      assert.ok(Buffer.byteLength(actual) < 1_048_576, name);
+    }
+  });
+});
+
 describe("learning run store (P4-K K7b, plan P4-51)", () => {
   it("the recorded learn store transitions are current and under 1 MiB", async () => {
     const { buildLearnStoreVectors } = await import("./export-learn-store.ts");

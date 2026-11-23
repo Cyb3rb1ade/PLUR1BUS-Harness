@@ -983,12 +983,56 @@ impl Shared {
                 let (result, imported) = crate::store::dream_ledger::log(
                     &self.home.join("state"),
                     &query,
+                    self.job_host.as_ref().map(|host| host.now_ms()),
                     &connection.cancel,
                 )?;
                 if let Some(imported) = imported {
                     diagnostics::dream_ledger_import(imported);
                 }
                 result.ok_or_else(WireError::dream_run_not_found)
+            }
+            "engine.dreams.run" => {
+                use crate::store::dream_ledger::{transition, RunTransition, RunTransitionResult};
+                let core = self.live_core_instance(connection)?;
+                let agent: String = decode(&params["agentId"])?;
+                let agent = crate::context::safe_agent_id(&agent)
+                    .map_err(|_| WireError::invalid_params())?;
+                let request: RunTransition = decode(&params["transition"])?;
+                if !request.valid() {
+                    return Err(WireError::invalid_params());
+                }
+                let host = self
+                    .job_host
+                    .as_deref()
+                    .ok_or_else(WireError::not_available)?;
+                let (result, imported) = transition(
+                    &self.home.join("state"),
+                    &agent,
+                    &request,
+                    host.now_ms(),
+                    &connection.cancel,
+                    core,
+                    || {
+                        if self
+                            .live_core_instance(connection)
+                            .is_ok_and(|current| current == core)
+                        {
+                            Ok(())
+                        } else {
+                            Err(crate::contract::HostError::Denied.into())
+                        }
+                    },
+                )?;
+                if let Some(imported) = imported {
+                    diagnostics::dream_ledger_import(imported);
+                }
+                match result {
+                    RunTransitionResult::Run(value) | RunTransitionResult::Candidates(value) => {
+                        Ok(value)
+                    }
+                    RunTransitionResult::Missing => Err(WireError::dream_run_not_found()),
+                    RunTransitionResult::Conflict => Err(WireError::dream_run_conflict()),
+                }
             }
             "engine.dreams.schedule" => {
                 self.live_core_instance(connection)?;
@@ -1001,6 +1045,7 @@ impl Shared {
                         &self.home.join("state"),
                         &agent,
                         &decode(edit)?,
+                        self.job_host.as_ref().map(|host| host.now_ms()),
                         &connection.cancel,
                     )?;
                     if let Some(imported) = imported {
@@ -1015,6 +1060,7 @@ impl Shared {
                 let (result, imported) = crate::store::dream_ledger::schedules(
                     &self.home.join("state"),
                     &agent,
+                    self.job_host.as_ref().map(|host| host.now_ms()),
                     &connection.cancel,
                 )?;
                 if let Some(imported) = imported {
@@ -1035,6 +1081,7 @@ impl Shared {
                 let (result, imported) = crate::store::dream_ledger::status(
                     &self.home.join("state"),
                     agent.as_deref(),
+                    self.job_host.as_ref().map(|host| host.now_ms()),
                     &connection.cancel,
                 )?;
                 if let Some(imported) = imported {

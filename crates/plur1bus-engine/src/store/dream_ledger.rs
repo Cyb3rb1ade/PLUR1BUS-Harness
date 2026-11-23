@@ -3,7 +3,7 @@
 use std::{
     io::{ErrorKind, Read, Seek, SeekFrom},
     path::Path,
-    time::Duration,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use rusqlite::{
@@ -19,6 +19,10 @@ use super::{
     directory::{regular_file_identity, TrustedDirectory},
     paths::{secure_dir, secure_file},
 };
+
+mod candidates;
+mod runs;
+pub(crate) use runs::{transition, RunTransition, RunTransitionResult};
 
 const LEGACY: &str = "dreams.db";
 const NATIVE: &str = "engine.sqlite";
@@ -85,7 +89,7 @@ fn copy(
     cancel: &Cancel,
 ) -> Result<i64, EngineError> {
     let mut select = source
-        .prepare(&format!("SELECT {columns} FROM {table}"))
+        .prepare(&format!("SELECT {columns} FROM {table} ORDER BY rowid"))
         .map_err(StoreError::from)?;
     let n = select.column_count();
     let placeholders = vec!["?"; n].join(",");
@@ -117,6 +121,7 @@ fn version(db: &Connection) -> Result<i64, StoreError> {
 fn initialize(
     tx: &Transaction<'_>,
     dir: &TrustedDirectory,
+    now: Option<i64>,
     cancel: &Cancel,
 ) -> Result<Option<Imported>, EngineError> {
     match version(tx)? {
@@ -149,6 +154,7 @@ fn initialize(
                 *count = copy(&snapshot, tx, table, columns, cancel)?;
             }
             snapshot.commit().map_err(StoreError::from)?;
+            reconcile_open_runs(tx, now, cancel)?;
         }
         Err(err) if is_missing(&err) => {}
         Err(err) => return Err(err.into()),
@@ -168,14 +174,57 @@ fn initialize(
     }))
 }
 
+/// Close interrupted runs and release their claims as part of writer handoff.
+fn reconcile_open_runs(
+    tx: &Connection,
+    now: Option<i64>,
+    cancel: &Cancel,
+) -> Result<(), EngineError> {
+    cancel.check()?;
+    let now = now.unwrap_or_else(|| {
+        let elapsed = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or(Duration::ZERO);
+        i64::try_from(elapsed.as_millis()).unwrap_or(i64::MAX)
+    });
+    // The legacy scheduler visits open runs in insertion order, so the last
+    // imported open row wins for a schedule with more than one interrupted run.
+    tx.execute_batch(
+        "UPDATE dream_schedule AS schedule SET last_run_id = (
+            SELECT run.run_id FROM dream_run AS run
+             WHERE run.agent_id = schedule.agent_id AND run.phase = schedule.phase
+               AND run.outcome IS NULL ORDER BY run.rowid DESC LIMIT 1
+         ) WHERE EXISTS (
+            SELECT 1 FROM dream_run AS run
+             WHERE run.agent_id = schedule.agent_id AND run.phase = schedule.phase
+               AND run.outcome IS NULL
+         )",
+    )
+    .map_err(StoreError::from)?;
+    cancel.check()?;
+    let error = json!({"message":"the process stopped before the run finished"});
+    tx.execute(
+        "UPDATE dream_run SET outcome = 'aborted', reason = 'crashed', finished_at = ?1,
+            tokens_in = NULL, tokens_out = NULL, error_json = ?2,
+            idempotency_key = CASE WHEN instr(idempotency_key, '#') = 0 THEN idempotency_key
+                ELSE substr(idempotency_key, 1, instr(idempotency_key, '#') - 1)
+            END || '#aborted:' || run_id
+         WHERE outcome IS NULL",
+        params![now, error.to_string()],
+    )
+    .map_err(StoreError::from)?;
+    Ok(())
+}
+
 /// This entry is called by the Core after it stops writing the legacy ledger.
 /// All three tables and the import record become visible in one engine commit.
 pub(crate) fn schedules(
     state: &Path,
     agent: &str,
+    now: Option<i64>,
     cancel: &Cancel,
 ) -> Result<(Value, Option<Imported>), EngineError> {
-    with_ledger(state, cancel, |db, _| {
+    with_ledger(state, now, cancel, |db, _| {
         Ok(json!({"schedules": read_schedules(db, agent)?}))
     })
 }
@@ -207,9 +256,10 @@ pub(crate) fn edit_schedule(
     state: &Path,
     agent: &str,
     edit: &ScheduleEdit,
+    now: Option<i64>,
     cancel: &Cancel,
 ) -> Result<(ScheduleEditResult, Option<Imported>), EngineError> {
-    with_ledger(state, cancel, |db, _| {
+    with_ledger(state, now, cancel, |db, _| {
         let expected = &edit.expected;
         let desired = &edit.desired;
         let updated = db
@@ -258,9 +308,10 @@ pub(crate) fn edit_schedule(
 pub(crate) fn status(
     state: &Path,
     agent: Option<&str>,
+    now: Option<i64>,
     cancel: &Cancel,
 ) -> Result<(Value, Option<Imported>), EngineError> {
-    with_ledger(state, cancel, |db, _| {
+    with_ledger(state, now, cancel, |db, _| {
         let mut statement = db
             .prepare(
                 "SELECT DISTINCT agent_id FROM dream_schedule
@@ -346,6 +397,7 @@ fn phase_status(db: &Connection, agent: &str, cancel: &Cancel) -> Result<Vec<Val
 
 fn with_ledger<T>(
     state: &Path,
+    now: Option<i64>,
     cancel: &Cancel,
     operation: impl FnOnce(&Connection, &TrustedDirectory) -> Result<T, EngineError>,
 ) -> Result<(T, Option<Imported>), EngineError> {
@@ -367,7 +419,7 @@ fn with_ledger<T>(
     let tx = db
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(StoreError::from)?;
-    let imported = initialize(&tx, &dir, cancel)?;
+    let imported = initialize(&tx, &dir, now, cancel)?;
     let value = operation(&tx, &dir)?;
     cancel.check()?;
     dir.assert_unchanged()?;
@@ -390,9 +442,10 @@ pub(crate) struct LogQuery {
 pub(crate) fn log(
     state: &Path,
     query: &LogQuery,
+    now: Option<i64>,
     cancel: &Cancel,
 ) -> Result<(Option<Value>, Option<Imported>), EngineError> {
-    with_ledger(state, cancel, |db, dir| {
+    with_ledger(state, now, cancel, |db, dir| {
         let runs = read_runs(db, query, cancel)?;
         if query.run_id.is_some() && runs.is_empty() {
             return Ok(None);

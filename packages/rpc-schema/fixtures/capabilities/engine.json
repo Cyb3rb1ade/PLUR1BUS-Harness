@@ -8,6 +8,10 @@
       "stability": "experimental",
       "since": "1.28.0"
     },
+    "engine.dreams.run": {
+      "stability": "experimental",
+      "since": "1.28.0"
+    },
     "engine.dreams.schedule": {
       "stability": "experimental",
       "since": "1.28.0"

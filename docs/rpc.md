@@ -462,6 +462,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 - `engine.dreams.diary`: experimental, since 1.28.0
 - `engine.dreams.log`: experimental, since 1.28.0
+- `engine.dreams.run`: experimental, since 1.28.0
 - `engine.dreams.schedule`: experimental, since 1.28.0
 - `engine.dreams.status`: experimental, since 1.28.0
 - `engine.media.index`: experimental, since 1.28.0
@@ -687,6 +688,279 @@ Read imported dream runs over the verified Core link, newest first. With runId, 
       "type": "string"
     }
   }
+}
+```
+
+### `engine.dreams.run`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Apply a phase ledger transition over the verified Core link after the legacy writer retires. The Core admits triggers and dispatches the jobs. Candidate preparation records gate decisions for a claimed light or deep run and returns eligible current sources for deep runs.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "transition"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "transition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "runId",
+            "phase",
+            "trigger",
+            "idempotencyKey",
+            "claim"
+          ],
+          "properties": {
+            "kind": {
+              "const": "begin"
+            },
+            "runId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9-]+$"
+            },
+            "phase": {
+              "$ref": "#/$defs/DreamPhase"
+            },
+            "trigger": {
+              "$ref": "#/$defs/DreamTrigger"
+            },
+            "scheduledFor": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "idempotencyKey": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "pattern": "^[^#]+$"
+            },
+            "claim": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "runId",
+            "observations"
+          ],
+          "properties": {
+            "kind": {
+              "const": "prepare-candidates"
+            },
+            "runId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9-]+$"
+            },
+            "observations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "content"
+                ],
+                "properties": {
+                  "content": {
+                    "type": "string"
+                  },
+                  "memoryId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "recalls": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "uniqueQueries": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "score": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "number"
+                  },
+                  "importance": {
+                    "type": "number"
+                  },
+                  "repetitions": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "runId",
+            "outcome"
+          ],
+          "properties": {
+            "kind": {
+              "const": "finish"
+            },
+            "runId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9-]+$"
+            },
+            "outcome": {
+              "$ref": "#/$defs/DreamOutcome"
+            },
+            "reason": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "counts": {
+              "type": "object",
+              "maxProperties": 64,
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "tokensIn": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "tokensOut": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "oneOf": [
+    {
+      "$ref": "#/$defs/DreamRun"
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "counts",
+        "eligible"
+      ],
+      "properties": {
+        "counts": {
+          "type": "object",
+          "maxProperties": 64,
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "eligible": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "candidateId",
+              "memoryId"
+            ],
+            "properties": {
+              "candidateId": {
+                "type": "string"
+              },
+              "memoryId": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
 ```
 

@@ -1,0 +1,35 @@
+{
+  "params": {
+    "agentId": "a1",
+    "transition": {
+      "kind": "begin",
+      "runId": "fixture-phase",
+      "phase": "deep",
+      "trigger": "manual",
+      "scheduledFor": null,
+      "idempotencyKey": "fixture-corpus-window",
+      "claim": true
+    }
+  },
+  "result": {
+    "runId": "fixture-phase",
+    "agentId": "a1",
+    "phase": "deep",
+    "jobId": "consolidate-daily",
+    "partition": "agent-private",
+    "idempotencyKey": "fixture-corpus-window",
+    "claimed": true,
+    "trigger": "manual",
+    "scheduledFor": null,
+    "startedAt": 1791244800000,
+    "finishedAt": null,
+    "durationMs": null,
+    "outcome": null,
+    "reason": null,
+    "counts": {},
+    "tokensIn": null,
+    "tokensOut": null,
+    "logPath": null,
+    "error": null
+  }
+}

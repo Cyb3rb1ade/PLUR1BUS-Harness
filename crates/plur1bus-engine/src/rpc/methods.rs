@@ -53,6 +53,10 @@ impl WireError {
         Self::application("E_NOT_FOUND", "not-found", "dream run not found")
     }
 
+    pub(crate) fn dream_run_conflict() -> Self {
+        Self::application("E_CONFLICT", "dream-run-conflict", "dream run changed")
+    }
+
     pub(crate) fn dream_schedule_not_found() -> Self {
         Self::application("E_NOT_FOUND", "not-found", "dream schedule not found")
     }
@@ -952,9 +956,10 @@ mod tests {
                         | "engine.capture.wait"
                         | "engine.capture.abort"
                         | "engine.channels.register"
-                        // Live Core verification requires the process server. Both routes
+                        // Live Core verification requires the process server. These routes
                         // are exercised through authenticated connections in rpc_server.rs.
                         | "engine.media.index"
+                        | "engine.dreams.run"
                         | "engine.dreams.schedule"
                         | "engine.dreams.status"
                         | "engine.dreams.log"
