@@ -7,27 +7,31 @@ use std::{
 };
 
 use chrono::DateTime;
-use flate2::read::{GzDecoder, ZlibDecoder};
+use flate2::read::{MultiGzDecoder, ZlibDecoder};
 use plur1bus_providers::pinned_http_agent;
 use ureq::http::{HeaderValue, Request, Uri};
+use url::Url;
 
 use crate::scanners::{Error, Page, Port, Result};
 
 const MAX_REDIRECTS: usize = 3;
 const CONNECT: Duration = Duration::from_secs(5);
 const MAX_RETRY_MS: u64 = 86_400_000;
+const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
 
 pub trait Admission {
-    /// Resolve the page relative to the configured base and encode its query.
-    fn endpoint(&self, page: &Page<'_>) -> Result<Uri>;
-    /// Resolve a Location relative to a previously admitted URI.
-    fn redirect(&self, from: &Uri, location: &str) -> Result<Uri>;
     /// Resolve and admit one address. The connector dials only this pin.
     fn pin(&self, uri: &Uri, deadline: Instant) -> Result<SocketAddr>;
     fn now_ms(&self) -> i64;
 }
 
-pub enum Lease<'a> {
+/// Host-provided credential and the origin authorized to receive it.
+pub struct Lease<'a> {
+    pub origin: &'a Url,
+    pub header: CredentialHeader<'a>,
+}
+
+pub enum CredentialHeader<'a> {
     /// Complete Authorization header prepared by the host.
     Bearer(&'a str),
     Anthropic(&'a str),
@@ -36,7 +40,7 @@ pub enum Lease<'a> {
 
 pub struct Http<'a> {
     host: &'a dyn Admission,
-    base: &'a Uri,
+    base: Url,
     agent: HeaderValue,
     credential: Option<(&'static str, HeaderValue)>,
     loopback: bool,
@@ -45,7 +49,7 @@ pub struct Http<'a> {
 impl<'a> Http<'a> {
     pub fn new(
         host: &'a dyn Admission,
-        base: &'a Uri,
+        base: &Uri,
         agent: &str,
         lease: Option<Lease<'_>>,
         allow_loopback: bool,
@@ -59,18 +63,26 @@ impl<'a> Http<'a> {
         {
             return Err(Error::invalid("insecure_transport"));
         }
-        let mut credential = None;
-        if let Some(lease) = lease {
-            let (name, value) = match lease {
-                Lease::Bearer(value) => ("authorization", value),
-                Lease::Anthropic(value) => ("x-api-key", value),
-                Lease::Google(value) => ("x-goog-api-key", value),
-            };
-            let mut value =
-                HeaderValue::from_str(value).map_err(|_| Error::invalid("credential_header"))?;
-            value.set_sensitive(true);
-            credential = Some((name, value));
+        let base = Url::parse(&base.to_string()).map_err(|_| Error::invalid("invalid_base_url"))?;
+        if base.query().is_some() || base.fragment().is_some() {
+            return Err(Error::invalid("invalid_base_url"));
         }
+        let credential = lease
+            .map(|lease| {
+                if lease.origin.origin() != base.origin() {
+                    return Err(Error::invalid("credential_origin"));
+                }
+                let (name, value) = match lease.header {
+                    CredentialHeader::Bearer(value) => ("authorization", value),
+                    CredentialHeader::Anthropic(value) => ("x-api-key", value),
+                    CredentialHeader::Google(value) => ("x-goog-api-key", value),
+                };
+                let mut value = HeaderValue::from_str(value)
+                    .map_err(|_| Error::invalid("credential_header"))?;
+                value.set_sensitive(true);
+                Ok((name, value))
+            })
+            .transpose()?;
         Ok(Self {
             host,
             base,
@@ -118,16 +130,28 @@ fn deadline_remaining(deadline: Instant) -> Result<Duration> {
 
 impl Port for Http<'_> {
     fn get(&mut self, page: Page<'_>) -> Result<Vec<u8>> {
-        let mut uri = self.host.endpoint(&page)?;
-        let (expected_scheme, expected_host, expected_port) = origin(self.base)?;
+        let mut url = self.base.clone();
+        url.set_path(&format!(
+            "{}{}",
+            self.base.path().trim_end_matches('/'),
+            page.path
+        ));
+        if !page.query.is_empty() {
+            url.query_pairs_mut().extend_pairs(&page.query);
+        }
         for hop in 0..=MAX_REDIRECTS {
-            let (scheme, host, port) = origin(&uri)?;
-            if scheme != expected_scheme
-                || !host.eq_ignore_ascii_case(expected_host)
-                || port != expected_port
-            {
+            if !url.username().is_empty() || url.password().is_some() {
+                return Err(Error::invalid("bad_redirect"));
+            }
+            if url.origin() != self.base.origin() {
                 return Err(Error::invalid("redirect_foreign_origin"));
             }
+            url.set_fragment(None);
+            let uri: Uri = url
+                .as_str()
+                .parse()
+                .map_err(|_| Error::invalid("invalid_request"))?;
+            let (_, host, port) = origin(&uri)?;
             deadline_remaining(page.deadline)?;
             let pin = self.host.pin(&uri, page.deadline)?;
             if pin.port() != port
@@ -170,58 +194,87 @@ impl Port for Http<'_> {
                 .map_err(|_| Error::invalid("invalid_request"))?;
             let mut response = agent.run(request).map_err(|err| match err {
                 ureq::Error::Timeout(_) => Error::network("request_timeout"),
-                _ => Error::network("network"),
+                ureq::Error::Io(error) => match error.kind() {
+                    io::ErrorKind::ConnectionRefused => Error::network("connection_refused"),
+                    io::ErrorKind::ConnectionReset | io::ErrorKind::BrokenPipe => {
+                        Error::network("connection_reset")
+                    }
+                    io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => {
+                        Error::network("request_timeout")
+                    }
+                    _ => Error::network("network_error"),
+                },
+                ureq::Error::Rustls(_) | ureq::Error::Tls(_) => Error::network("tls_error"),
+                _ => Error::network("network_error"),
             })?;
             let status = response.status();
             if status.is_success() {
-                let mut encodings = response.headers().get_all("content-encoding").iter();
-                let encoding = encodings.next().cloned();
-                if encodings.next().is_some() {
-                    return Err(Error::invalid("unsupported_encoding"));
+                if !response
+                    .headers()
+                    .get("content-type")
+                    .and_then(|field| field.to_str().ok())
+                    .is_some_and(json_content_type)
+                {
+                    return Err(Error::invalid("content_type"));
                 }
-                let body = read_bounded(
-                    response.body_mut().as_reader(),
-                    page.max_bytes,
-                    page.deadline,
-                )?;
-                let kind = encoding
-                    .as_ref()
-                    .map_or(b"identity".as_slice(), HeaderValue::as_bytes);
-                let bytes = if kind.eq_ignore_ascii_case(b"identity") {
-                    body
-                } else if kind.eq_ignore_ascii_case(b"gzip") {
-                    read_bounded(
-                        GzDecoder::new(body.as_slice()),
-                        page.max_bytes,
+                let mut encodings = response.headers().get_all("content-encoding").iter();
+                let encoding = encodings
+                    .next()
+                    .map(|value| {
+                        value
+                            .to_str()
+                            .map(|value| value.trim().to_ascii_lowercase())
+                            .map_err(|_| Error::invalid("content_encoding"))
+                    })
+                    .transpose()?
+                    .unwrap_or_default();
+                if encodings.next().is_some() {
+                    return Err(Error::invalid("content_encoding"));
+                }
+                let maximum = page.max_bytes.min(MAX_JSON_BYTES);
+                let body = read_bounded(response.body_mut().as_reader(), maximum, page.deadline)?;
+                return match encoding.as_str() {
+                    "" | "identity" => Ok(body),
+                    "gzip" => decode(
+                        MultiGzDecoder::new(body.as_slice()),
+                        maximum,
                         page.deadline,
-                    )?
-                } else if kind.eq_ignore_ascii_case(b"deflate") {
-                    read_bounded(
+                        "bad_gzip",
+                    ),
+                    "deflate" => decode(
                         ZlibDecoder::new(body.as_slice()),
-                        page.max_bytes,
+                        maximum,
                         page.deadline,
-                    )?
-                } else if kind.eq_ignore_ascii_case(b"br") {
-                    read_bounded(
+                        "bad_deflate",
+                    ),
+                    "br" => decode(
                         brotli::Decompressor::new(body.as_slice(), 8192),
-                        page.max_bytes,
+                        maximum,
                         page.deadline,
-                    )?
-                } else {
-                    return Err(Error::invalid("unsupported_encoding"));
+                        "bad_brotli",
+                    ),
+                    _ => Err(Error::invalid("content_encoding")),
                 };
-                return Ok(bytes);
             }
             if status.is_redirection() {
-                if hop == MAX_REDIRECTS {
-                    return Err(Error::invalid("too_many_redirects"));
-                }
                 let location = response
                     .headers()
                     .get("location")
                     .and_then(|v| v.to_str().ok())
-                    .ok_or_else(|| Error::invalid("bad_redirect"))?;
-                uri = self.host.redirect(&uri, location)?;
+                    .ok_or_else(|| Error::http_status(status.as_u16()))?;
+                let next = url
+                    .join(location)
+                    .map_err(|_| Error::invalid("bad_redirect"))?;
+                if !next.username().is_empty() || next.password().is_some() {
+                    return Err(Error::invalid("bad_redirect"));
+                }
+                if next.origin() != self.base.origin() {
+                    return Err(Error::invalid("redirect_foreign_origin"));
+                }
+                if hop == MAX_REDIRECTS {
+                    return Err(Error::invalid("too_many_redirects"));
+                }
+                url = next;
                 continue;
             }
             let mut error = Error::http_status(status.as_u16());
@@ -236,6 +289,40 @@ impl Port for Http<'_> {
         }
         Err(Error::invalid("too_many_redirects"))
     }
+}
+
+fn json_content_type(value: &str) -> bool {
+    let mime = value
+        .split(';')
+        .next()
+        .unwrap_or_default()
+        .trim_end()
+        .to_ascii_lowercase();
+    let Some(subtype) = mime.strip_prefix("application/") else {
+        return false;
+    };
+    subtype == "json"
+        || subtype.strip_suffix("+json").is_some_and(|prefix| {
+            !prefix.is_empty()
+                && prefix
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || b".+-".contains(&byte))
+        })
+}
+
+fn decode(
+    input: impl Read,
+    limit: usize,
+    deadline: Instant,
+    invalid: &'static str,
+) -> Result<Vec<u8>> {
+    read_bounded(input, limit, deadline).map_err(|error| {
+        if error.reason == "response_body" {
+            Error::invalid(invalid)
+        } else {
+            error
+        }
+    })
 }
 
 fn read_bounded(mut input: impl Read, limit: usize, deadline: Instant) -> Result<Vec<u8>> {

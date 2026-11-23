@@ -18,10 +18,16 @@ base64 = "=0.22.1"
 chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 icu_collator = "=2.3.1"
 icu_locale_core = "=2.3.0"
+icu_normalizer = "=2.3.0"
 regex = "=1.13.1"
+regex-syntax = "=0.8.11"
 ring = "=0.17.14"
 serde.workspace = true
 serde_json.workspace = true
+url = "=2.5.9"
 
 [dev-dependencies]
+log = "=0.4.34"
+plur1bus-wire-log = { path = "../plur1bus-wire-log" }
 plur1bus-wire-fixtures = { path = "../plur1bus-wire-fixtures" }
+tempfile.workspace = true

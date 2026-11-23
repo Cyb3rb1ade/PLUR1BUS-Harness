@@ -11,6 +11,7 @@ use chrono::{Days, NaiveDate};
 use icu_collator::{options::CollatorOptions, CollatorBorrowed};
 use icu_locale_core::locale;
 use regex::{Regex, RegexBuilder};
+use regex_syntax::ast::{parse::Parser, Ast, RepetitionKind, RepetitionRange};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -210,6 +211,28 @@ pub struct Metadata {
     sections: BTreeMap<String, Vec<(Regex, Rule)>>,
 }
 
+// The source admits the anchored, non-nested repetition subset. The AST is
+// bounded by the 200 UTF-16 unit pattern ceiling before walking it.
+fn supported(ast: &Ast, repeated: bool) -> bool {
+    match ast {
+        Ast::Repetition(rep) => {
+            let repeats = match rep.op.kind {
+                RepetitionKind::ZeroOrOne => false,
+                RepetitionKind::Range(
+                    RepetitionRange::Exactly(n) | RepetitionRange::Bounded(_, n),
+                ) => n > 1,
+                _ => true,
+            };
+            !(repeats && repeated) && supported(&rep.ast, repeated || repeats)
+        }
+        Ast::Group(group) => supported(&group.ast, repeated),
+        Ast::Alternation(alt) => alt.asts.iter().all(|node| supported(node, repeated)),
+        Ast::Concat(concat) => concat.asts.iter().all(|node| supported(node, repeated)),
+        Ast::Flags(_) => false,
+        _ => true,
+    }
+}
+
 impl Metadata {
     pub fn load(json: &str) -> Result<Self, Error> {
         let file: MetadataFile = serde_json::from_str(json).map_err(|_| Error::Metadata)?;
@@ -233,6 +256,12 @@ impl Metadata {
                         .flatten()
                         .any(|name| !aliases.insert(name.clone()))
                 {
+                    return Err(Error::Metadata);
+                }
+                let ast = Parser::new()
+                    .parse(&rule.pattern)
+                    .map_err(|_| Error::Metadata)?;
+                if !supported(&ast, false) {
                     return Err(Error::Metadata);
                 }
                 let pattern = RegexBuilder::new(&rule.pattern)
@@ -547,4 +576,32 @@ pub fn apply(input: &Input, metadata: &Metadata) -> Result<Output, Error> {
     );
     output.catalog.models = models;
     Ok(output)
+}
+
+/// Re-enrich table-derived entries when the metadata revision changes.
+/// Preserve saved overrides and scan/manual fields, then re-evaluate aliases.
+pub fn reenrich<'a>(
+    catalog: &Catalog,
+    metadata: &Metadata,
+    vendor_of: impl Fn(&str) -> Option<&'a str>,
+) -> Catalog {
+    let mut next = catalog.clone();
+    for model in next
+        .models
+        .iter_mut()
+        .filter(|model| model.source == Source::Table)
+    {
+        (model.fields, model.source) = metadata.effective(
+            vendor_of(&model.provider),
+            &model.id,
+            model.api.as_ref().unwrap_or(&Api::default()),
+            &model.overrides,
+        );
+    }
+    next.header.insert(
+        "tableRevision".into(),
+        Value::String(metadata.revision.clone()),
+    );
+    next.models = group_and_dedup(next.models, &[]);
+    next
 }

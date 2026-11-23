@@ -52,3 +52,23 @@ fn override_projection_and_conflicts_match_the_recorded_catalog() {
         assert_eq!(actual, case["expected"], "{}", case["name"]);
     }
 }
+
+#[test]
+fn metadata_reload_changes_table_rows_and_preserves_overrides() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/discovery/reconcile.json"
+    ))
+    .unwrap();
+    let replay = &fixture["refreshed"];
+    let input = &replay["input"];
+    let table = Metadata::load(&input["table"].to_string()).unwrap();
+    let catalog = serde_json::from_value(input["catalog"].clone()).unwrap();
+    let result = reconcile::reenrich(&catalog, &table, |_| input["vendor"].as_str());
+    assert_eq!(serde_json::to_value(result).unwrap(), replay["expected"]);
+    for case in fixture["patterns"].as_array().unwrap() {
+        assert_eq!(
+            Metadata::load(&case["input"].to_string()).is_ok(),
+            case["valid"]
+        );
+    }
+}

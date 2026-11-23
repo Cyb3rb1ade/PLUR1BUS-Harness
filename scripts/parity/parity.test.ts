@@ -1585,6 +1585,14 @@ describe("Chromium rendering commands (P4-W W4)", () => {
 });
 
 describe("discovery reconciliation and transport (P4-W W5)", () => {
+  it("matches the signed catalogue lifecycle and checkpoint transitions", async () => {
+    const { recordDiscoveryCatalog } = await import("./export-discovery-catalog.ts");
+    assert.equal(readFileSync(fixturePath("discovery", "catalog"), "utf8"), fixtureText((await recordDiscoveryCatalog()).catalog));
+  });
+  it("matches the scanner HTTP exchanges including response acceptance and redirects", async () => {
+    const { recordDiscoveryHttp } = await import("./export-discovery-http.ts");
+    assert.equal(readFileSync(fixturePath("discovery", "http"), "utf8"), fixtureText((await recordDiscoveryHttp()).http));
+  });
   it("matches the production catalogue and override projections", async () => {
     const { recordDiscoveryReconcile } = await import("./export-discovery-reconcile.ts");
     assert.equal(readFileSync(fixturePath("discovery", "reconcile"), "utf8"), fixtureText(recordDiscoveryReconcile().reconcile));

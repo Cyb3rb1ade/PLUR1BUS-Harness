@@ -2928,5 +2928,290 @@
       "name": "missing-model"
     }
   ],
+  "patterns": [
+    {
+      "input": {
+        "revision": "fixture-revision",
+        "schema": "plur1bus.model-metadata/1",
+        "vendors": {
+          "generic": [
+            {
+              "capabilities": [],
+              "kind": "chat",
+              "pattern": "^example-[0-9]+$"
+            }
+          ]
+        }
+      },
+      "valid": true
+    },
+    {
+      "input": {
+        "revision": "fixture-revision",
+        "schema": "plur1bus.model-metadata/1",
+        "vendors": {
+          "generic": [
+            {
+              "capabilities": [],
+              "kind": "chat",
+              "pattern": "not-anchored"
+            }
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "revision": "fixture-revision",
+        "schema": "plur1bus.model-metadata/1",
+        "vendors": {
+          "generic": [
+            {
+              "capabilities": [],
+              "kind": "chat",
+              "pattern": "^(lo{2}){2}$"
+            }
+          ]
+        }
+      },
+      "valid": false
+    }
+  ],
+  "refreshed": {
+    "expected": {
+      "models": [
+        {
+          "aliases": [],
+          "api": {},
+          "capabilities": [],
+          "displayName": "other-model",
+          "firstSeen": "2026-11-22T09:00:00.000Z",
+          "id": "other-model",
+          "kind": "unknown",
+          "lastSeen": "2026-11-22T09:00:00.000Z",
+          "overrides": {},
+          "provider": "other",
+          "source": "scan",
+          "status": "available"
+        },
+        {
+          "aliases": [
+            "my-chat"
+          ],
+          "api": {
+            "displayName": "Large API"
+          },
+          "capabilities": [
+            "structured_output"
+          ],
+          "contextWindow": 29000,
+          "displayName": "My Large",
+          "firstSeen": "2026-11-22T09:00:00.000Z",
+          "id": "example-chat-large",
+          "kind": "chat",
+          "lastSeen": "2026-11-22T09:00:00.000Z",
+          "overrides": {
+            "aliases": [
+              "my-chat"
+            ],
+            "capabilities": [
+              "structured_output"
+            ],
+            "displayName": "My Large"
+          },
+          "provider": "fixture",
+          "source": "table",
+          "status": "available"
+        },
+        {
+          "aliases": [],
+          "api": {},
+          "capabilities": [],
+          "displayName": "example-embed-gone",
+          "firstSeen": "2026-11-22T09:00:00.000Z",
+          "id": "example-embed-gone",
+          "kind": "embedding",
+          "lastSeen": "2026-11-22T09:00:00.000Z",
+          "overrides": {},
+          "provider": "fixture",
+          "source": "scan",
+          "status": "available"
+        },
+        {
+          "aliases": [],
+          "api": {},
+          "capabilities": [],
+          "displayName": "fixture-whisper-a1",
+          "firstSeen": "2026-11-22T09:00:00.000Z",
+          "id": "fixture-whisper-a1",
+          "kind": "asr",
+          "lastSeen": "2026-11-22T09:00:00.000Z",
+          "overrides": {},
+          "provider": "fixture",
+          "source": "scan",
+          "status": "available"
+        },
+        {
+          "aliases": [],
+          "api": {},
+          "capabilities": [],
+          "displayName": "unknown",
+          "firstSeen": "2026-11-22T09:00:00.000Z",
+          "id": "unknown",
+          "kind": "unknown",
+          "lastSeen": "2026-11-22T09:00:00.000Z",
+          "overrides": {},
+          "provider": "fixture",
+          "source": "scan",
+          "status": "available"
+        },
+        {
+          "aliases": [],
+          "capabilities": [],
+          "displayName": "Manual",
+          "firstSeen": "2026-11-22T09:00:00.000Z",
+          "id": "manual-model",
+          "kind": "chat",
+          "lastSeen": "2026-11-22T09:00:00.000Z",
+          "overrides": {},
+          "provider": "fixture",
+          "source": "manual",
+          "status": "manual"
+        }
+      ],
+      "providers": {},
+      "revision": 0,
+      "schema": "plur1bus.model-catalog/1",
+      "tableRevision": "fixture-revision"
+    },
+    "input": {
+      "catalog": {
+        "models": [
+          {
+            "aliases": [],
+            "api": {},
+            "capabilities": [],
+            "displayName": "other-model",
+            "firstSeen": "2026-11-22T09:00:00.000Z",
+            "id": "other-model",
+            "kind": "unknown",
+            "lastSeen": "2026-11-22T09:00:00.000Z",
+            "overrides": {},
+            "provider": "other",
+            "source": "scan",
+            "status": "available"
+          },
+          {
+            "aliases": [
+              "example-chat-latest"
+            ],
+            "api": {
+              "displayName": "Large API"
+            },
+            "capabilities": [
+              "tools",
+              "vision",
+              "reasoning"
+            ],
+            "contextWindow": 128000,
+            "displayName": "Large API",
+            "firstSeen": "2026-11-22T09:00:00.000Z",
+            "id": "example-chat-large",
+            "kind": "chat",
+            "lastSeen": "2026-11-22T09:00:00.000Z",
+            "overrides": {
+              "aliases": [
+                "my-chat"
+              ],
+              "capabilities": [
+                "structured_output"
+              ],
+              "displayName": "My Large"
+            },
+            "provider": "fixture",
+            "source": "table",
+            "status": "available"
+          },
+          {
+            "aliases": [],
+            "api": {},
+            "capabilities": [],
+            "displayName": "example-embed-gone",
+            "firstSeen": "2026-11-22T09:00:00.000Z",
+            "id": "example-embed-gone",
+            "kind": "embedding",
+            "lastSeen": "2026-11-22T09:00:00.000Z",
+            "overrides": {},
+            "provider": "fixture",
+            "source": "table",
+            "status": "available"
+          },
+          {
+            "aliases": [],
+            "api": {},
+            "capabilities": [],
+            "displayName": "fixture-whisper-a1",
+            "firstSeen": "2026-11-22T09:00:00.000Z",
+            "id": "fixture-whisper-a1",
+            "kind": "asr",
+            "lastSeen": "2026-11-22T09:00:00.000Z",
+            "overrides": {},
+            "provider": "fixture",
+            "source": "scan",
+            "status": "available"
+          },
+          {
+            "aliases": [],
+            "api": {},
+            "capabilities": [],
+            "displayName": "unknown",
+            "firstSeen": "2026-11-22T09:00:00.000Z",
+            "id": "unknown",
+            "kind": "unknown",
+            "lastSeen": "2026-11-22T09:00:00.000Z",
+            "overrides": {},
+            "provider": "fixture",
+            "source": "scan",
+            "status": "available"
+          },
+          {
+            "aliases": [],
+            "capabilities": [],
+            "displayName": "Manual",
+            "firstSeen": "2026-11-22T09:00:00.000Z",
+            "id": "manual-model",
+            "kind": "chat",
+            "lastSeen": "2026-11-22T09:00:00.000Z",
+            "overrides": {},
+            "provider": "fixture",
+            "source": "manual",
+            "status": "manual"
+          }
+        ],
+        "providers": {},
+        "revision": 0,
+        "schema": "plur1bus.model-catalog/1",
+        "tableRevision": "2026-11-01.1"
+      },
+      "table": {
+        "revision": "fixture-revision",
+        "schema": "plur1bus.model-metadata/1",
+        "vendors": {
+          "example-vendor": [
+            {
+              "capabilities": [
+                "vision"
+              ],
+              "contextWindow": 29000,
+              "kind": "chat",
+              "pattern": "^example-chat-large$"
+            }
+          ]
+        }
+      },
+      "vendor": "example-vendor"
+    }
+  },
   "source": "packages/core/src/discovery/reconcile.ts"
 }

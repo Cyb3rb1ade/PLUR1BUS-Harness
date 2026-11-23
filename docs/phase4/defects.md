@@ -1429,3 +1429,14 @@ The reader counts the bytes it receives, including after gzip decoding.
 HTTP setup, retry waits and body reads share the absolute operation deadline.
 An in-flight blocking read can defer cancellation until that deadline (R-W-9).
 The adapters apply separate file limits to binary media.
+
+
+<a id="p4d-224"></a>
+
+## P4D-224 — managed discovery reuses the Apple FM body cap
+
+The managed Unix transport shares the provider connector's one MiB ceiling
+and keeps the original deadline through body EOF. A response above the cap
+returns `response_too_large`; the TypeScript discovery path allows four MiB.
+TCP discovery retains the TypeScript four MiB per-page and eight MiB total
+bounds. Provider error bodies are not read by the Rust scanner.

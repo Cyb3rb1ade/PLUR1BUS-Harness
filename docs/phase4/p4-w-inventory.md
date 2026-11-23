@@ -302,15 +302,18 @@ Sekunde auf dem eigenen temporären Verzeichnis.
 - **Lücken.** Alle Provider-Seiten und 429/Retry-After, unvollständige und leere Aufzählungen,
   Entfernung/Übernahme von Metadaten, Rollen-Fallback und Katalog-Rollback/-Ablauf.
 
-Rust übernimmt Rollenauflösung, Reconcile, Metadatenanreicherung,
-Alias-Priorität, Overrides und manuelle Einträge. Die Scanner spielen die
-aufgezeichneten Modelllisten von OpenAI, Anthropic, Google und Ollama ab.
-Der HTTP-Port verwendet den vorhandenen gepinnten ureq-Connector und prüft
-bei jedem Redirect den Origin. Ein Loopback-Replay belegt einen OpenAI-Scan
-über den konkreten Transport. Empfang und Dekodierung behalten dieselbe
-Absolutfrist. Die Katalogprüfung belegt Schwelle, Ablauf und Schlüsselwiderruf
-für signierte Rohbytes. Native Unix-Verdrahtung, Katalog-Refresh/Rotation,
-Rollback-Checkpoint und Extension-Index samt Download-Abnahme stehen aus.
+Rust übernimmt Reconcile, Metadaten, Rollen, Alias-Priorität, Overrides und
+manuelle Einträge. Die Scanner spielen Aufzeichnungen für OpenAI, Anthropic,
+Google und Ollama ab. Der HTTP-Port nutzt den gemeinsamen ureq-Connector,
+prüft den Origin pro Redirect und deckelt komprimierte und dekodierte Bytes
+innerhalb derselben Frist. Der Apple-FM-Scanner nutzt den privaten,
+layoutgebundenen Unix-Socket ohne TCP oder Credential-Lookup.
+Der signierte Extension-Katalog prüft Rohbytes, Rootrotation, Ablauf,
+Versionsstände, dauerhaften Schlüssel- und Paketwiderruf und Download-Integrität.
+Der Host stellt einen exklusiven Checkpoint-/Snapshot-Port und die
+Egress-Freigabe für jedes HTTPS-Ziel bereit. Die TS-Replays zeichnen Scanner,
+HTTP-Wechsel, Reconcile, Overrides und den Katalog-Lebenszyklus auf.
+
 
 ### W6 · Web (Bibliothek von P4-30)
 

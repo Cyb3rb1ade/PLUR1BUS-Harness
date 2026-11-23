@@ -4,7 +4,7 @@ import { CatalogError } from "../../packages/core/src/catalog/types.ts";
 import { parseRoot, verifyEnvelope } from "../../packages/core/src/catalog/verify.ts";
 import { exporterMain } from "./lib.mjs";
 
-function testKey(byte: number) {
+export function testKey(byte: number) {
   // Standard PKCS#8 envelope around repeat-byte seeds used only by this fixture.
   const prefix = Buffer.from("302e020100300506032b657004220420", "hex");
   const key = createPrivateKey({ key: Buffer.concat([prefix, Buffer.alloc(32, byte)]), format: "der", type: "pkcs8" });

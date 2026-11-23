@@ -1,0 +1,2754 @@
+{
+  "cases": [
+    {
+      "config": {
+        "maxBytes": 32768,
+        "offlineGraceMs": 1000,
+        "root": {
+          "expires": "2027-01-01T00:00:00Z",
+          "keys": [
+            {
+              "expires": "2027-01-01T00:00:00Z",
+              "id": "fixture-anchor",
+              "publicKey": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            }
+          ],
+          "threshold": 1,
+          "type": "root",
+          "version": 1
+        },
+        "url": "https://catalog.fixture.invalid/index"
+      },
+      "name": "network-cache-download",
+      "steps": [
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "fetchedAt": 1791374400000,
+            "index": {
+              "expires": "2026-11-01T00:00:00Z",
+              "format": 1,
+              "generatedAt": "2026-10-07T00:00:00Z",
+              "packages": [
+                {
+                  "id": "owner/skill",
+                  "kind": "skill",
+                  "name": "skill",
+                  "versions": [
+                    {
+                      "sha256": "e0e038fa991956be71c217d9b46be3e6ff31febaf704d9f33d752597d3252e9b",
+                      "size": 17,
+                      "url": "https://assets.test/skill.p1x",
+                      "version": "1.0.0"
+                    }
+                  ]
+                }
+              ],
+              "revocation": {
+                "sha256": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+                "version": 1
+              },
+              "revocations": [],
+              "rootVersion": 1,
+              "serial": 2
+            },
+            "rootVersion": 1,
+            "source": "network",
+            "stale": false,
+            "warnings": []
+          },
+          "op": "refresh",
+          "reports": [
+            []
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "artifact": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "op": "download",
+          "reports": [],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 17,
+              "maxRedirects": 0,
+              "target": "https://assets.test/skill.p1x",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "fetchedAt": 1791374400000,
+            "index": {
+              "expires": "2026-11-01T00:00:00Z",
+              "format": 1,
+              "generatedAt": "2026-10-07T00:00:00Z",
+              "packages": [
+                {
+                  "id": "owner/skill",
+                  "kind": "skill",
+                  "name": "skill",
+                  "versions": [
+                    {
+                      "sha256": "e0e038fa991956be71c217d9b46be3e6ff31febaf704d9f33d752597d3252e9b",
+                      "size": 17,
+                      "url": "https://assets.test/skill.p1x",
+                      "version": "1.0.0"
+                    }
+                  ]
+                }
+              ],
+              "revocation": {
+                "sha256": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+                "version": 1
+              },
+              "revocations": [],
+              "rootVersion": 1,
+              "serial": 2
+            },
+            "refreshError": "transport",
+            "rootVersion": 1,
+            "source": "cache",
+            "stale": false,
+            "warnings": []
+          },
+          "op": "get",
+          "reports": [
+            []
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "time": 1791374400000
+        }
+      ]
+    },
+    {
+      "config": {
+        "maxArtifactBytes": 16,
+        "maxBytes": 32768,
+        "offlineGraceMs": 1000,
+        "revocationsUrl": "https://revocations.fixture.invalid/signed",
+        "root": {
+          "expires": "2027-01-01T00:00:00Z",
+          "keys": [
+            {
+              "expires": "2027-01-01T00:00:00Z",
+              "id": "fixture-anchor",
+              "publicKey": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            }
+          ],
+          "threshold": 1,
+          "type": "root",
+          "version": 1
+        },
+        "rotationsUrl": "https://catalog.fixture.invalid/channel/rotations",
+        "timeoutMs": 2500,
+        "url": "https://catalog.fixture.invalid/index"
+      },
+      "name": "configured-catalogue-endpoints-and-caps",
+      "steps": [
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "fetchedAt": 1791374400000,
+            "index": {
+              "expires": "2026-11-01T00:00:00Z",
+              "format": 1,
+              "generatedAt": "2026-10-07T00:00:00Z",
+              "packages": [
+                {
+                  "id": "owner/skill",
+                  "kind": "skill",
+                  "name": "skill",
+                  "versions": [
+                    {
+                      "sha256": "e0e038fa991956be71c217d9b46be3e6ff31febaf704d9f33d752597d3252e9b",
+                      "size": 17,
+                      "url": "https://assets.test/skill.p1x",
+                      "version": "1.0.0"
+                    }
+                  ]
+                }
+              ],
+              "revocation": {
+                "sha256": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+                "version": 1
+              },
+              "revocations": [],
+              "rootVersion": 1,
+              "serial": 2
+            },
+            "rootVersion": 1,
+            "source": "network",
+            "stale": false,
+            "warnings": []
+          },
+          "op": "refresh",
+          "reports": [
+            []
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/channel/rotations",
+              "timeoutMs": 2500,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 2500,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "https://revocations.fixture.invalid/signed",
+              "timeoutMs": 2500,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/channel/rotations": [],
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U=",
+            "https://revocations.fixture.invalid/signed": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            }
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "transport"
+          },
+          "op": "download",
+          "reports": [],
+          "requests": [],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "fetchedAt": 1791374400000,
+            "index": {
+              "expires": "2026-11-01T00:00:00Z",
+              "format": 1,
+              "generatedAt": "2026-10-07T00:00:00Z",
+              "packages": [
+                {
+                  "id": "owner/skill",
+                  "kind": "skill",
+                  "name": "skill",
+                  "versions": [
+                    {
+                      "sha256": "e0e038fa991956be71c217d9b46be3e6ff31febaf704d9f33d752597d3252e9b",
+                      "size": 17,
+                      "url": "https://assets.test/skill.p1x",
+                      "version": "1.0.0"
+                    }
+                  ]
+                }
+              ],
+              "revocation": {
+                "sha256": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+                "version": 1
+              },
+              "revocations": [],
+              "rootVersion": 1,
+              "serial": 2
+            },
+            "refreshError": "transport",
+            "rootVersion": 1,
+            "source": "cache",
+            "stale": false,
+            "warnings": []
+          },
+          "op": "get",
+          "reports": [
+            []
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/channel/rotations",
+              "timeoutMs": 2500,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 2500,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "https://revocations.fixture.invalid/signed",
+              "timeoutMs": 2500,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "time": 1791374400000
+        }
+      ]
+    },
+    {
+      "config": {
+        "maxBytes": 32768,
+        "offlineGraceMs": 1000,
+        "root": {
+          "expires": "2027-01-01T00:00:00Z",
+          "keys": [
+            {
+              "expires": "2027-01-01T00:00:00Z",
+              "id": "fixture-anchor",
+              "publicKey": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            }
+          ],
+          "threshold": 1,
+          "type": "root",
+          "version": 1
+        },
+        "testOrigin": "http://localhost:4781",
+        "url": "http://localhost:4781/index"
+      },
+      "name": "explicit-loopback-test-origin",
+      "steps": [
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "fetchedAt": 1791374400000,
+            "index": {
+              "expires": "2026-11-01T00:00:00Z",
+              "format": 1,
+              "generatedAt": "2026-10-07T00:00:00Z",
+              "packages": [
+                {
+                  "id": "owner/skill",
+                  "kind": "skill",
+                  "name": "skill",
+                  "versions": [
+                    {
+                      "sha256": "e0e038fa991956be71c217d9b46be3e6ff31febaf704d9f33d752597d3252e9b",
+                      "size": 17,
+                      "url": "https://assets.test/skill.p1x",
+                      "version": "1.0.0"
+                    }
+                  ]
+                }
+              ],
+              "revocation": {
+                "sha256": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+                "version": 1
+              },
+              "revocations": [],
+              "rootVersion": 1,
+              "serial": 2
+            },
+            "rootVersion": 1,
+            "source": "network",
+            "stale": false,
+            "warnings": []
+          },
+          "op": "refresh",
+          "reports": [
+            []
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "artifact": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "op": "download",
+          "reports": [],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 17,
+              "maxRedirects": 0,
+              "target": "https://assets.test/skill.p1x",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        }
+      ]
+    },
+    {
+      "config": {
+        "maxBytes": 32768,
+        "offlineGraceMs": 1000,
+        "root": {
+          "expires": "2027-01-01T00:00:00Z",
+          "keys": [
+            {
+              "expires": "2027-01-01T00:00:00Z",
+              "id": "fixture-anchor",
+              "publicKey": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            }
+          ],
+          "threshold": 1,
+          "type": "root",
+          "version": 1
+        },
+        "url": "https://catalog.fixture.invalid/index"
+      },
+      "name": "rollback-and-equivocation",
+      "steps": [
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "fetchedAt": 1791374400000,
+            "index": {
+              "expires": "2026-11-01T00:00:00Z",
+              "format": 1,
+              "generatedAt": "2026-10-07T00:00:00Z",
+              "packages": [
+                {
+                  "id": "owner/skill",
+                  "kind": "skill",
+                  "name": "skill",
+                  "versions": [
+                    {
+                      "sha256": "e0e038fa991956be71c217d9b46be3e6ff31febaf704d9f33d752597d3252e9b",
+                      "size": 17,
+                      "url": "https://assets.test/skill.p1x",
+                      "version": "1.0.0"
+                    }
+                  ]
+                }
+              ],
+              "revocation": {
+                "sha256": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+                "version": 1
+              },
+              "revocations": [],
+              "rootVersion": 1,
+              "serial": 2
+            },
+            "rootVersion": 1,
+            "source": "network",
+            "stale": false,
+            "warnings": []
+          },
+          "op": "refresh",
+          "reports": [
+            []
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "rollback_detected"
+          },
+          "op": "refresh",
+          "reports": [],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6MSwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "dCkLt3QzeBsozq4Aymk9nHYx7anDZfq446511tN1yi6bPXqvKjXIdvxQQ4ip/qoeOHViDB4jDkm0IP8SV7o/CQ=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "rollback_detected"
+          },
+          "op": "get",
+          "reports": [],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wNlQwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "K6p4erB/ScwbWFHISXRuBKYvZme3wi4ZXtfmpfmLj238IDILn+dFQbl87zUc2YtqCKQwO2gmzMAbO0MaAmi3AA=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "signature_invalid"
+          },
+          "op": "get",
+          "reports": [],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Mywicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "fetchedAt": 1791374400000,
+            "index": {
+              "expires": "2026-11-01T00:00:00Z",
+              "format": 1,
+              "generatedAt": "2026-10-07T00:00:00Z",
+              "packages": [
+                {
+                  "id": "owner/skill",
+                  "kind": "skill",
+                  "name": "skill",
+                  "versions": [
+                    {
+                      "sha256": "e0e038fa991956be71c217d9b46be3e6ff31febaf704d9f33d752597d3252e9b",
+                      "size": 17,
+                      "url": "https://assets.test/skill.p1x",
+                      "version": "1.0.0"
+                    }
+                  ]
+                }
+              ],
+              "revocation": {
+                "sha256": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+                "version": 1
+              },
+              "revocations": [],
+              "rootVersion": 1,
+              "serial": 2
+            },
+            "refreshError": "transport",
+            "rootVersion": 1,
+            "source": "cache",
+            "stale": false,
+            "warnings": []
+          },
+          "op": "get",
+          "reports": [
+            []
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "time": 1791374400000
+        }
+      ]
+    },
+    {
+      "config": {
+        "maxBytes": 32768,
+        "offlineGraceMs": 1000,
+        "root": {
+          "expires": "2027-01-01T00:00:00Z",
+          "keys": [
+            {
+              "expires": "2027-01-01T00:00:00Z",
+              "id": "fixture-anchor",
+              "publicKey": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            }
+          ],
+          "threshold": 1,
+          "type": "root",
+          "version": 1
+        },
+        "url": "https://catalog.fixture.invalid/index"
+      },
+      "legacySerial": 2,
+      "name": "legacy-floor",
+      "steps": [
+        {
+          "checkpoint": null,
+          "expected": {
+            "code": "rollback_detected"
+          },
+          "op": "refresh",
+          "reports": [],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "f6adfde581ab612867ffb6647e446e17be4c51aa8827f982fe90ad27fea68a36",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 3
+          },
+          "expected": {
+            "fetchedAt": 1791374400000,
+            "index": {
+              "expires": "2026-11-01T00:00:00Z",
+              "format": 1,
+              "generatedAt": "2026-10-07T00:00:00Z",
+              "packages": [
+                {
+                  "id": "owner/skill",
+                  "kind": "skill",
+                  "name": "skill",
+                  "versions": [
+                    {
+                      "sha256": "e0e038fa991956be71c217d9b46be3e6ff31febaf704d9f33d752597d3252e9b",
+                      "size": 17,
+                      "url": "https://assets.test/skill.p1x",
+                      "version": "1.0.0"
+                    }
+                  ]
+                }
+              ],
+              "revocation": {
+                "sha256": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+                "version": 1
+              },
+              "revocations": [],
+              "rootVersion": 1,
+              "serial": 3
+            },
+            "rootVersion": 1,
+            "source": "network",
+            "stale": false,
+            "warnings": []
+          },
+          "op": "refresh",
+          "reports": [
+            []
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Mywicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "D4ZNawAt1bNOEIN6alesKGmXismXidhEmG2WKsffv1sBBgjLBOEFKE2bmay4FNpkfh0Rqkt/wZk8O96yqYP6AQ=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        }
+      ]
+    },
+    {
+      "config": {
+        "maxBytes": 32768,
+        "offlineGraceMs": 1000,
+        "root": {
+          "expires": "2027-01-01T00:00:00Z",
+          "keys": [
+            {
+              "expires": "2027-01-01T00:00:00Z",
+              "id": "fixture-anchor",
+              "publicKey": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            }
+          ],
+          "threshold": 1,
+          "type": "root",
+          "version": 1
+        },
+        "url": "https://catalog.fixture.invalid/index"
+      },
+      "name": "expiry-and-grace",
+      "steps": [
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "fetchedAt": 1791374400000,
+            "index": {
+              "expires": "2026-11-01T00:00:00Z",
+              "format": 1,
+              "generatedAt": "2026-10-07T00:00:00Z",
+              "packages": [
+                {
+                  "id": "owner/skill",
+                  "kind": "skill",
+                  "name": "skill",
+                  "versions": [
+                    {
+                      "sha256": "e0e038fa991956be71c217d9b46be3e6ff31febaf704d9f33d752597d3252e9b",
+                      "size": 17,
+                      "url": "https://assets.test/skill.p1x",
+                      "version": "1.0.0"
+                    }
+                  ]
+                }
+              ],
+              "revocation": {
+                "sha256": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+                "version": 1
+              },
+              "revocations": [],
+              "rootVersion": 1,
+              "serial": 2
+            },
+            "rootVersion": 1,
+            "source": "network",
+            "stale": false,
+            "warnings": []
+          },
+          "op": "refresh",
+          "reports": [
+            []
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "stale_index"
+          },
+          "op": "refresh",
+          "reports": [],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1793491200001
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "fetchedAt": 1791374400000,
+            "index": {
+              "expires": "2026-11-01T00:00:00Z",
+              "format": 1,
+              "generatedAt": "2026-10-07T00:00:00Z",
+              "packages": [
+                {
+                  "id": "owner/skill",
+                  "kind": "skill",
+                  "name": "skill",
+                  "versions": [
+                    {
+                      "sha256": "e0e038fa991956be71c217d9b46be3e6ff31febaf704d9f33d752597d3252e9b",
+                      "size": 17,
+                      "url": "https://assets.test/skill.p1x",
+                      "version": "1.0.0"
+                    }
+                  ]
+                }
+              ],
+              "revocation": {
+                "sha256": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+                "version": 1
+              },
+              "revocations": [],
+              "rootVersion": 1,
+              "serial": 2
+            },
+            "refreshError": "transport",
+            "rootVersion": 1,
+            "source": "cache",
+            "stale": true,
+            "warnings": []
+          },
+          "op": "get",
+          "reports": [
+            []
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "time": 1793491200001
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "stale_index"
+          },
+          "op": "download",
+          "reports": [],
+          "requests": [],
+          "time": 1793491200001
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "stale_index"
+          },
+          "op": "get",
+          "reports": [
+            []
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "time": 1793491201001
+        }
+      ]
+    },
+    {
+      "config": {
+        "maxBytes": 32768,
+        "offlineGraceMs": 1000,
+        "root": {
+          "expires": "2027-01-01T00:00:00Z",
+          "keys": [
+            {
+              "expires": "2027-01-01T00:00:00Z",
+              "id": "fixture-anchor",
+              "publicKey": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            }
+          ],
+          "threshold": 1,
+          "type": "root",
+          "version": 1
+        },
+        "url": "https://catalog.fixture.invalid/index"
+      },
+      "name": "rotation-and-root-floor",
+      "steps": [
+        {
+          "checkpoint": {
+            "indexHash": "95bcea23d3bf08e5fd50fa94dc8c16eb425892903ed60266f0a67b6e5dcb9e01",
+            "revocationHash": "4cd909255e629a9e644972a48dc74f73bca65c6510cb79844732fabc58512187",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "307a7622fa96abbeca09fa850ee14052a224c999edece084f961635141ca084d",
+            "rootVersion": 2,
+            "rotationHashes": [
+              "307a7622fa96abbeca09fa850ee14052a224c999edece084f961635141ca084d"
+            ],
+            "serial": 2
+          },
+          "expected": {
+            "fetchedAt": 1791374400000,
+            "index": {
+              "expires": "2026-11-01T00:00:00Z",
+              "format": 1,
+              "generatedAt": "2026-10-07T00:00:00Z",
+              "packages": [
+                {
+                  "id": "owner/skill",
+                  "kind": "skill",
+                  "name": "skill",
+                  "versions": [
+                    {
+                      "sha256": "e0e038fa991956be71c217d9b46be3e6ff31febaf704d9f33d752597d3252e9b",
+                      "size": 17,
+                      "url": "https://assets.test/skill.p1x",
+                      "version": "1.0.0"
+                    }
+                  ]
+                }
+              ],
+              "revocation": {
+                "sha256": "4cd909255e629a9e644972a48dc74f73bca65c6510cb79844732fabc58512187",
+                "version": 1
+              },
+              "revocations": [],
+              "rootVersion": 2,
+              "serial": 2
+            },
+            "rootVersion": 2,
+            "source": "network",
+            "stale": false,
+            "warnings": []
+          },
+          "op": "refresh",
+          "reports": [
+            []
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjIsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6IjRjZDkwOTI1NWU2MjlhOWU2NDQ5NzJhNDhkYzc0ZjczYmNhNjVjNjUxMGNiNzk4NDQ3MzJmYWJjNTg1MTIxODcifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-rotated",
+                  "signature": "azeW7uwCcRSd/1jZgNKm6/SEiEBSIe5faPkc6rKi2oNIvnrkVAZYuHeioLUbQFIB92UYawJ1vUXOqHHle2gZAA=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MiwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-rotated",
+                  "signature": "g1RXkkkLP3YDVZz8Q2F0MLWqUbqVWDYNnn+Z0FdA/oGLq1N9y1g2arNecRnIafi4NU2DwwDyOg1LQAe8hz1jCw=="
+                }
+              ]
+            },
+            "/rotations": [
+              {
+                "payload": "eyJ0eXBlIjoicm9vdCIsInZlcnNpb24iOjIsInRocmVzaG9sZCI6MSwiZXhwaXJlcyI6IjIwMjctMDEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W3siaWQiOiJmaXh0dXJlLXJvdGF0ZWQiLCJwdWJsaWNLZXkiOiJnVGwzRHFoOUYxOVdvMVJtdzB4K3pNdU5pcEcwN2plaVhmWVBXNC9KczVRPSIsImV4cGlyZXMiOiIyMDI3LTAxLTAxVDAwOjAwOjAwWiJ9XX0=",
+                "signatures": [
+                  {
+                    "keyId": "fixture-anchor",
+                    "signature": "fj2+lUhoeMIdYvn8zrVJ8/RdhYuLH7GtJ6F7iFnLkflBBcfrq53wtoivhDHJVJ+tRXhEVboP788gqE2Gf6NpCQ=="
+                  }
+                ]
+              }
+            ],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "95bcea23d3bf08e5fd50fa94dc8c16eb425892903ed60266f0a67b6e5dcb9e01",
+            "revocationHash": "4cd909255e629a9e644972a48dc74f73bca65c6510cb79844732fabc58512187",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "307a7622fa96abbeca09fa850ee14052a224c999edece084f961635141ca084d",
+            "rootVersion": 2,
+            "rotationHashes": [
+              "307a7622fa96abbeca09fa850ee14052a224c999edece084f961635141ca084d"
+            ],
+            "serial": 2
+          },
+          "expected": {
+            "fetchedAt": 1791374400000,
+            "index": {
+              "expires": "2026-11-01T00:00:00Z",
+              "format": 1,
+              "generatedAt": "2026-10-07T00:00:00Z",
+              "packages": [
+                {
+                  "id": "owner/skill",
+                  "kind": "skill",
+                  "name": "skill",
+                  "versions": [
+                    {
+                      "sha256": "e0e038fa991956be71c217d9b46be3e6ff31febaf704d9f33d752597d3252e9b",
+                      "size": 17,
+                      "url": "https://assets.test/skill.p1x",
+                      "version": "1.0.0"
+                    }
+                  ]
+                }
+              ],
+              "revocation": {
+                "sha256": "4cd909255e629a9e644972a48dc74f73bca65c6510cb79844732fabc58512187",
+                "version": 1
+              },
+              "revocations": [],
+              "rootVersion": 2,
+              "serial": 2
+            },
+            "refreshError": "transport",
+            "rootVersion": 2,
+            "source": "cache",
+            "stale": false,
+            "warnings": []
+          },
+          "op": "get",
+          "reports": [
+            []
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "95bcea23d3bf08e5fd50fa94dc8c16eb425892903ed60266f0a67b6e5dcb9e01",
+            "revocationHash": "4cd909255e629a9e644972a48dc74f73bca65c6510cb79844732fabc58512187",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "307a7622fa96abbeca09fa850ee14052a224c999edece084f961635141ca084d",
+            "rootVersion": 2,
+            "rotationHashes": [
+              "307a7622fa96abbeca09fa850ee14052a224c999edece084f961635141ca084d"
+            ],
+            "serial": 2
+          },
+          "expected": {
+            "code": "rollback_detected"
+          },
+          "op": "refresh",
+          "reports": [],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Mywicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "D4ZNawAt1bNOEIN6alesKGmXismXidhEmG2WKsffv1sBBgjLBOEFKE2bmay4FNpkfh0Rqkt/wZk8O96yqYP6AQ=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        }
+      ]
+    },
+    {
+      "config": {
+        "maxBytes": 32768,
+        "offlineGraceMs": 1000,
+        "root": {
+          "expires": "2027-01-01T00:00:00Z",
+          "keys": [
+            {
+              "expires": "2027-01-01T00:00:00Z",
+              "id": "fixture-anchor",
+              "publicKey": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            }
+          ],
+          "threshold": 1,
+          "type": "root",
+          "version": 1
+        },
+        "url": "https://catalog.fixture.invalid/index"
+      },
+      "name": "nonconsecutive-rotation",
+      "steps": [
+        {
+          "checkpoint": null,
+          "expected": {
+            "code": "rollback_detected"
+          },
+          "op": "refresh",
+          "reports": [],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjMsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6IjI1MzNhMDUzZWVmNzRmOTdmYzEzODM1ZmU0MGIxOGU5NzQyNzcyMDZhNjQ1Zjk4MGIxNmJhNTU2NDY2MmZkY2EifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-rotated",
+                  "signature": "hKNYJ8lGNPIo+xURZEROK3t/W6iyl6jen5m/uGlTffp+Ktm8oYbx3AY4GBYruG0FlcRYFXgSgyxBte1hrtAPAA=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MywiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-rotated",
+                  "signature": "YwpEfBhDAUkS5arJCDXOqjySvsFzR4JlJvH6r+rdzpWOUCma6kuAB5OIZmXrjDMwLUC5ntM370VfskytSr+bCg=="
+                }
+              ]
+            },
+            "/rotations": [
+              {
+                "payload": "eyJ0eXBlIjoicm9vdCIsInZlcnNpb24iOjMsInRocmVzaG9sZCI6MSwiZXhwaXJlcyI6IjIwMjctMDEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W3siaWQiOiJmaXh0dXJlLXJvdGF0ZWQiLCJwdWJsaWNLZXkiOiJnVGwzRHFoOUYxOVdvMVJtdzB4K3pNdU5pcEcwN2plaVhmWVBXNC9KczVRPSIsImV4cGlyZXMiOiIyMDI3LTAxLTAxVDAwOjAwOjAwWiJ9XX0=",
+                "signatures": [
+                  {
+                    "keyId": "fixture-anchor",
+                    "signature": "ZFcU+WQsvKrOL/EkahztZvbgxMWW39SECxXAGm8No+fGsLXus6BTYDqxDWLHlNLXRSLZpe+heohRvXbq1HCNBQ=="
+                  }
+                ]
+              }
+            ],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        }
+      ]
+    },
+    {
+      "config": {
+        "maxBytes": 32768,
+        "offlineGraceMs": 1000,
+        "root": {
+          "expires": "2027-01-01T00:00:00Z",
+          "keys": [
+            {
+              "expires": "2027-01-01T00:00:00Z",
+              "id": "fixture-anchor",
+              "publicKey": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            },
+            {
+              "expires": "2027-01-01T00:00:00Z",
+              "id": "fixture-backup",
+              "publicKey": "7UkoxijRwsbq6QM4kFmVYSlZJzpcY/k2NsFGFKyHN9E="
+            }
+          ],
+          "threshold": 1,
+          "type": "root",
+          "version": 1
+        },
+        "url": "https://catalog.fixture.invalid/index"
+      },
+      "name": "revocation-and-alias",
+      "steps": [
+        {
+          "checkpoint": {
+            "indexHash": "daeb847f08c3f8f0697dfcade991ce6f3d699c83438b973615520e50b9c6d8f0",
+            "revocationHash": "46b425c655b1507c27c49af38cd174a9e5c5183db7cb6bd1e3d2b911503ab375",
+            "revocationVersion": 2,
+            "revokedKeys": [
+              "fixture-anchor"
+            ],
+            "revokedPackages": [
+              {
+                "id": "owner/skill",
+                "reason": "fixture revocation",
+                "versions": [
+                  "1.*"
+                ]
+              }
+            ],
+            "revokedPublicKeys": [
+              "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            ],
+            "rootHash": "b962fa228dce33efbd48d6d88cea6e736612c6f39d326f8c0cf70cc2621bd1cd",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "fetchedAt": 1791374400000,
+            "index": {
+              "expires": "2026-11-01T00:00:00Z",
+              "format": 1,
+              "generatedAt": "2026-10-07T00:00:00Z",
+              "packages": [],
+              "revocation": {
+                "sha256": "46b425c655b1507c27c49af38cd174a9e5c5183db7cb6bd1e3d2b911503ab375",
+                "version": 2
+              },
+              "revocations": [],
+              "rootVersion": 1,
+              "serial": 2
+            },
+            "rootVersion": 1,
+            "source": "network",
+            "stale": false,
+            "warnings": []
+          },
+          "op": "refresh",
+          "reports": [
+            [
+              {
+                "id": "owner/skill",
+                "reason": "fixture revocation",
+                "status": "revoked",
+                "version": "1.0.0"
+              }
+            ]
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjIsInNoYTI1NiI6IjQ2YjQyNWM2NTViMTUwN2MyN2M0OWFmMzhjZDE3NGE5ZTVjNTE4M2RiN2NiNmJkMWUzZDJiOTExNTAzYWIzNzUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-backup",
+                  "signature": "eSMUBN/qFnezp36AX89JpduETZ3FYGDCVWN7ExXmC+spwt6SnyuxU4nR1RtC4O12sDclIEXLcE3bQVRrkG0ADw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoyLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6WyJmaXh0dXJlLWFuY2hvciJdLCJwYWNrYWdlcyI6W3siaWQiOiJvd25lci9za2lsbCIsInZlcnNpb25zIjpbIjEuKiJdLCJyZWFzb24iOiJmaXh0dXJlIHJldm9jYXRpb24ifV19",
+              "signatures": [
+                {
+                  "keyId": "fixture-backup",
+                  "signature": "AQciC9I7DajOzvfL4/a6M3ttx2M+snj5S7kF3hLl+cSstfe1bQ3L0172pVzB85FonBx4qfng3csaxPGNe2r0CQ=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "daeb847f08c3f8f0697dfcade991ce6f3d699c83438b973615520e50b9c6d8f0",
+            "revocationHash": "46b425c655b1507c27c49af38cd174a9e5c5183db7cb6bd1e3d2b911503ab375",
+            "revocationVersion": 2,
+            "revokedKeys": [
+              "fixture-anchor"
+            ],
+            "revokedPackages": [
+              {
+                "id": "owner/skill",
+                "reason": "fixture revocation",
+                "versions": [
+                  "1.*"
+                ]
+              }
+            ],
+            "revokedPublicKeys": [
+              "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            ],
+            "rootHash": "b962fa228dce33efbd48d6d88cea6e736612c6f39d326f8c0cf70cc2621bd1cd",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "revoked_package"
+          },
+          "op": "download",
+          "reports": [],
+          "requests": [],
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "daeb847f08c3f8f0697dfcade991ce6f3d699c83438b973615520e50b9c6d8f0",
+            "revocationHash": "46b425c655b1507c27c49af38cd174a9e5c5183db7cb6bd1e3d2b911503ab375",
+            "revocationVersion": 2,
+            "revokedKeys": [
+              "fixture-anchor"
+            ],
+            "revokedPackages": [
+              {
+                "id": "owner/skill",
+                "reason": "fixture revocation",
+                "versions": [
+                  "1.*"
+                ]
+              }
+            ],
+            "revokedPublicKeys": [
+              "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            ],
+            "rootHash": "b962fa228dce33efbd48d6d88cea6e736612c6f39d326f8c0cf70cc2621bd1cd",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "revoked_package"
+          },
+          "op": "refresh",
+          "reports": [],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Mywicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjMsInNoYTI1NiI6ImJkY2EwZDA3MTdiMTg0ZjM1OGNkMGZmNmEyODcwZmM1Zjg2MWFmNTAyYWY1MGJjODczNGFlZjAwOWFkNDA1ZjQifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-backup",
+                  "signature": "JKi4bhkg5I8LhHXjI70BESFHmNj1uq1l2QA7lc0H1rQnMflUbpxVt/udbzr/cT+c3eqBfme9oViLgJUWIBuNCQ=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjozLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6WyJmaXh0dXJlLWFuY2hvciJdLCJwYWNrYWdlcyI6W119",
+              "signatures": [
+                {
+                  "keyId": "fixture-backup",
+                  "signature": "/kx1WfzT6n7ADPac7g9sDVEMl+wlvk8Hb/9ZgLODknizoonhYCrup0lVqK/qQ0b5OjjdpurIXhN52gKK8gJPBA=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "daeb847f08c3f8f0697dfcade991ce6f3d699c83438b973615520e50b9c6d8f0",
+            "revocationHash": "46b425c655b1507c27c49af38cd174a9e5c5183db7cb6bd1e3d2b911503ab375",
+            "revocationVersion": 2,
+            "revokedKeys": [
+              "fixture-anchor"
+            ],
+            "revokedPackages": [
+              {
+                "id": "owner/skill",
+                "reason": "fixture revocation",
+                "versions": [
+                  "1.*"
+                ]
+              }
+            ],
+            "revokedPublicKeys": [
+              "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            ],
+            "rootHash": "b962fa228dce33efbd48d6d88cea6e736612c6f39d326f8c0cf70cc2621bd1cd",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "key_revoked"
+          },
+          "op": "refresh",
+          "reports": [],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Mywicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjMsInNoYTI1NiI6ImVhNDg4MDcxMGZkODk5MjY2OWI5NmE1MDkwODljNjY4ZjE5MDI0NTI2ZjIyMzFhYzI1MGRiOGM5MjA3NWRmNGIifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-backup",
+                  "signature": "vWRGg9okcQGKJRYdnLv8vy0lpczUlItxihuiOsa6b/gHKyBqxoC+ry4m80dIuQSfgcP0xovi3bn/iGK1MQTyAw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjozLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbeyJpZCI6Im93bmVyL3NraWxsIiwidmVyc2lvbnMiOlsiMS4qIl0sInJlYXNvbiI6ImZpeHR1cmUgcmV2b2NhdGlvbiJ9XX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-backup",
+                  "signature": "1wP2IAooaqxdsmDQJWWEcjWx1l7eASy7AyUdPKMbQ2eHvGvIYIyT/ZwIWLBfRh7cYMkGuLVhJDYnqF+SeTyvBA=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "daeb847f08c3f8f0697dfcade991ce6f3d699c83438b973615520e50b9c6d8f0",
+            "revocationHash": "46b425c655b1507c27c49af38cd174a9e5c5183db7cb6bd1e3d2b911503ab375",
+            "revocationVersion": 2,
+            "revokedKeys": [
+              "fixture-anchor"
+            ],
+            "revokedPackages": [
+              {
+                "id": "owner/skill",
+                "reason": "fixture revocation",
+                "versions": [
+                  "1.*"
+                ]
+              }
+            ],
+            "revokedPublicKeys": [
+              "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            ],
+            "rootHash": "b962fa228dce33efbd48d6d88cea6e736612c6f39d326f8c0cf70cc2621bd1cd",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "key_revoked"
+          },
+          "op": "refresh",
+          "reports": [],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Mywicm9vdFZlcnNpb24iOjIsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjMsInNoYTI1NiI6IjU4MWMwYzI3MGM2MzAyOGFiMmY0MDlkNGRlNjFjNDNhM2FlYzIzZjY0NjRjMDNlMTYzNDk0ZjNkNGE2ZTUyZTYifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-alias",
+                  "signature": "zHSyLrEYVPffstquRP529AKmc7Mq0Fl7lBiKpbQS5h5zs+dBBo/hu6hQVyT3Pdq/er3XOmU38Z2c9+teA6VpCA=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjozLCJyb290VmVyc2lvbiI6MiwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6WyJmaXh0dXJlLWFuY2hvciJdLCJwYWNrYWdlcyI6W3siaWQiOiJvd25lci9za2lsbCIsInZlcnNpb25zIjpbIjEuKiJdLCJyZWFzb24iOiJmaXh0dXJlIHJldm9jYXRpb24ifV19",
+              "signatures": [
+                {
+                  "keyId": "fixture-alias",
+                  "signature": "C0/v3xy7rHv6YtkzXu4ra1WalXxLVJNqknlWYVtD+DLfEVEH0HDbIifKPk8UqQp7vw9mJuuR5kHmKHvh3TiRDw=="
+                }
+              ]
+            },
+            "/rotations": [
+              {
+                "payload": "eyJ0eXBlIjoicm9vdCIsInZlcnNpb24iOjIsInRocmVzaG9sZCI6MSwiZXhwaXJlcyI6IjIwMjctMDEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W3siaWQiOiJmaXh0dXJlLWFsaWFzIiwicHVibGljS2V5IjoiaW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdz0iLCJleHBpcmVzIjoiMjAyNy0wMS0wMVQwMDowMDowMFoifV19",
+                "signatures": [
+                  {
+                    "keyId": "fixture-backup",
+                    "signature": "RacLzjWsWuYFjxmRDa4+weHuDFM/EibmqBIZP25u65l9ShyckghOtjiZ3DslLFlkTIn3FFsXKyOEFto3UijBBA=="
+                  }
+                ]
+              }
+            ],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        }
+      ]
+    },
+    {
+      "config": {
+        "maxBytes": 32768,
+        "offlineGraceMs": 1000,
+        "root": {
+          "expires": "2027-01-01T00:00:00Z",
+          "keys": [
+            {
+              "expires": "2027-01-01T00:00:00Z",
+              "id": "fixture-anchor",
+              "publicKey": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+            }
+          ],
+          "threshold": 1,
+          "type": "root",
+          "version": 1
+        },
+        "url": "https://catalog.fixture.invalid/index"
+      },
+      "name": "artifact-hash-size-and-selection",
+      "steps": [
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "fetchedAt": 1791374400000,
+            "index": {
+              "expires": "2026-11-01T00:00:00Z",
+              "format": 1,
+              "generatedAt": "2026-10-07T00:00:00Z",
+              "packages": [
+                {
+                  "id": "owner/skill",
+                  "kind": "skill",
+                  "name": "skill",
+                  "versions": [
+                    {
+                      "sha256": "e0e038fa991956be71c217d9b46be3e6ff31febaf704d9f33d752597d3252e9b",
+                      "size": 17,
+                      "url": "https://assets.test/skill.p1x",
+                      "version": "1.0.0"
+                    }
+                  ]
+                }
+              ],
+              "revocation": {
+                "sha256": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+                "version": 1
+              },
+              "revocations": [],
+              "rootVersion": 1,
+              "serial": 2
+            },
+            "rootVersion": 1,
+            "source": "network",
+            "stale": false,
+            "warnings": []
+          },
+          "op": "refresh",
+          "reports": [
+            []
+          ],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/index",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/revocations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            },
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 32768,
+              "maxRedirects": 0,
+              "target": "/rotations",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "hash_mismatch"
+          },
+          "op": "download",
+          "reports": [],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 17,
+              "maxRedirects": 0,
+              "target": "https://assets.test/skill.p1x",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "BwcHBwcHBwcHBwcHBwcHBwc="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "hash_mismatch"
+          },
+          "op": "download",
+          "reports": [],
+          "requests": [
+            {
+              "accept": "application/json,application/octet-stream",
+              "maxBytes": 17,
+              "maxRedirects": 0,
+              "target": "https://assets.test/skill.p1x",
+              "timeoutMs": 15000,
+              "userAgent": "PLUR1BUS-Catalog/1"
+            }
+          ],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "AA=="
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "rollback_detected"
+          },
+          "op": "download",
+          "reports": [],
+          "requests": [],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "selected": {
+            "id": "owner/skill",
+            "serial": 1,
+            "version": "1.0.0"
+          },
+          "time": 1791374400000
+        },
+        {
+          "checkpoint": {
+            "indexHash": "5c0fb0d600097ff8fbe105efc86533aa71ef60a9cb328563335a01a1477fdf2a",
+            "revocationHash": "d1640f5df4d8d55c87f5228c3ef17c653bd052940787a7e562fd6c273068658e",
+            "revocationVersion": 1,
+            "revokedKeys": [],
+            "revokedPackages": [],
+            "revokedPublicKeys": [],
+            "rootHash": "3341cd1f0c2594bf5064ac2f3404acc3cda9c99dd804178ef5511ca735ac038c",
+            "rootVersion": 1,
+            "rotationHashes": [],
+            "serial": 2
+          },
+          "expected": {
+            "code": "signature_invalid"
+          },
+          "op": "download",
+          "reports": [],
+          "requests": [],
+          "routes": {
+            "/index": {
+              "payload": "eyJmb3JtYXQiOjEsInNlcmlhbCI6Miwicm9vdFZlcnNpb24iOjEsImdlbmVyYXRlZEF0IjoiMjAyNi0xMC0wN1QwMDowMDowMFoiLCJleHBpcmVzIjoiMjAyNi0xMS0wMVQwMDowMDowMFoiLCJyZXZvY2F0aW9uIjp7InZlcnNpb24iOjEsInNoYTI1NiI6ImQxNjQwZjVkZjRkOGQ1NWM4N2Y1MjI4YzNlZjE3YzY1M2JkMDUyOTQwNzg3YTdlNTYyZmQ2YzI3MzA2ODY1OGUifSwicGFja2FnZXMiOlt7ImlkIjoib3duZXIvc2tpbGwiLCJraW5kIjoic2tpbGwiLCJuYW1lIjoic2tpbGwiLCJ2ZXJzaW9ucyI6W3sidmVyc2lvbiI6IjEuMC4wIiwidXJsIjoiaHR0cHM6Ly9hc3NldHMudGVzdC9za2lsbC5wMXgiLCJzaXplIjoxNywic2hhMjU2IjoiZTBlMDM4ZmE5OTE5NTZiZTcxYzIxN2Q5YjQ2YmUzZTZmZjMxZmViYWY3MDRkOWYzM2Q3NTI1OTdkMzI1MmU5YiJ9XX1dfQ==",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "B6kKnL4Tj78jN1osYeNjyp5Zfx6F8dckU3xW+e0LfmfrQ5207bnI8PExsBCLSRR5yCX6RudxpuYi9ZcavZeoDw=="
+                }
+              ]
+            },
+            "/revocations": {
+              "payload": "eyJ0eXBlIjoicmV2b2NhdGlvbnMiLCJ2ZXJzaW9uIjoxLCJyb290VmVyc2lvbiI6MSwiZXhwaXJlcyI6IjIwMjYtMTEtMDFUMDA6MDA6MDBaIiwia2V5cyI6W10sInBhY2thZ2VzIjpbXX0=",
+              "signatures": [
+                {
+                  "keyId": "fixture-anchor",
+                  "signature": "RSe0julBZAM40sbbwBMI3S9AaGShmwxv7ZC7UMx4ziIo53IvyW1j7Fx2SeIkmkx6oCMeeYUyqHVZ5dWfO7k4Dw=="
+                }
+              ]
+            },
+            "/rotations": [],
+            "https://assets.test/skill.p1x": "c3ludGhldGljIHBhY2thZ2U="
+          },
+          "selected": {
+            "id": "missing",
+            "serial": 2,
+            "version": "1.0.0"
+          },
+          "time": 1791374400000
+        }
+      ]
+    }
+  ],
+  "selection": {
+    "id": "owner/skill",
+    "serial": 2,
+    "version": "1.0.0"
+  },
+  "source": "packages/core/src/catalog/client.ts"
+}

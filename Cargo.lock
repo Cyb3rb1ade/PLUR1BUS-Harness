@@ -6141,13 +6141,19 @@ dependencies = [
  "flate2",
  "icu_collator",
  "icu_locale_core",
+ "icu_normalizer",
+ "log",
  "plur1bus-providers",
  "plur1bus-wire-fixtures",
+ "plur1bus-wire-log",
  "regex",
+ "regex-syntax",
  "ring",
  "serde",
  "serde_json",
+ "tempfile",
  "ureq",
+ "url",
 ]
 
 [[package]]

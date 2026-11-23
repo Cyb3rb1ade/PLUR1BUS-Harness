@@ -32,7 +32,7 @@ impl Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct KeyFile {
     id: String,
@@ -40,7 +40,7 @@ struct KeyFile {
     expires: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 struct RootFile {
     #[serde(rename = "type")]
     kind: String,
@@ -60,19 +60,26 @@ pub struct Root {
     threshold: usize,
     expires: i64,
     keys: BTreeMap<String, Key>,
+    normalized: Vec<u8>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Signature {
     key_id: String,
     signature: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Envelope {
     payload: String,
     signatures: Vec<Signature>,
+}
+
+impl Envelope {
+    pub(crate) fn bytes(&self) -> Result<Vec<u8>> {
+        decode(&self.payload, MAX_SIGNED_BYTES)
+    }
 }
 
 #[derive(Serialize)]
@@ -102,7 +109,7 @@ impl<'a> Verified<'a> {
     }
 }
 
-fn timestamp(raw: &str) -> Result<i64> {
+pub(crate) fn timestamp(raw: &str) -> Result<i64> {
     let Some(prefix) = raw.get(..19) else {
         return Err(Error::SignatureInvalid);
     };
@@ -138,7 +145,7 @@ impl Root {
         if json.len() > MAX_SIGNED_BYTES {
             return Err(Error::SignatureInvalid);
         }
-        let root: RootFile = serde_json::from_str(json).map_err(|_| Error::SignatureInvalid)?;
+        let mut root: RootFile = serde_json::from_str(json).map_err(|_| Error::SignatureInvalid)?;
         let threshold = root.threshold.unwrap_or(1);
         if root.kind != "root"
             || !(1..=SAFE_INT).contains(&root.version)
@@ -153,6 +160,8 @@ impl Root {
         if threshold > root.keys.len() {
             return Err(Error::SignatureInvalid);
         }
+        root.threshold = Some(threshold);
+        let normalized = serde_json::to_vec(&root).map_err(|_| Error::SignatureInvalid)?;
         let mut keys = BTreeMap::new();
         let mut public_keys = HashSet::new();
         for key in root.keys {
@@ -175,6 +184,7 @@ impl Root {
             threshold,
             expires: timestamp(&root.expires)?,
             keys,
+            normalized,
         })
     }
 
@@ -186,11 +196,39 @@ impl Root {
         now: i64,
         revoked: &HashSet<&str>,
     ) -> Result<Verified<'a>> {
+        self.verify_at(signed, now, revoked, false)
+    }
+
+    pub(crate) fn normalized(&self) -> &[u8] {
+        &self.normalized
+    }
+
+    pub(crate) fn expires(&self) -> i64 {
+        self.expires
+    }
+
+    pub(crate) fn material(&self, id: &str) -> Option<String> {
+        self.keys.get(id).map(|key| STANDARD.encode(key.public_key))
+    }
+
+    pub(crate) fn materials(&self) -> impl Iterator<Item = (&str, String)> {
+        self.keys
+            .iter()
+            .map(|(id, key)| (id.as_str(), STANDARD.encode(key.public_key)))
+    }
+
+    pub(crate) fn verify_at<'a>(
+        &self,
+        signed: &'a Envelope,
+        now: i64,
+        revoked: &HashSet<&str>,
+        historical: bool,
+    ) -> Result<Verified<'a>> {
         if signed.signatures.len() > MAX_KEYS {
             return Err(Error::SignatureInvalid);
         }
-        let bytes = decode(&signed.payload, MAX_SIGNED_BYTES)?;
-        if self.expires <= now {
+        let bytes = signed.bytes()?;
+        if !historical && self.expires <= now {
             return Err(Error::StaleIndex);
         }
         let mut seen = HashSet::new();
@@ -202,7 +240,7 @@ impl Root {
             let result = match self.keys.get(id) {
                 None => Err(Error::KeyUnknown),
                 Some(_) if revoked.contains(id) => return Err(Error::KeyRevoked),
-                Some(key) if key.expires <= now => Err(Error::SignatureInvalid),
+                Some(key) if !historical && key.expires <= now => Err(Error::SignatureInvalid),
                 Some(key) => decode(&signature.signature, 64).and_then(|value| {
                     UnparsedPublicKey::new(&ED25519, key.public_key)
                         .verify(&bytes, &value)

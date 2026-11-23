@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { loadMetadataTable } from "../../packages/core/src/discovery/metadata.ts";
+import { loadMetadataTable, reenrichCatalog } from "../../packages/core/src/discovery/metadata.ts";
 import { applyOverride, CatalogError } from "../../packages/core/src/discovery/overrides.ts";
 import type { SetOverride } from "../../packages/core/src/discovery/overrides.ts";
 import { reconcile } from "../../packages/core/src/discovery/reconcile.ts";
@@ -99,7 +99,15 @@ export function recordDiscoveryReconcile() {
       return { name, input, expected: { code: error.code, field: error.field } };
     }
   });
-  return { reconcile: { source: "packages/core/src/discovery/reconcile.ts", cases, overrides } };
+  const tableInput = { schema: "plur1bus.model-metadata/1", revision: "fixture-revision", vendors: {
+    "example-vendor": [{ pattern: "^example-chat-large$", kind: "chat", contextWindow: 29000, capabilities: ["vision"] }],
+  } };
+  const refreshed = { input: { catalog: base, table: tableInput, vendor }, expected: reenrichCatalog(base, loadMetadataTable(tableInput), () => vendor) };
+  const patterns = ["^example-[0-9]+$", "not-anchored", "^(lo{2}){2}$"].map(pattern => {
+    const input = { ...tableInput, vendors: { generic: [{ pattern, kind: "chat", capabilities: [] }] } };
+    try { loadMetadataTable(input); return { input, valid: true }; } catch { return { input, valid: false }; }
+  });
+  return { reconcile: { source: "packages/core/src/discovery/reconcile.ts", cases, overrides, refreshed, patterns } };
 
 }
 

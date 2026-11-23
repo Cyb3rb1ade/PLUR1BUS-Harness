@@ -2,6 +2,7 @@
 //! connects to the pinned origin or the managed Unix service and supplies keys.
 
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, HashSet},
     str::FromStr,
     time::{Duration, Instant},
@@ -21,10 +22,10 @@ const PAGE_BUDGET: Duration = Duration::from_secs(15);
 const MAX_PAGE_BYTES: usize = 4 * 1024 * 1024;
 const MAX_SCAN_BYTES: usize = 8 * 1024 * 1024;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct Error {
     pub result: &'static str,
-    pub reason: &'static str,
+    pub reason: Cow<'static, str>,
     #[serde(rename = "httpStatus", skip_serializing_if = "Option::is_none")]
     pub http_status: Option<u16>,
     #[serde(rename = "retryAfterMs", skip_serializing_if = "Option::is_none")]
@@ -35,17 +36,17 @@ impl Error {
     pub(crate) const fn invalid(reason: &'static str) -> Self {
         Self {
             result: "failed:invalid",
-            reason,
+            reason: Cow::Borrowed(reason),
             http_status: None,
             retry_after_ms: None,
         }
     }
-    pub const fn http_status(status: u16) -> Self {
+    pub fn http_status(status: u16) -> Self {
         let (result, reason) = match status {
-            401 | 403 => ("failed:auth", "renew_sign_in"),
-            429 => ("failed:server", "rate_limited"),
-            500..=599 => ("failed:server", "http_status"),
-            _ => ("failed:invalid", "http_status"),
+            401 | 403 => ("failed:auth", Cow::Borrowed("renew_sign_in")),
+            429 => ("failed:server", Cow::Borrowed("rate_limited")),
+            500.. => ("failed:server", Cow::Owned(format!("http_{status}"))),
+            _ => ("failed:invalid", Cow::Owned(format!("http_{status}"))),
         };
         Self {
             result,
@@ -57,7 +58,7 @@ impl Error {
     pub const fn network(reason: &'static str) -> Self {
         Self {
             result: "failed:network",
-            reason,
+            reason: Cow::Borrowed(reason),
             http_status: None,
             retry_after_ms: None,
         }
@@ -91,14 +92,24 @@ impl FromStr for Scanner {
 #[derive(Serialize)]
 pub struct Page<'a> {
     pub path: &'static str,
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    pub query: BTreeMap<&'static str, &'a str>,
+    #[serde(
+        skip_serializing_if = "Vec::is_empty",
+        serialize_with = "serialize_query"
+    )]
+    pub query: Vec<(&'static str, &'a str)>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub headers: BTreeMap<&'static str, &'static str>,
     #[serde(skip)]
     pub max_bytes: usize,
     #[serde(skip)]
     pub deadline: Instant,
+}
+
+fn serialize_query<S: serde::Serializer>(
+    query: &[(&str, &str)],
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error> {
+    serializer.collect_map(query.iter().copied())
 }
 
 /// Execute one GET using the trusted configuration's approved origin or Unix
@@ -367,7 +378,8 @@ pub fn scan(
         }
         total_bytes += bytes.len();
         pages += 1;
-        let body: Value = serde_json::from_slice(&bytes).map_err(|_| ENVELOPE)?;
+        let body: Value = serde_json::from_str(&String::from_utf8_lossy(&bytes))
+            .map_err(|_| Error::invalid("invalid_json"))?;
         let field = if matches!(scanner, Scanner::Google | Scanner::Ollama) {
             "models"
         } else {
