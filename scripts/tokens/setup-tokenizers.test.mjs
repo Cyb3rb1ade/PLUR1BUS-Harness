@@ -178,8 +178,19 @@ test("CI verifies pinned tokenizer caches before every workspace Cargo test with
     .replace(/\r\n/g, "\n");
   const jobs = Object.fromEntries(yaml.slice(yaml.indexOf("\njobs:\n")).split(/(?=^  [a-z][\w-]*:\n)/m).slice(1)
     .map((block) => [/^  ([\w-]+):/.exec(block)[1], block]));
-  // unit, unit-os and engine-parity (the parity job builds the engine and runs it against the pinned Node engine).
-  assert.equal((yaml.match(/node scripts\/tokens\/setup-tokenizers\.mjs/g) ?? []).length, 3);
+  // The Windows Engine leg also runs the native tokenizer tests.
+  assert.equal((yaml.match(/node scripts\/tokens\/setup-tokenizers\.mjs/g) ?? []).length, 4);
+  {
+    const job = jobs["engine-tests-windows"];
+    assert.match(job, /^      PLUR1BUS_TOKENIZER_FILES_REQUIRED: "1"$/m);
+    const steps = job.split(/(?=^      - )/m);
+    const setup = steps.findIndex((step) => /node scripts\/tokens\/setup-tokenizers\.mjs/.test(step));
+    const execution = steps.findIndex((step) => /cargo test --locked -p plur1bus-engine --no-fail-fast/.test(step));
+    assert.ok(setup >= 0 && execution > setup, "engine-tests-windows: verification precedes tests");
+    for (const step of [steps[setup], steps[execution]]) {
+      assert.match(step, /^          PLUR1BUS_TOKENIZER_DIR: \${{ runner.temp }}\/plur1bus-tokenizers$/m);
+    }
+  }
   {
     const steps = jobs["engine-parity"].split(/(?=^      - )/m);
     const setup = steps.find((step) => /node scripts\/tokens\/setup-tokenizers\.mjs/.test(step));
