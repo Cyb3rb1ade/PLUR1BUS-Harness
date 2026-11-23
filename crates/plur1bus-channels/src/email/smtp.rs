@@ -212,3 +212,39 @@ pub fn noop(ports: &dyn Ports, opt: &Options<'_>, ehlo_name: &str) -> Result<(),
         command(wire, "NOOP")?.expect(&[250], "SMTP NOOP rejected", "SMTP NOOP deferred")
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io;
+
+    #[test]
+    fn rejects_control_characters_before_sending_an_smtp_command() {
+        for line in ["NOOP\r", "NOOP\n", "NOOP\0"] {
+            let mut wire = crate::email::wire::test_stream::wire(
+                b"250 accepted\r\n".as_slice(),
+                io::ErrorKind::UnexpectedEof,
+            );
+            assert_eq!(
+                command(&mut wire, line).err().map(|e| e.kind),
+                Some(Kind::Protocol)
+            );
+        }
+    }
+
+    #[test]
+    fn envelope_addresses_require_a_local_part_and_domain() {
+        assert!(check_address("user@example.invalid").is_ok());
+        for address in [
+            "user",
+            "@example.invalid",
+            "user@",
+            "two words@example.invalid",
+        ] {
+            assert_eq!(
+                check_address(address).err().map(|e| e.kind),
+                Some(Kind::Protocol)
+            );
+        }
+    }
+}

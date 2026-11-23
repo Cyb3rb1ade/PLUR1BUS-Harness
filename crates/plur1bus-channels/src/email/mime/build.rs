@@ -198,3 +198,19 @@ pub fn build(input: &BuildInput, mut boundary: impl FnMut() -> String) -> Result
     result.push_str(CRLF);
     Ok(result.into_bytes())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn header_values_disallow_line_separators_and_nul() {
+        assert_eq!(header("a report", "invalid subject"), Ok("a report"));
+        for value in ["a report\n", "a report\r", "a report\0"] {
+            assert_eq!(
+                header(value, "invalid subject").err().map(|e| e.kind),
+                Some(Kind::Protocol)
+            );
+        }
+    }
+}

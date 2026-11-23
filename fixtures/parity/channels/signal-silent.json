@@ -1,0 +1,35 @@
+{
+  "calls": [
+    {
+      "method": "listGroups",
+      "paramsJson": "{}",
+      "timeout": 2000
+    }
+  ],
+  "exchanges": [
+    {
+      "receiveChunksBase64": [],
+      "sendBase64": [
+        "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjEsIm1ldGhvZCI6Imxpc3RHcm91cHMiLCJwYXJhbXMiOnt9fQo="
+      ]
+    }
+  ],
+  "expected": {
+    "closures": [],
+    "notifications": [],
+    "outcomes": [
+      {
+        "error": {
+          "kind": "timeout",
+          "message": "signal request timed out"
+        },
+        "id": 1
+      }
+    ]
+  },
+  "exporter": "scripts/parity/export-channels.ts",
+  "maxLineBytes": 4096,
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/channels-signal/src/rpc.ts",
+  "transport": "lines"
+}

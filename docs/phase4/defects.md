@@ -1809,3 +1809,19 @@ The Rust Discord client accepts up to 1 MiB of structured response data and
 64 KiB of diagnostic response data. The request deadline covers the body.
 TypeScript reads REST JSON without these byte limits. An oversized diagnostic
 body is discarded; the HTTP status and available retry header still apply.
+
+<a id="p4d-256"></a>
+
+## P4D-256 — Bind IMAP message bodies to the requested UID
+
+Rust delivers a FETCH body only when the same untagged response names the
+requested UID. TypeScript can take a BODY[] found in another FETCH response.
+A server that omits the UID from the FETCH response cannot deliver that body.
+
+<a id="p4d-257"></a>
+
+## P4D-257 — Drop an incomplete IMAP literal stream
+
+Rust drops the underlying stream when a literal read ends early. In IDLE,
+it returns the timeout to the caller. A timeout while waiting for the next
+response still permits DONE if the stream is synchronized.

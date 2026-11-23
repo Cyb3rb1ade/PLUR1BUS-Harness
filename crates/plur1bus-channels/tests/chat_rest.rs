@@ -154,3 +154,40 @@ fn discord_outbound_disables_mentions_in_the_message_payload() {
     assert!(api.request(&request).is_ok());
     replay.verify(&reply["name"]);
 }
+
+#[test]
+fn discord_checks_the_attachment_host_before_asking_the_egress_port() {
+    use plur1bus_channels::http::{Http, HttpPorts};
+    use std::net::SocketAddr;
+    use std::time::Instant;
+    use url::Url;
+
+    #[derive(Default)]
+    struct Deny(Cell<usize>);
+    impl HttpPorts for Deny {
+        fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
+            self.0.set(self.0.get() + 1);
+            None
+        }
+    }
+    let ports = Deny::default();
+    let clock = TestClock {
+        ms: Cell::new(0),
+        waits: Default::default(),
+    };
+    let client = Discord::new(
+        Http::new(&ports, false),
+        Url::parse("https://discord.com/api/v10").unwrap(),
+        "test",
+        &clock,
+        0,
+    );
+    assert!(client
+        .download("https://storage.example.invalid/report", &[], 16)
+        .is_err());
+    assert_eq!(ports.0.get(), 0);
+    assert!(client
+        .download("https://cdn.discordapp.com/report", &[], 16)
+        .is_err());
+    assert_eq!(ports.0.get(), 1);
+}

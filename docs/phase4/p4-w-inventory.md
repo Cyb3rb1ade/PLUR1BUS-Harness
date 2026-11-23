@@ -172,6 +172,11 @@ Fehlerkörper bleiben HTTP-Status und Retry-Header verfügbar. Abweichungen:
 [Telegram P4D-253](defects.md#p4d-253), [Slack P4D-254](defects.md#p4d-254)
 und [Discord P4D-255](defects.md#p4d-255).
 
+IMAP bindet heruntergeladene Nachrichten an die angefragte UID
+([P4D-256](defects.md#p4d-256)). Bricht ein Literal vorzeitig ab, wird der
+Stream geschlossen ([P4D-257](defects.md#p4d-257)). Der Signal-Replay
+deckt auch eine offen bleibende Verbindung ohne Antwort ab.
+
 R-W-21: Discord filtert Bot- und Self-Nachrichten im Gateway und setzt
 die Erwähnungsregel bei Nachrichten-JSON und vorbereiteten Datei-Uploads.
 Slack bestätigt die Socket-Mode-Envelope vor der Bot- und Subtype-Prüfung;

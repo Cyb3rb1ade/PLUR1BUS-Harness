@@ -367,3 +367,15 @@ fn wire(disc: u8, data: impl Serialize) -> Option<Event> {
 fn close(reason: &'static str) -> Event {
     Event::Close { code: 4000, reason }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resume_requires_a_secure_url_on_a_discord_domain() {
+        assert!(resume_candidate("wss://gateway.discord.gg").is_some());
+        assert!(resume_candidate("ws://gateway.discord.gg").is_none());
+        assert!(resume_candidate("wss://gateway.example.invalid").is_none());
+    }
+}

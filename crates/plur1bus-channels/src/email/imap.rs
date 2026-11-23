@@ -55,8 +55,8 @@ impl ResponseBudget {
         Ok(())
     }
 
-    fn add_literal(&mut self, bytes: usize) -> Result<(), Error> {
-        if bytes > MAX_LITERAL || bytes > self.logical {
+    fn add_literal(&mut self, bytes: usize, count: usize) -> Result<(), Error> {
+        if bytes > MAX_LITERAL || bytes > self.logical || count >= MAX_RESPONSES {
             return Err(Error::new(Kind::Protocol, "IMAP literal too large"));
         }
         self.logical -= bytes;
@@ -179,7 +179,11 @@ impl Connection {
         let mut text = String::new();
         let mut literals = Vec::new();
         loop {
-            let line = self.wire.line(budget.line_limit())?;
+            let line = self.wire.line(budget.line_limit()).inspect_err(|_| {
+                if !literals.is_empty() {
+                    self.wire.close();
+                }
+            })?;
             budget.add_metadata(line.len())?;
             let literal = line
                 .strip_suffix('}')
@@ -194,10 +198,7 @@ impl Connection {
             let size = size
                 .parse::<usize>()
                 .map_err(|_| Error::new(Kind::Protocol, "IMAP literal too large"))?;
-            if literals.len() >= MAX_RESPONSES {
-                return Err(Error::new(Kind::Protocol, "IMAP literal too large"));
-            }
-            budget.add_literal(size)?;
+            budget.add_literal(size, literals.len())?;
             text.push_str(prefix);
             text.push_str(&format!("{{#{}}}", literals.len()));
             literals.push(self.wire.bytes(size)?);
@@ -231,9 +232,7 @@ impl Connection {
                 if bye(&response.text) {
                     return Err(Error::new(Kind::Network, "server closed the connection"));
                 }
-                if untagged.len() >= MAX_RESPONSES {
-                    return Err(Error::new(Kind::Protocol, "IMAP response too large"));
-                }
+                check_untagged_count(untagged.len())?;
                 untagged.push(response);
             } else if let Some(status) = status(&response.text, &tag)? {
                 return Ok(Tagged { status, untagged });
@@ -356,7 +355,7 @@ impl Connection {
         result
             .untagged
             .into_iter()
-            .find(|r| r.literals.len() == 1 && r.text.to_ascii_uppercase().contains("BODY[]"))
+            .find(|r| r.literals.len() == 1 && fetch_body_uid(&r.text) == Some(uid))
             .and_then(|mut r| r.literals.pop())
             .ok_or_else(|| Error::new(Kind::Protocol, "message body unavailable"))
     }
@@ -407,7 +406,9 @@ impl Connection {
                         break Idle::Event;
                     }
                 }
-                Err(error) if error.kind == Kind::Timeout => break Idle::Timeout,
+                Err(error) if error.kind == Kind::Timeout && self.wire.is_open() => {
+                    break Idle::Timeout;
+                }
                 Err(error) => return Err(error),
             }
         };
@@ -434,6 +435,71 @@ impl Connection {
     }
 }
 
+// Recognize the top-level FETCH attributes, skipping quoted and parenthesized
+// arguments such as FLAGS. A BODY[] value is the first and only captured literal.
+fn fetch_body_uid(response: &str) -> Option<u64> {
+    let (seq, attrs) = response.strip_prefix("* ")?.split_once(' ')?;
+    seq.parse::<u64>().ok()?;
+    let attrs = strip_prefix_case(attrs, "FETCH ")?.trim();
+    let attrs = attrs.strip_prefix('(')?.strip_suffix(')')?;
+    let mut remaining = attrs.trim_start();
+    let mut uid = None;
+    let mut body = false;
+    while !remaining.is_empty() {
+        let (name, tail) = remaining.split_once(char::is_whitespace)?;
+        let (value, tail) = fetch_value(tail.trim_start())?;
+        if name.eq_ignore_ascii_case("UID") {
+            if uid.is_some() {
+                return None;
+            }
+            uid = Some(value.parse().ok()?);
+        } else if name.eq_ignore_ascii_case("BODY[]") {
+            if body || value != "{#0}" {
+                return None;
+            }
+            body = true;
+        }
+        remaining = tail.trim_start();
+    }
+    body.then_some(uid).flatten()
+}
+
+fn fetch_value(input: &str) -> Option<(&str, &str)> {
+    if input.is_empty() {
+        return None;
+    }
+    let mut depth = 0u32;
+    let mut quoted = false;
+    let mut escaped = false;
+    for (i, byte) in input.bytes().enumerate() {
+        if quoted {
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'"' {
+                quoted = false;
+            }
+        } else {
+            match byte {
+                b'"' => quoted = true,
+                b'(' => depth += 1,
+                b')' => depth = depth.checked_sub(1)?,
+                byte if byte.is_ascii_whitespace() && depth == 0 => return Some(input.split_at(i)),
+                _ => {}
+            }
+        }
+    }
+    (!quoted && depth == 0).then_some((input, ""))
+}
+
+fn check_untagged_count(count: usize) -> Result<(), Error> {
+    if count >= MAX_RESPONSES {
+        return Err(Error::new(Kind::Protocol, "IMAP response too large"));
+    }
+    Ok(())
+}
+
 fn idle_result(status: Status, reason: Idle) -> Result<Idle, Error> {
     if status == Status::Ok {
         Ok(reason)
@@ -445,6 +511,46 @@ fn idle_result(status: Status, reason: Idle) -> Result<Idle, Error> {
 #[cfg(test)]
 mod budget_tests {
     use super::*;
+
+    #[test]
+    fn fetch_selects_the_requested_uid_when_another_message_is_reported() -> Result<(), Error> {
+        let input = b"* 3 FETCH (UID 2 BODY[] {5}\r\nFirst)\r\n* 4 FETCH (BODY[] {6}\r\nReport UID 7)\r\nA0001 OK fetch complete\r\n";
+        let wire = super::super::wire::test_stream::wire(
+            input.as_slice(),
+            std::io::ErrorKind::UnexpectedEof,
+        );
+        let mut connection = Connection { wire, tag: 0 };
+        assert_eq!(connection.fetch_raw(7)?, b"Report");
+        Ok(())
+    }
+
+    #[test]
+    fn idle_cannot_complete_after_a_timeout_during_a_literal() {
+        let input = b"+ idling\r\n* 4 FETCH (UID 7 BODY[] {6}\r\nRep";
+        let wire =
+            super::super::wire::test_stream::wire(input.as_slice(), std::io::ErrorKind::TimedOut);
+        let mut connection = Connection { wire, tag: 0 };
+        assert_eq!(
+            connection
+                .idle(Duration::from_millis(25))
+                .err()
+                .map(|error| error.kind),
+            Some(Kind::Timeout)
+        );
+        assert_eq!(
+            connection.capabilities().err().map(|error| error.kind),
+            Some(Kind::Network)
+        );
+    }
+
+    #[test]
+    fn reply_count_and_literal_count_fit_in_their_budgets() {
+        assert!(check_untagged_count(MAX_RESPONSES - 1).is_ok());
+        assert!(check_untagged_count(MAX_RESPONSES).is_err());
+        let mut budget = ResponseBudget::default();
+        assert!(budget.add_literal(0, MAX_RESPONSES - 1).is_ok());
+        assert!(budget.add_literal(0, MAX_RESPONSES).is_err());
+    }
 
     #[test]
     fn structured_reply_metadata_shares_one_mebibyte() {
@@ -464,16 +570,16 @@ mod budget_tests {
     fn mail_payload_keeps_its_literal_ceiling_and_shares_the_total() {
         let mut budget = ResponseBudget::default();
         assert_eq!(
-            budget.add_literal(MAX_LITERAL + 1).err().map(|e| e.kind),
+            budget.add_literal(MAX_LITERAL + 1, 0).err().map(|e| e.kind),
             Some(Kind::Protocol)
         );
         assert!(budget.add_metadata(4).is_ok());
-        assert!(budget.add_literal(MAX_LITERAL).is_ok());
+        assert!(budget.add_literal(MAX_LITERAL, 0).is_ok());
         assert_eq!(budget.metadata, MAX_METADATA - 4);
         let remaining = MAX_LOGICAL - MAX_LITERAL - 4;
-        assert!(budget.add_literal(remaining).is_ok());
+        assert!(budget.add_literal(remaining, 0).is_ok());
         assert_eq!(
-            budget.add_literal(1).err().map(|e| e.kind),
+            budget.add_literal(1, 0).err().map(|e| e.kind),
             Some(Kind::Protocol)
         );
     }

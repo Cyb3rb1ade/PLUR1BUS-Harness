@@ -335,12 +335,7 @@ impl<'a> Buzz<'a> {
         if subscription == METADATA && u16::from(event.kind) == 10050 {
             return Ok(self.record_metadata(event));
         }
-        if subscription != INBOX
-            || event.kind != Kind::GiftWrap
-            || !fresh(event.created_at, now)
-            || self.seen.contains(&event.id)
-            || !addressed(event.tags.iter(), self.keys.public_key())
-        {
+        if !self.accepts_wrapper(subscription, event, now) {
             return Ok(RelayEvent::Ignored);
         }
         let Ok(rumor) = open_gift(self.keys, event) else {
@@ -349,14 +344,7 @@ impl<'a> Buzz<'a> {
         let Some(id) = rumor.id else {
             return Ok(RelayEvent::Ignored);
         };
-        if u16::from(rumor.kind) != 14
-            || !self.permitted.contains(&rumor.pubkey)
-            || rumor.pubkey == self.keys.public_key()
-            || self.seen.contains(&id)
-            || rumor.content.len() > MAX_TEXT
-            || !fresh(rumor.created_at, now)
-            || !addressed(rumor.tags.iter(), self.keys.public_key())
-        {
+        if !self.accepts_rumor(&rumor, id, now) {
             return Ok(RelayEvent::Ignored);
         }
         let mut next = self.order.clone();
@@ -373,6 +361,24 @@ impl<'a> Buzz<'a> {
             id: id.to_hex(),
             text: rumor.content,
         }))
+    }
+
+    fn accepts_wrapper(&self, subscription: &str, event: &Event, now: u64) -> bool {
+        subscription == INBOX
+            && event.kind == Kind::GiftWrap
+            && fresh(event.created_at, now)
+            && !self.seen.contains(&event.id)
+            && addressed(event.tags.iter(), self.keys.public_key())
+    }
+
+    fn accepts_rumor(&self, rumor: &UnsignedEvent, id: EventId, now: u64) -> bool {
+        u16::from(rumor.kind) == 14
+            && self.permitted.contains(&rumor.pubkey)
+            && rumor.pubkey != self.keys.public_key()
+            && !self.seen.contains(&id)
+            && rumor.content.len() <= MAX_TEXT
+            && fresh(rumor.created_at, now)
+            && addressed(rumor.tags.iter(), self.keys.public_key())
     }
 
     fn record_metadata(&mut self, event: &Event) -> RelayEvent {
@@ -421,10 +427,15 @@ pub fn open_gift(keys: &Keys, wrap: &Event) -> Result<UnsignedEvent, Error> {
     }
     let rumor = nip44::decrypt(keys.secret_key(), &seal.pubkey, &seal.content).map_err(crypto)?;
     let rumor = UnsignedEvent::from_json(rumor).map_err(crypto)?;
-    if rumor.pubkey != seal.pubkey || rumor.id != Some(rumor.compute_id()) {
+    validate_rumor_sender(&rumor, seal.pubkey)?;
+    Ok(rumor)
+}
+
+fn validate_rumor_sender(rumor: &UnsignedEvent, author: PublicKey) -> Result<(), Error> {
+    if rumor.pubkey != author || rumor.id != Some(rumor.compute_id()) {
         return Err(Error::Crypto);
     }
-    Ok(rumor)
+    Ok(())
 }
 
 fn wrap_for(
@@ -531,4 +542,80 @@ pub fn relay_url(raw: &str) -> Result<Url, Error> {
         return Err(Error::Configuration);
     }
     Ok(url)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn keys(seed: u8) -> Result<Keys, Error> {
+        SecretKey::from_slice(&[seed; 32])
+            .map(Keys::new)
+            .map_err(|_| Error::Crypto)
+    }
+
+    fn text(author: PublicKey, recipient: PublicKey, now: u64) -> Result<UnsignedEvent, Error> {
+        let tag = Tag::parse(["p", &recipient.to_hex()]).map_err(|_| Error::Protocol)?;
+        let mut rumor = UnsignedEvent::new(
+            author,
+            Timestamp::from_secs(now),
+            Kind::from(14),
+            [tag],
+            "Report",
+        );
+        rumor.id = Some(rumor.compute_id());
+        Ok(rumor)
+    }
+
+    #[test]
+    fn the_rumor_author_matches_the_validated_seal_author() -> Result<(), Error> {
+        let author = keys(1)?.public_key();
+        let other = keys(2)?.public_key();
+        let rumor = text(author, other, 100)?;
+        assert_eq!(validate_rumor_sender(&rumor, author), Ok(()));
+        assert_eq!(validate_rumor_sender(&rumor, other), Err(Error::Crypto));
+        Ok(())
+    }
+
+    #[test]
+    fn only_a_permitted_peer_passes_rumor_admission() -> Result<(), Error> {
+        let own = keys(1)?;
+        let permitted = keys(2)?.public_key();
+        let other = keys(3)?.public_key();
+        let adapter = Buzz::new(&own, &["wss://example.invalid"], &[permitted], &[])?;
+        for (author, expected) in [(permitted, true), (other, false)] {
+            let rumor = text(author, own.public_key(), 100)?;
+            assert_eq!(
+                adapter.accepts_rumor(&rumor, rumor.compute_id(), 100),
+                expected
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn wrapper_age_is_checked_before_opening_it() -> Result<(), Error> {
+        struct FixedEntropy;
+        impl Entropy for FixedEntropy {
+            fn bytes(&mut self) -> Result<[u8; 32], Error> {
+                Ok([5; 32])
+            }
+        }
+        let own = keys(1)?;
+        let peer = keys(2)?;
+        let adapter = Buzz::new(&own, &["wss://example.invalid"], &[peer.public_key()], &[])?;
+        let recipient =
+            Tag::parse(["p", &own.public_key().to_hex()]).map_err(|_| Error::Protocol)?;
+        let event = sign(
+            &peer,
+            Kind::GiftWrap,
+            100,
+            [recipient],
+            "",
+            &mut FixedEntropy,
+        )?;
+        assert!(adapter.accepts_wrapper(INBOX, &event, 100 + FRESHNESS));
+        assert!(!adapter.accepts_wrapper(INBOX, &event, 101 + FRESHNESS));
+        Ok(())
+    }
 }

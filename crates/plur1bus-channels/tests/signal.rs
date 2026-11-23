@@ -82,3 +82,38 @@ fn replays_out_of_order_rpc_and_bounds_incoming_lines() {
         );
     }
 }
+
+#[test]
+fn a_connected_daemon_can_leave_a_request_unanswered() {
+    let fixture = load_fixture("channels", "signal-silent");
+    let mut rpc = JsonRpc::new(fixture["maxLineBytes"].as_u64().unwrap() as usize);
+    let call = &fixture["calls"][0];
+    let method = call["method"].as_str().unwrap();
+    let params = serde_json::from_str(call["paramsJson"].as_str().unwrap()).unwrap();
+    let limit = call["timeout"].as_u64().unwrap();
+    let request = rpc.call(method, params, 0, limit).unwrap();
+    assert_eq!(
+        json!(STANDARD.encode(request.bytes)),
+        fixture["exchanges"][0]["sendBase64"][0]
+    );
+    assert!(rpc.expire(limit - 1).is_empty());
+    let replies: Vec<_> = rpc
+        .expire(limit)
+        .into_iter()
+        .filter_map(|reply| {
+            if let Event::Reply {
+                id,
+                result: Err(error),
+            } = reply
+            {
+                Some(json!({"id":id,"error":error}))
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert_eq!(json!(replies), fixture["expected"]["outcomes"]);
+    assert!(rpc.is_open());
+    assert!(rpc.expire(limit + 1).is_empty());
+    assert!(rpc.call(method, params, limit, limit).is_ok());
+}

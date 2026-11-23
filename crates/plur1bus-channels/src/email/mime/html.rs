@@ -200,3 +200,17 @@ pub(super) fn to_text(input: &str) -> String {
     }
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_the_bounded_html_prefix_reaches_the_renderer() {
+        let mut input = " ".repeat(MAX_HTML - 1);
+        input.push('A');
+        assert_eq!(to_text(&input), "A");
+        input.push('B');
+        assert_eq!(to_text(&input), "A");
+    }
+}

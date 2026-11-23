@@ -167,3 +167,30 @@ fn mime_replays_build_bytes_and_parser_envelopes() {
         assert_eq!(output, variant["expected"], "{}", variant["name"]);
     }
 }
+
+#[test]
+fn a_zero_part_budget_does_not_render_the_root_entity() {
+    let message = b"From: test@example.invalid\r\n\r\nReport";
+    assert_eq!(
+        mime::parse(
+            message,
+            mime::ParseOptions {
+                max_parts: 0,
+                ..Default::default()
+            }
+        )
+        .text,
+        ""
+    );
+    assert_eq!(
+        mime::parse(
+            message,
+            mime::ParseOptions {
+                max_parts: 1,
+                ..Default::default()
+            }
+        )
+        .text,
+        "Report"
+    );
+}
