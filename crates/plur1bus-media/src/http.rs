@@ -65,6 +65,10 @@ pub trait Ports {
     fn cancelled(&self) -> bool {
         false
     }
+    /// Return the local application installation state when the host is macOS.
+    fn draw_things_installed_on_mac(&self) -> Option<bool> {
+        None
+    }
     fn wall_time(&self) -> SystemTime {
         SystemTime::now()
     }
@@ -128,6 +132,12 @@ impl<'a> Body<'a> {
 pub enum Reason {
     AuthInvalid,
     AuthForbidden,
+    #[serde(rename = "drawthings_api_off")]
+    DrawThingsApiOff,
+    #[serde(rename = "drawthings_not_installed")]
+    DrawThingsNotInstalled,
+    #[serde(rename = "coreml_unavailable_platform")]
+    CoreMlUnavailablePlatform,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -155,6 +165,31 @@ pub struct Client<'a> {
 }
 
 impl<'a> Client<'a> {
+    pub(crate) fn probe_origin(&self, deadline: Instant) -> Result<()> {
+        let endpoint = self
+            .base
+            .join("/")
+            .map_err(|_| Error::UnsupportedParameter)?;
+        let response = self.request(&endpoint, Method::Get, None, false, deadline)?;
+        if response.status().is_redirection() {
+            Err(Error::BackendUnavailable)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub(crate) fn local_installation(&self) -> Option<bool> {
+        let local = match self.base.host() {
+            Some(Host::Domain("localhost")) => true,
+            Some(Host::Ipv4(address)) => address == Ipv4Addr::LOCALHOST,
+            Some(Host::Ipv6(address)) => address.is_loopback(),
+            _ => false,
+        };
+        local
+            .then(|| self.ports.draw_things_installed_on_mac())
+            .flatten()
+    }
+
     pub(crate) fn check(&self, deadline: Instant) -> Result<()> {
         check(self.ports, deadline)
     }

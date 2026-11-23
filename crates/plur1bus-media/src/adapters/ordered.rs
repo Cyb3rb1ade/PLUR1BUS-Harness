@@ -4,14 +4,14 @@ use serde::{ser::SerializeMap, Serialize, Serializer};
 use serde_json::{json, Value};
 
 #[derive(Default)]
-pub(super) struct Object(Vec<(&'static str, Field)>);
+pub(crate) struct Object(Vec<(String, Field)>);
 
 impl Object {
-    pub(super) fn put(&mut self, key: &'static str, value: impl Into<Field>) {
-        self.0.push((key, value.into()));
+    pub(crate) fn put(&mut self, key: impl Into<String>, value: impl Into<Field>) {
+        self.0.push((key.into(), value.into()));
     }
 
-    pub(super) fn copy(&mut self, key: &'static str, source: &Value, field: &str) {
+    pub(crate) fn copy(&mut self, key: &'static str, source: &Value, field: &str) {
         if let Some(value) = source.get(field) {
             self.put(key, value.clone());
         }
@@ -28,7 +28,7 @@ impl Serialize for Object {
     }
 }
 
-pub(super) enum Field {
+pub(crate) enum Field {
     Scalar(Value),
     Object(Object),
     List(Vec<Self>),
@@ -88,5 +88,10 @@ impl From<Object> for Field {
 }
 
 pub(super) fn object<const N: usize>(fields: [(&'static str, Field); N]) -> Object {
-    Object(Vec::from(fields))
+    Object(
+        fields
+            .into_iter()
+            .map(|(key, field)| (key.to_owned(), field))
+            .collect(),
+    )
 }

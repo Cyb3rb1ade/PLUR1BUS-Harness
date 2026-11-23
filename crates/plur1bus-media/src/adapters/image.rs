@@ -1,4 +1,7 @@
-use std::{sync::Mutex, time::Duration};
+use std::{
+    sync::Mutex,
+    time::{Duration, Instant},
+};
 
 use serde_json::{json, Map, Value};
 
@@ -12,9 +15,9 @@ use crate::{
 use super::{
     duration_ms, moderation,
     payload::{self, Prepared},
-    safe_id,
+    probe_draw_things, safe_id,
     schema::{self, Model},
-    valid_model, Call, Observer, Provider, Run,
+    valid_model, Call, DrawThingsState, ImageCatalog, ImageModel, Observer, Provider, Run,
 };
 
 const MAX_REFERENCE_BYTES: usize = 50 * 1024 * 1024;
@@ -38,6 +41,7 @@ pub struct ImageAdapter<'a> {
     http: Client<'a>,
     poll: Duration,
     schema: Mutex<Option<Option<Map<String, Value>>>>,
+    catalog: ImageCatalog,
 }
 
 impl<'a> ImageAdapter<'a> {
@@ -56,7 +60,31 @@ impl<'a> ImageAdapter<'a> {
             http,
             poll,
             schema: Mutex::new(None),
+            catalog: ImageCatalog::default(),
         })
+    }
+
+    pub fn with_catalog_ttl(mut self, ttl: Duration) -> Result<Self> {
+        self.catalog = ImageCatalog::new(ttl, Duration::from_secs(30))?;
+        Ok(self)
+    }
+
+    pub fn list_models(&self, deadline: Instant) -> Call<Vec<ImageModel>> {
+        if self.provider != Provider::OpenRouter {
+            return Err(Error::UnsupportedParameter.into());
+        }
+        self.catalog.update(
+            || self.http.wall_time(),
+            || self.http.check(deadline).is_ok(),
+            || {
+                self.http.json(
+                    Method::Get,
+                    "models?output_modalities=image",
+                    None,
+                    deadline,
+                )
+            },
+        )
     }
 
     pub fn generate(
@@ -235,7 +263,19 @@ impl<'a> ImageAdapter<'a> {
                     .close_remote(method, &route, Duration::from_secs(2));
             }
         }
-        result
+        result.map_err(|mut error| {
+            if self.provider == Provider::DrawThings
+                && error.code == Error::BackendUnavailable
+                && error.reason.is_none()
+            {
+                error.reason = match probe_draw_things(&self.http, run.deadline) {
+                    DrawThingsState::Running => None,
+                    DrawThingsState::ApiOff { reason }
+                    | DrawThingsState::NotInstalled { reason } => Some(reason),
+                };
+            }
+            error
+        })
     }
 
     fn replicate_schema(&self, run: Run<'_>) -> Call<Option<Map<String, Value>>> {

@@ -12,12 +12,14 @@ use crate::{
     jobs::{Checkpoint, Error, Progress, Result},
 };
 
+mod discovery;
 mod image;
-mod ordered;
+pub(crate) mod ordered;
 mod payload;
 mod schema;
 mod video;
 
+pub use discovery::{probe_draw_things, DrawThingsState, ImageCatalog, ImageModel};
 pub use image::{ImageAdapter, ImageOutput, ImageRequest};
 pub use video::{
     Download, ReferenceVideo, SanitizedVideo, VideoAdapter, VideoOutput, VideoProfile, VideoRequest,

@@ -1499,6 +1499,22 @@ describe("media image provider protocols (P4-W W4)", () => {
   });
 });
 
+describe("media model discovery (P4-W W4)", () => {
+  it("matches the image catalog, refresh fallback and local app states", async () => {
+    const { recordMediaDiscovery } = await import("./export-media-discovery.ts");
+    const expected = fixtureText((await recordMediaDiscovery())["media-discovery"]);
+    assert.equal(readFileSync(fixturePath("media", "media-discovery"), "utf8"), expected);
+  });
+});
+
+describe("CoreML helper protocols (P4-W W4)", () => {
+  it("matches the TypeScript helper launch, JSONL, legacy and cancellation recordings", async () => {
+    const { recordMediaCoreMl } = await import("./export-media-coreml.ts");
+    const cases = await recordMediaCoreMl();
+    assert.equal(readFileSync(fixturePath("media", "coreml-wire"), "utf8"), fixtureText(cases["coreml-wire"]));
+  });
+});
+
 describe("media video provider protocols (P4-W W4)", () => {
   it("matches the TypeScript submission, checkpoint, poll and binary exchanges", async () => {
     const { videoProviders, recordMediaVideoWire } = await import("./export-media-video-wire.ts");
