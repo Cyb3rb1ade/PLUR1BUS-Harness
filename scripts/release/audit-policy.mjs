@@ -183,19 +183,19 @@ function vendoredManifests(directory) {
     .flatMap(entry => vendoredManifests(join(directory, entry.name)));
 }
 
-export function collectVendoredRust(root, database, scratch) {
+export function collectVendoredRust(root, database, scratch, runCommand = run) {
   const manifests = ['vendor', 'crates/vendor'].map(path => join(root, path))
     .filter(existsSync).flatMap(vendoredManifests).sort();
   if (!manifests.length) return [];
 
-  const auditVersion = run('cargo', ['audit', '--version'], scratch);
+  const auditVersion = runCommand('cargo', ['audit', '--version'], scratch);
   if (!/^cargo-audit(?:-audit)? 0\.22\.2$/.test(auditVersion.stdout.trim())) {
     throw new Error('cargo-audit 0.22.2 is required');
   }
 
   const identities = new Map();
   for (const manifest of manifests) {
-    const result = run('cargo', ['metadata', '--format-version=1', '--no-deps', '--offline', '--manifest-path', manifest], root);
+    const result = runCommand('cargo', ['metadata', '--format-version=1', '--no-deps', '--offline', '--manifest-path', manifest], root);
     if (result.status !== 0) throw new Error(`Cannot identify vendored crate at ${manifest}`);
     const metadata = JSON.parse(result.stdout);
     const pkg = metadata.packages.find(item => realpathSync(item.manifest_path) === realpathSync(manifest));
@@ -211,7 +211,7 @@ export function collectVendoredRust(root, database, scratch) {
     ['[[package]]', `name = ${JSON.stringify(name)}`, `version = ${JSON.stringify(version)}`,
       'source = "registry+https://github.com/rust-lang/crates.io-index"'].join('\n'));
   writeFileSync(lockfile, ['version = 3', ...packages, ''].join('\n\n'));
-  const result = run('cargo', ['audit', '--no-fetch', '--no-yanked', '--json', '--db', database, '--file', lockfile], scratch);
+  const result = runCommand('cargo', ['audit', '--no-fetch', '--no-yanked', '--json', '--db', database, '--file', lockfile], scratch);
   const report = JSON.parse(result.stdout);
   const vulnerabilities = report.vulnerabilities?.list;
   const settings = report.settings;
