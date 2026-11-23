@@ -69,6 +69,12 @@ pub enum Redirects {
     Refuse,
 }
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub enum Coding {
+    Compressed,
+    Identity,
+}
+
 pub type AcceptType<'a> = &'a dyn Fn(Option<&str>) -> bool;
 
 pub struct Options<'a> {
@@ -77,6 +83,7 @@ pub struct Options<'a> {
     pub body: Option<&'a [u8]>,
     pub user_agent: &'a str,
     pub accept: &'a str,
+    pub coding: Coding,
     pub redirects: Redirects,
     pub max_redirects: usize,
     pub max_bytes: usize,
@@ -100,6 +107,7 @@ impl<'a> Options<'a> {
             body: None,
             user_agent,
             accept,
+            coding: Coding::Compressed,
             redirects: Redirects::Follow,
             max_redirects: 10,
             max_bytes: DEFAULT_BODY_BYTES,
@@ -160,7 +168,10 @@ fn request_parts(options: &Options<'_>) -> Result<HeaderMap> {
     );
     headers.insert(
         header::ACCEPT_ENCODING,
-        header::HeaderValue::from_static("gzip, deflate, br"),
+        header::HeaderValue::from_static(match options.coding {
+            Coding::Compressed => "gzip, deflate, br",
+            Coding::Identity => "identity",
+        }),
     );
     headers.insert(
         header::CONNECTION,
@@ -299,7 +310,12 @@ fn io_failure(error: &io::Error) -> Failure {
     if matches!(
         error.kind(),
         io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
-    ) {
+    ) || error.get_ref().is_some_and(|cause| {
+        matches!(
+            cause.downcast_ref::<ureq::Error>(),
+            Some(ureq::Error::Timeout(_))
+        )
+    }) {
         Failure::Timeout
     } else {
         Failure::Network
@@ -356,6 +372,12 @@ fn read_response_body(
         .map(|value| value.to_str().map_err(|_| Failure::UnsupportedType))
         .collect::<Result<Vec<_>>>()?
         .join(",");
+    if options.coding == Coding::Identity
+        && !encodings.is_empty()
+        && !encodings.eq_ignore_ascii_case("identity")
+    {
+        return Err(Failure::UnsupportedType);
+    }
     let encodings = encodings
         .split(',')
         .map(|coding| coding.trim().to_ascii_lowercase())
@@ -398,10 +420,9 @@ fn read_response_body(
             return Ok(body);
         }
         let chunk = buffer.len().min(count);
-        let received = reader
-            .read(&mut buffer[..chunk])
-            .map_err(|error| io_failure(&error))?;
+        let received = reader.read(&mut buffer[..chunk]);
         remaining(options.deadline, aborted)?;
+        let received = received.map_err(|error| io_failure(&error))?;
         if received == 0 {
             return Ok(body);
         }

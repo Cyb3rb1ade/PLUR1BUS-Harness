@@ -152,3 +152,67 @@ fn a_cancelled_request_does_not_call_admission() {
         Some(Failure::Timeout)
     );
 }
+
+#[test]
+fn a_partial_page_cannot_extend_the_original_body_deadline() {
+    let case = json!({"transport":"http","exchanges":[{
+        "request":{"method":"GET","path":"/notes"},
+        "response":{"status":200,"headers":{"content-type":"text/plain"},
+            "chunksBase64":["bm90ZXM=","bW9yZQ=="],"chunkGapMs":1500}
+    }]});
+    let server = FakeServer::start(&case);
+    let pin = Pin {
+        address: server.addr,
+        seen: Mutex::default(),
+    };
+    let headers = HeaderMap::new();
+    let options = Options::get(
+        &headers,
+        "fixture-web-tools/1",
+        "text/plain",
+        Instant::now() + Duration::from_secs(1),
+    );
+    assert_eq!(
+        http::request(
+            &format!("http://{}/notes", server.addr),
+            &options,
+            &pin,
+            &|| false
+        )
+        .err(),
+        Some(Failure::Timeout)
+    );
+    assert_eq!(server.received().len(), 1);
+}
+
+#[test]
+fn the_port_must_attest_the_requested_socket() {
+    let case = json!({"transport":"http","exchanges":[{
+        "request":{"method":"GET","path":"/notes"},
+        "response":{"status":200,"body":"ordinary notes"}
+    }]});
+    let desired = FakeServer::start(&case);
+    let separate = FakeServer::start(&case);
+    let pin = Pin {
+        address: separate.addr,
+        seen: Mutex::default(),
+    };
+    let headers = HeaderMap::new();
+    let options = Options::get(
+        &headers,
+        "fixture-web-tools/1",
+        "text/plain",
+        Instant::now() + Duration::from_secs(3),
+    );
+    assert_eq!(
+        http::request(
+            &format!("http://{}/notes", desired.addr),
+            &options,
+            &pin,
+            &|| false
+        )
+        .err(),
+        Some(Failure::EgressDenied)
+    );
+    assert!(desired.received().is_empty() && separate.received().is_empty());
+}

@@ -10,6 +10,10 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
+plur1bus-canon = { path = "../plur1bus-canon" }
+plur1bus-log-schema = { path = "../plur1bus-log-schema" }
+serde_json = { workspace = true, features = ["float_roundtrip"] }
 brotli = "=8.0.4"
 flate2 = "=1.1.10"
 plur1bus-providers = { path = "../plur1bus-providers" }
@@ -20,6 +24,7 @@ regex = "=1.13.1"
 serde.workspace = true
 
 [dev-dependencies]
+log = "=0.4.34"
+plur1bus-wire-log = { path = "../plur1bus-wire-log" }
 base64 = "=0.22.1"
 plur1bus-wire-fixtures = { path = "../plur1bus-wire-fixtures" }
-serde_json.workspace = true

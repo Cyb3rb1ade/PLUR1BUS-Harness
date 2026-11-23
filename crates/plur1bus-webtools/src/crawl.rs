@@ -26,6 +26,7 @@ pub trait RobotsCache {
     fn put(&self, origin: &str, robots: Arc<Robots>, expires_at_ms: u64);
 }
 
+#[derive(Clone, Copy)]
 pub struct Crawl<'a> {
     pub egress: &'a dyn Admission,
     pub clock: &'a dyn Clock,

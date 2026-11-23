@@ -335,6 +335,17 @@ records the byte ceiling. The fetch port supplies a complete decoded body and
 rejects overflow. IP classification already exists in the P4-K egress port.
 Crawl scheduling, extraction, redirects, HTTP and search are open.
 
+Rust nutzt den gemeinsamen gepinnten HTTP/Rustls-Connector für Fetch und Suche.
+Der Host-Port führt vor jedem Hop die vorhandene plur1bus-core-Egress-Klassifikation
+und URL-Freigabe aus und liefert einen Socket-Pin. Regeln für Robots werden pro Origin
+über einen injizierten Cache gelesen, ein Redirect braucht seine eigene Crawl-Station.
+Fetch extrahiert Markdown und Seitensignale, führt Source-Koordinaten für agentengebundene
+Cursor und prüft neue bekannte Geheimnisse beim Lesen. Die Suche spielt Brave, Tavily,
+Exa und SearXNG mit Fallthrough, Statusklassifikation, Retry-After und Cooldown ab.
+Die gesetzten Transport- und Tabellenlimits stehen in [P4D-227](defects.md#p4d-227)
+und [P4D-228](defects.md#p4d-228). Der Flip muss den Host-Port, den privaten Cursor- und
+Robots-Cache sowie die Freigabe für Provider-Credentials anbinden.
+
 ### W7 · MCP (P4-70)
 
 - **Dateien.** [MCP](../../packages/core/src/mcp) mit Registry, Auth-/OAuth-Interaktion,

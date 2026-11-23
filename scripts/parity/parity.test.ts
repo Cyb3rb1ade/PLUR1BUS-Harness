@@ -1608,6 +1608,14 @@ describe("discovery reconciliation and transport (P4-W W5)", () => {
 });
 
 describe("guarded web HTTP (P4-W W6)", () => {
+  it("matches TypeScript search provider requests, backoff and selection", async () => {
+    const { recordWebSearch } = await import("./export-web-search.ts");
+    assert.equal(readFileSync(fixturePath("web", "search"), "utf8"), fixtureText((await recordWebSearch()).search));
+  });
+  it("matches TypeScript fetch presentation, cursors and crawl stations", async () => {
+    const { recordWebFetch } = await import("./export-web-fetch.ts");
+    assert.equal(readFileSync(fixturePath("web", "fetch"), "utf8"), fixtureText((await recordWebFetch()).fetch));
+  });
   it("matches the readable HTML projections from the real TypeScript extractor", async () => {
     const { recordWebHtml } = await import("./export-web-html.ts");
     assert.equal(readFileSync(fixturePath("web", "html"), "utf8"), fixtureText(recordWebHtml().html));
