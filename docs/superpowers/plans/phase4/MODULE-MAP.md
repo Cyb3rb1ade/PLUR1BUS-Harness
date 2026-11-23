@@ -3087,7 +3087,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/a2a/a2a-tasks.coverage.test.ts` | W | peer exchanges against the fixture peer |
 | `packages/core/test/a2a/a2a-turn-port.coverage.test.ts` | W | peer exchanges against the fixture peer |
 | `packages/core/test/a2a/audit-b01.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/card.test.ts` | V,W | public card projection (V) and served card routes (W, open) |
+| `packages/core/test/a2a/card.test.ts` | V,W | public card projection (V) and recorded served card routes (W) |
 | `packages/core/test/a2a/conformance.test.ts` | W | peer exchanges against the fixture peer |
 | `packages/core/test/a2a/early-refusal.test.ts` | W | peer exchanges against the fixture peer |
 | `packages/core/test/a2a/helpers.ts` | W | peer exchanges against the fixture peer |

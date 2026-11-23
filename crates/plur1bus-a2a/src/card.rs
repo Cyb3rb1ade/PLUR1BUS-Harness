@@ -1,6 +1,8 @@
 //! Public Agent Card projection.
+use crate::events::object;
+use plur1bus_providers::Json;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::Value;
 use url::Url;
 
 pub const PROTOCOL_VERSION: &str = "0.3.0";
@@ -101,26 +103,38 @@ fn default_modes(values: &[String]) -> Vec<String> {
     configured
 }
 
-fn skill_card(skill: &Skill) -> Value {
+fn json_strings(strings: Vec<String>) -> Json {
+    Json::Array(strings.into_iter().map(Json::from).collect())
+}
+
+fn skill_card(skill: &Skill) -> Json {
     let tags: Vec<_> = skill
         .tags
         .iter()
         .take(8)
         .map(|tag| clean(tag, 32, "tag"))
         .collect();
-    let mut card = json!({
-        "id": clean(&skill.id, 64, "skill"),
-        "name": clean(&skill.name, 80, "Skill"),
-        "description": clean(skill.description.as_deref().unwrap_or_default(), 400, "No description."),
-        "tags": tags,
-    });
+    let mut card = object([
+        ("id", clean(&skill.id, 64, "skill").into()),
+        ("name", clean(&skill.name, 80, "Skill").into()),
+        (
+            "description",
+            clean(
+                skill.description.as_deref().unwrap_or_default(),
+                400,
+                "No description.",
+            )
+            .into(),
+        ),
+        ("tags", json_strings(tags)),
+    ]);
     let input = modes(&skill.input_modes);
     if !input.is_empty() {
-        card["inputModes"] = json!(input);
+        card.set("inputModes", json_strings(input));
     }
     let output = modes(&skill.output_modes);
     if !output.is_empty() {
-        card["outputModes"] = json!(output);
+        card.set("outputModes", json_strings(output));
     }
     card
 }
@@ -155,6 +169,17 @@ pub fn build_card(
     version: &str,
     features: Features,
 ) -> Result<Value, Error> {
+    let card = wire_card(id, info, base, version, features)?;
+    serde_json::from_str(&card.encode()).map_err(|_| Error::InvalidEndpoint)
+}
+
+pub(crate) fn wire_card(
+    id: &str,
+    info: &AgentInfo,
+    base: &str,
+    version: &str,
+    features: Features,
+) -> Result<Json, Error> {
     if !info.opt_in {
         return Err(Error::NotExposed);
     }
@@ -164,28 +189,61 @@ pub fn build_card(
     }
     let mut skills: Vec<_> = info.skills.iter().take(32).map(skill_card).collect();
     if skills.is_empty() {
-        skills.push(
-            json!({"id":"chat","name":"Chat","description":"Answers a text message.","tags":[]}),
-        );
+        skills.push(object([
+            ("id", "chat".into()),
+            ("name", "Chat".into()),
+            ("description", "Answers a text message.".into()),
+            ("tags", Vec::new().into()),
+        ]));
     }
-    Ok(json!({
-        "protocolVersion": PROTOCOL_VERSION,
-        "name": clean(info.display_name.as_deref().unwrap_or_default(), 80, id),
-        "description": clean(info.description.as_deref().unwrap_or_default(), 400, "A PLUR1BUS agent."),
-        "url": url,
-        "preferredTransport": "JSONRPC",
-        "version": version,
-        "capabilities": {
-            "streaming": features.streaming,
-            "pushNotifications": features.push_notifications,
-            "stateTransitionHistory": false
-        },
-        "defaultInputModes": default_modes(&info.default_input_modes),
-        "defaultOutputModes": default_modes(&info.default_output_modes),
-        "skills": skills,
-        "securitySchemes": {"peerKey": {
-            "type": "http", "scheme": "bearer", "description": "A per-peer API key issued by the operator."
-        }},
-        "security": [{"peerKey": []}]
-    }))
+    let capabilities = object([
+        ("streaming", features.streaming.into()),
+        ("pushNotifications", features.push_notifications.into()),
+        ("stateTransitionHistory", false.into()),
+    ]);
+    let security = object([(
+        "peerKey",
+        object([
+            ("type", "http".into()),
+            ("scheme", "bearer".into()),
+            (
+                "description",
+                "A per-peer API key issued by the operator.".into(),
+            ),
+        ]),
+    )]);
+    Ok(object([
+        ("protocolVersion", PROTOCOL_VERSION.into()),
+        (
+            "name",
+            clean(info.display_name.as_deref().unwrap_or_default(), 80, id).into(),
+        ),
+        (
+            "description",
+            clean(
+                info.description.as_deref().unwrap_or_default(),
+                400,
+                "A PLUR1BUS agent.",
+            )
+            .into(),
+        ),
+        ("url", url.into()),
+        ("preferredTransport", "JSONRPC".into()),
+        ("version", version.into()),
+        ("capabilities", capabilities),
+        (
+            "defaultInputModes",
+            json_strings(default_modes(&info.default_input_modes)),
+        ),
+        (
+            "defaultOutputModes",
+            json_strings(default_modes(&info.default_output_modes)),
+        ),
+        ("skills", skills.into()),
+        ("securitySchemes", security),
+        (
+            "security",
+            vec![object([("peerKey", Vec::new().into())])].into(),
+        ),
+    ]))
 }

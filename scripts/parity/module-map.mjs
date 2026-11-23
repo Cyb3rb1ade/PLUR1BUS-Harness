@@ -258,7 +258,7 @@ export const TEST_RULES = [
   [rx(`${T}acp/`), "P4-71", "T", "ACP sessions over stdio"],
   [rx(`${T}external-agents/`), "P4-71", "T", "D123's four gate files stay byte-identical (plan P4-71)"],
   [rx(`${T}a2a/a2a-card\\.coverage\\.test\\.ts$`), "P4-72", "V", "public card projection and schema"],
-  [rx(`${T}a2a/card\\.test\\.ts$`), "P4-72", "V,W", "public card projection (V) and served card routes (W, open)"],
+  [rx(`${T}a2a/card\\.test\\.ts$`), "P4-72", "V,W", "public card projection (V) and recorded served card routes (W)"],
   [rx(`${T}a2a/`), "P4-72", "W", "peer exchanges against the fixture peer"],
   [rx(`${T}import/`), "P4-85", "V", "mapper and plan outputs over the committed fixtures; the import may stay TypeScript for 0.1 (Q1)"],
   [rx(`${T}live/`), "—", "", "live tests that need a real service (nightly); not a parity input"],

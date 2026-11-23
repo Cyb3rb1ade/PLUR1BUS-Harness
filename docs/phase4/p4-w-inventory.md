@@ -383,9 +383,24 @@ Abweichungen stehen in [P4D-208](defects.md#p4d-208) und
   Session-Turns und Core-Policy-Bindung bekommen ihre Abnahme beim Flip (T/S).
 - **Ports.** Egress, Identitäts-/Bearer-Prüfung, Policy-Abfrage, Task-/Peer-Zustand, Turn und
   Cancellation, Uhr/Zufall, Push-Transport.
-- **Lücken.** Card-Refresh/Trust-Input, SSE-Events und frühe Ablehnung, Task-Abbruch, Push-Fehler,
-  Größenlimits und Zugriffsgrenzen über eine geskriptete Policy. Für eingehende Handler kommt
-  der HTTP-Listener aus dem Core-Port.
+Der Rust-Endpunkt gibt die geschlossene öffentliche 0.3-Karte aus. Die
+Request-Gates prüfen Loopback, Host, Rate, Peer, Agent-Freigabe und Bodygröße.
+Parts, Task- und Push-Kommandos sowie SSE-Frames sind native Protokolltypen.
+Der Host-Port besitzt Tasks, Turn-Laufzeit, Einwilligung, Push-Zustellung und
+Aufbewahrung. Die Aufnahmen enthalten Ablehnungen und vollständige HTTP-
+Wechsel mit Status, Abbruch, Push-Konfiguration und Wiederanmeldung eines
+Streams. Der Rust-Test vergleicht die Antwortbytes nach Ersetzung flüchtiger
+IDs im Exporter.
+
+Der 1.0-Client prüft Ed25519-Karten und bindet danach jeden Aufruf an
+Peer-Revision, bestätigten Endpunkt, Zielauflösung und Lease. Er verwendet
+den bestehenden ureq/Rustls-Connector. Der Host liefert Freigabe,
+Budgetreservierung, Credential-Lease, private Registrierung, Widerruf und
+den gemeinsamen Wire-Logfilter. Die Gegenprobe verwendet den realen
+TypeScript-SDK-Client für zehn protokollierte Operationen und die
+Core-Peer-Implementierung für einen Delegationsaufruf. Der Flip verbindet
+die Ports mit der produktiven Zustandsverwaltung. Die Abweichungen stehen
+in [P4D-209](defects.md#p4d-209) und [P4D-235–238](defects.md#p4d-235).
 
 ### W9 · Matrix (P4-65, Owner-Entscheidung)
 

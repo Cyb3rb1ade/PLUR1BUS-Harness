@@ -6010,8 +6010,19 @@ dependencies = [
 name = "plur1bus-a2a"
 version = "0.1.0"
 dependencies = [
+ "aho-corasick",
+ "base64 0.22.1",
+ "log",
+ "plur1bus-canon",
+ "plur1bus-providers",
+ "plur1bus-wire-fixtures",
+ "plur1bus-wire-log",
+ "ring",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
+ "subtle",
+ "ureq",
  "url",
 ]
 

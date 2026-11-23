@@ -28,6 +28,8 @@ import { captureRoles } from "./export-discovery.ts";
 import { captureRobots } from "./export-robots.ts";
 import { recordBridge } from "./export-mcp-bridge.ts";
 import { recordCards } from "./export-a2a-card.ts";
+import { recordA2aProtocol } from "./export-a2a-protocol.ts";
+import { recordA2aClient } from "./export-a2a-client.ts";
 import { buildLocalProbeFixtures, buildLocalProviderFixtures } from "./export-provider-local.ts";
 import { buildProviderCacheFixtures } from "./export-provider-cache.ts";
 import { buildProviderRouterFixtures } from "./export-provider-router.ts";
@@ -183,6 +185,8 @@ describe("recordings for the W4–W8 wire library slices", () => {
     ["webtools", captureRobots],
     ["mcp", recordBridge],
     ["a2a", recordCards],
+    ["a2a", recordA2aProtocol],
+    ["a2a", recordA2aClient],
   ] as const) {
     it(`regenerates ${area} fixtures from TypeScript`, async () => {
       for (const [name, data] of Object.entries(await build())) {

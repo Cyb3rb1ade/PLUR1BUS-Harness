@@ -1,0 +1,145 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "contentType": "application/json; charset=utf-8",
+        "rawBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOiJsaWZlY3ljbGUtcnBjIiwicmVzdWx0Ijp7ImtpbmQiOiJ0YXNrIiwiaWQiOiJoZWxkLXRhc2siLCJjb250ZXh0SWQiOiJmaXh0dXJlLWNvbnRleHQiLCJzdGF0dXMiOnsic3RhdGUiOiJ3b3JraW5nIiwidGltZXN0YW1wIjoiMjAyNi0wMS0wMVQwMDowMDowMC4wMDBaIn0sImhpc3RvcnkiOlt7ImtpbmQiOiJtZXNzYWdlIiwicm9sZSI6InVzZXIiLCJtZXNzYWdlSWQiOiJob2xkIiwicGFydHMiOlt7ImtpbmQiOiJ0ZXh0IiwidGV4dCI6IkhvbGQifV0sImNvbnRleHRJZCI6ImZpeHR1cmUtY29udGV4dCIsInRhc2tJZCI6ImhlbGQtdGFzayJ9XX19"
+      },
+      "method": "message/send",
+      "params": {
+        "message": {
+          "contextId": "fixture-context",
+          "messageId": "hold",
+          "parts": [
+            {
+              "kind": "text",
+              "text": "Hold"
+            }
+          ],
+          "role": "user"
+        }
+      }
+    },
+    {
+      "expected": {
+        "contentType": "application/json; charset=utf-8",
+        "rawBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOiJsaWZlY3ljbGUtcnBjIiwicmVzdWx0Ijp7ImtpbmQiOiJ0YXNrIiwiaWQiOiJoZWxkLXRhc2siLCJjb250ZXh0SWQiOiJmaXh0dXJlLWNvbnRleHQiLCJzdGF0dXMiOnsic3RhdGUiOiJ3b3JraW5nIiwidGltZXN0YW1wIjoiMjAyNi0wMS0wMVQwMDowMDowMC4wMDBaIn19fQ=="
+      },
+      "method": "tasks/get",
+      "params": {
+        "historyLength": 0,
+        "id": "held-task"
+      }
+    },
+    {
+      "expected": {
+        "contentType": "application/json; charset=utf-8",
+        "rawBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOiJsaWZlY3ljbGUtcnBjIiwicmVzdWx0Ijp7InRhc2tJZCI6ImhlbGQtdGFzayIsInB1c2hOb3RpZmljYXRpb25Db25maWciOnsidXJsIjoiaHR0cHM6Ly9jYWxsYmFja3MuZXhhbXBsZS5pbnZhbGlkL2ZpeHR1cmUiLCJpZCI6Im5vdGlmaWNhdGlvbi1leGFtcGxlIn19fQ=="
+      },
+      "method": "tasks/pushNotificationConfig/set",
+      "params": {
+        "pushNotificationConfig": {
+          "id": "notification-example",
+          "url": "https://callbacks.example.invalid/fixture"
+        },
+        "taskId": "held-task"
+      }
+    },
+    {
+      "expected": {
+        "contentType": "application/json; charset=utf-8",
+        "rawBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOiJsaWZlY3ljbGUtcnBjIiwicmVzdWx0Ijp7InRhc2tJZCI6ImhlbGQtdGFzayIsInB1c2hOb3RpZmljYXRpb25Db25maWciOnsidXJsIjoiaHR0cHM6Ly9jYWxsYmFja3MuZXhhbXBsZS5pbnZhbGlkL2ZpeHR1cmUiLCJpZCI6Im5vdGlmaWNhdGlvbi1leGFtcGxlIn19fQ=="
+      },
+      "method": "tasks/pushNotificationConfig/get",
+      "params": {
+        "pushNotificationConfigId": "notification-example",
+        "taskId": "held-task"
+      }
+    },
+    {
+      "expected": {
+        "contentType": "application/json; charset=utf-8",
+        "rawBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOiJsaWZlY3ljbGUtcnBjIiwicmVzdWx0IjpbeyJ0YXNrSWQiOiJoZWxkLXRhc2siLCJwdXNoTm90aWZpY2F0aW9uQ29uZmlnIjp7InVybCI6Imh0dHBzOi8vY2FsbGJhY2tzLmV4YW1wbGUuaW52YWxpZC9maXh0dXJlIiwiaWQiOiJub3RpZmljYXRpb24tZXhhbXBsZSJ9fV19"
+      },
+      "method": "tasks/pushNotificationConfig/list",
+      "params": {
+        "taskId": "held-task"
+      }
+    },
+    {
+      "expected": {
+        "contentType": "application/json; charset=utf-8",
+        "rawBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOiJsaWZlY3ljbGUtcnBjIiwicmVzdWx0IjpudWxsfQ=="
+      },
+      "method": "tasks/pushNotificationConfig/delete",
+      "params": {
+        "pushNotificationConfigId": "notification-example",
+        "taskId": "held-task"
+      }
+    },
+    {
+      "expected": {
+        "contentType": "application/json; charset=utf-8",
+        "rawBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOiJsaWZlY3ljbGUtcnBjIiwicmVzdWx0Ijp7ImtpbmQiOiJ0YXNrIiwiaWQiOiJoZWxkLXRhc2siLCJjb250ZXh0SWQiOiJmaXh0dXJlLWNvbnRleHQiLCJzdGF0dXMiOnsic3RhdGUiOiJjYW5jZWxlZCIsInRpbWVzdGFtcCI6IjIwMjYtMDEtMDFUMDA6MDA6MDAuMDAwWiJ9LCJoaXN0b3J5IjpbeyJraW5kIjoibWVzc2FnZSIsInJvbGUiOiJ1c2VyIiwibWVzc2FnZUlkIjoiaG9sZCIsInBhcnRzIjpbeyJraW5kIjoidGV4dCIsInRleHQiOiJIb2xkIn1dLCJjb250ZXh0SWQiOiJmaXh0dXJlLWNvbnRleHQiLCJ0YXNrSWQiOiJoZWxkLXRhc2sifV19fQ=="
+      },
+      "method": "tasks/cancel",
+      "params": {
+        "id": "held-task"
+      }
+    },
+    {
+      "expected": {
+        "contentType": "text/event-stream; charset=utf-8",
+        "rawBase64": "ZGF0YTogeyJqc29ucnBjIjoiMi4wIiwiaWQiOiJsaWZlY3ljbGUtcnBjIiwicmVzdWx0Ijp7ImtpbmQiOiJzdGF0dXMtdXBkYXRlIiwidGFza0lkIjoiaGVsZC10YXNrIiwiY29udGV4dElkIjoiZml4dHVyZS1jb250ZXh0Iiwic3RhdHVzIjp7InN0YXRlIjoiY2FuY2VsZWQiLCJ0aW1lc3RhbXAiOiIyMDI2LTAxLTAxVDAwOjAwOjAwLjAwMFoifSwiZmluYWwiOnRydWV9fQoK"
+      },
+      "method": "tasks/resubscribe",
+      "params": {
+        "id": "held-task"
+      }
+    },
+    {
+      "expected": {
+        "contentType": "application/json; charset=utf-8",
+        "rawBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOiJsaWZlY3ljbGUtcnBjIiwicmVzdWx0Ijp7ImtpbmQiOiJ0YXNrIiwiaWQiOiJibG9ja2VkLXRhc2siLCJjb250ZXh0SWQiOiJmaXh0dXJlLWNvbnRleHQiLCJzdGF0dXMiOnsic3RhdGUiOiJjb21wbGV0ZWQiLCJ0aW1lc3RhbXAiOiIyMDI2LTAxLTAxVDAwOjAwOjAwLjAwMFoifSwiYXJ0aWZhY3RzIjpbeyJhcnRpZmFjdElkIjoiYmxvY2tlZC10YXNrLXJlcGx5IiwibmFtZSI6InJlcGx5IiwicGFydHMiOlt7ImtpbmQiOiJ0ZXh0IiwidGV4dCI6IkFudHdvcnQg8J+MsSJ9XX1dLCJoaXN0b3J5IjpbeyJraW5kIjoibWVzc2FnZSIsInJvbGUiOiJ1c2VyIiwibWVzc2FnZUlkIjoiYmxvY2siLCJwYXJ0cyI6W3sia2luZCI6InRleHQiLCJ0ZXh0IjoiQmxvY2sifV0sImNvbnRleHRJZCI6ImZpeHR1cmUtY29udGV4dCIsInRhc2tJZCI6ImJsb2NrZWQtdGFzayJ9LHsia2luZCI6Im1lc3NhZ2UiLCJyb2xlIjoiYWdlbnQiLCJtZXNzYWdlSWQiOiJmaXh0dXJlLXJlcGx5IiwicGFydHMiOlt7ImtpbmQiOiJ0ZXh0IiwidGV4dCI6IkFudHdvcnQg8J+MsSJ9XSwiY29udGV4dElkIjoiZml4dHVyZS1jb250ZXh0IiwidGFza0lkIjoiYmxvY2tlZC10YXNrIn1dfX0="
+      },
+      "method": "message/send",
+      "params": {
+        "configuration": {
+          "blocking": true
+        },
+        "message": {
+          "contextId": "fixture-context",
+          "messageId": "block",
+          "parts": [
+            {
+              "kind": "text",
+              "text": "Block"
+            }
+          ],
+          "role": "user"
+        }
+      }
+    },
+    {
+      "expected": {
+        "contentType": "text/event-stream; charset=utf-8",
+        "rawBase64": "ZGF0YTogeyJqc29ucnBjIjoiMi4wIiwiaWQiOiJsaWZlY3ljbGUtcnBjIiwicmVzdWx0Ijp7ImtpbmQiOiJ0YXNrIiwiaWQiOiJzdHJlYW1lZC10YXNrIiwiY29udGV4dElkIjoiZml4dHVyZS1jb250ZXh0Iiwic3RhdHVzIjp7InN0YXRlIjoic3VibWl0dGVkIiwidGltZXN0YW1wIjoiMjAyNi0wMS0wMVQwMDowMDowMC4wMDBaIn0sImhpc3RvcnkiOlt7ImtpbmQiOiJtZXNzYWdlIiwicm9sZSI6InVzZXIiLCJtZXNzYWdlSWQiOiJzdHJlYW0iLCJwYXJ0cyI6W3sia2luZCI6InRleHQiLCJ0ZXh0IjoiU3RyZWFtIn1dLCJjb250ZXh0SWQiOiJmaXh0dXJlLWNvbnRleHQiLCJ0YXNrSWQiOiJzdHJlYW1lZC10YXNrIn1dfX0KCmRhdGE6IHsianNvbnJwYyI6IjIuMCIsImlkIjoibGlmZWN5Y2xlLXJwYyIsInJlc3VsdCI6eyJraW5kIjoic3RhdHVzLXVwZGF0ZSIsInRhc2tJZCI6InN0cmVhbWVkLXRhc2siLCJjb250ZXh0SWQiOiJmaXh0dXJlLWNvbnRleHQiLCJzdGF0dXMiOnsic3RhdGUiOiJ3b3JraW5nIiwidGltZXN0YW1wIjoiMjAyNi0wMS0wMVQwMDowMDowMC4wMDBaIn19fQoKZGF0YTogeyJqc29ucnBjIjoiMi4wIiwiaWQiOiJsaWZlY3ljbGUtcnBjIiwicmVzdWx0Ijp7ImtpbmQiOiJhcnRpZmFjdC11cGRhdGUiLCJ0YXNrSWQiOiJzdHJlYW1lZC10YXNrIiwiY29udGV4dElkIjoiZml4dHVyZS1jb250ZXh0IiwiYXJ0aWZhY3QiOnsiYXJ0aWZhY3RJZCI6InN0cmVhbWVkLXRhc2stcmVwbHkiLCJuYW1lIjoicmVwbHkiLCJwYXJ0cyI6W3sia2luZCI6InRleHQiLCJ0ZXh0IjoiQW50d29ydCDwn4yxIn1dfSwiYXBwZW5kIjpmYWxzZSwibGFzdENodW5rIjpmYWxzZX19CgpkYXRhOiB7Impzb25ycGMiOiIyLjAiLCJpZCI6ImxpZmVjeWNsZS1ycGMiLCJyZXN1bHQiOnsia2luZCI6ImFydGlmYWN0LXVwZGF0ZSIsInRhc2tJZCI6InN0cmVhbWVkLXRhc2siLCJjb250ZXh0SWQiOiJmaXh0dXJlLWNvbnRleHQiLCJhcnRpZmFjdCI6eyJhcnRpZmFjdElkIjoic3RyZWFtZWQtdGFzay1yZXBseSIsIm5hbWUiOiJyZXBseSIsInBhcnRzIjpbeyJraW5kIjoidGV4dCIsInRleHQiOiIifV19LCJhcHBlbmQiOnRydWUsImxhc3RDaHVuayI6dHJ1ZX19CgpkYXRhOiB7Impzb25ycGMiOiIyLjAiLCJpZCI6ImxpZmVjeWNsZS1ycGMiLCJyZXN1bHQiOnsia2luZCI6InN0YXR1cy11cGRhdGUiLCJ0YXNrSWQiOiJzdHJlYW1lZC10YXNrIiwiY29udGV4dElkIjoiZml4dHVyZS1jb250ZXh0Iiwic3RhdHVzIjp7InN0YXRlIjoiY29tcGxldGVkIiwidGltZXN0YW1wIjoiMjAyNi0wMS0wMVQwMDowMDowMC4wMDBaIn0sImZpbmFsIjp0cnVlfX0KCg=="
+      },
+      "method": "message/stream",
+      "params": {
+        "message": {
+          "contextId": "fixture-context",
+          "messageId": "stream",
+          "parts": [
+            {
+              "kind": "text",
+              "text": "Stream"
+            }
+          ],
+          "role": "user"
+        }
+      }
+    }
+  ],
+  "source": "packages/core/src/a2a/handler.ts"
+}
