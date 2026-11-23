@@ -39,6 +39,7 @@ pub struct Definition {
     pub trust: Trust,
 }
 
+#[derive(Clone, Copy)]
 pub struct Caller<'a> {
     pub agent_id: &'a str,
     pub principal: &'a str,
@@ -537,7 +538,7 @@ impl Registry {
                         value = provenance::tool_result(
                             value,
                             &entry.def.name,
-                            tool,
+                            &tool,
                             principal,
                             entry.def.trust,
                             redacted,

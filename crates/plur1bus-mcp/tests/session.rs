@@ -449,3 +449,70 @@ fn listed_tools_expose_only_the_bounded_display_descriptor() {
         "report\u{200b}.summary"
     );
 }
+
+#[test]
+fn tool_descriptors_replay_typescript_acceptance_and_display_bounds() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/mcp/descriptors.json"
+    ))
+    .unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let input = &case["input"];
+        let repeat = |key: &str, unit: &str| {
+            unit.repeat(usize::try_from(input[key].as_u64().unwrap()).unwrap())
+        };
+        let wire_tool = json!({
+            "name":input["label"],"title":repeat("titleUnits", "t"),"description":repeat("descriptionUnits", "d"),
+            "inputSchema":{"type":"object"},
+            "_meta":{"ui":{"resourceUri":"ui://preview/summary"},"unused":"fixture"}
+        });
+        let fixture = FakeServer::start(&json!({"transport":"http","exchanges":[
+            {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,"body":{
+                "jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{}},
+                    "serverInfo":{"name":"fixture","version":"1"}}
+            }}},
+            {"request":{"method":"POST","path":"/mcp"},"response":{"status":202,"chunksBase64":[]}},
+            {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,"body":{
+                "jsonrpc":"2.0","id":1,"result":{"tools":[wire_tool]}
+            }}}
+        ]}));
+        let session = Session::open_http(HttpOptions {
+            endpoint: format!("http://{}/mcp", fixture.addr),
+            admission: Arc::new(Pin(fixture.addr)),
+            bearer: None,
+            headers: Default::default(),
+            protocol: Protocol::Legacy,
+            timing: Timing::default(),
+        })
+        .unwrap();
+        let result = session.invoke(Call::ListTools, Instant::now() + Duration::from_secs(2));
+        let mut expected = case["observed"].clone();
+        if expected["error"] == "protocol" {
+            assert_eq!(result, Err(plur1bus_mcp::session::Error::Protocol));
+        } else {
+            if input["deviation"] == "P4D-244" {
+                expected["name"] = json!("report.summary");
+            }
+            let mut descriptor = result.unwrap()["tools"][0].clone();
+            let fields = descriptor.as_object_mut().unwrap();
+            let title = fields
+                .remove("title")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .encode_utf16()
+                .count();
+            let description = fields
+                .remove("description")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .encode_utf16()
+                .count();
+            fields.insert("titleUnits".into(), json!(title));
+            fields.insert("descriptionUnits".into(), json!(description));
+            assert_eq!(descriptor, expected);
+        }
+        session.close().unwrap();
+    }
+}

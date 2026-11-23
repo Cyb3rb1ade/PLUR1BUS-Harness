@@ -30,7 +30,7 @@ pub(crate) fn origin(
 pub(crate) fn tool_result(
     mut raw: Value,
     server: &str,
-    tool: String,
+    tool: &str,
     principal: &str,
     trust: Trust,
     redacted: bool,
@@ -113,13 +113,12 @@ impl Budget {
                     }
                 }
             }
-            Some(kind @ ("image" | "audio")) => {
+            Some(kind @ ("image" | "audio"))
                 if block["data"]
                     .as_str()
-                    .is_some_and(|data| !self.spend(data.len()))
-                {
-                    *block = json!({"type":"text","text":format!("[omitted: {kind} block over the size cap]")});
-                }
+                    .is_some_and(|data| !self.spend(data.len())) =>
+            {
+                *block = json!({"type":"text","text":format!("[omitted: {kind} block over the size cap]")});
             }
             _ => {}
         }

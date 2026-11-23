@@ -319,7 +319,7 @@ fn stdio_session_ends_when_the_reply_sink_stays_unavailable() {
     let outcome = result.recv_timeout(Duration::from_secs(2));
     let _ = stop.send(true);
     server_thread.join().unwrap();
-    assert!(matches!(outcome, Ok(Err(_))), "{outcome:?}");
+    assert_eq!(outcome, Ok(Err(Error::Backpressure)));
 }
 
 #[test]

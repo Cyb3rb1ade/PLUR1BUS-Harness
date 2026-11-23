@@ -229,6 +229,78 @@ fn encoded_size(value: &impl Serialize, limit: usize) -> Option<usize> {
 mod tests {
     use super::{Outstanding, RequestId, MAX_FRAME_BYTES, MAX_REPLIES};
 
+    #[tokio::test]
+    async fn a_reply_holds_its_reservation_until_the_write_completes(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use super::{Bounded, Fault, Future};
+        use rmcp::{
+            model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
+            transport::Transport,
+            RoleServer,
+        };
+        use std::{collections::VecDeque, io, sync::Arc, task::Poll, time::Duration};
+        use tokio::sync::Semaphore;
+
+        struct MemoryTransport {
+            incoming: VecDeque<ClientJsonRpcMessage>,
+            write_slots: Arc<Semaphore>,
+        }
+        impl Transport<RoleServer> for MemoryTransport {
+            type Error = io::Error;
+
+            fn send(
+                &mut self,
+                _: ServerJsonRpcMessage,
+            ) -> impl Future<Output = Result<(), io::Error>> + Send + 'static {
+                let slots = self.write_slots.clone();
+                async move {
+                    let _permit = slots.acquire_owned().await.map_err(io::Error::other)?;
+                    Ok(())
+                }
+            }
+            async fn receive(&mut self) -> Option<ClientJsonRpcMessage> {
+                self.incoming.pop_front()
+            }
+            async fn close(&mut self) -> Result<(), io::Error> {
+                Ok(())
+            }
+        }
+
+        let write_slots = Arc::new(Semaphore::new(0));
+        let message = |id| {
+            serde_json::from_value(serde_json::json!({
+                "jsonrpc":"2.0","id":id,"method":"tools/list"
+            }))
+        };
+        let memory = MemoryTransport {
+            incoming: [message(1)?, message(2)?].into(),
+            write_slots: write_slots.clone(),
+        };
+        let fault = Fault::new();
+        let mut transport = Bounded::new(
+            memory,
+            MAX_FRAME_BYTES,
+            Duration::from_secs(1),
+            fault.clone(),
+            |_| false,
+        );
+        assert!(transport.receive().await.is_some());
+        let mut write = std::pin::pin!(transport.send(serde_json::from_str(
+            r#"{"jsonrpc":"2.0","id":1,"result":{"tools":[]}}"#,
+        )?));
+        assert!(matches!(futures::poll!(write.as_mut()), Poll::Pending));
+        {
+            let mut read = std::pin::pin!(transport.receive());
+            assert!(matches!(futures::poll!(read.as_mut()), Poll::Pending));
+        }
+        assert_eq!(transport.inner.incoming.len(), 1);
+        write_slots.add_permits(1);
+        write.await?;
+        assert!(transport.receive().await.is_some());
+        assert!(fault.current().is_none());
+        Ok(())
+    }
+
     #[test]
     fn reservations_are_bounded_independently_by_count_and_bytes() {
         let full = Outstanding {
