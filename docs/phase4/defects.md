@@ -1451,3 +1451,13 @@ and keeps the original deadline through body EOF. A response above the cap
 returns `response_too_large`; the TypeScript discovery path allows four MiB.
 TCP discovery retains the TypeScript four MiB per-page and eight MiB total
 bounds. Provider error bodies are not read by the Rust scanner.
+
+<a id="p4d-226"></a>
+
+## P4D-226 — discovery transport diagnostics
+
+The Rust scanner binds a credential lease to its authorized origin before
+admitting a request. Its errors omit headers and response bodies. If the
+signed catalogue falls back to an authenticated cached view after a transport
+failure, Rust preserves the failure code and uses a generic diagnostic message.
+The TypeScript view can name the request host.

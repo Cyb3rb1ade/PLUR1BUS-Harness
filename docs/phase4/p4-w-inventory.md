@@ -305,13 +305,14 @@ Sekunde auf dem eigenen temporären Verzeichnis.
 Rust übernimmt Reconcile, Metadaten, Rollen, Alias-Priorität, Overrides und
 manuelle Einträge. Die Scanner spielen Aufzeichnungen für OpenAI, Anthropic,
 Google und Ollama ab. Der HTTP-Port nutzt den gemeinsamen ureq-Connector,
-prüft den Origin pro Redirect und deckelt komprimierte und dekodierte Bytes
-innerhalb derselben Frist. Der Apple-FM-Scanner nutzt den privaten,
+prüft den Origin pro Redirect und bindet Header-Leases vor dem Erstaufruf an
+ihren Origin ([P4D-226](defects.md#p4d-226)). Komprimierte und dekodierte Bytes
+werden innerhalb derselben Frist begrenzt. Der Apple-FM-Scanner nutzt den privaten,
 layoutgebundenen Unix-Socket ohne TCP oder Credential-Lookup.
 Der signierte Extension-Katalog prüft Rohbytes, Rootrotation, Ablauf,
 Versionsstände, dauerhaften Schlüssel- und Paketwiderruf und Download-Integrität.
 Der Host stellt einen exklusiven Checkpoint-/Snapshot-Port und die
-Egress-Freigabe für jedes HTTPS-Ziel bereit. Die TS-Replays zeichnen Scanner,
+Egress-Freigabe für jedes produktive HTTPS-Ziel bereit. Die TS-Replays zeichnen Scanner,
 HTTP-Wechsel, Reconcile, Overrides und den Katalog-Lebenszyklus auf.
 
 
