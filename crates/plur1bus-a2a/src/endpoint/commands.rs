@@ -269,3 +269,20 @@ pub(super) fn command(
         _ => return Err(RpcError::Internal),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn push_targets_refuse_user_information_and_fragments() {
+        for url in [
+            "https://fixture@callbacks.example.invalid/report",
+            "https://callbacks.example.invalid/report#part",
+        ] {
+            let params = Json::parse(&format!(r#"{{"url":"{url}"}}"#));
+            assert!(params
+                .is_ok_and(|params| matches!(push_config(&params), Err(RpcError::PushDenied))));
+        }
+    }
+}

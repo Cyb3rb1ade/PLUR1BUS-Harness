@@ -234,3 +234,17 @@ fn remove_empty(v: Value) -> Option<Value> {
 pub(super) fn normalize(card: &Value) -> Option<Value> {
     Some(remove_empty(projected(card, &CARD)?).unwrap_or_else(|| Value::Object(Map::new())))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn card_projection_requires_one_spelling_for_each_signed_field() {
+        let mut card = json!({"name":"Example","defaultInputModes":["text/plain"]});
+        assert!(normalize(&card).is_some());
+        card["default_input_modes"] = json!(["text/plain"]);
+        assert!(normalize(&card).is_none());
+    }
+}

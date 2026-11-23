@@ -110,3 +110,25 @@ fn signed_cards_cap_structure_before_the_signature_projection() {
     signed["extraDisplay"] = json!(vec!["sample"; 257]);
     assert_eq!(check(&signed), Err(peer_card::Error::CardSignature));
 }
+
+#[test]
+fn signed_cards_accept_eight_signatures_and_refuse_nine() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("../../../fixtures/parity/a2a/peer-cards.json")).unwrap();
+    let key = peer_card::PublicKey::parse(&fixture["key"]).unwrap();
+    let good = &fixture["cases"][0];
+    let mut card = good["card"].clone();
+    let signature = card["signatures"][0].clone();
+    let check = |card: &Value| {
+        peer_card::verify(
+            card.to_string().as_bytes(),
+            &key,
+            good["kid"].as_str().unwrap(),
+            good["source"].as_str().unwrap(),
+        )
+    };
+    card["signatures"] = json!(vec![signature.clone(); 8]);
+    assert!(check(&card).is_ok());
+    card["signatures"] = json!(vec![signature; 9]);
+    assert_eq!(check(&card), Err(peer_card::Error::CardSignature));
+}

@@ -850,3 +850,110 @@ fn response_mode_rejects_unexpected_coding_and_caps_redaction_expansion() {
         );
     }
 }
+
+#[test]
+fn json_and_sse_reply_ids_must_match_the_call() {
+    let mut response = rpc_response(success_task());
+    response["body"]["id"] = json!("previous-call");
+    let server = ready_fixture(response);
+    let policy = PolicyFixture::new(server.addr);
+    let registration = peer(server.addr);
+    let client = Client::new(&policy, Limits::default()).unwrap();
+    let get = Operation::Get {
+        task: "task-example",
+        history: None,
+    };
+    assert_eq!(
+        error(client.perform(call(&registration), get, "rpc-fixture")),
+        Error::RequestFailed
+    );
+
+    let ordinary = frame(&json!({
+        "statusUpdate": {"taskId":"task-example","contextId":"context-example","status":{"state":"TASK_STATE_WORKING"}}
+    }));
+    let mismatched = ordinary.replace("rpc-fixture", "previous-call");
+    let server = ready_fixture(json!({
+        "status": 200, "headers": {"content-type": "text/event-stream"}, "chunksBase64": [STANDARD.encode(mismatched)]
+    }));
+    let registration = peer(server.addr);
+    let policy = PolicyFixture::new(server.addr);
+    let client = Client::new(&policy, Limits::default()).unwrap();
+    let subscribe = Operation::Subscribe {
+        task: "task-example",
+    };
+    let Output::Stream(mut stream) = client
+        .perform(call(&registration), subscribe, "rpc-fixture")
+        .unwrap()
+    else {
+        panic!("expected SSE")
+    };
+    assert_eq!(stream.next_event(), Err(Error::RequestFailed));
+    assert_eq!(stream.next_event(), Ok(None));
+}
+
+#[test]
+fn sse_budget_counts_the_combined_length_of_regular_events() {
+    let working = frame(&json!({
+        "statusUpdate": {"taskId":"task-example","contextId":"context-example","status":{"state":"TASK_STATE_WORKING"}}
+    }));
+    let completed = frame(&json!({
+        "statusUpdate": {"taskId":"task-example","contextId":"context-example","status":{"state":"TASK_STATE_COMPLETED"}}
+    }));
+    let total = working.len() + completed.len();
+    for cap in [total, total - 1] {
+        let fixture = ready_fixture(json!({
+            "status": 200, "headers": {"content-type": "text/event-stream"},
+            "chunksBase64": [STANDARD.encode(&working), STANDARD.encode(&completed)],
+        }));
+        let registration = peer(fixture.addr);
+        let policy = PolicyFixture::new(fixture.addr);
+        let client = Client::new(
+            &policy,
+            Limits {
+                reply_bytes: cap,
+                ..Limits::default()
+            },
+        )
+        .unwrap();
+        let operation = Operation::Subscribe {
+            task: "task-example",
+        };
+        let Output::Stream(mut stream) = client
+            .perform(call(&registration), operation, "rpc-fixture")
+            .unwrap()
+        else {
+            panic!("expected SSE")
+        };
+        if cap == total {
+            assert!(stream.next_event().unwrap().is_some());
+            assert!(stream.next_event().unwrap().is_some());
+        } else {
+            let first = stream.next_event();
+            let rejection = if matches!(first, Ok(Some(_))) {
+                stream.next_event()
+            } else {
+                first
+            };
+            assert_eq!(rejection, Err(Error::TooLarge));
+        }
+        assert_eq!(stream.next_event(), Ok(None));
+    }
+}
+
+#[test]
+fn content_coding_is_checked_even_when_the_body_is_valid_json() {
+    let mut response = rpc_response(success_task());
+    response["headers"]["content-encoding"] = json!("fixture-format");
+    let server = ready_fixture(response);
+    let registration = peer(server.addr);
+    let policy = PolicyFixture::new(server.addr);
+    let client = Client::new(&policy, Limits::default()).unwrap();
+    let op = Operation::Get {
+        task: "task-example",
+        history: None,
+    };
+    assert_eq!(
+        error(client.perform(call(&registration), op, "rpc-fixture")),
+        Error::RequestFailed
+    );
+}

@@ -166,6 +166,7 @@ struct Lifecycle {
     push: RefCell<Option<Json>>,
     canceled: Cell<bool>,
     dropped: Rc<Cell<usize>>,
+    reply_scope: Option<TaskRef<'static>>,
     audits: RefCell<Vec<Audit>>,
 }
 
@@ -292,7 +293,16 @@ impl Host for Lifecycle {
             }
             Command::Resubscribe { id } => {
                 assert_eq!(id, HELD.id);
-                return Ok(self.stream(HELD, vec![events::status(HELD, state, STAMP, None, true)]));
+                return Ok(self.stream(
+                    HELD,
+                    vec![events::status(
+                        self.reply_scope.unwrap_or(HELD),
+                        state,
+                        STAMP,
+                        None,
+                        true,
+                    )],
+                ));
             }
             Command::SetPush { id, config } => {
                 assert_eq!(id, HELD.id);
@@ -357,7 +367,7 @@ fn pull(
     method: &str,
     params: &Value,
     endpoint: &Endpoint,
-    host: &Lifecycle,
+    host: &dyn Host,
     window: Window<'_>,
 ) -> endpoint::Response {
     let fields = BTreeMap::from([
@@ -647,4 +657,69 @@ fn http_entrypoint_rejects_other_authorities_and_rpc_diagnostics_bound_echoed_id
             assert_eq!(value["error"]["code"], -32600);
         }
     }
+}
+
+#[test]
+fn inbound_stream_binds_each_frame_to_the_host_selected_task_and_context() {
+    for reply_scope in [
+        TaskRef {
+            id: "earlier-task",
+            ..HELD
+        },
+        TaskRef {
+            context_id: "another-context",
+            ..HELD
+        },
+    ] {
+        let host = Lifecycle {
+            reply_scope: Some(reply_scope),
+            ..Lifecycle::default()
+        };
+        let response = pull(
+            "tasks/resubscribe",
+            &json!({"id": HELD.id}),
+            &lifecycle_endpoint(Config::default()),
+            &host,
+            active(),
+        );
+        let endpoint::Body::Stream(mut stream) = response.body else {
+            panic!("expected SSE")
+        };
+        assert!(matches!(
+            stream.next_frame(active()),
+            Err(RpcError::InvalidAgentResponse)
+        ));
+        assert_eq!(host.dropped.get(), 1);
+        assert!(stream.next_frame(active()).unwrap().is_none());
+    }
+}
+
+#[test]
+fn rpc_refuses_a_registered_agent_with_opt_in_disabled() {
+    #[derive(Default)]
+    struct DisabledHost(Cell<usize>);
+
+    impl Host for DisabledHost {
+        fn now_ms(&self) -> u64 {
+            0
+        }
+        fn agent(&self, _: &str) -> Option<AgentInfo> {
+            Some(serde_json::from_value(json!({"optIn": false})).unwrap())
+        }
+        fn task(&self, _: TaskScope<'_>, _: Command, _: Window<'_>) -> Result<Output, RpcError> {
+            self.0.set(self.0.get() + 1);
+            Err(RpcError::TaskNotFound)
+        }
+        fn audit(&self, _: Audit) {}
+    }
+    let host = DisabledHost::default();
+    let response = pull(
+        "tasks/get",
+        &json!({"id": HELD.id}),
+        &lifecycle_endpoint(Config::default()),
+        &host,
+        active(),
+    );
+    assert_eq!(response.status, 404);
+    assert_eq!(host.0.get(), 0);
 }

@@ -275,10 +275,8 @@ impl<'a> Client<'a> {
         if self.policy.local_only(call.execution.agent) && !http::local_address(grant.pin().ip()) {
             return Err(Error::Denied);
         }
-        let token = grant.bearer().map(str::to_owned);
-        if token.is_some() != call.peer.credential_slot.is_some() {
-            return Err(Error::Denied);
-        }
+        let token =
+            bearer_for_slot(grant.bearer(), call.peer.credential_slot())?.map(str::to_owned);
         if let Some(token) = &token {
             secrets.insert(token)?;
         }
@@ -410,5 +408,29 @@ impl<'a> Client<'a> {
         secrets.redact(&mut result, &mut remaining)?;
         self.check(&call)?;
         Ok(Output::Json(result))
+    }
+}
+
+fn bearer_for_slot<'a>(
+    token: Option<&'a str>,
+    slot: Option<&str>,
+) -> Result<Option<&'a str>, Error> {
+    if token.is_some() != slot.is_some() {
+        return Err(Error::Denied);
+    }
+    Ok(token)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bearer_and_registered_slot_must_be_present_together() {
+        let slot = Some("a2a/fixture/bearer");
+        assert_eq!(bearer_for_slot(None, None), Ok(None));
+        assert_eq!(bearer_for_slot(Some("fixture"), slot), Ok(Some("fixture")));
+        assert_eq!(bearer_for_slot(Some("fixture"), None), Err(Error::Denied));
+        assert_eq!(bearer_for_slot(None, slot), Err(Error::Denied));
     }
 }

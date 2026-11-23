@@ -119,6 +119,22 @@ fn endpoint_of(card: &Value, source: &Url) -> Option<Url> {
     endpoint
 }
 
+fn protected_fields<'a>(
+    header: &'a Value,
+    kid: &str,
+) -> Option<&'a serde_json::Map<String, Value>> {
+    let fields = header.as_object()?;
+    if !matches!(header["alg"].as_str(), Some("EdDSA" | "Ed25519"))
+        || header["kid"] != kid
+        || header["typ"].as_str().is_none_or(str::is_empty)
+        || fields.contains_key("crit")
+        || fields.contains_key("b64")
+    {
+        return None;
+    }
+    Some(fields)
+}
+
 fn valid_signature(entry: &Value, encoded_payload: &str, key: &PublicKey, kid: &str) -> Option<()> {
     let protected = entry["protected"].as_str()?;
     if protected.is_empty() || protected.len() > (4096usize * 4).div_ceil(3) {
@@ -129,15 +145,7 @@ fn valid_signature(entry: &Value, encoded_payload: &str, key: &PublicKey, kid: &
         return None;
     }
     let header: Value = serde_json::from_slice(&bytes).ok()?;
-    let fields = header.as_object()?;
-    if !matches!(header["alg"].as_str(), Some("EdDSA" | "Ed25519"))
-        || header["kid"] != kid
-        || header["typ"].as_str().is_none_or(str::is_empty)
-        || fields.contains_key("crit")
-        || fields.contains_key("b64")
-    {
-        return None;
-    }
+    let fields = protected_fields(&header, kid)?;
     if let Some(other) = entry.get("header") {
         let unprotected = other.as_object()?;
         if unprotected
@@ -186,4 +194,28 @@ pub fn verify(raw: &[u8], key: &PublicKey, kid: &str, source: &str) -> Check<Ver
         fingerprint: key.fingerprint.clone(),
         kid: kid.to_owned(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn protected_header_rejects_fields_without_verifier_support() {
+        let original = json!({"alg":"EdDSA","kid":"fixture-key","typ":"JWT"});
+        assert!(protected_fields(&original, "fixture-key").is_some());
+        for (field, value) in [("crit", json!(["fixture-flag"])), ("b64", json!(true))] {
+            let mut header = original.clone();
+            header[field] = value;
+            assert!(protected_fields(&header, "fixture-key").is_none());
+        }
+    }
+
+    #[test]
+    fn a_pinned_public_key_has_only_its_required_jwk_fields() {
+        let mut jwk = json!({"kty":"OKP","crv":"Ed25519","x":URL_SAFE_NO_PAD.encode([3; 32])});
+        assert!(PublicKey::parse(&jwk).is_ok());
+        jwk["kid"] = json!("display-label");
+        assert!(matches!(PublicKey::parse(&jwk), Err(Error::InvalidKey)));
+    }
 }
