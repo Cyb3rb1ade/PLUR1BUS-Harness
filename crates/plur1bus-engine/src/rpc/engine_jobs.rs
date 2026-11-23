@@ -210,7 +210,14 @@ pub(super) struct ProcessJobs {
     prepare_fault: Mutex<Option<Fault>>,
     /// A fixture body and optional first-settle budget, installed when the registry is bound (test only).
     #[cfg(test)]
-    fixture: Mutex<Option<(Arc<dyn JobBody>, Option<Duration>)>>,
+    fixture: Mutex<Option<JobFixture>>,
+}
+
+#[cfg(test)]
+#[derive(Clone)]
+struct JobFixture {
+    body: Arc<dyn JobBody>,
+    first_settle: Option<Duration>,
 }
 
 pub(in crate::rpc) struct PersonJobSlot<'a> {
@@ -296,11 +303,14 @@ impl ProcessJobs {
     /// Install a fixture body and an optional first-settle budget before the first run (test only).
     #[cfg(test)]
     pub(super) fn set_fixture_body(&self, body: Arc<dyn JobBody>, settle: Option<Duration>) {
-        *self.fixture.lock().unwrap_or_else(PoisonError::into_inner) = Some((body, settle));
+        *self.fixture.lock().unwrap_or_else(PoisonError::into_inner) = Some(JobFixture {
+            body,
+            first_settle: settle,
+        });
     }
 
     #[cfg(test)]
-    fn fixture(&self) -> Option<(Arc<dyn JobBody>, Option<Duration>)> {
+    fn fixture(&self) -> Option<JobFixture> {
         self.fixture
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -343,7 +353,10 @@ impl ProcessJobs {
     /// Whether a native body is installed for this job in this composition.
     pub(super) fn needs_authority(&self, job: JobName) -> bool {
         #[cfg(test)]
-        if self.fixture().is_some_and(|(body, _)| body.name() == job) {
+        if self
+            .fixture()
+            .is_some_and(|fixture| fixture.body.name() == job)
+        {
             return false;
         }
         match job {
@@ -354,7 +367,10 @@ impl ProcessJobs {
 
     fn installed(&self, job: JobName) -> bool {
         #[cfg(test)]
-        if self.fixture().is_some_and(|(body, _)| body.name() == job) {
+        if self
+            .fixture()
+            .is_some_and(|fixture| fixture.body.name() == job)
+        {
             return true;
         }
         self.needs_authority(job) || (!self.neo_enabled && NEO_REQUIRED.contains(&job))
@@ -420,10 +436,13 @@ impl ProcessJobs {
             )
         })();
         #[cfg(test)]
-        let bound = bound.map(|registry| match self.fixture() {
-            Some((_, Some(settle))) => registry.with_first_settle_budget(settle),
-            _ => registry,
-        });
+        let bound =
+            bound.map(
+                |registry| match self.fixture().and_then(|fixture| fixture.first_settle) {
+                    Some(settle) => registry.with_first_settle_budget(settle),
+                    _ => registry,
+                },
+            );
         let registry = match bound {
             Ok(registry) => Arc::new(registry),
             Err(_) => {
@@ -435,7 +454,10 @@ impl ProcessJobs {
         if !self.neo_enabled {
             for &job in NEO_REQUIRED {
                 #[cfg(test)]
-                if self.fixture().is_some_and(|(body, _)| body.name() == job) {
+                if self
+                    .fixture()
+                    .is_some_and(|fixture| fixture.body.name() == job)
+                {
                     continue;
                 }
                 registry.bind(Arc::new(NeoDisabled(job)))?;
@@ -447,15 +469,15 @@ impl ProcessJobs {
             #[cfg(test)]
             if self
                 .fixture()
-                .is_some_and(|(fixture, _)| fixture.name() == body.name())
+                .is_some_and(|fixture| fixture.body.name() == body.name())
             {
                 continue;
             }
             registry.bind_scoped(body.clone())?;
         }
         #[cfg(test)]
-        if let Some((body, _)) = self.fixture() {
-            registry.bind(body)?;
+        if let Some(fixture) = self.fixture() {
+            registry.bind(fixture.body)?;
         }
         self.invalid.store(false, Ordering::Release);
         *slot = Some(registry.clone());
