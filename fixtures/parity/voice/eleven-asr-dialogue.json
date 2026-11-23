@@ -1,0 +1,111 @@
+{
+  "exchanges": [
+    {
+      "receive": [
+        {
+          "message_type": "session_started"
+        }
+      ],
+      "send": [],
+      "sendText": []
+    },
+    {
+      "receive": [
+        {
+          "message_type": "partial_transcript",
+          "text": "Hallo"
+        },
+        {
+          "message_type": "committed_transcript",
+          "text": "Skip when timestamps were requested"
+        },
+        {
+          "language_code": "de",
+          "message_type": "committed_transcript_with_timestamps",
+          "text": "Hallo Welt",
+          "words": [
+            {
+              "end": 0.4,
+              "start": 0.125,
+              "text": "Hallo",
+              "type": "word"
+            },
+            {
+              "text": " ",
+              "type": "spacing"
+            }
+          ]
+        }
+      ],
+      "send": [
+        {
+          "audio_base_64": "AQACAA==",
+          "commit": false,
+          "message_type": "input_audio_chunk",
+          "sample_rate": 16000
+        },
+        {
+          "audio_base_64": "",
+          "commit": true,
+          "message_type": "input_audio_chunk",
+          "sample_rate": 16000
+        }
+      ],
+      "sendText": [
+        "{\"message_type\":\"input_audio_chunk\",\"audio_base_64\":\"AQACAA==\",\"commit\":false,\"sample_rate\":16000}",
+        "{\"message_type\":\"input_audio_chunk\",\"audio_base_64\":\"\",\"commit\":true,\"sample_rate\":16000}"
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "type": "ready"
+    },
+    {
+      "text": "Hallo",
+      "type": "partial"
+    },
+    {
+      "language": "de",
+      "text": "Hallo Welt",
+      "type": "final",
+      "words": [
+        {
+          "endMs": 400,
+          "startMs": 125,
+          "text": "Hallo"
+        }
+      ]
+    }
+  ],
+  "exporter": "scripts/parity/export-voice.ts",
+  "input": {
+    "callId": "call-1",
+    "description": "Read a fixture",
+    "instructions": "Respond in German.",
+    "language": "de",
+    "model": "scribe_v2_realtime",
+    "pcm": [
+      1,
+      0,
+      2,
+      0
+    ],
+    "result": {
+      "found": true
+    },
+    "sampleRate": 16000,
+    "text": "A fixture turn",
+    "tool": "lookup",
+    "vendor": "eleven-asr",
+    "voice": "fixture-voice"
+  },
+  "request": {
+    "headers": {
+      "xi-api-key": "<credential>"
+    },
+    "path": "/v1/speech-to-text/realtime?model_id=scribe_v2_realtime&audio_format=pcm_16000&language_code=de&commit_strategy=manual&include_timestamps=true&enable_logging=false"
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "websocket"
+}

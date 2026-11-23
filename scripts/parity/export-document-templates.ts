@@ -1,4 +1,6 @@
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { assembleHtml } from "../../packages/documents/src/render.ts";
 import { buildDocumentHtml, TEMPLATE_IDS } from "../../packages/documents/src/templates.ts";
 import { markdownToHtml } from "../../packages/documents/src/markdown.ts";
 import { sanitizeHtml } from "../../packages/documents/src/sanitize.ts";
@@ -22,6 +24,14 @@ export function recordDocumentTemplates() {
     ...common, template: "slides", subtitle: "", markdown: "Only one slide.",
     colors: { accent: "#134280", paper: "#fafafa" },
   });
+  const render = cases.map((input) => {
+    const html = assembleHtml({ template: input.template, title: input.title, subtitle: input.subtitle,
+      content: input.markdown, meta: input.meta, kit: { ...NEUTRAL_KIT, ...input.colors } });
+    const count = html.match(/@font-face/g)?.length ?? 0;
+    if (count !== 3) throw new Error("All three shipped font files are required for the W4 recording");
+    return { template: input.template, bytes: Buffer.byteLength(html),
+      sha256: createHash("sha256").update(html, "utf8").digest("hex") };
+  });
   return { templates: {
     source: "packages/documents/src/render.ts",
     cases: cases.map((input) => ({
@@ -32,7 +42,7 @@ export function recordDocumentTemplates() {
         kit: { ...NEUTRAL_KIT, ...input.colors },
       }),
     })),
-  } };
+  }, "render-html": { source: "packages/documents/src/render.ts", render } };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

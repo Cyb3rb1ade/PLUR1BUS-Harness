@@ -1,0 +1,238 @@
+{
+  "exchanges": [
+    {
+      "request": {
+        "bodyText": "",
+        "method": "GET",
+        "path": "/models?output_modalities=image"
+      },
+      "response": {
+        "body": {
+          "data": [
+            {
+              "architecture": {
+                "output_modalities": [
+                  "text"
+                ]
+              },
+              "id": "sample/text"
+            },
+            {
+              "architecture": {
+                "input_modalities": [
+                  "text",
+                  "image"
+                ],
+                "output_modalities": [
+                  "image"
+                ]
+              },
+              "id": "sample/image",
+              "name": "Fixture"
+            },
+            {
+              "architecture": {
+                "output_modalities": [
+                  "image"
+                ]
+              },
+              "id": "sample/fresh"
+            }
+          ]
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "method": "GET",
+        "path": "/"
+      },
+      "response": {
+        "body": {
+          "data": [
+            {
+              "architecture": {
+                "output_modalities": [
+                  "text"
+                ]
+              },
+              "id": "sample/text"
+            },
+            {
+              "architecture": {
+                "input_modalities": [
+                  "text",
+                  "image"
+                ],
+                "output_modalities": [
+                  "image"
+                ]
+              },
+              "id": "sample/image",
+              "name": "Fixture"
+            },
+            {
+              "architecture": {
+                "output_modalities": [
+                  "image"
+                ]
+              },
+              "id": "sample/fresh"
+            }
+          ]
+        },
+        "status": 200
+      }
+    }
+  ],
+  "expected": {
+    "apiOff": {
+      "reason": "drawthings_api_off",
+      "state": "api_off"
+    },
+    "models": [
+      {
+        "edit": true,
+        "id": "sample/image",
+        "name": "Fixture"
+      },
+      {
+        "edit": false,
+        "id": "sample/fresh"
+      }
+    ],
+    "notInstalled": {
+      "reason": "drawthings_not_installed",
+      "state": "not_installed"
+    },
+    "reads": 3,
+    "running": {
+      "state": "running"
+    },
+    "snapshots": [
+      {
+        "models": [
+          {
+            "edit": true,
+            "id": "sample/image",
+            "name": "Fixture"
+          },
+          {
+            "edit": false,
+            "id": "sample/fresh"
+          }
+        ],
+        "now": 1000,
+        "reads": 0
+      },
+      {
+        "models": [
+          {
+            "edit": true,
+            "id": "sample/image",
+            "name": "Fixture"
+          },
+          {
+            "edit": false,
+            "id": "sample/fresh"
+          }
+        ],
+        "now": 1050,
+        "reads": 1
+      },
+      {
+        "models": [
+          {
+            "edit": true,
+            "id": "sample/image",
+            "name": "Fixture"
+          },
+          {
+            "edit": false,
+            "id": "sample/fresh"
+          }
+        ],
+        "now": 1100,
+        "reads": 1
+      },
+      {
+        "models": [
+          {
+            "edit": true,
+            "id": "sample/image",
+            "name": "Fixture"
+          },
+          {
+            "edit": false,
+            "id": "sample/fresh"
+          }
+        ],
+        "now": 1149,
+        "reads": 2
+      },
+      {
+        "models": [
+          {
+            "edit": false,
+            "id": "sample/fresh"
+          }
+        ],
+        "now": 1150,
+        "reads": 2
+      }
+    ]
+  },
+  "input": {
+    "backoff": 50,
+    "first": {
+      "data": [
+        {
+          "architecture": {
+            "output_modalities": [
+              "text"
+            ]
+          },
+          "id": "sample/text"
+        },
+        {
+          "architecture": {
+            "input_modalities": [
+              "text",
+              "image"
+            ],
+            "output_modalities": [
+              "image"
+            ]
+          },
+          "id": "sample/image",
+          "name": "Fixture"
+        },
+        {
+          "architecture": {
+            "output_modalities": [
+              "image"
+            ]
+          },
+          "id": "sample/fresh"
+        }
+      ]
+    },
+    "last": {
+      "data": [
+        {
+          "architecture": {
+            "output_modalities": [
+              "image"
+            ]
+          },
+          "id": "sample/fresh"
+        }
+      ]
+    },
+    "ttl": 100
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "http"
+}

@@ -16,6 +16,10 @@ const MAX_TIMEOUT: Duration = Duration::from_secs(600);
 const MAX_MESSAGE: usize = 32 * 1024 * 1024;
 
 pub trait SocketPorts {
+    fn cancelled(&self) -> bool {
+        false
+    }
+
     fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr>;
 
     /// Connect only to the pin. Complete and verify TLS for the original hostname before
@@ -206,7 +210,12 @@ impl Socket {
     }
 
     pub fn receive(&mut self, budget: Duration) -> Result<Peer, Error> {
-        self.ws.get_mut().deadline = Instant::now() + budget.min(self.limits.read).min(MAX_TIMEOUT);
+        self.receive_until(Instant::now() + budget.min(MAX_TIMEOUT))
+    }
+
+    pub fn receive_until(&mut self, deadline: Instant) -> Result<Peer, Error> {
+        self.ws.get_mut().deadline =
+            deadline.min(Instant::now() + self.limits.read.min(MAX_TIMEOUT));
         let message = self.ws.read().map_err(classify)?;
         match message {
             Message::Text(text) => Ok(Peer::Text(text.to_string())),
@@ -228,10 +237,15 @@ impl Socket {
     }
 
     pub fn send_text(&mut self, text: &str) -> Result<(), Error> {
+        self.send_text_until(text, Instant::now() + self.limits.write.min(MAX_TIMEOUT))
+    }
+
+    pub fn send_text_until(&mut self, text: &str, deadline: Instant) -> Result<(), Error> {
         if text.len() > self.limits.message_bytes.min(self.limits.frame_bytes) {
             return Err(Error::Capacity);
         }
-        self.ws.get_mut().deadline = Instant::now() + self.limits.write.min(MAX_TIMEOUT);
+        self.ws.get_mut().deadline =
+            deadline.min(Instant::now() + self.limits.write.min(MAX_TIMEOUT));
         self.ws.send(Message::Text(text.into())).map_err(classify)
     }
 
@@ -246,10 +260,19 @@ impl Socket {
     }
 
     pub fn close(&mut self, code: u16, reason: &str) -> Result<(), Error> {
+        self.close_until(
+            code,
+            reason,
+            Instant::now() + self.limits.write.min(MAX_TIMEOUT),
+        )
+    }
+
+    pub fn close_until(&mut self, code: u16, reason: &str, deadline: Instant) -> Result<(), Error> {
         if reason.len() > 123 {
             return Err(Error::Capacity);
         }
-        self.ws.get_mut().deadline = Instant::now() + self.limits.write.min(MAX_TIMEOUT);
+        self.ws.get_mut().deadline =
+            deadline.min(Instant::now() + self.limits.write.min(MAX_TIMEOUT));
         self.ws
             .close(Some(CloseFrame {
                 code: code.into(),

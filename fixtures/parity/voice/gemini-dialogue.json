@@ -1,0 +1,230 @@
+{
+  "exchanges": [
+    {
+      "receive": [
+        {
+          "setupComplete": {}
+        }
+      ],
+      "send": [
+        {
+          "setup": {
+            "generationConfig": {
+              "responseModalities": [
+                "AUDIO"
+              ],
+              "speechConfig": {
+                "voiceConfig": {
+                  "prebuiltVoiceConfig": {
+                    "voiceName": "fixture-voice"
+                  }
+                }
+              }
+            },
+            "inputAudioTranscription": {},
+            "model": "models/fixture-live",
+            "outputAudioTranscription": {},
+            "systemInstruction": {
+              "parts": [
+                {
+                  "text": "Respond in German."
+                }
+              ]
+            },
+            "tools": [
+              {
+                "functionDeclarations": [
+                  {
+                    "description": "Read a fixture",
+                    "name": "lookup"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "sendText": [
+        "{\"setup\":{\"model\":\"models/fixture-live\",\"generationConfig\":{\"responseModalities\":[\"AUDIO\"],\"speechConfig\":{\"voiceConfig\":{\"prebuiltVoiceConfig\":{\"voiceName\":\"fixture-voice\"}}}},\"systemInstruction\":{\"parts\":[{\"text\":\"Respond in German.\"}]},\"tools\":[{\"functionDeclarations\":[{\"name\":\"lookup\",\"description\":\"Read a fixture\"}]}],\"inputAudioTranscription\":{},\"outputAudioTranscription\":{}}}"
+      ]
+    },
+    {
+      "receive": [
+        {
+          "serverContent": {
+            "inputTranscription": {
+              "text": "Hallo "
+            }
+          }
+        },
+        {
+          "serverContent": {
+            "inputTranscription": {
+              "text": "Welt"
+            },
+            "outputTranscription": {
+              "text": "Guten Tag"
+            }
+          }
+        },
+        {
+          "toolCall": {
+            "functionCalls": [
+              {
+                "args": {
+                  "term": "example"
+                },
+                "id": "call-1",
+                "name": "lookup"
+              }
+            ]
+          }
+        }
+      ],
+      "send": [
+        {
+          "clientContent": {
+            "turnComplete": true,
+            "turns": [
+              {
+                "parts": [
+                  {
+                    "text": "A fixture turn"
+                  }
+                ],
+                "role": "user"
+              }
+            ]
+          }
+        }
+      ],
+      "sendText": [
+        "{\"clientContent\":{\"turns\":[{\"role\":\"user\",\"parts\":[{\"text\":\"A fixture turn\"}]}],\"turnComplete\":true}}"
+      ]
+    },
+    {
+      "receive": [
+        {
+          "usageMetadata": {
+            "promptTokenCount": 3,
+            "responseTokenCount": 1
+          }
+        },
+        {
+          "serverContent": {
+            "turnComplete": true
+          },
+          "usageMetadata": {
+            "promptTokenCount": 7,
+            "responseTokenCount": 4
+          }
+        }
+      ],
+      "send": [
+        {
+          "toolResponse": {
+            "functionResponses": [
+              {
+                "id": "call-1",
+                "name": "lookup",
+                "response": {
+                  "found": true
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "sendText": [
+        "{\"toolResponse\":{\"functionResponses\":[{\"id\":\"call-1\",\"name\":\"lookup\",\"response\":{\"found\":true}}]}}"
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "type": "ready"
+    },
+    {
+      "final": false,
+      "role": "user",
+      "text": "Hallo ",
+      "type": "transcript"
+    },
+    {
+      "final": false,
+      "role": "user",
+      "text": "Hallo Welt",
+      "type": "transcript"
+    },
+    {
+      "final": false,
+      "role": "assistant",
+      "text": "Guten Tag",
+      "type": "transcript"
+    },
+    {
+      "arguments": {
+        "term": "example"
+      },
+      "callId": "call-1",
+      "name": "lookup",
+      "type": "tool.call"
+    },
+    {
+      "final": true,
+      "role": "user",
+      "text": "Hallo Welt",
+      "type": "transcript"
+    },
+    {
+      "final": true,
+      "role": "assistant",
+      "text": "Guten Tag",
+      "type": "transcript"
+    },
+    {
+      "type": "turn.done"
+    },
+    {
+      "report": {
+        "eventId": "gemini:<session>:0",
+        "inputTokens": 7,
+        "model": "fixture-live",
+        "operation": "realtime",
+        "outputTokens": 4,
+        "provider": "gemini"
+      },
+      "type": "usage"
+    }
+  ],
+  "exporter": "scripts/parity/export-voice.ts",
+  "input": {
+    "callId": "call-1",
+    "description": "Read a fixture",
+    "instructions": "Respond in German.",
+    "language": "de",
+    "model": "fixture-live",
+    "pcm": [
+      1,
+      0,
+      2,
+      0
+    ],
+    "result": {
+      "found": true
+    },
+    "sampleRate": 16000,
+    "text": "A fixture turn",
+    "tool": "lookup",
+    "vendor": "gemini",
+    "voice": "fixture-voice"
+  },
+  "request": {
+    "headers": {
+      "x-goog-api-key": "<credential>"
+    },
+    "path": "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "websocket"
+}

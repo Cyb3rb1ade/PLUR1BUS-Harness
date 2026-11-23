@@ -1,0 +1,147 @@
+{
+  "boundaries": {
+    "expected-divergence": "P4D-223",
+    "typescriptModelsCharacters": 1048576
+  },
+  "exchanges": [
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/v1/models"
+      },
+      "response": {
+        "body": {
+          "error": "quota"
+        },
+        "headers": {
+          "retry-after": "0.125"
+        },
+        "status": 429
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/v1/models"
+      },
+      "response": {
+        "body": {
+          "error": "fixture unavailable"
+        },
+        "status": 503
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/v1/models"
+      },
+      "response": {
+        "body": {
+          "models": [
+            "example"
+          ]
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "{\"prompt\":\"A tree 🌳\"}",
+        "headers": {
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "path": "/v1/generate"
+      },
+      "response": {
+        "body": {
+          "error": "fixture unavailable"
+        },
+        "status": 503
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/v1/account"
+      },
+      "response": {
+        "body": {
+          "error": "fixture credential rejected"
+        },
+        "status": 401
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/v1/guard"
+      },
+      "response": {
+        "body": {
+          "error": "rejected by content policy"
+        },
+        "status": 403
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/image"
+      },
+      "response": {
+        "chunksBase64": [
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg=="
+        ],
+        "headers": {
+          "content-type": "image/png"
+        },
+        "status": 200
+      }
+    }
+  ],
+  "expected": {
+    "credential": {
+      "code": "backend_unavailable",
+      "reason": "auth_invalid"
+    },
+    "declined": {
+      "code": "backend_unavailable"
+    },
+    "image": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+    "moderation": {
+      "code": "content_policy"
+    },
+    "success": {
+      "models": [
+        "example"
+      ]
+    },
+    "waits": [
+      125,
+      1125
+    ]
+  },
+  "exporter": "scripts/parity/export-media-http.ts",
+  "input": {
+    "random": 0.25,
+    "submission": {
+      "prompt": "A tree 🌳"
+    }
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "http"
+}

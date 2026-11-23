@@ -5,8 +5,9 @@ use std::sync::{
     Mutex,
 };
 
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use plur1bus_media::{
-    jobs::{AdapterCall, Error, Host, Job, Progress, Result, Runner, Update},
+    jobs::{AdapterCall, Error, Host, Job, JobRequest, Progress, Result, Runner, Update},
     units::Units,
 };
 use serde_json::{json, Value};
@@ -96,9 +97,14 @@ impl Host for Fixture {
             .clone()
             .or_else(|| (self.name == "existing-output").then(manifest)))
     }
-    fn publish(&self, _id: &str, _request: &Value, (): ()) -> Result<Value> {
-        self.record(json!(["publish"]));
-        let output = manifest();
+    fn publish(&self, _id: &str, request: &JobRequest, (): ()) -> Result<Value> {
+        let output = if self.name == "binary-request" {
+            self.record(json!(["publish", describe_inputs(request)]));
+            json!({"files":[if request.parameters["kind"] == "video" { json!({"durationSeconds":3.5}) } else { json!({}) }]})
+        } else {
+            self.record(json!(["publish"]));
+            manifest()
+        };
         *self.published.lock().unwrap() = Some(output.clone());
         Ok(output)
     }
@@ -118,6 +124,10 @@ impl Host for Fixture {
         call: AdapterCall<'_>,
         update: &mut dyn FnMut(Update) -> Result<()>,
     ) -> Result<()> {
+        if self.name == "binary-request" {
+            self.record(json!(["adapter", describe_inputs(call.request)]));
+            return Ok(());
+        }
         self.record(json!(["adapter", call.operation, call.checkpoint]));
         if self.name == "provider-failure" {
             return Err(Error::BackendUnavailable);
@@ -141,6 +151,69 @@ impl Host for Fixture {
 
 fn manifest() -> Value {
     json!({"files":[{"path":"0.png","format":"png","bytes":3}]})
+}
+
+fn describe_inputs(request: &JobRequest) -> Value {
+    let describe =
+        |format: &str, bytes: &[u8]| json!({"format":format,"bytes":STANDARD.encode(bytes)});
+    json!({
+        "parameters":request.parameters,
+        "references":request.references.iter().map(|image| describe(image.format.extension(), &image.bytes)).collect::<Vec<_>>(),
+        "mask":request.mask.as_ref().map(|image| describe(image.format.extension(), &image.bytes)),
+        "referenceVideo":request.reference_video.as_ref().map(|video| describe(video.format.extension(), &video.bytes)),
+    })
+}
+
+#[test]
+fn persisted_image_and_video_inputs_reach_adapters_and_publication_in_the_typescript_shape() {
+    let recorded: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/media/job-inputs.json"
+    ))
+    .unwrap();
+    for vector in recorded["cases"].as_array().unwrap() {
+        let job: Job = serde_json::from_value(vector["input"].clone()).unwrap();
+        let id = job.id.clone();
+        let fixture = Fixture {
+            name: "binary-request".into(),
+            current: Mutex::new(job),
+            events: Mutex::default(),
+            published: Mutex::default(),
+            fail_settlement: AtomicBool::new(false),
+        };
+        let runner = Runner::new(&fixture);
+        runner.run(&id, &|| None).unwrap();
+        assert_eq!(
+            json!(fixture.current.lock().unwrap().state),
+            vector["expected"]["state"]
+        );
+        let relevant: Vec<_> = fixture
+            .events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event[0].as_str(),
+                    Some("reserve" | "adapter" | "publish" | "settle")
+                )
+            })
+            .cloned()
+            .collect();
+        let expected = vector["expected"]["events"].as_array().unwrap();
+        assert_eq!(relevant.len(), expected.len());
+        for (actual, recorded) in relevant.iter().zip(expected) {
+            assert_eq!(actual[0], recorded[0]);
+            if actual[1].get("quantity").is_some() {
+                assert_eq!(actual[1]["unit"], recorded[1]["unit"]);
+                assert_eq!(
+                    actual[1]["quantity"].as_f64(),
+                    recorded[1]["quantity"].as_f64()
+                );
+            } else {
+                assert_eq!(actual[1], recorded[1]);
+            }
+        }
+    }
 }
 
 #[test]

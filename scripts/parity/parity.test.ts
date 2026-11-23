@@ -1455,11 +1455,103 @@ describe("media video codec process port (P4-W W4)", () => {
   });
 });
 
+describe("media image codecs (P4-W W4)", () => {
+  it("matches the production TypeScript metadata and verification recordings", async () => {
+    const { recordMediaImages } = await import("./export-media-images.ts");
+    const expected = fixtureText(recordMediaImages()["image-codecs"]);
+    assert.equal(readFileSync(fixturePath("media", "image-codecs"), "utf8"), expected);
+  });
+});
+
+describe("media output publication (P4-W W4)", () => {
+  it("matches the TypeScript manifest, charge, refusal and pruning recording", async () => {
+    const { recordMediaStore } = await import("./export-media-store.ts");
+    const expected = fixtureText((await recordMediaStore())["output-store"]);
+    assert.equal(readFileSync(fixturePath("media", "output-store"), "utf8"), expected);
+  });
+});
+
+describe("media upload publication (P4-W W4)", () => {
+  it("matches the TypeScript upload, charge, raw bytes and deletion recording", async () => {
+    const { recordMediaUpload } = await import("./export-media-upload.ts");
+    const expected = fixtureText((await recordMediaUpload())["upload-store"]);
+    assert.equal(readFileSync(fixturePath("media", "upload-store"), "utf8"), expected);
+  });
+});
+
+describe("media HTTP transport (P4-W W4)", () => {
+  it("matches the production retry, status and binary exchanges", async () => {
+    const { recordMediaHttp } = await import("./export-media-http.ts");
+    const fixture = (await recordMediaHttp())["adapter-http"];
+    assert.equal(readFileSync(fixturePath("media", "adapter-http"), "utf8"),
+      fixtureText(fixture));
+  });
+});
+
+describe("media image provider protocols (P4-W W4)", () => {
+  it("matches the TypeScript adapter requests, progress and file bytes", async () => {
+    const { imageProviders, recordMediaImageWire } = await import("./export-media-image-wire.ts");
+    const cases = await recordMediaImageWire();
+    for (const provider of imageProviders) {
+      const name = "image-wire-" + provider;
+      assert.equal(readFileSync(fixturePath("media", name), "utf8"), fixtureText(cases[name]), provider);
+    }
+  });
+});
+
+describe("media multipart editing (P4-W W4)", () => {
+  it("matches the TypeScript request bytes after substituting its random boundary", async () => {
+    const { recordMediaMultipart } = await import("./export-media-multipart.ts");
+    assert.equal(readFileSync(fixturePath("media", "image-multipart"), "utf8"),
+      fixtureText((await recordMediaMultipart())["image-multipart"]));
+  });
+});
+
+describe("media model discovery (P4-W W4)", () => {
+  it("matches the image catalog, refresh fallback and local app states", async () => {
+    const { recordMediaDiscovery } = await import("./export-media-discovery.ts");
+    const expected = fixtureText((await recordMediaDiscovery())["media-discovery"]);
+    assert.equal(readFileSync(fixturePath("media", "media-discovery"), "utf8"), expected);
+  });
+});
+
+describe("CoreML helper protocols (P4-W W4)", () => {
+  it("matches the TypeScript helper launch, JSONL, legacy and cancellation recordings", async () => {
+    const { recordMediaCoreMl } = await import("./export-media-coreml.ts");
+    const cases = await recordMediaCoreMl();
+    assert.equal(readFileSync(fixturePath("media", "coreml-wire"), "utf8"), fixtureText(cases["coreml-wire"]));
+  });
+});
+
+describe("media video provider protocols (P4-W W4)", () => {
+  it("matches the TypeScript submission, checkpoint, poll and binary exchanges", async () => {
+    const { videoProviders, recordMediaVideoWire } = await import("./export-media-video-wire.ts");
+    const cases = await recordMediaVideoWire();
+    for (const provider of videoProviders) {
+      const name = "video-wire-" + provider;
+      assert.equal(readFileSync(fixturePath("media", name), "utf8"), fixtureText(cases[name]), provider);
+    }
+  });
+});
+
+describe("media video publication (P4-W W4)", () => {
+  it("matches the TypeScript video store, processor and byte accounting", async () => {
+    const { recordMediaVideoStore } = await import("./export-media-video-store.ts");
+    const expected = fixtureText((await recordMediaVideoStore())["video-store"]);
+    assert.equal(readFileSync(fixturePath("media", "video-store"), "utf8"), expected);
+  });
+});
+
 describe("media job orchestration (P4-W W4)", () => {
   it("matches the production TypeScript job and budget port calls", async () => {
     const { recordMediaJobs } = await import("./export-media-jobs.ts");
     const expected = fixtureText((await recordMediaJobs())["job-runner"]);
     assert.equal(readFileSync(fixturePath("media", "job-runner"), "utf8"), expected);
+  });
+  it("matches persisted Buffer and Uint8Array requests and adapter inputs", async () => {
+    const { recordMediaJobInputs } = await import("./export-media-job-inputs.ts");
+    const expected = fixtureText((await recordMediaJobInputs())["job-inputs"]);
+    assert.equal(readFileSync(fixturePath("media", "job-inputs"), "utf8"), expected);
   });
 });
 
@@ -1468,6 +1560,19 @@ describe("document template assembly (P4-W W4)", () => {
     const { recordDocumentTemplates } = await import("./export-document-templates.ts");
     const expected = fixtureText(recordDocumentTemplates().templates);
     assert.equal(readFileSync(fixturePath("documents", "templates"), "utf8"), expected);
+  });
+  it("matches the full HTML with all shipped font faces", async () => {
+    const { recordDocumentTemplates } = await import("./export-document-templates.ts");
+    const expected = fixtureText(recordDocumentTemplates()["render-html"]);
+    assert.equal(readFileSync(fixturePath("documents", "render-html"), "utf8"), expected);
+  });
+});
+
+describe("document checks (P4-W W4)", () => {
+  it("matches the generated findings and authored Chromium check script", async () => {
+    const { recordDocumentChecks } = await import("./export-document-checks.ts");
+    assert.equal(readFileSync(fixturePath("documents", "checks"), "utf8"),
+      fixtureText(recordDocumentChecks().checks));
   });
 });
 

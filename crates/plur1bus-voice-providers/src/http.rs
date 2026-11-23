@@ -1,11 +1,11 @@
 //! Bounded HTTP response processing for the cloud voice providers.
-use plur1bus_providers::pinned_http_agent;
+use plur1bus_providers::{pinned_http_agent, retry_after_date_ms};
 use serde_json::Value;
 use std::{
     fmt,
     io::{self, Read},
     net::SocketAddr,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
 use ureq::http::{HeaderValue, Request};
 use url::{Host, Url};
@@ -23,14 +23,39 @@ pub trait Ports {
     fn cancelled(&self) -> bool {
         false
     }
+
+    fn wall_time(&self) -> SystemTime {
+        SystemTime::now()
+    }
+
+    /// The host can replace the blocking delay for tests or cancellable scheduling.
+    fn wait_retry(&self, delay: Duration, deadline: Instant) -> Result<(), Error> {
+        let until = (Instant::now() + delay).min(deadline);
+        loop {
+            if self.cancelled() {
+                return Err(Error::Aborted);
+            }
+            let remaining = until.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return if Instant::now() < deadline {
+                    Ok(())
+                } else {
+                    Err(Error::Timeout)
+                };
+            }
+            std::thread::sleep(remaining.min(Duration::from_millis(50)));
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Error {
     Auth,
     RateLimited,
+    RateLimitedAfter(u64),
     Timeout,
     Overloaded,
+    OverloadedAfter(u64),
     InvalidRequest,
     Unsupported,
     UpstreamProtocol,
@@ -44,9 +69,9 @@ impl Error {
     pub fn code(self) -> &'static str {
         match self {
             Self::Auth => "auth",
-            Self::RateLimited => "rate_limited",
+            Self::RateLimited | Self::RateLimitedAfter(_) => "rate_limited",
             Self::Timeout => "timeout",
-            Self::Overloaded => "overloaded",
+            Self::Overloaded | Self::OverloadedAfter(_) => "overloaded",
             Self::InvalidRequest => "invalid_request",
             Self::Unsupported => "unsupported",
             Self::UpstreamProtocol => "upstream_protocol",
@@ -60,16 +85,28 @@ impl Error {
     pub fn retryable(self) -> bool {
         matches!(
             self,
-            Self::RateLimited | Self::Timeout | Self::Overloaded | Self::Network
+            Self::RateLimited
+                | Self::RateLimitedAfter(_)
+                | Self::Timeout
+                | Self::Overloaded
+                | Self::OverloadedAfter(_)
+                | Self::Network
         )
     }
 
-    fn status(status: u16) -> Self {
+    pub fn retry_after_ms(self) -> Option<u64> {
+        match self {
+            Self::RateLimitedAfter(ms) | Self::OverloadedAfter(ms) => Some(ms),
+            _ => None,
+        }
+    }
+
+    fn status(status: u16, hint: Option<u64>) -> Self {
         match status {
             401 | 403 => Self::Auth,
-            429 => Self::RateLimited,
+            429 => hint.map_or(Self::RateLimited, Self::RateLimitedAfter),
             408 | 504 => Self::Timeout,
-            500..=599 => Self::Overloaded,
+            500..=599 => hint.map_or(Self::Overloaded, Self::OverloadedAfter),
             400 | 404 | 413 | 422 => Self::InvalidRequest,
             _ => Self::BadResponse,
         }
@@ -84,9 +121,11 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+#[derive(Clone, Copy)]
 pub struct Client<'a> {
     ports: &'a dyn Ports,
     allow_loopback_http: bool,
+    retries: u8,
 }
 
 impl<'a> Client<'a> {
@@ -94,6 +133,7 @@ impl<'a> Client<'a> {
         Self {
             ports,
             allow_loopback_http: false,
+            retries: 2,
         }
     }
 
@@ -101,6 +141,15 @@ impl<'a> Client<'a> {
     pub fn with_loopback_http(mut self) -> Self {
         self.allow_loopback_http = true;
         self
+    }
+
+    pub fn with_retries(mut self, retries: u8) -> Self {
+        self.retries = retries;
+        self
+    }
+
+    pub(crate) fn check(&self, deadline: Instant) -> Result<(), Error> {
+        check(self.ports, deadline)
     }
 
     pub fn json(
@@ -136,22 +185,54 @@ impl<'a> Client<'a> {
         deadline: Instant,
         limit: usize,
     ) -> Result<Vec<u8>, Error> {
-        let mut response = self.request(endpoint, method, headers, request, deadline)?;
+        self.with_body(endpoint, method, headers, request, deadline, |_, reader| {
+            read_bounded(reader, self.ports, deadline, limit)
+        })
+    }
+
+    pub(crate) fn with_body<T>(
+        &self,
+        endpoint: &Url,
+        method: &str,
+        headers: &[(&str, &str)],
+        request: &[u8],
+        deadline: Instant,
+        consume: impl FnOnce(u16, &mut dyn Read) -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        let mut response = self.request(endpoint, method, headers, request, deadline, None)?;
         let gzip = response
             .headers()
             .get("content-encoding")
             .is_some_and(|enc| enc.as_bytes().eq_ignore_ascii_case(b"gzip"));
+        let status = response.status().as_u16();
         let mut reader = response.body_mut().as_reader();
         if gzip {
-            read_bounded(
-                &mut flate2::read::MultiGzDecoder::new(reader),
-                self.ports,
-                deadline,
-                limit,
-            )
+            consume(status, &mut flate2::read::MultiGzDecoder::new(reader))
         } else {
-            read_bounded(&mut reader, self.ports, deadline, limit)
+            consume(status, &mut reader)
         }
+    }
+
+    pub(crate) fn read_chunk(
+        &self,
+        reader: &mut dyn Read,
+        deadline: Instant,
+        buffer: &mut [u8],
+    ) -> Result<usize, Error> {
+        checked_read(reader, self.ports, deadline, buffer)
+    }
+
+    pub(crate) fn signed_reader_until(
+        &self,
+        endpoint: &Url,
+        method: &str,
+        headers: &[(&str, &str)],
+        request: &[u8],
+        deadline: Instant,
+        signer: &dyn crate::polly::Signer,
+    ) -> Result<Box<dyn Read>, Error> {
+        let response = self.request(endpoint, method, headers, request, deadline, Some(signer))?;
+        Ok(decoded_reader(response))
     }
 
     fn request(
@@ -161,6 +242,34 @@ impl<'a> Client<'a> {
         headers: &[(&str, &str)],
         request: &[u8],
         deadline: Instant,
+        signer: Option<&dyn crate::polly::Signer>,
+    ) -> Result<ureq::http::Response<ureq::Body>, Error> {
+        for attempt in 0..self.retries {
+            let failure =
+                match self.request_once(endpoint, method, headers, request, deadline, signer) {
+                    Err(error) if error.retryable() => error,
+                    outcome => return outcome,
+                };
+            check(self.ports, deadline)?;
+            let backoff = 500 * (1_u64 << attempt.min(6));
+            let delay =
+                Duration::from_millis(failure.retry_after_ms().unwrap_or(backoff).min(30_000));
+            if delay >= deadline.saturating_duration_since(Instant::now()) {
+                return Err(Error::Timeout);
+            }
+            self.ports.wait_retry(delay, deadline)?;
+        }
+        self.request_once(endpoint, method, headers, request, deadline, signer)
+    }
+
+    fn request_once(
+        &self,
+        endpoint: &Url,
+        method: &str,
+        headers: &[(&str, &str)],
+        request: &[u8],
+        deadline: Instant,
+        signer: Option<&dyn crate::polly::Signer>,
     ) -> Result<ureq::http::Response<ureq::Body>, Error> {
         let insecure = endpoint.scheme() == "http" && self.allow_loopback_http;
         if (endpoint.scheme() != "https" && !insecure)
@@ -187,6 +296,11 @@ impl<'a> Client<'a> {
             return Err(Error::InvalidRequest);
         }
         check(self.ports, deadline)?;
+        let authorization = signer
+            .map(|signer| signer.sign(endpoint, method, headers, request, deadline))
+            .transpose()?
+            .unwrap_or_default();
+        check(self.ports, deadline)?;
 
         let config = ureq::Agent::config_builder()
             .proxy(None)
@@ -206,13 +320,17 @@ impl<'a> Client<'a> {
             .method(method)
             .uri(endpoint.as_str())
             .header("accept-encoding", "gzip");
-        for (name, value) in headers {
+        for (name, value) in headers.iter().copied().chain(
+            authorization
+                .iter()
+                .map(|(name, value)| (name.as_str(), value.as_str())),
+        ) {
             if name.eq_ignore_ascii_case("accept-encoding") {
                 return Err(Error::InvalidRequest);
             }
             let mut header = HeaderValue::from_str(value).map_err(|_| Error::InvalidRequest)?;
             header.set_sensitive(true);
-            builder = builder.header(*name, header);
+            builder = builder.header(name, header);
         }
         let request = builder.body(request).map_err(|_| Error::InvalidRequest)?;
         let response = agent.run(request).map_err(|err| {
@@ -227,25 +345,62 @@ impl<'a> Client<'a> {
         check(self.ports, deadline)?;
         let status = response.status();
         if !status.is_success() {
-            // Provider diagnostics are neither consumed nor surfaced.
-            return Err(Error::status(status.as_u16()));
-        }
-        if let Some(encoding) = response.headers().get("content-encoding") {
-            if response
-                .headers()
-                .get_all("content-encoding")
-                .iter()
-                .count()
-                > 1
-                || ![b"identity".as_slice(), b"gzip"]
-                    .iter()
-                    .any(|allowed| encoding.as_bytes().eq_ignore_ascii_case(allowed))
-            {
-                return Err(Error::BadResponse);
+            if signer.is_some() {
+                return Err(crate::polly::response_error(response, self.ports, deadline));
             }
+            // Provider diagnostics are neither consumed nor surfaced.
+            let hint = response
+                .headers()
+                .get("retry-after")
+                .and_then(|raw| raw.to_str().ok())
+                .and_then(|value| retry_after_ms(value, self.ports.wall_time()));
+            return Err(Error::status(status.as_u16(), hint));
         }
+        check_encoding(response.headers())?;
         Ok(response)
     }
+}
+
+pub(crate) fn check_encoding(headers: &ureq::http::HeaderMap) -> Result<(), Error> {
+    let mut encodings = headers.get_all("content-encoding").iter();
+    if let Some(encoding) = encodings.next() {
+        if encodings.next().is_some()
+            || ![b"identity".as_slice(), b"gzip"]
+                .iter()
+                .any(|allowed| encoding.as_bytes().eq_ignore_ascii_case(allowed))
+        {
+            return Err(Error::BadResponse);
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn decoded_reader(response: ureq::http::Response<ureq::Body>) -> Box<dyn Read> {
+    let gzip = response
+        .headers()
+        .get("content-encoding")
+        .is_some_and(|enc| enc.as_bytes().eq_ignore_ascii_case(b"gzip"));
+    let reader = response.into_body().into_reader();
+    if gzip {
+        Box::new(flate2::read::MultiGzDecoder::new(reader))
+    } else {
+        Box::new(reader)
+    }
+}
+
+fn retry_after_ms(value: &str, now: SystemTime) -> Option<u64> {
+    let value = value.trim();
+    let digits = |text: &str| !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit());
+    if value.split_once('.').map_or_else(
+        || digits(value),
+        |(head, tail)| digits(head) && digits(tail),
+    ) {
+        return value
+            .parse::<f64>()
+            .ok()
+            .map(|seconds| (seconds * 1000.).round().min(3_600_000.) as u64);
+    }
+    retry_after_date_ms(value, now).map(|ms| ms.min(3_600_000))
 }
 
 pub(crate) fn deadline(timeout: Duration) -> Instant {
@@ -263,7 +418,7 @@ pub(crate) fn check(ports: &dyn Ports, deadline: Instant) -> Result<(), Error> {
 }
 
 pub(crate) fn read_bounded(
-    reader: &mut impl Read,
+    reader: &mut (impl Read + ?Sized),
     ports: &dyn Ports,
     deadline: Instant,
     limit: usize,
@@ -271,21 +426,9 @@ pub(crate) fn read_bounded(
     let mut collected = Vec::new();
     let mut buf = [0; 8192];
     loop {
-        check(ports, deadline)?;
         let remaining = limit - collected.len();
-        let next = buf.len().min(remaining + 1);
-        let count = match reader.read(&mut buf[..next]) {
-            Ok(count) => count,
-            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
-            Err(error) => {
-                check(ports, deadline)?;
-                return Err(match error.kind() {
-                    io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => Error::Timeout,
-                    _ => Error::BadResponse,
-                });
-            }
-        };
-        check(ports, deadline)?;
+        let next = buf.len().min(remaining.saturating_add(1));
+        let count = checked_read(reader, ports, deadline, &mut buf[..next])?;
         if count == 0 {
             return Ok(collected);
         }
@@ -293,6 +436,30 @@ pub(crate) fn read_bounded(
             return Err(Error::BadResponse);
         }
         collected.extend_from_slice(&buf[..count]);
+    }
+}
+
+fn checked_read(
+    reader: &mut (impl Read + ?Sized),
+    ports: &dyn Ports,
+    deadline: Instant,
+    buffer: &mut [u8],
+) -> Result<usize, Error> {
+    loop {
+        check(ports, deadline)?;
+        let result = reader.read(buffer);
+        check(ports, deadline)?;
+        match result {
+            Ok(count) if count <= buffer.len() => return Ok(count),
+            Ok(_) => return Err(Error::BadResponse),
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(error) => {
+                return Err(match error.kind() {
+                    io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => Error::Timeout,
+                    _ => Error::BadResponse,
+                });
+            }
+        }
     }
 }
 

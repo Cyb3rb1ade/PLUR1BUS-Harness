@@ -29,7 +29,7 @@ pub enum Format {
 }
 
 impl Format {
-    const fn muxer(self) -> &'static str {
+    pub const fn extension(self) -> &'static str {
         match self {
             Self::Mp4 => "mp4",
             Self::Mov => "mov",
@@ -248,7 +248,7 @@ pub fn process(
     if let Some(prompt) = request.prompt {
         args.extend(["-metadata".into(), format!("comment={prompt}").into()]);
     }
-    args.extend(options(["-f", request.format.muxer(), "-y"]));
+    args.extend(options(["-f", request.format.extension(), "-y"]));
     args.push(output.as_os_str().into());
     run(Codec::Ffmpeg, &args)?;
 

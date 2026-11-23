@@ -1343,6 +1343,30 @@ The Rust Gemini handshake accepts only the header form of the credential.
 The TypeScript gateway fallback can put credentials in a URL query. The
 Rust host can use a gateway that forwards the credential header.
 
+<a id="p4d-210"></a>
+
+## P4D-210 — cloud synthesis stream deadline and completion
+
+The Rust HTTP audio stream reads one decoded chunk at a time under the
+request's absolute deadline. WebSocket synthesis uses the same absolute
+deadline for writes and reads, admits structured frames up to the
+P4D-205 ceiling, and exposes usage only after the text input and the provider's
+final frame both complete. The TypeScript HTTP deadline ends at the headers.
+The TypeScript socket consumer queues audio frames asynchronously. The native
+host owns the ordering of calls to the blocking dialogue.
+
+<a id="p4d-211"></a>
+
+## P4D-211 — streaming text admission and usage identifiers
+
+The Rust Polly sentence splitter admits up to 1 MiB per input delta and
+keeps up to 1 MiB of unfinished text. Individual signed requests use Polly's
+3,000 UTF-16 code unit ceiling. The TypeScript sentence splitter has no bound
+on unfinished text. The Rust realtime host supplies the Gemini session
+identifier used to deduplicate usage events. Audio and transcripts remain
+application data and are omitted from event Debug output.
+
+<a id="p4d-212"></a>
 
 ## P4D-212 — retry after publishing a media result
 
@@ -1353,3 +1377,55 @@ returns the settlement error with the durable row still running. On recovery it
 finds the output, retries settlement under the same job id, and persists the
 success without calling the provider again. The budget port owns durable,
 idempotent settlement. The focused Rust failure test covers the retry boundary.
+
+<a id="p4d-219"></a>
+
+## P4D-219 — Polly diagnostic body admission
+
+The TypeScript SDK may read an AWS diagnostics body before classifying a
+failure. The Rust transport classifies a known error header without reading
+the body. A body-only error is decoded under the original request deadline
+and limited to 64 KiB. Overflow yields `bad_response`. Provider message text
+is discarded. The boundary and delayed-body tests cover both restrictions.
+
+<a id="p4d-220"></a>
+
+## P4D-220 — generated media manifest admission
+
+The Rust output store bounds a generated manifest to 1 MiB when reading it.
+The storage port applies the size limit during the read. The library checks
+the returned size, schema and output identity before handing the manifest to
+its caller, and applies the same bound before publishing new manifests.
+
+<a id="p4d-221"></a>
+
+## P4D-221 — document review font family matching
+
+The TypeScript font check in the document library compares lowercased
+font references against the original case of the embedded families. This
+reports an error for embedded Inter. Rust normalizes both names and still
+flags families absent from the document and the system fallback list. The
+fixture records the TypeScript finding. The Rust check also resolves the
+template's three CSS font variables against their declared family lists.
+
+<a id="p4d-222"></a>
+
+## P4D-222 — document widow check with inline markup
+
+The Chromium layout check addresses the last words of each paragraph
+relative to the complete paragraph text. The TypeScript script applies
+those offsets to the first child alone. A paragraph with emphasis or a
+link can therefore abort the check. The Rust asset maps word offsets to
+the corresponding text nodes before comparing line positions.
+
+<a id="p4d-223"></a>
+
+## P4D-223 — media adapter structured response and diagnostics limits
+
+The TypeScript media transport reads successful JSON and diagnostic responses
+under one 64 MiB limit. Under R-W-13 the Rust transport bounds decoded JSON
+at 1 MiB and diagnostic bodies at 64 KiB. Declared lengths can reject early.
+The reader counts the bytes it receives, including after gzip decoding.
+HTTP setup, retry waits and body reads share the absolute operation deadline.
+An in-flight blocking read can defer cancellation until that deadline (R-W-9).
+The adapters apply separate file limits to binary media.
