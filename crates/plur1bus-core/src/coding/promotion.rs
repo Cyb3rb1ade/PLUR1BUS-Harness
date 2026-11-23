@@ -479,8 +479,13 @@ fn existing_target(project_id: String) -> Target {
 impl ChatPromotion {
     /// Open the compatible unversioned receipt store.
     pub fn open(path: &Path) -> R<Self> {
+        Self::open_with_permissions(path, None)
+    }
+
+    /// Open with the host's owner-only attestation for disk-backed stores.
+    pub fn open_with_permissions(path: &Path, secure: Option<&dyn Fn(&Path) -> bool>) -> R<Self> {
         Ok(Self {
-            db: open_store(path, "chat-promotions", DDL)?,
+            db: open_store(path, "chat-promotions", DDL, secure)?,
             previews: HashMap::new(),
         })
     }

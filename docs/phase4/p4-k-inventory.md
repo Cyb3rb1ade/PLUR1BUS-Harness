@@ -577,7 +577,8 @@ Ports: clock, ids, engine memory port, git process (checkpoints), summariser.
 - `rewind_project` is behind ports; there is no collab to read.
 - The vectors were recorded on unix; the guard test skips on Windows.
 - **K5-D8 (K5-R1):** Rust checks the working tree, index and untracked targets again after consuming approval
-  and recording audit, immediately before requesting the restore. Changes after this final check still need host coordination.
+  and recording audit, immediately before requesting the restore. The host coordinates writers through K5-D11.
+- **K5-D11 (R-K-28, P4D-199):** File restore requires a lease on the canonical project worktree. The host must fence every writer at the flip and hold ownership through Git restore. Missing or lost exclusivity returns `rewind-writer-lease`.
 - **K5-D10 (K5-R3):** new Rust erasure tombstones store a canonical actor principal and a catalog reason.
   The host passes the authenticated actor. Unknown nonempty reasons become `explicit deletion`.
   Existing tombstones remain readable. TypeScript stores the raw actor and reason supplied by its host.
@@ -740,6 +741,7 @@ knowledge file, media search and the engine forwards are K7b onward).
   and Node agree in 2040 and 2099. Rust uses standard time in the sampled summer of 2100 and Node still uses daylight
   saving time. Six March 2100 cases in the broad calendar vector now pin both UTC outcomes. All other cases compare exactly. A wall year below 100 and the
   instants within a day of the earliest `Date` are errors, a lone surrogate in a definition cannot be held, the user-jobs directory is 0700,
+  **K7-D53 (R-K-32, P4D-201):** The jobs store refuses an explicit negative host permission decision on every platform. The Unix default remains best effort.
   **K7-D4:** a newer store schema is refused where TypeScript opens it. **K7-D6 (K7a-R3):** The pinned Rust tzdb 2025b and Node tzdb 2026c
   disagree on the transition to permanent UTC in `Africa/Casablanca` and `Africa/El_Aaiun` on 2026-09-20. The recorded examples on
   both sides of the transition pin the database versions and the exact UTC outcomes. [IANA 2026c release notes](https://data.iana.org/time-zones/tzdb-2026c/NEWS).
@@ -747,7 +749,7 @@ knowledge file, media search and the engine forwards are K7b onward).
   agent existence and list, budget gate, display name, the turn (`submitTurn`), `notify`, `onRecorded`, `onFailed`, `isStopping`, the
   owner-only hook, `engineHasJob`, a logger, the integrity arm's timers.
 - **K7-D7 (K7a-R1):** Rust rechecks the selected job under a write transaction and conditionally advances the same
-  definition that was observed. A second connection that loses the scheduled claim returns without dispatching.
+  definition that was observed. In the two-process test a child claims the scheduled slot while the parent is resolving its display name. The parent dispatches zero turns and the store contains one run.
 - *Proof:* `fixtures/parity/jobs/{cron,user,rpc,system}.json` from `scripts/parity/export-jobs.ts` (the real TypeScript over real files,
   scripted clock, ids and ports) replayed by `jobs::{cron_vectors,user::vectors,system::vectors}`; 31 mutants, 29 killed and two explained.
 
@@ -901,10 +903,11 @@ dispatcher or the supervisor). The tool-call runtime is K9b.
   JSON text `serde_json` cannot hold (a lone surrogate escape, nesting deeper than 128) counts as invalid here. The backend port is
   synchronous: a backend keeps the deadline it is handed and answers `Interrupted`, where TypeScript races it against a timer.
   **K9a-D7 (K9a-R3):** The Rust builder keeps at most 1,024 entries in each of its prefix, session-model and last-render
-  registries for one composition. The oldest inserted entry is evicted first. An evicted observation can become cold again;
+  registries for one composition. The least recently rendered entry is evicted first. An evicted observation can become cold again;
   rendered text, hashes and cache breakpoints are independent of that state. TypeScript retains those entries.
   **K9a-D6 (K9a-R4):** Rust refuses an external classification with over 32 tasks before copying or validating
   the tasks. The external classifier's array check leaves the internal rule classifier unchanged.
+  **K9a-D8 (R-K-29, P4D-200):** At the flip, external classifiers must supply a nonempty string per summary. A different type yields the segmentation error. The runtime falls back for this message and accepts a valid following decision.
   **K9a-D3**: a configuration member whose `Number()` throws in TypeScript (an object with its own `toString`, `decision/client.ts`
   `#run`) makes the request reject there; the port has no error path at that point and counts the value as `NaN`, so the request
   fails as `invalid` and never runs (`decision/client.rs` `js_number`).
@@ -963,7 +966,7 @@ builder, the decision service and triage are K9a.
   Both operations require identity verification against the opened handle before Windows can enable them.
   A failing registry inside the lexical port gives no lexical score instead of an exception. A thrown `TypeError` is compared by name.
   **K9b-D2 (K9b-R2)**: schema patterns are capped at 256 UTF-16 units and their input at 1,024 units.
-  The regex library has no step budget. The length limits do not guarantee a linear match.
+  R-K-33 blocks the flip until the UTF-16 ECMAScript matcher meters its work and reports exhaustion as an invalid rule. The pinned matcher exposes no step budget.
 - *Ports for the flip:* the model repair port, the secret matcher, the full-result store and the idempotency store of `results`, the
   clock (`budget::Clock`), `EmbeddingPort`, `LexicalPort` and `PriorPort` of the index, `LocalEmbedding`, `SkillSource`,
   `ExtensionFeed` and `CalibrationSource` of the live index, `skill_tools::Cancelled`, and the process's home directory and its
@@ -1122,9 +1125,10 @@ unchanged). K10b uses this gate and the same path and process layers.
   The environment inherits only the approved names, and callers cannot replace the program lookup path.
 - **K10-D23 (R-K-31, P4D-197):** Hostctl requires ASCII program names for direct execution and at the program position of a shell command.
   The host must preserve this check when wiring both process adapters. The shell deny patterns cover the actual launcher and arguments.
+- **K10-D25 (R-K-34, [P4D-203](defects.md#p4d-203)):** The process environment excludes BASHOPTS, SHELLOPTS and PS4, and the shell literal subset excludes arithmetic assignment through the shell builtin.
 - **K10-D24 (RE-6, R-K-30, P4D-198):** A native effect may complete before audit delivery or result validation fails.
   The flip requires an authenticated operation ID before dispatch, a private bounded receipt without output and a stop port for started processes.
-  A process with unconfirmed termination must remain registered. Implementation and durable host storage are pending.
+  Rust reserves an output-free receipt bound to principal, agent and session before invoking the native port. A failed delivery returns the operation ID. A newly started process remains managed unless the stop port confirms termination. The flip must supply durable bounded storage and wire the native stop and authenticated lookup ports.
 - **K10-D16:** Rust requires exclusive publication for copy and move. There is no path-based fallback for native trash,
   directory creation or no-replace movement. A move is limited to a singly linked file on one filesystem. Local application
   opening is limited to verified document types and directories; an adapter must preserve the held identity.
@@ -1213,11 +1217,11 @@ real host adapters and the single-writer handoff.
 | K2 | policy, path and egress vectors, audit and attestation | [K2-D1](defects.md#p4d-48), [K2-D2](defects.md#p4d-49), [K2-D3](defects.md#p4d-50), [K2-D4](defects.md#p4d-51), [K2-D5](defects.md#p4d-52), [K2-D6](defects.md#p4d-53), [K2-D7](defects.md#p4d-54), [K2-D8](defects.md#p4d-55) |
 | K3 | approval, grant, inbox, delivery and hand-off parity | [K3-D1](defects.md#p4d-56), [K3-D2](defects.md#p4d-57), [K3-D3](defects.md#p4d-58), [K3-D4](defects.md#p4d-59), [K3-D5](defects.md#p4d-60), [K3-D6](defects.md#p4d-61), [K3-D7](defects.md#p4d-62) |
 | K4 | profile and credential rules, OAuth listener and identity vectors | [K4-D1](defects.md#p4d-63), [K4-D2](defects.md#p4d-64), [K4-D3](defects.md#p4d-65), [K4-D4](defects.md#p4d-66), [K4-D5](defects.md#p4d-67), [K4-D6](defects.md#p4d-68), [K4-D7](defects.md#p4d-69), [K4-D8](defects.md#p4d-70), [K4-D9](defects.md#p4d-71), [K4-D10](defects.md#p4d-72) |
-| K5 | session B round-trips, context and rewind maintenance | [K5-D1](defects.md#p4d-73), [K5-D2](defects.md#p4d-74), [K5-D3](defects.md#p4d-75), [K5-D4](defects.md#p4d-76), [K5-D5](defects.md#p4d-77), [K5-D6](defects.md#p4d-78), [K5-D7](defects.md#p4d-79), [K5-D8](defects.md#p4d-80), [K5-D9](defects.md#p4d-81), [K5-D10](defects.md#p4d-82) |
+| K5 | session B round-trips, context and rewind maintenance | [K5-D1](defects.md#p4d-73), [K5-D2](defects.md#p4d-74), [K5-D3](defects.md#p4d-75), [K5-D4](defects.md#p4d-76), [K5-D5](defects.md#p4d-77), [K5-D6](defects.md#p4d-78), [K5-D7](defects.md#p4d-79), [K5-D8](defects.md#p4d-80), [K5-D9](defects.md#p4d-81), [K5-D10](defects.md#p4d-82), [K5-D11](defects.md#p4d-199) |
 | K6 | collaboration and coding B round-trips, delegated effects and federation vectors | [K6-D1](defects.md#p4d-83), [K6-D2](defects.md#p4d-84), [K6-D3](defects.md#p4d-85), [K6-D4](defects.md#p4d-86), [K6-D5](defects.md#p4d-87), [K6-D6](defects.md#p4d-88), [K6-D7](defects.md#p4d-89), [K6-D8](defects.md#p4d-90), [K6-D9](defects.md#p4d-91), [K6-D10](defects.md#p4d-92), [K6-D11](defects.md#p4d-93), [K6-D12](defects.md#p4d-94), [K6-D13](defects.md#p4d-95), [K6-D14](defects.md#p4d-96), [K6-D15](defects.md#p4d-97), [K6-D16](defects.md#p4d-98), [K6-D17](defects.md#p4d-99), [K6-D18](defects.md#p4d-100), [K6-D19](defects.md#p4d-101), [K6-D20](defects.md#p4d-102), [K6-D21](defects.md#p4d-103), [K6-D22](defects.md#p4d-104), [K6-D23](defects.md#p4d-105), [K6-D24](defects.md#p4d-106), [K6-D25](defects.md#p4d-107), [K6-D26](defects.md#p4d-108), [K6-D27](defects.md#p4d-109), [K6-D28](defects.md#p4d-110), [K6-D29](defects.md#p4d-111) |
-| K7 | jobs, dream and learn stores, workflow evidence, knowledge and captioning | [K7-D1](defects.md#p4d-112), [K7-D2](defects.md#p4d-113), [K7-D3](defects.md#p4d-114), [K7-D4](defects.md#p4d-115), [K7-D5](defects.md#p4d-116), [K7-D6](defects.md#p4d-117), [K7-D7](defects.md#p4d-118), [K7-D8](defects.md#p4d-119), [K7-D9](defects.md#p4d-120), [K7-D10](defects.md#p4d-121), [K7-D11](defects.md#p4d-122), [K7-D12](defects.md#p4d-123), [K7-D13](defects.md#p4d-124), [K7-D14](defects.md#p4d-125), [K7-D20](defects.md#p4d-126), [K7-D21](defects.md#p4d-127), [K7-D22](defects.md#p4d-128), [K7-D23](defects.md#p4d-129), [K7-D24](defects.md#p4d-130), [K7-D25](defects.md#p4d-131), [K7-D26](defects.md#p4d-132), [K7-D27](defects.md#p4d-133), [K7-D28](defects.md#p4d-134), [K7-D29](defects.md#p4d-135), [K7-D30](defects.md#p4d-136), [K7-D31](defects.md#p4d-137), [K7-D40](defects.md#p4d-138), [K7-D41](defects.md#p4d-139), [K7-D42](defects.md#p4d-140), [K7-D43](defects.md#p4d-141), [K7-D44](defects.md#p4d-142), [K7-D45](defects.md#p4d-143), [K7-D46](defects.md#p4d-144), [K7-D47](defects.md#p4d-145), [K7-D48](defects.md#p4d-146), [K7-D49](defects.md#p4d-147), [K7-D50](defects.md#p4d-148), [K7-D51](defects.md#p4d-149), [K7-D52](defects.md#p4d-150) |
+| K7 | jobs, dream and learn stores, workflow evidence, knowledge and captioning | [K7-D1](defects.md#p4d-112), [K7-D2](defects.md#p4d-113), [K7-D3](defects.md#p4d-114), [K7-D4](defects.md#p4d-115), [K7-D5](defects.md#p4d-116), [K7-D6](defects.md#p4d-117), [K7-D7](defects.md#p4d-118), [K7-D8](defects.md#p4d-119), [K7-D9](defects.md#p4d-120), [K7-D10](defects.md#p4d-121), [K7-D11](defects.md#p4d-122), [K7-D12](defects.md#p4d-123), [K7-D13](defects.md#p4d-124), [K7-D14](defects.md#p4d-125), [K7-D20](defects.md#p4d-126), [K7-D21](defects.md#p4d-127), [K7-D22](defects.md#p4d-128), [K7-D23](defects.md#p4d-129), [K7-D24](defects.md#p4d-130), [K7-D25](defects.md#p4d-131), [K7-D26](defects.md#p4d-132), [K7-D27](defects.md#p4d-133), [K7-D28](defects.md#p4d-134), [K7-D29](defects.md#p4d-135), [K7-D30](defects.md#p4d-136), [K7-D31](defects.md#p4d-137), [K7-D40](defects.md#p4d-138), [K7-D41](defects.md#p4d-139), [K7-D42](defects.md#p4d-140), [K7-D43](defects.md#p4d-141), [K7-D44](defects.md#p4d-142), [K7-D45](defects.md#p4d-143), [K7-D46](defects.md#p4d-144), [K7-D47](defects.md#p4d-145), [K7-D48](defects.md#p4d-146), [K7-D49](defects.md#p4d-147), [K7-D50](defects.md#p4d-148), [K7-D51](defects.md#p4d-149), [K7-D52](defects.md#p4d-150), [K7-D53](defects.md#p4d-201) |
 | K8 | ACP transcripts and connection bounds | [K8-D1](defects.md#p4d-151), [K8-D2](defects.md#p4d-152), [K8-D3](defects.md#p4d-153), [K8-D4](defects.md#p4d-154), [K8-D5](defects.md#p4d-155), [K8-D6](defects.md#p4d-156), [K8-D7](defects.md#p4d-157) |
-| K9a | prompt, triage and decision vectors | [K9a-D1](defects.md#p4d-158), [K9a-D2](defects.md#p4d-159), [K9a-D3](defects.md#p4d-160), [K9a-D6](defects.md#p4d-161), [K9a-D7](defects.md#p4d-162) |
+| K9a | prompt, triage and decision vectors | [K9a-D1](defects.md#p4d-158), [K9a-D2](defects.md#p4d-159), [K9a-D3](defects.md#p4d-160), [K9a-D6](defects.md#p4d-161), [K9a-D7](defects.md#p4d-162), [K9a-D8](defects.md#p4d-200) |
 | K9b | tool-call registry B round-trip and ranking vectors | [K9b-D1](defects.md#p4d-163), [K9b-D2](defects.md#p4d-164), [K9b-D3](defects.md#p4d-165) |
 | K10 | exec, filesystem, gate and Hostctl vectors and negative-effect tests | [K10-D1](defects.md#p4d-166), [K10-D2](defects.md#p4d-167), [K10-D3](defects.md#p4d-168), [K10-D4](defects.md#p4d-169), [K10-D5](defects.md#p4d-170), [K10-D6](defects.md#p4d-171), [K10-D7](defects.md#p4d-172), [K10-D8](defects.md#p4d-173), [K10-D9](defects.md#p4d-174), [K10-D10](defects.md#p4d-175), [K10-D11](defects.md#p4d-176), [K10-D12](defects.md#p4d-177), [K10-D13](defects.md#p4d-178), [K10-D14](defects.md#p4d-179), [K10-D15](defects.md#p4d-180), [K10-D16](defects.md#p4d-181), [K10-D21](defects.md#p4d-182), [K10-D22](defects.md#p4d-183), [K10-D23](defects.md#p4d-197), [K10-D24](defects.md#p4d-198) |
 | K11 | receipt content markers, adoption recovery and live-rights gate tests | [K11-D1](defects.md#p4d-184), [K11-D2](defects.md#p4d-185), [K11-D3](defects.md#p4d-186), [K11-D4](defects.md#p4d-187), [K11-D5](defects.md#p4d-188), [K11-D6](defects.md#p4d-189), [K11-D7](defects.md#p4d-190), [K11-D8](defects.md#p4d-191), [K11-D9](defects.md#p4d-192), [K11-D10](defects.md#p4d-193), [K11-D11](defects.md#p4d-194) |
@@ -1237,4 +1241,17 @@ Session and collaboration openers accept a host verification port, and the user-
 The Unix default file modes, schema versions, migrations and journal settings are unchanged. The Windows file openers require
 host verification of the database ACL and private parent ACL for its journal and sidecars before preparing or opening the
 database. No verified production Windows ACL adapter is available for these stores. They refuse disk-backed opens when the port
-is absent or denies access. The test-only callbacks acknowledge synthetic temporary files and do not provide Windows ACL evidence.
+is absent or denies access. The coding gate, chat promotions and Learn also require that pre-creation attestation. Windows adapters must inspect ACLs without changing them. The test-only callbacks acknowledge synthetic temporary files and do not provide Windows ACL evidence.
+
+### Adapter obligations from follow-up review N1
+
+The collaboration adapter must derive the parent and stored ancestry from the authenticated delegation before dispatch. A delegated caller with omitted metadata must never acquire a new root scope. At the flip the Doctor must report data directories on filesystems without a usable birth time. Regular-file verification continues to refuse those files pending an owner decision on any fallback.
+
+The store owners now share the write-reservation primitive exercised by the two-process tests. At the flip, the native macOS file-opening adapter must check package status on the held directory identity before opening it.
+
+
+### Host obligations from follow-up review N3 and D137
+
+The Windows Doctor must identify a rejected configured root as a bad root and
+report its reason. When the host LLM path flips to Rust, its authenticated
+provider adapter must disable thinking for Haiku background jobs (R-D137-2).

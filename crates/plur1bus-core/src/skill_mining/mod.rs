@@ -55,10 +55,10 @@ fn open_ledger(
     secure: Option<&dyn Fn(&std::path::Path) -> bool>,
 ) -> R<plur1bus_store::Store> {
     use crate::collab::CollabErrorCode;
-    use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreError, StoreSpec};
+    use plur1bus_store::{Journal, OwnerSpec, Schema, StoreSpec};
 
     if path != std::path::Path::new(":memory:") {
-        crate::private_store::prepare_owner_only(path, secure).map_err(|err| {
+        crate::private_store::prepare_versioned(path, secure).map_err(|err| {
             let message = match err {
                 crate::private_store::PrepareError::Io(_) => "cannot prepare private skill ledger",
                 crate::private_store::PrepareError::Permissions => {
@@ -68,24 +68,24 @@ fn open_ledger(
             CollabError::new(CollabErrorCode::Storage, message)
         })?;
     }
-    let db = Store::open_owner(
+    let db = crate::private_store::open_versioned(
         path,
         &OwnerSpec {
             store: StoreSpec::new(name, 0),
             journal: Journal::Unchanged,
-            schema: Schema::Unversioned,
+            schema: Schema::Steps(&[]),
             create: true,
         },
+        || -> R<()> {
+            if !crate::private_store::protect_compatible(path, secure) {
+                return Err(CollabError::new(
+                    CollabErrorCode::Storage,
+                    "cannot protect private skill ledger",
+                ));
+            }
+            Ok(())
+        },
     )?;
-    let version = db.user_version()?;
-    if version != 0 {
-        return Err(StoreError::NewerSchema {
-            store: name,
-            found: version,
-            supported: 0,
-        }
-        .into());
-    }
     db.conn().execute_batch(ddl)?;
     Ok(db)
 }

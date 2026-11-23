@@ -321,17 +321,6 @@ pub struct TriageOptions<'a> {
     pub active_task: Option<&'a str>,
 }
 
-/// JavaScript truthiness of a member that may be absent.
-fn truthy(v: Option<&J>) -> bool {
-    match v {
-        None | Some(J::Null) => false,
-        Some(J::Bool(b)) => *b,
-        Some(J::Num(n)) => *n != 0.0 && !n.is_nan(),
-        Some(J::Str(s)) => !s.is_empty(),
-        Some(J::Arr(_) | J::Obj(_)) => true,
-    }
-}
-
 /// `Number.isSafeInteger` of a member.
 fn safe_integer(v: Option<&J>) -> Option<f64> {
     v.and_then(J::as_f64)
@@ -406,7 +395,9 @@ pub fn triage(message: &str, options: &TriageOptions<'_>) -> Result<TriageDecisi
             || start < previous_end
             || end <= start
             || end > message_len
-            || !truthy(t.get("summary"))
+            || t.get("summary")
+                .and_then(J::as_str)
+                .is_none_or(str::is_empty)
             || !depends_ok
         {
             return Err(TriageError::Segmentation);
