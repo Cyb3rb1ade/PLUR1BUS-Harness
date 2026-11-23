@@ -390,3 +390,33 @@ fn oauth_hint_reaches_the_private_observer_and_stays_out_of_sdk_diagnostics() {
     assert_eq!(challenge.scope(), Some("read"));
     assert_eq!(challenge.metadata().unwrap().path(), "/oauth");
 }
+
+#[tokio::test]
+async fn smaller_session_limit_is_applied_to_decoded_http_results() {
+    const SESSION_LIMIT: usize = 1024 * 1024;
+    for size in [SESSION_LIMIT, SESSION_LIMIT + 1] {
+        let peer = server(
+            200,
+            "application/json",
+            &padded_json(br#"{"jsonrpc":"2.0","id":1,"result":{}}"#, size),
+        );
+        let (client, target) = client(&peer);
+        let reply = client
+            .with_frame_limit(SESSION_LIMIT)
+            .post_message(target, message(), None, None, HashMap::new())
+            .await;
+        if size == SESSION_LIMIT {
+            assert!(matches!(
+                reply,
+                Ok(StreamableHttpPostResponse::Json(_, None))
+            ));
+        } else {
+            assert!(matches!(
+                reply,
+                Err(StreamableHttpError::ResponseBodyTooLarge {
+                    max_size: SESSION_LIMIT
+                })
+            ));
+        }
+    }
+}

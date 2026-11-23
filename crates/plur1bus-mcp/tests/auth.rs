@@ -367,3 +367,88 @@ fn attempt_callback_is_explicit_caller_bound_single_use_and_expires() {
         Some(AttemptError::Conflict)
     );
 }
+
+#[test]
+fn oauth_metadata_reader_checks_exact_bytes_and_the_original_body_deadline() {
+    use base64::engine::general_purpose::STANDARD;
+
+    let host = TestHost::default();
+    for (extra, gap_ms) in [(0usize, 0), (1, 0), (0, 1500)] {
+        let peer = FakeServer::start_with(|addr| {
+            let origin = format!("http://{addr}");
+            let metadata = serde_json::to_vec(&json!({
+                "resource":format!("{origin}/mcp"),
+                "authorization_servers":[format!("{origin}/issuer")]
+            }))
+            .unwrap();
+            let total = if gap_ms == 0 {
+                1024 * 1024 + extra
+            } else {
+                metadata.len() + 1
+            };
+            let mut chunks = vec![STANDARD.encode(&metadata)];
+            let mut remaining = total - metadata.len();
+            let padding = [b' '; 32 * 1024];
+            while remaining != 0 {
+                let length = remaining.min(padding.len());
+                chunks.push(STANDARD.encode(&padding[..length]));
+                remaining -= length;
+            }
+            let mut exchanges = vec![json!({
+                "request":{"method":"GET","path":"/metadata"},
+                "response":{"status":200,"headers":{"content-type":"application/json"},
+                    "chunksBase64":chunks,"chunkGapMs":gap_ms}
+            })];
+            if extra == 0 && gap_ms == 0 {
+                exchanges.extend([
+                    json!({"request":{"method":"GET","path":"/.well-known/oauth-authorization-server/issuer"},
+                        "response":{"status":200,"body":{
+                            "issuer":format!("{origin}/issuer"),"authorization_endpoint":format!("{origin}/authorize"),
+                            "token_endpoint":format!("{origin}/token"),"code_challenge_methods_supported":["S256"]
+                        }}}),
+                    json!({"request":{"method":"POST","path":"/token"},"response":{"status":200,"body":{
+                        "token_type":"Bearer","access_token":"<fixture-access>","expires_in":60
+                    }}}),
+                ]);
+            }
+            json!({"transport":"http","exchanges":exchanges})
+        });
+        let origin = format!("http://{}", peer.addr);
+        let resource = format!("{origin}/mcp");
+        let metadata = format!("{origin}/metadata");
+        let pin = Pin(peer.addr);
+        let client = Client::new(
+            &resource,
+            "fixture-public-client",
+            "http://127.0.0.1:7081/callback",
+            &pin,
+        )
+        .unwrap();
+        let human = Human {
+            wrong_state: false,
+            issuer: format!("{origin}/issuer"),
+        };
+        let started = Instant::now();
+        let result = client.authorize(
+            Authorization::Pkce {
+                metadata: Some(&metadata),
+                scope: Some("profile read"),
+            },
+            &host,
+            &host,
+            &human,
+            started + Duration::from_millis(if gap_ms == 0 { 3000 } else { 850 }),
+        );
+        match (extra, gap_ms) {
+            (0, 0) => assert_eq!(
+                result.unwrap().access_for(&resource, host.now_ms()),
+                Some("<fixture-access>")
+            ),
+            (_, 0) => assert!(matches!(result, Err(Error::Token))),
+            _ => {
+                assert!(matches!(result, Err(Error::Expired)));
+                assert!(started.elapsed() < Duration::from_millis(1200));
+            }
+        }
+    }
+}
