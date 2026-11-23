@@ -1670,3 +1670,31 @@ including an IDLE exchange. Mail payload keeps its 50 MiB per-literal
 limit and shares the existing 64 MiB total with metadata. The reader
 charges literal bytes before allocating their buffer. The existing
 SMTP/IMAP error projection uses static protocol descriptions.
+
+<a id="p4d-247"></a>
+
+## P4D-247 — Incremental speech sentence boundaries (W3-R1)
+
+The Rust Polly sentence and word scanner keeps its offset between deltas.
+It checks the caller's cancellation and deadline within each scan and retains
+the 1 MiB ceilings on one delta and unfinished text. The TypeScript chunker
+can rescan an unfinished numeric lookahead across deltas.
+
+<a id="p4d-248"></a>
+
+## P4D-248 — Replay policy after sending synthesis input (R-W-22)
+
+Rust retries a body-carrying operation only after HTTP 429 or 503 with a
+valid Retry-After. A transport failure may occur after the vendor has accepted
+the input. This differs from the TypeScript HTTP client. Once audio has
+been delivered, the original error code is preserved and the error is no longer
+retryable. Deadline expiry while reading audio has code `timeout`.
+
+<a id="p4d-249"></a>
+
+## P4D-249 — Cumulative synthesis stream limits (R-W-23)
+
+The port or WebSocket settings can set a total decoded audio limit and a
+maximum duration for HTTP, Polly, WebSocket synthesis, and realtime streams.
+Rust defaults to 64 MiB and at most 600 seconds. It rejects a chunk before
+delivery when the chunk would exceed the remaining budget.

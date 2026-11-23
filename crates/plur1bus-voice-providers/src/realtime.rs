@@ -1,6 +1,6 @@
 //! Blocking cloud realtime sessions. The host owns model choice, TLS and pacing.
 use crate::elevenlabs::{word_timings, WordTiming};
-use crate::http::{deadline, Error, MAX_JSON_BYTES};
+use crate::http::{deadline, AudioBudget, Error, StreamLimits, MAX_JSON_BYTES};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use plur1bus_channels::websocket::{self, Limits, Peer, Socket, SocketPorts, VoiceKey};
 use serde::{ser::SerializeMap, Serialize, Serializer};
@@ -47,6 +47,7 @@ pub struct Settings<'a> {
     pub zero_retention: bool,
     /// Caller-owned random identifier for deduplicating Gemini usage events.
     pub usage_session_id: Option<&'a str>,
+    pub stream_limits: StreamLimits,
 }
 
 pub struct Session<'a> {
@@ -63,6 +64,8 @@ pub struct Session<'a> {
     usage: GeminiUsage,
     pending: Vec<String>,
     pending_bytes: usize,
+    stream_deadline: Instant,
+    audio_budget: AudioBudget,
 }
 
 /// Events are returned synchronously, so the wire layer does not queue an unbounded backlog.
@@ -144,7 +147,10 @@ impl<'a> Session<'a> {
         wall_time: Duration,
         insecure_loopback: bool,
     ) -> Result<Self, Error> {
-        let deadline = deadline(wall_time);
+        let (stream_deadline, audio_budget) = settings
+            .stream_limits
+            .start(settings.stream_limits.max_duration);
+        let deadline = deadline(wall_time).min(stream_deadline);
         if ports.cancelled() {
             return Err(Error::Aborted);
         }
@@ -244,6 +250,8 @@ impl<'a> Session<'a> {
             },
             pending: Vec::new(),
             pending_bytes: 0,
+            stream_deadline,
+            audio_budget,
         };
         if let Some(setup) = setup(options) {
             session
@@ -256,9 +264,7 @@ impl<'a> Session<'a> {
 
     pub fn send_audio(&mut self, pcm16: &[u8]) -> Result<(), Error> {
         self.require_open()?;
-        if pcm16.len() > (MAX_JSON_BYTES - 256) / 4 * 3 || !pcm16.len().is_multiple_of(2) {
-            return Err(Error::InvalidRequest);
-        }
+        check_pcm_input(pcm16.len())?;
         let encoded = STANDARD.encode(pcm16);
         let message = match self.vendor {
             Vendor::Grok => object([
@@ -406,11 +412,11 @@ impl<'a> Session<'a> {
 
     pub fn receive(&mut self, budget: Duration) -> Result<Vec<Event>, Error> {
         self.require_open()?;
-        let deadline = deadline(budget);
+        let deadline = deadline(budget).min(self.stream_deadline);
         loop {
             let remaining = deadline.saturating_duration_since(Instant::now());
             if remaining.is_zero() {
-                return Err(Error::Timeout);
+                return Err(self.audio_budget.error(Error::Timeout));
             }
             let reply = self.socket()?.receive_until(deadline).map_err(socket_error);
             if self.ports.cancelled() {
@@ -422,7 +428,7 @@ impl<'a> Session<'a> {
                     self.finish_until(1002, "protocol error", deadline);
                     return Err(Error::UpstreamProtocol);
                 }
-                Err(error) => return Err(error),
+                Err(error) => return Err(self.audio_budget.error(error)),
                 Ok(reply) => reply,
             };
             let frame = match reply {
@@ -433,7 +439,7 @@ impl<'a> Session<'a> {
                     self.socket.take();
                     let mut events = Vec::new();
                     if let Some(error) = close_error(code) {
-                        events.push(Event::Error(error));
+                        events.push(Event::Error(self.audio_budget.error(error)));
                     }
                     events.push(Event::Closed { code });
                     return Ok(events);
@@ -448,7 +454,25 @@ impl<'a> Session<'a> {
                     self.finish_until(1002, "protocol error", deadline);
                     Err(error)
                 }
-                result => result,
+                Ok(mut events) => {
+                    let audio_bytes = events
+                        .iter()
+                        .map(|event| match event {
+                            Event::Audio { bytes, .. } => bytes.len(),
+                            _ => 0,
+                        })
+                        .sum();
+                    if let Err(error) = self.audio_budget.charge(audio_bytes) {
+                        self.socket.take();
+                        return Err(error);
+                    }
+                    for event in &mut events {
+                        if let Event::Error(error) = event {
+                            *error = self.audio_budget.error(*error);
+                        }
+                    }
+                    Ok(events)
+                }
             };
         }
     }
@@ -476,6 +500,9 @@ impl<'a> Session<'a> {
         } else if self.ports.cancelled() {
             self.socket.take();
             Err(Error::Aborted)
+        } else if Instant::now() >= self.stream_deadline {
+            self.socket.take();
+            Err(self.audio_budget.error(Error::Timeout))
         } else {
             Ok(())
         }
@@ -487,9 +514,13 @@ impl<'a> Session<'a> {
             return Err(Error::InvalidRequest);
         }
         if self.ready {
-            let result = self.socket()?.send_text(&frame).map_err(socket_error);
+            let deadline = self.stream_deadline;
+            let result = self
+                .socket()?
+                .send_text_until(&frame, deadline)
+                .map_err(socket_error);
             self.require_open()?;
-            result
+            result.map_err(|error| self.audio_budget.error(error))
         } else {
             const PENDING_BYTES: usize = 4 * 1024 * 1024;
             if self.pending_bytes + frame.len() > PENDING_BYTES {
@@ -696,6 +727,13 @@ impl<'a> Session<'a> {
 
 fn encode_component(value: &str) -> String {
     percent_encoding::utf8_percent_encode(value, crate::elevenlabs::URI_COMPONENT).to_string()
+}
+
+fn check_pcm_input(bytes: usize) -> Result<(), Error> {
+    if bytes > (MAX_JSON_BYTES - 256) / 4 * 3 || !bytes.is_multiple_of(2) {
+        return Err(Error::InvalidRequest);
+    }
+    Ok(())
 }
 
 fn audio(encoded: &Value, sample_rate: u32) -> Result<Event, Error> {
@@ -970,6 +1008,10 @@ pub(crate) fn socket_error(error: websocket::Error) -> Error {
         websocket::Error::Denied => Error::InvalidRequest,
         websocket::Error::Timeout => Error::Timeout,
         websocket::Error::Capacity | websocket::Error::Protocol => Error::UpstreamProtocol,
+        websocket::Error::Handshake {
+            status,
+            retry_after_ms,
+        } => Error::status(status, retry_after_ms),
         websocket::Error::Network => Error::Network,
         websocket::Error::Closed => Error::Closed,
     }
@@ -1007,5 +1049,67 @@ pub(crate) fn frame_error(frame: &Value) -> Error {
         Error::InvalidRequest
     } else {
         Error::BadResponse
+    }
+}
+
+#[cfg(test)]
+mod bounds_tests {
+    use super::{
+        check_pcm_input, object, Error, GeminiUsage, Limits, Session, SocketPorts, StreamLimits,
+        TranscriptBuffer, Url, Vendor, MAX_JSON_BYTES,
+    };
+    use plur1bus_channels::websocket::TimedStream;
+    use std::{io, net::SocketAddr, time::Instant};
+
+    struct Offline;
+
+    impl SocketPorts for Offline {
+        fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
+            None
+        }
+        fn dial(&self, _: &Url, _: SocketAddr, _: Instant) -> io::Result<Box<dyn TimedStream>> {
+            Err(io::Error::other("offline fixture"))
+        }
+    }
+
+    #[test]
+    fn pending_item_with_a_full_buffer_is_refused_before_enqueueing() {
+        let (stream_deadline, audio_budget) = StreamLimits::default().start(Limits::default().read);
+        let mut session = Session {
+            socket: None,
+            vendor: Vendor::Grok,
+            input_rate: 24000,
+            ready: false,
+            muted: false,
+            ports: &Offline,
+            asr_timestamps: false,
+            asr_bytes: 0,
+            input_text: TranscriptBuffer::default(),
+            output_text: TranscriptBuffer::default(),
+            usage: GeminiUsage::default(),
+            pending: Vec::new(),
+            pending_bytes: 4 * 1024 * 1024,
+            stream_deadline,
+            audio_budget,
+        };
+        assert_eq!(session.send(&object([])), Err(Error::Overloaded));
+        assert!(session.pending.is_empty());
+    }
+
+    #[test]
+    fn transcript_and_pcm_boundaries_reject_the_next_complete_unit() -> Result<(), Error> {
+        let mut transcript = TranscriptBuffer {
+            text: String::new(),
+            units: 1024 * 1024 - 1,
+        };
+        transcript.push("assistant", "x")?;
+        assert_eq!(
+            transcript.push("assistant", "y").err(),
+            Some(Error::UpstreamProtocol)
+        );
+        let bytes = (MAX_JSON_BYTES - 256) / 4 * 3;
+        assert_eq!(check_pcm_input(bytes), Ok(()));
+        assert_eq!(check_pcm_input(bytes + 2), Err(Error::InvalidRequest));
+        Ok(())
     }
 }

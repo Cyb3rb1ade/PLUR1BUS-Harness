@@ -269,3 +269,51 @@ fn complete_json_at_the_published_ceiling_and_one_extra_byte() {
         );
     }
 }
+
+#[test]
+fn redirects_do_not_move_a_request_to_another_route() {
+    let server = FakeServer::start(&json!({"transport":"http","exchanges":[
+        {"request":{"method":"GET","path":"/origin"},"response":{"status":302,
+            "headers":{"location":"/next"},"body":{}}},
+        {"request":{"method":"GET","path":"/next"},"response":{"status":200,"body":{"other":true}}}
+    ]}));
+    let pin = Pin(server.addr);
+    let client = Client::new(&pin).with_loopback_http();
+    let url = Url::parse(&format!("http://{}/origin", server.addr)).unwrap();
+    assert_eq!(
+        client.json(&url, "GET", &[], b"", Duration::from_secs(2)),
+        Err(Error::BadResponse)
+    );
+    assert_eq!(server.received().len(), 1);
+}
+
+#[test]
+fn catalog_pagination_stops_at_each_vendors_page_limit() {
+    for (vendor, pages) in [(Vendor::Gemini, 10), (Vendor::ElevenLabs, 20)] {
+        let exchanges = (0..=pages).map(|index| {
+            let (mut path, separator, body) = match vendor {
+                Vendor::Gemini => ("/v1beta/models?pageSize=100".to_owned(), "pageToken",
+                    json!({"models":[{"name":format!("models/fixture-{index}")}],"nextPageToken":format!("page-{}", index + 1)})),
+                Vendor::ElevenLabs => ("/v2/voices?page_size=100".to_owned(), "next_page_token",
+                    json!({"voices":[{"voice_id":format!("fixture-{index}")}],"has_more":true,"next_page_token":format!("page-{}", index + 1)})),
+                Vendor::Xai => unreachable!(),
+            };
+            if index > 0 {
+                path.push_str(&format!("&{separator}=page-{index}"));
+            }
+            json!({"request":{"method":"GET","path":path},"response":{"status":200,"body":body}})
+        }).collect::<Vec<_>>();
+        let server = FakeServer::start(&json!({"transport":"http","exchanges":exchanges}));
+        let pin = Pin(server.addr);
+        let base = Url::parse(&format!("http://{}", server.addr)).unwrap();
+        let catalog = Catalog::new(Client::new(&pin).with_loopback_http(), base, vendor).unwrap();
+        let result = if matches!(vendor, Vendor::Gemini) {
+            catalog.list_models(CREDENTIAL, Duration::from_secs(2))
+        } else {
+            catalog.list_elevenlabs_voices(CREDENTIAL, Duration::from_secs(2))
+        }
+        .unwrap();
+        assert_eq!(result.len(), pages);
+        assert_eq!(server.received().len(), pages);
+    }
+}

@@ -240,6 +240,20 @@ The ElevenLabs settings port takes the ordered fields of the input object.
 Arbitrary tool arguments and results keep the serialization of the host's
 JSON values.
 
+
+The Rust scan, replay and total audio budgets are described in
+[P4D-247–249](defects.md#p4d-247). WebSocket upgrade refusals map status and
+Retry-After like the HTTP client. Before catalog values reach a UI or model,
+the host validates preview URLs and bounds names, language labels and engine
+fields. Realtime transcripts and provider-originated tool events need origin
+marking at composition. The host keeps Gemini's local interrupt distinct from
+remote cancellation and accounts for the provider's reported usage.
+
+At the flip the Polly SigV4 host port supplies the clock and keeps keys, session
+tokens and derived signing keys out of errors, logs and Debug output. Region and
+endpoint come from configuration. Signatures are for the matching pinned host
+only. Refuse a configuration mismatch as an auth error.
+
 ### W4 · Medien und Dokumente (P4-53)
 
 - **Dateien.** [Media](../../packages/media/src) mit Adapterprotokollen, `jobs.ts`, `store.ts`,

@@ -88,3 +88,44 @@ fn a_retry_that_cannot_fit_the_request_deadline_is_refused() {
     assert!(ports.waits.lock().unwrap().is_empty());
     assert_eq!(server.received().len(), 1);
 }
+
+#[test]
+fn synthesis_post_retries_only_an_explicit_preprocessing_refusal() {
+    for (status, retry_after, retries) in [
+        (429, None, false),
+        (503, None, false),
+        (502, Some("0"), false),
+        (429, Some("0"), true),
+        (503, Some("0"), true),
+    ] {
+        let mut headers = json!({});
+        if let Some(value) = retry_after {
+            headers["retry-after"] = json!(value);
+        }
+        let server = FakeServer::start(&json!({"transport":"http","exchanges":[
+            {"request":{"method":"POST","path":"/synthesis"},"response":{"status":status,"headers":headers,"body":{}}},
+            {"request":{"method":"POST","path":"/synthesis"},"response":{"status":200,"body":{"ok":true}}}
+        ]}));
+        let ports = RetryPort {
+            address: server.addr,
+            now: UNIX_EPOCH,
+            waits: Mutex::new(Vec::new()),
+        };
+        let client = Client::new(&ports).with_loopback_http();
+        let endpoint = Url::parse(&format!("http://{}/synthesis", server.addr)).unwrap();
+        let reply = client.json(
+            &endpoint,
+            "POST",
+            &[("content-type", "application/json")],
+            b"{}",
+            Duration::from_secs(2),
+        );
+        assert_eq!(
+            reply.is_ok(),
+            retries,
+            "status {status}, retry-after {retry_after:?}"
+        );
+        assert_eq!(server.received().len(), 1 + usize::from(retries));
+        assert_eq!(ports.waits.lock().unwrap().len(), usize::from(retries));
+    }
+}

@@ -1,7 +1,7 @@
 //! Polly requests. The host provides AWS signing and credentials.
 use crate::elevenlabs::AudioFormat;
 use crate::http::{
-    check_encoding, deadline, decoded_reader, read_bounded, Client, Error, Ports,
+    check_encoding, deadline, decoded_reader, read_bounded, Client, Error, Ports, StreamLimits,
     MAX_BUFFERED_AUDIO_BYTES, MAX_JSON_BYTES,
 };
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
@@ -88,6 +88,10 @@ impl Ports for Http<'_> {
 
     fn cancelled(&self) -> bool {
         self.signer.cancelled()
+    }
+
+    fn stream_limits(&self) -> StreamLimits {
+        self.signer.stream_limits()
     }
 }
 
@@ -290,18 +294,28 @@ pub fn synthesize_stream<'a>(
     budget: Duration,
     mut on_audio: impl FnMut(super::elevenlabs::Audio) -> Result<(), Error>,
 ) -> Result<(), Error> {
-    let deadline = deadline(budget);
+    let (deadline, mut audio_budget) = host.stream_limits().start(budget);
     let mut sentences = crate::sentences::SentenceWindows::new(max_words);
-    for delta in chunks {
-        super::http::check(host, deadline)?;
-        for sentence in sentences.push(delta)? {
-            on_audio(synthesize_until(host, &sentence, options, deadline)?)?;
+    let check = || super::http::check(host, deadline);
+    let mut synthesize = |sentence: String| {
+        let audio = synthesize_until(host, &sentence, options, deadline)
+            .map_err(|error| audio_budget.error(error))?;
+        audio_budget.charge(audio.bytes.len())?;
+        on_audio(audio).map_err(|error| audio_budget.error(error))
+    };
+    let result = (|| {
+        for delta in chunks {
+            check()?;
+            for sentence in sentences.push(delta, &check)? {
+                synthesize(sentence)?;
+            }
         }
-    }
-    for sentence in sentences.finish() {
-        on_audio(synthesize_until(host, &sentence, options, deadline)?)?;
-    }
-    Ok(())
+        for sentence in sentences.finish(&check)? {
+            synthesize(sentence)?;
+        }
+        Ok(())
+    })();
+    result.map_err(|error| audio_budget.error(error))
 }
 
 pub fn list_voices(host: &dyn SignedRequests, budget: Duration) -> Result<Vec<Value>, Error> {

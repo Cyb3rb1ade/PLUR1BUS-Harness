@@ -16,7 +16,7 @@ signal = ["dep:serde", "dep:serde_json", "dep:regex"]
 email = ["dep:base64", "dep:chrono", "dep:encoding_rs", "dep:regex", "dep:serde"]
 buzz = ["websocket", "dep:nostr", "dep:secp256k1", "dep:serde", "dep:zeroize"]
 http = ["dep:log", "dep:serde", "dep:serde_json", "dep:ureq", "dep:url"]
-websocket = ["dep:log", "dep:serde_json", "dep:tungstenite", "dep:url"]
+websocket = ["dep:chrono", "dep:log", "dep:serde_json", "dep:tungstenite", "dep:url"]
 
 [dependencies]
 base64 = { version = "0.22", optional = true }

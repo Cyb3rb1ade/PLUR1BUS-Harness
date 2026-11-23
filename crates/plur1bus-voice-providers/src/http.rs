@@ -16,12 +16,67 @@ pub const MAX_JSON_BYTES: usize = 1024 * 1024;
 /// Maximum decoded audio bytes retained by a one-shot cloud request.
 pub const MAX_BUFFERED_AUDIO_BYTES: usize = 4 * 1024 * 1024;
 
+#[derive(Clone, Copy, Debug)]
+pub struct StreamLimits {
+    pub max_audio_bytes: usize,
+    pub max_duration: Duration,
+}
+
+impl Default for StreamLimits {
+    fn default() -> Self {
+        Self {
+            max_audio_bytes: 64 * 1024 * 1024,
+            max_duration: Duration::from_secs(600),
+        }
+    }
+}
+
+impl StreamLimits {
+    pub(crate) fn start(self, requested: Duration) -> (Instant, AudioBudget) {
+        (
+            deadline(requested.min(self.max_duration)),
+            AudioBudget {
+                remaining: self.max_audio_bytes,
+                emitted: false,
+            },
+        )
+    }
+}
+
+pub(crate) struct AudioBudget {
+    remaining: usize,
+    emitted: bool,
+}
+
+impl AudioBudget {
+    pub(crate) fn charge(&mut self, bytes: usize) -> Result<(), Error> {
+        if bytes > self.remaining {
+            return Err(Error::StreamLimit);
+        }
+        self.remaining -= bytes;
+        self.emitted |= bytes != 0;
+        Ok(())
+    }
+
+    pub(crate) fn error(&self, error: Error) -> Error {
+        if self.emitted {
+            error.after_audio()
+        } else {
+            error
+        }
+    }
+}
+
 pub trait Ports {
     /// Authorize and resolve one socket address before the absolute deadline.
     fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr>;
 
     fn cancelled(&self) -> bool {
         false
+    }
+
+    fn stream_limits(&self) -> StreamLimits {
+        StreamLimits::default()
     }
 
     fn wall_time(&self) -> SystemTime {
@@ -63,6 +118,16 @@ pub enum Error {
     BadResponse,
     Network,
     Aborted,
+    StreamLimit,
+    AfterAudio(AudioFailure),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AudioFailure {
+    Timeout,
+    Network,
+    RateLimited,
+    Overloaded,
 }
 
 impl Error {
@@ -79,6 +144,13 @@ impl Error {
             Self::BadResponse => "bad_response",
             Self::Network => "network",
             Self::Aborted => "aborted",
+            Self::StreamLimit => "stream_limit",
+            Self::AfterAudio(cause) => match cause {
+                AudioFailure::Timeout => "timeout",
+                AudioFailure::Network => "network",
+                AudioFailure::RateLimited => "rate_limited",
+                AudioFailure::Overloaded => "overloaded",
+            },
         }
     }
 
@@ -101,7 +173,18 @@ impl Error {
         }
     }
 
-    fn status(status: u16, hint: Option<u64>) -> Self {
+    fn after_audio(self) -> Self {
+        let cause = match self {
+            Self::Timeout => AudioFailure::Timeout,
+            Self::Network => AudioFailure::Network,
+            Self::RateLimited | Self::RateLimitedAfter(_) => AudioFailure::RateLimited,
+            Self::Overloaded | Self::OverloadedAfter(_) => AudioFailure::Overloaded,
+            other => return other,
+        };
+        Self::AfterAudio(cause)
+    }
+
+    pub(crate) fn status(status: u16, hint: Option<u64>) -> Self {
         match status {
             401 | 403 => Self::Auth,
             429 => hint.map_or(Self::RateLimited, Self::RateLimitedAfter),
@@ -120,6 +203,20 @@ impl fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
+
+struct AttemptError {
+    error: Error,
+    explicit_refusal: bool,
+}
+
+impl From<Error> for AttemptError {
+    fn from(error: Error) -> Self {
+        Self {
+            error,
+            explicit_refusal: false,
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
 pub struct Client<'a> {
@@ -146,6 +243,10 @@ impl<'a> Client<'a> {
     pub fn with_retries(mut self, retries: u8) -> Self {
         self.retries = retries;
         self
+    }
+
+    pub(crate) fn stream_limits(&self) -> StreamLimits {
+        self.ports.stream_limits()
     }
 
     pub(crate) fn check(&self, deadline: Instant) -> Result<(), Error> {
@@ -244,12 +345,18 @@ impl<'a> Client<'a> {
         deadline: Instant,
         signer: Option<&dyn crate::polly::Signer>,
     ) -> Result<ureq::http::Response<ureq::Body>, Error> {
+        let idempotent = matches!(method, "GET" | "HEAD" | "OPTIONS");
         for attempt in 0..self.retries {
-            let failure =
-                match self.request_once(endpoint, method, headers, request, deadline, signer) {
-                    Err(error) if error.retryable() => error,
-                    outcome => return outcome,
-                };
+            let failure = match self
+                .request_once(endpoint, method, headers, request, deadline, signer)
+            {
+                Err(failure)
+                    if failure.error.retryable() && (idempotent || failure.explicit_refusal) =>
+                {
+                    failure.error
+                }
+                outcome => return outcome.map_err(|failure| failure.error),
+            };
             check(self.ports, deadline)?;
             let backoff = 500 * (1_u64 << attempt.min(6));
             let delay =
@@ -260,6 +367,7 @@ impl<'a> Client<'a> {
             self.ports.wait_retry(delay, deadline)?;
         }
         self.request_once(endpoint, method, headers, request, deadline, signer)
+            .map_err(|failure| failure.error)
     }
 
     fn request_once(
@@ -270,31 +378,21 @@ impl<'a> Client<'a> {
         request: &[u8],
         deadline: Instant,
         signer: Option<&dyn crate::polly::Signer>,
-    ) -> Result<ureq::http::Response<ureq::Body>, Error> {
+    ) -> Result<ureq::http::Response<ureq::Body>, AttemptError> {
         let insecure = endpoint.scheme() == "http" && self.allow_loopback_http;
         if (endpoint.scheme() != "https" && !insecure)
             || !endpoint.username().is_empty()
             || endpoint.password().is_some()
             || endpoint.fragment().is_some()
         {
-            return Err(Error::InvalidRequest);
+            return Err(Error::InvalidRequest.into());
         }
         check(self.ports, deadline)?;
         let pin = self
             .ports
             .pin(endpoint, deadline)
             .ok_or(Error::InvalidRequest)?;
-        if Some(pin.port()) != endpoint.port_or_known_default()
-            || (insecure && !pin.ip().is_loopback())
-            || match endpoint.host() {
-                None => true,
-                Some(Host::Ipv4(ip)) => pin.ip() != ip,
-                Some(Host::Ipv6(ip)) => pin.ip() != ip,
-                Some(Host::Domain(_)) => false,
-            }
-        {
-            return Err(Error::InvalidRequest);
-        }
+        check_pin(endpoint, pin, insecure)?;
         check(self.ports, deadline)?;
         let authorization = signer
             .map(|signer| signer.sign(endpoint, method, headers, request, deadline))
@@ -326,7 +424,7 @@ impl<'a> Client<'a> {
                 .map(|(name, value)| (name.as_str(), value.as_str())),
         ) {
             if name.eq_ignore_ascii_case("accept-encoding") {
-                return Err(Error::InvalidRequest);
+                return Err(Error::InvalidRequest.into());
             }
             let mut header = HeaderValue::from_str(value).map_err(|_| Error::InvalidRequest)?;
             header.set_sensitive(true);
@@ -345,20 +443,45 @@ impl<'a> Client<'a> {
         check(self.ports, deadline)?;
         let status = response.status();
         if !status.is_success() {
-            if signer.is_some() {
-                return Err(crate::polly::response_error(response, self.ports, deadline));
-            }
-            // Provider diagnostics are neither consumed nor surfaced.
             let hint = response
                 .headers()
                 .get("retry-after")
                 .and_then(|raw| raw.to_str().ok())
                 .and_then(|value| retry_after_ms(value, self.ports.wall_time()));
-            return Err(Error::status(status.as_u16(), hint));
+            let explicit_refusal = matches!(status.as_u16(), 429 | 503) && hint.is_some();
+            let error = if signer.is_some() {
+                let error = crate::polly::response_error(response, self.ports, deadline);
+                match error {
+                    Error::RateLimited => hint.map_or(error, Error::RateLimitedAfter),
+                    Error::Overloaded => hint.map_or(error, Error::OverloadedAfter),
+                    _ => error,
+                }
+            } else {
+                Error::status(status.as_u16(), hint)
+            };
+            return Err(AttemptError {
+                error,
+                explicit_refusal,
+            });
         }
         check_encoding(response.headers())?;
         Ok(response)
     }
+}
+
+fn check_pin(endpoint: &Url, pin: SocketAddr, insecure: bool) -> Result<(), Error> {
+    if Some(pin.port()) != endpoint.port_or_known_default()
+        || (insecure && !pin.ip().is_loopback())
+        || match endpoint.host() {
+            None => true,
+            Some(Host::Ipv4(ip)) => pin.ip() != ip,
+            Some(Host::Ipv6(ip)) => pin.ip() != ip,
+            Some(Host::Domain(_)) => false,
+        }
+    {
+        return Err(Error::InvalidRequest);
+    }
+    Ok(())
 }
 
 pub(crate) fn check_encoding(headers: &ureq::http::HeaderMap) -> Result<(), Error> {
@@ -522,5 +645,39 @@ mod tests {
             Err(Error::Timeout)
         );
         assert_eq!(json, b"{}");
+    }
+}
+
+#[cfg(test)]
+mod guard_tests {
+    use super::{check_encoding, check_pin, deadline, Duration, Error, Instant, SocketAddr, Url};
+    use ureq::http::{header, HeaderMap, HeaderValue};
+
+    #[test]
+    fn cleartext_pins_and_deadlines_are_validated_without_dialing(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let url = Url::parse("http://fixture.invalid:8080/speech")?;
+        let loopback: SocketAddr = "127.0.0.1:8080".parse()?;
+        let elsewhere: SocketAddr = "192.0.2.5:8080".parse()?;
+        assert_eq!(check_pin(&url, loopback, true), Ok(()));
+        assert_eq!(check_pin(&url, elsewhere, true), Err(Error::InvalidRequest));
+        let before = Instant::now();
+        let cutoff = deadline(Duration::from_secs(610));
+        assert!(cutoff >= before + Duration::from_secs(600));
+        assert!(cutoff <= Instant::now() + Duration::from_secs(600));
+        Ok(())
+    }
+
+    #[test]
+    fn only_identity_and_gzip_are_accepted_body_codings() {
+        for (encoding, expected) in [
+            ("identity", Ok(())),
+            ("gzip", Ok(())),
+            ("deflate", Err(Error::BadResponse)),
+        ] {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::CONTENT_ENCODING, HeaderValue::from_static(encoding));
+            assert_eq!(check_encoding(&headers), expected);
+        }
     }
 }

@@ -3,7 +3,7 @@ use crate::{
     elevenlabs::{
         streaming_endpoint, AudioChunk, AudioFormat, StreamUsage, SynthesisOptions, VoiceSettings,
     },
-    http::{deadline, Error, MAX_JSON_BYTES},
+    http::{AudioBudget, Error, StreamLimits, MAX_JSON_BYTES},
     realtime::socket_error,
 };
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -39,6 +39,7 @@ pub struct TtsSocket<'a> {
     format: AudioFormat,
     sample_rate: u32,
     deadline: Instant,
+    audio_budget: AudioBudget,
     usage: StreamUsage,
     input_finished: bool,
     output_finished: bool,
@@ -53,7 +54,27 @@ impl<'a> TtsSocket<'a> {
         budget: Duration,
         insecure_loopback: bool,
     ) -> Result<Self, Error> {
-        let deadline = deadline(budget);
+        Self::connect_with_limits(
+            base,
+            key,
+            options,
+            ports,
+            budget,
+            insecure_loopback,
+            StreamLimits::default(),
+        )
+    }
+
+    pub fn connect_with_limits(
+        base: &Url,
+        key: &str,
+        options: &SynthesisOptions<'_>,
+        ports: &'a dyn SocketPorts,
+        budget: Duration,
+        insecure_loopback: bool,
+        stream_limits: StreamLimits,
+    ) -> Result<Self, Error> {
+        let (deadline, audio_budget) = stream_limits.start(budget);
         if key.trim().is_empty() {
             return Err(Error::Auth);
         }
@@ -107,6 +128,7 @@ impl<'a> TtsSocket<'a> {
             format: options.format,
             sample_rate,
             deadline,
+            audio_budget,
             usage: StreamUsage {
                 model: model.into(),
                 input_utf16_units: 0,
@@ -150,7 +172,7 @@ impl<'a> TtsSocket<'a> {
         if result.is_err() {
             self.socket = None;
         }
-        result
+        result.map_err(|error| self.audio_budget.error(error))
     }
 
     fn send(&mut self, message: &str) -> Result<(), Error> {
@@ -211,11 +233,17 @@ impl<'a> TtsSocket<'a> {
                     Peer::Closed(_) => Err(Error::Network),
                 }
             })?;
-            if final_frame {
-                if !self.input_finished {
+            if final_frame && !self.input_finished {
+                self.socket = None;
+                return Err(Error::UpstreamProtocol);
+            }
+            if let Some(bytes) = &audio {
+                if let Err(error) = self.audio_budget.charge(bytes.len()) {
                     self.socket = None;
-                    return Err(Error::UpstreamProtocol);
+                    return Err(error);
                 }
+            }
+            if final_frame {
                 self.output_finished = true;
                 if let Some(mut socket) = self.socket.take() {
                     let _ = socket.close_until(1000, "done", self.deadline);

@@ -176,3 +176,80 @@ fn unfinished_input_and_single_delta_have_independent_byte_ceilings() {
     );
     assert!(port.synthesis.borrow().is_empty());
 }
+
+#[test]
+fn cancellation_is_checked_during_a_single_text_delta() {
+    use plur1bus_voice_providers::polly::synthesize_stream;
+    use std::cell::Cell;
+
+    #[derive(Default)]
+    struct CancelDuringScan(Cell<usize>);
+    impl Ports for CancelDuringScan {
+        fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
+            None
+        }
+        fn cancelled(&self) -> bool {
+            let previous = self.0.get();
+            self.0.set(previous + 1);
+            previous >= 3
+        }
+    }
+    impl SignedRequests for CancelDuringScan {
+        fn synthesize(&self, _: &Request<'_>, _: Instant) -> Result<Box<dyn Read>, Error> {
+            Err(Error::UpstreamProtocol)
+        }
+        fn describe_voices(&self, _: Option<&str>, _: Instant) -> Result<Box<dyn Read>, Error> {
+            Err(Error::UpstreamProtocol)
+        }
+    }
+    let host = CancelDuringScan::default();
+    let delta = " ".repeat(4096);
+    let options = Options {
+        voice: "FixtureVoice",
+        ..Options::default()
+    };
+    assert_eq!(
+        synthesize_stream(
+            &host,
+            [delta.as_str()],
+            &options,
+            None,
+            Duration::from_secs(2),
+            |_| Ok(())
+        ),
+        Err(Error::Aborted)
+    );
+}
+
+#[test]
+fn polly_checks_the_text_length_before_submitting_the_request() {
+    let host = Fixture {
+        pages: Vec::new(),
+        audio: vec![1, 0],
+        synthesis: RefCell::new(Vec::new()),
+        lists: RefCell::new(Vec::new()),
+    };
+    let options = Options {
+        voice: "FixtureVoice",
+        ..Options::default()
+    };
+    assert!(synthesize(&host, &"x".repeat(3000), &options, Duration::from_secs(2)).is_ok());
+    assert_eq!(
+        synthesize(&host, &"x".repeat(3001), &options, Duration::from_secs(2)).err(),
+        Some(Error::InvalidRequest)
+    );
+    assert_eq!(host.synthesis.borrow().len(), 1);
+}
+
+#[test]
+fn polly_describe_voices_stops_at_twenty_pages() {
+    let host = Fixture {
+        pages: vec![json!({"Voices":[{"Id":"fixture"}],"NextToken":"next"}); 2],
+        audio: Vec::new(),
+        synthesis: RefCell::new(Vec::new()),
+        lists: RefCell::new(Vec::new()),
+    };
+    let results = list_voices(&host, Duration::from_secs(2)).unwrap();
+    assert_eq!(results.len(), 20);
+    assert_eq!(host.lists.borrow().len(), 20);
+}

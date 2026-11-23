@@ -298,7 +298,7 @@ fn callback_can_stop_http_playback_before_success() {
 
 #[test]
 fn http_synthesis_deadline_applies_after_the_headers() {
-    use plur1bus_voice_providers::http::Error;
+    use plur1bus_voice_providers::http::{AudioFailure, Error};
 
     let mut fixture = serde_json::from_str::<Value>(include_str!(
         "../../../fixtures/parity/voice/synthesis-http-stream.json"
@@ -328,6 +328,205 @@ fn http_synthesis_deadline_applies_after_the_headers() {
     )
     .err()
     .unwrap();
-    assert_eq!(error, Error::Timeout);
+    assert_eq!(error, Error::AfterAudio(AudioFailure::Timeout));
+    assert!(!error.retryable());
     assert_eq!(server.received().len(), 1);
+}
+
+#[test]
+fn audio_already_delivered_makes_a_timeout_non_retryable() {
+    use plur1bus_voice_providers::http::Error;
+
+    let fixture = serde_json::from_str::<Value>(include_str!(
+        "../../../fixtures/parity/voice/synthesis-http-stream.json"
+    ))
+    .unwrap();
+    let server = FakeServer::start(&fixture);
+    let pin = Pin {
+        addr: server.addr,
+        expected_target: fixture["exchanges"][0]["request"]["path"]
+            .as_str()
+            .unwrap()
+            .into(),
+    };
+    let base = Url::parse(&format!("http://{}/v1", server.addr)).unwrap();
+    let client = Client::new(&pin).with_loopback_http();
+    let mut delivered = 0;
+    let outcome = stream_synthesis(
+        &client,
+        &base,
+        CREDENTIAL,
+        "fixture",
+        &options(&fixture["input"]),
+        BUDGET,
+        |audio| {
+            delivered += audio.bytes.len();
+            Err(Error::Timeout)
+        },
+    );
+    let error = outcome.err().unwrap();
+    assert!(delivered > 0);
+    assert_eq!(error.code(), "timeout");
+    assert!(!error.retryable());
+    assert_eq!(server.received().len(), 1);
+}
+
+#[test]
+fn websocket_upgrade_refusal_preserves_status_class_and_retry_hint() {
+    use plur1bus_voice_providers::http::Error;
+
+    let fixture = socket_fixture();
+    let input = &fixture["input"];
+    let target = fixture["request"]["path"].as_str().unwrap();
+    for (status, hint, expected) in [
+        (401, "3", Error::Auth),
+        (429, "1.5", Error::RateLimitedAfter(1500)),
+    ] {
+        use std::{
+            io::{BufRead, BufReader, Write},
+            net::TcpListener,
+        };
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let worker = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut read = BufReader::new(&stream);
+            loop {
+                let mut line = String::new();
+                let bytes = read.read_line(&mut line).unwrap();
+                if bytes == 0 || line == "\r\n" {
+                    break;
+                }
+            }
+            write!(stream, "HTTP/1.1 {status} Refused\r\nRetry-After: {hint}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+        });
+        let pin = Pin {
+            addr,
+            expected_target: target.into(),
+        };
+        let base = Url::parse(&format!("http://{addr}")).unwrap();
+        let result = TtsSocket::connect(&base, CREDENTIAL, &options(input), &pin, BUDGET, true);
+        worker.join().unwrap();
+        let error = result.err().unwrap();
+        assert_eq!(error, expected);
+    }
+}
+
+fn announced_tts(limit: usize, incoming: Value) -> Value {
+    let mut fixture = socket_fixture();
+    let exchange = &mut fixture["exchanges"][0];
+    for field in ["send", "sendText"] {
+        if let Some(frames) = exchange[field].as_array_mut() {
+            frames.truncate(limit);
+        }
+    }
+    exchange["receive"] = incoming;
+    fixture
+}
+
+#[test]
+fn tts_checks_text_size_and_input_completion_before_final_audio() {
+    use plur1bus_voice_providers::http::Error;
+
+    let fixture = announced_tts(1, json!([{"isFinal":true}]));
+    let server = FakeServer::start(&fixture);
+    let pin = Pin {
+        addr: server.addr,
+        expected_target: fixture["request"]["path"].as_str().unwrap().into(),
+    };
+    let base = Url::parse(&format!("http://{}", server.addr)).unwrap();
+    let input = &fixture["input"];
+    let settings = recorded_settings(input);
+    let options = SynthesisOptions {
+        voice_settings: Some(VoiceSettings(&settings)),
+        ..options(input)
+    };
+    let mut socket = TtsSocket::connect(&base, CREDENTIAL, &options, &pin, BUDGET, true).unwrap();
+    assert_eq!(
+        socket.send_text(&"t".repeat(1024 * 1024 + 1)),
+        Err(Error::InvalidRequest)
+    );
+    assert_eq!(socket.next_audio().err(), Some(Error::UpstreamProtocol));
+    assert!(socket.usage().is_none());
+}
+
+#[test]
+fn tts_stops_at_the_combined_audio_limit() {
+    use plur1bus_voice_providers::http::{Error, StreamLimits};
+
+    let fixture = announced_tts(1, json!([{"audio":"AQI="}, {"audio":"AwQ="}]));
+    let server = FakeServer::start(&fixture);
+    let pin = Pin {
+        addr: server.addr,
+        expected_target: fixture["request"]["path"].as_str().unwrap().into(),
+    };
+    let base = Url::parse(&format!("http://{}", server.addr)).unwrap();
+    let input = &fixture["input"];
+    let settings = recorded_settings(input);
+    let options = SynthesisOptions {
+        voice_settings: Some(VoiceSettings(&settings)),
+        ..options(input)
+    };
+    let limits = StreamLimits {
+        max_audio_bytes: 3,
+        max_duration: Duration::from_secs(2),
+    };
+    let mut socket =
+        TtsSocket::connect_with_limits(&base, CREDENTIAL, &options, &pin, BUDGET, true, limits)
+            .unwrap();
+    assert_eq!(socket.next_audio().unwrap().unwrap().bytes, [1, 2]);
+    assert_eq!(socket.next_audio().err(), Some(Error::StreamLimit));
+    assert!(socket.usage().is_none());
+}
+
+#[test]
+fn http_synthesis_applies_the_audio_limit_provided_by_the_host() {
+    use plur1bus_voice_providers::http::{Error, StreamLimits};
+
+    struct LimitedPin(Pin);
+    impl Ports for LimitedPin {
+        fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr> {
+            Ports::pin(&self.0, endpoint, deadline)
+        }
+        fn stream_limits(&self) -> StreamLimits {
+            StreamLimits {
+                max_audio_bytes: 3,
+                max_duration: Duration::from_secs(2),
+            }
+        }
+    }
+
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/voice/synthesis-http-stream.json"
+    ))
+    .unwrap();
+    let server = FakeServer::start(&fixture);
+    let pin = LimitedPin(Pin {
+        addr: server.addr,
+        expected_target: fixture["exchanges"][0]["request"]["path"]
+            .as_str()
+            .unwrap()
+            .into(),
+    });
+    let base = Url::parse(&format!("http://{}/v1", server.addr)).unwrap();
+    let client = Client::new(&pin).with_loopback_http();
+    let input = &fixture["input"];
+    let mut delivered = 0;
+    let result = stream_synthesis(
+        &client,
+        &base,
+        CREDENTIAL,
+        "fixture",
+        &options(input),
+        BUDGET,
+        |audio| {
+            delivered += audio.bytes.len();
+            Ok(())
+        },
+    );
+    assert_eq!(result.err(), Some(Error::StreamLimit));
+    assert!(delivered <= 3);
 }

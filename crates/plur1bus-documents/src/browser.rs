@@ -404,9 +404,10 @@ fn pause(control: Control<'_>, delay: Duration, deadline: Instant) -> Result<()>
 
 fn wire_error(error: websocket::Error, control: Control<'_>) -> Error {
     control.check().err().unwrap_or(match error {
-        websocket::Error::Denied | websocket::Error::Protocol | websocket::Error::Closed => {
-            Error::Protocol
-        }
+        websocket::Error::Denied
+        | websocket::Error::Protocol
+        | websocket::Error::Closed
+        | websocket::Error::Handshake { .. } => Error::Protocol,
         websocket::Error::Timeout => Error::Timeout,
         websocket::Error::Capacity => Error::TooLarge,
         websocket::Error::Network => Error::BrowserUnavailable,

@@ -4,7 +4,7 @@ pub use crate::stream::TimedStream;
 use std::fmt;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 use tungstenite::client::IntoClientRequest;
 use tungstenite::handshake::HandshakeError;
 use tungstenite::http::{HeaderName, HeaderValue};
@@ -18,6 +18,10 @@ const MAX_MESSAGE: usize = 32 * 1024 * 1024;
 pub trait SocketPorts {
     fn cancelled(&self) -> bool {
         false
+    }
+
+    fn wall_time(&self) -> SystemTime {
+        SystemTime::now()
     }
 
     fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr>;
@@ -59,6 +63,10 @@ pub enum Error {
     Timeout,
     Capacity,
     Protocol,
+    Handshake {
+        status: u16,
+        retry_after_ms: Option<u64>,
+    },
     Network,
     Closed,
 }
@@ -70,6 +78,7 @@ impl fmt::Display for Error {
             Self::Timeout => "websocket deadline elapsed",
             Self::Capacity => "websocket size limit exceeded",
             Self::Protocol => "websocket protocol error",
+            Self::Handshake { .. } => "websocket upgrade refused",
             Self::Network => "websocket I/O failed",
             Self::Closed => "websocket closed",
         })
@@ -204,7 +213,7 @@ impl Socket {
         let (ws, _) = tungstenite::client::client_with_config(request, stream, Some(config))
             .map_err(|e| match e {
                 HandshakeError::Interrupted(_) => Error::Timeout,
-                HandshakeError::Failure(error) => classify(error),
+                HandshakeError::Failure(error) => classify_handshake(error, ports),
             })?;
         Ok(Self { ws, limits })
     }
@@ -279,6 +288,37 @@ impl Socket {
                 reason: reason.into(),
             }))
             .map_err(classify)
+    }
+}
+
+fn classify_handshake(error: tungstenite::Error, ports: &dyn SocketPorts) -> Error {
+    if let tungstenite::Error::Http(response) = error {
+        let retry_after_ms = response.headers().get("retry-after").and_then(|header| {
+            let value = header.to_str().ok()?.trim();
+            if value.len() > 64 || value.is_empty() {
+                return None;
+            }
+            if value
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || byte == b'.')
+            {
+                let seconds = value.parse::<f64>().ok()?;
+                return Some((seconds * 1000.0).round().min(3_600_000.0) as u64);
+            }
+            let date = chrono::DateTime::parse_from_rfc2822(value).ok()?;
+            let now = chrono::DateTime::<chrono::Utc>::from(ports.wall_time());
+            Some(
+                date.signed_duration_since(now)
+                    .num_milliseconds()
+                    .clamp(0, 3_600_000) as u64,
+            )
+        });
+        Error::Handshake {
+            status: response.status().as_u16(),
+            retry_after_ms,
+        }
+    } else {
+        classify(error)
     }
 }
 

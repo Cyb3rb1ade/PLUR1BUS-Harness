@@ -178,7 +178,7 @@ pub fn stream_synthesis(
     budget: Duration,
     mut on_chunk: impl FnMut(AudioChunk<&[u8]>) -> Result<(), Error>,
 ) -> Result<StreamUsage, Error> {
-    let deadline = deadline(budget);
+    let (deadline, mut audio_budget) = client.stream_limits().start(budget);
     if key.trim().is_empty() {
         return Err(Error::Auth);
     }
@@ -217,21 +217,29 @@ pub fn stream_synthesis(
             }
             let mut buffer = [0; 8192];
             loop {
-                let count = match client.read_chunk(reader, deadline, &mut buffer) {
-                    Err(Error::BadResponse) => return Err(Error::Network),
-                    other => other?,
-                };
+                let count = client
+                    .read_chunk(reader, deadline, &mut buffer)
+                    .map_err(|error| {
+                        let error = if error == Error::BadResponse {
+                            Error::Network
+                        } else {
+                            error
+                        };
+                        audio_budget.error(error)
+                    })?;
                 if count == 0 {
                     return Ok(StreamUsage {
                         model: model.into(),
                         input_utf16_units: text.encode_utf16().count(),
                     });
                 }
+                audio_budget.charge(count)?;
                 on_chunk(AudioChunk {
                     bytes: &buffer[..count],
                     format: options.format,
                     sample_rate,
-                })?;
+                })
+                .map_err(|error| audio_budget.error(error))?;
             }
         },
     )
@@ -267,6 +275,19 @@ pub struct WordTiming {
 pub struct Pcm16<'a> {
     pub bytes: &'a [u8],
     pub sample_rate: u32,
+}
+
+fn check_multipart(pcm16: &[u8], fields: &[(&str, &str)], separator: &str) -> Result<(), Error> {
+    if pcm16
+        .windows(separator.len())
+        .any(|window| window == separator.as_bytes())
+        || fields
+            .iter()
+            .any(|(_, field)| field.contains(separator) || field.len() > 1024)
+    {
+        return Err(Error::InvalidRequest);
+    }
+    Ok(())
 }
 
 /// The host supplies the multipart boundary from its random source.
@@ -310,15 +331,7 @@ pub fn transcribe(
         fields.push(("timestamps_granularity", "word"));
     }
     let separator = format!("--{boundary}");
-    if pcm16
-        .windows(separator.len())
-        .any(|window| window == separator.as_bytes())
-        || fields
-            .iter()
-            .any(|(_, field)| field.contains(&separator) || field.len() > 1024)
-    {
-        return Err(Error::InvalidRequest);
-    }
+    check_multipart(pcm16, &fields, &separator)?;
     let mut body = Vec::new();
     for (name, value) in fields {
         let value = value
@@ -410,4 +423,27 @@ fn milliseconds(value: &Value) -> f64 {
         .filter(|value| *value >= 0. && value.is_finite())
         .unwrap_or(0.);
     (seconds * 1000.).round()
+}
+
+#[cfg(test)]
+mod multipart_tests {
+    use super::{check_multipart, Error};
+
+    #[test]
+    fn multipart_inputs_apply_field_and_delimiter_guards() {
+        let field = "x".repeat(1024);
+        let separator = "--fixture-boundary";
+        assert_eq!(
+            check_multipart(b"pcm", &[("field", &field)], separator),
+            Ok(())
+        );
+        assert_eq!(
+            check_multipart(b"pcm", &[("field", &format!("{field}x"))], separator),
+            Err(Error::InvalidRequest)
+        );
+        assert_eq!(
+            check_multipart(separator.as_bytes(), &[("field", &field)], separator),
+            Err(Error::InvalidRequest)
+        );
+    }
 }

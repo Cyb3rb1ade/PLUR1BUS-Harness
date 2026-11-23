@@ -429,6 +429,7 @@ fn model_dialogues_match_recorded_transcripts_tools_usage_and_asr_timestamps() {
             timestamps: asr,
             zero_retention: asr,
             usage_session_id: Some("<session>"),
+            stream_limits: Default::default(),
         };
         let budget = Duration::from_secs(5);
         let mut session = Session::connect_with_settings(
