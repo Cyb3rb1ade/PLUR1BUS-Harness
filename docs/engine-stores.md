@@ -78,8 +78,10 @@ operation context remain mandatory; construction does not activate ProcessEngine
 Each writable shared lease checks base ownership and owner-only shared-root permissions
 (including cached leases). Existing loose permissions are refused, never repaired. Unix uses
 UID/mode checks; Windows uses owner SID and strict DACL inspection, permitting the current user,
-SYSTEM and Administrators on the private root. Windows native behavior is not established by the
-macOS tests. Root replacement taints the router until restart. Leased stores retain all directory
+SYSTEM and Administrators on the private root. RE-D240 sets the process user's SID and a
+protected DACL in the creation call for each new private directory. Windows can otherwise use
+the Administrators group as the default owner of a directory created by an elevated token.
+Windows native behavior is established by the Windows tests. Root replacement taints the router until restart. Leased stores retain all directory
 pins, and idle-only cache eviction never invalidates an outstanding handle. RE-D127's SHA-bound
 fixture marker documents stricter partial-schema reads, tainted reads and repeated permission
 checks against the actual Node observations. The cost is held directory handles and additional
