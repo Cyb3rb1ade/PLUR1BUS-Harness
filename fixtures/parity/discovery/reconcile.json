@@ -1,0 +1,3217 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "new": [
+          "other-model"
+        ],
+        "reappeared": [],
+        "shadowed": [],
+        "unavailable": [],
+        "unchanged": 0,
+        "warnings": []
+      },
+      "input": {
+        "catalog": {
+          "models": [],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T09:00:00.000Z",
+        "provider": "other",
+        "raw": [
+          {
+            "id": "other-model"
+          }
+        ],
+        "roles": [
+          [
+            "chat",
+            "fixture/example-chat-large"
+          ],
+          [
+            "embeddings",
+            "fixture/example-embed-gone"
+          ]
+        ],
+        "vendor": "example-vendor"
+      },
+      "name": "first-provider"
+    },
+    {
+      "expected": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {
+                "displayName": "Large API"
+              },
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "Large API",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "new": [
+          "example-chat-large",
+          "example-embed-gone",
+          "fixture-whisper-a1",
+          "unknown"
+        ],
+        "reappeared": [],
+        "shadowed": [],
+        "unavailable": [],
+        "unchanged": 0,
+        "warnings": []
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T09:00:00.000Z",
+        "provider": "fixture",
+        "raw": [
+          {
+            "displayName": "Large API",
+            "id": "example-chat-large"
+          },
+          {
+            "id": "example-embed-gone"
+          },
+          {
+            "id": "fixture-whisper-a1"
+          },
+          {
+            "id": "unknown"
+          }
+        ],
+        "roles": [
+          [
+            "chat",
+            "fixture/example-chat-large"
+          ],
+          [
+            "embeddings",
+            "fixture/example-embed-gone"
+          ]
+        ],
+        "vendor": "example-vendor"
+      },
+      "name": "vendor-generic-and-heuristic"
+    },
+    {
+      "expected": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "my-chat"
+              ],
+              "api": {
+                "contextWindow": 32768,
+                "displayName": "Revised",
+                "kind": "chat"
+              },
+              "capabilities": [
+                "structured_output"
+              ],
+              "contextWindow": 32768,
+              "displayName": "My Large",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "unavailable"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "unavailable"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "unavailable"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            },
+            {
+              "aliases": [],
+              "api": {
+                "displayName": "Last",
+                "reasoning": {
+                  "style": "openrouter",
+                  "supported": true
+                }
+              },
+              "capabilities": [],
+              "displayName": "Last",
+              "firstSeen": "2026-11-22T10:00:00.000Z",
+              "id": "new-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "new": [
+          "new-model"
+        ],
+        "reappeared": [],
+        "shadowed": [
+          "manual-model"
+        ],
+        "unavailable": [
+          "example-embed-gone",
+          "fixture-whisper-a1",
+          "unknown"
+        ],
+        "unchanged": 1,
+        "warnings": [
+          {
+            "code": "shadowed_by_manual",
+            "id": "manual-model",
+            "provider": "fixture"
+          },
+          {
+            "code": "role_unavailable",
+            "id": "example-embed-gone",
+            "provider": "fixture",
+            "role": "embeddings"
+          }
+        ]
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {
+                "displayName": "Large API"
+              },
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "Large API",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "provider": "fixture",
+        "raw": [
+          {
+            "contextWindow": 32768,
+            "displayName": "Revised",
+            "id": "example-chat-large",
+            "kind": "chat"
+          },
+          {
+            "displayName": "Must be shadowed",
+            "id": "manual-model"
+          },
+          {
+            "displayName": "First",
+            "id": "new-model"
+          },
+          {
+            "displayName": "Last",
+            "id": "new-model",
+            "reasoning": {
+              "style": "openrouter",
+              "supported": true
+            }
+          }
+        ],
+        "roles": [
+          [
+            "chat",
+            "fixture/example-chat-large"
+          ],
+          [
+            "embeddings",
+            "fixture/example-embed-gone"
+          ]
+        ],
+        "vendor": "example-vendor"
+      },
+      "name": "update-remove-manual-and-duplicates"
+    },
+    {
+      "expected": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "my-chat"
+              ],
+              "api": {
+                "contextWindow": 32768,
+                "displayName": "Revised",
+                "kind": "chat"
+              },
+              "capabilities": [
+                "structured_output"
+              ],
+              "contextWindow": 32768,
+              "displayName": "My Large",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "unavailable"
+            },
+            {
+              "aliases": [],
+              "api": {
+                "contextWindow": 512
+              },
+              "capabilities": [],
+              "contextWindow": 512,
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "unavailable"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "unavailable"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "new-model",
+              "firstSeen": "2026-11-22T10:00:00.000Z",
+              "id": "new-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "new": [],
+        "reappeared": [
+          "example-embed-gone"
+        ],
+        "shadowed": [],
+        "unavailable": [
+          "example-chat-large"
+        ],
+        "unchanged": 1,
+        "warnings": [
+          {
+            "code": "role_unavailable",
+            "id": "example-chat-large",
+            "provider": "fixture",
+            "role": "chat"
+          }
+        ]
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "my-chat"
+              ],
+              "api": {
+                "contextWindow": 32768,
+                "displayName": "Revised",
+                "kind": "chat"
+              },
+              "capabilities": [
+                "structured_output"
+              ],
+              "contextWindow": 32768,
+              "displayName": "My Large",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "unavailable"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "unavailable"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "unavailable"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            },
+            {
+              "aliases": [],
+              "api": {
+                "displayName": "Last",
+                "reasoning": {
+                  "style": "openrouter",
+                  "supported": true
+                }
+              },
+              "capabilities": [],
+              "displayName": "Last",
+              "firstSeen": "2026-11-22T10:00:00.000Z",
+              "id": "new-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "provider": "fixture",
+        "raw": [
+          {
+            "contextWindow": 512,
+            "id": "example-embed-gone"
+          },
+          {
+            "id": "new-model"
+          }
+        ],
+        "roles": [
+          [
+            "chat",
+            "fixture/example-chat-large"
+          ],
+          [
+            "embeddings",
+            "fixture/example-embed-gone"
+          ]
+        ],
+        "vendor": "example-vendor"
+      },
+      "name": "reappearance"
+    },
+    {
+      "expected": {
+        "error": "empty raw list"
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "my-chat"
+              ],
+              "api": {
+                "contextWindow": 32768,
+                "displayName": "Revised",
+                "kind": "chat"
+              },
+              "capabilities": [
+                "structured_output"
+              ],
+              "contextWindow": 32768,
+              "displayName": "My Large",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "unavailable"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "unavailable"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "unavailable"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            },
+            {
+              "aliases": [],
+              "api": {
+                "displayName": "Last",
+                "reasoning": {
+                  "style": "openrouter",
+                  "supported": true
+                }
+              },
+              "capabilities": [],
+              "displayName": "Last",
+              "firstSeen": "2026-11-22T10:00:00.000Z",
+              "id": "new-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "provider": "fixture",
+        "raw": [],
+        "roles": [
+          [
+            "chat",
+            "fixture/example-chat-large"
+          ],
+          [
+            "embeddings",
+            "fixture/example-embed-gone"
+          ]
+        ],
+        "vendor": "example-vendor"
+      },
+      "name": "empty-list-is-never-a-scan"
+    },
+    {
+      "expected": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [
+                "shared"
+              ],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "a-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "B-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "model-20250101",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            },
+            {
+              "aliases": [
+                "version"
+              ],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "model-2026-01-01",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unchanged",
+              "firstSeen": "2026-11-22T10:00:00.000Z",
+              "id": "unchanged",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "new": [
+          "unchanged"
+        ],
+        "reappeared": [],
+        "shadowed": [],
+        "unavailable": [],
+        "unchanged": 0,
+        "warnings": []
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [
+                "shared"
+              ],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "a-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "shared"
+              ],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "B-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "version"
+              ],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "model-20250101",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            },
+            {
+              "aliases": [
+                "version"
+              ],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "model-2026-01-01",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "provider": "other",
+        "raw": [
+          {
+            "id": "unchanged"
+          }
+        ],
+        "roles": [
+          [
+            "chat",
+            "fixture/example-chat-large"
+          ],
+          [
+            "embeddings",
+            "fixture/example-embed-gone"
+          ]
+        ],
+        "vendor": "example-vendor"
+      },
+      "name": "compare-root-locale-and-date"
+    },
+    {
+      "expected": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [
+                "unique"
+              ],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unchanged",
+              "firstSeen": "2026-11-22T10:00:00.000Z",
+              "id": "unchanged",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "new": [
+          "unchanged"
+        ],
+        "reappeared": [],
+        "shadowed": [],
+        "unavailable": [],
+        "unchanged": 0,
+        "warnings": []
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [
+                "repeated",
+                "repeated",
+                "unique"
+              ],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "provider": "other",
+        "raw": [
+          {
+            "id": "unchanged"
+          }
+        ],
+        "roles": [
+          [
+            "chat",
+            "fixture/example-chat-large"
+          ],
+          [
+            "embeddings",
+            "fixture/example-embed-gone"
+          ]
+        ],
+        "vendor": "example-vendor"
+      },
+      "name": "repeat-alias-in-manual-entry"
+    },
+    {
+      "expected": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "a-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "a-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "shared"
+                ]
+              },
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "shared"
+              ],
+              "api": {},
+              "capabilities": [],
+              "displayName": "B-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "B-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "shared"
+                ]
+              },
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "new": [],
+        "reappeared": [],
+        "shadowed": [],
+        "unavailable": [],
+        "unchanged": 2,
+        "warnings": []
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [
+                "shared"
+              ],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "a-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "shared"
+                ]
+              },
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "shared"
+              ],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "B-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "shared"
+                ]
+              },
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "provider": "fixture",
+        "raw": [
+          {
+            "created": 100,
+            "id": "a-model"
+          },
+          {
+            "created": 200,
+            "id": "B-model"
+          }
+        ],
+        "roles": [
+          [
+            "chat",
+            "fixture/example-chat-large"
+          ],
+          [
+            "embeddings",
+            "fixture/example-embed-gone"
+          ]
+        ],
+        "vendor": "example-vendor"
+      },
+      "name": "created-wins-for-two-live-override-aliases"
+    }
+  ],
+  "overrides": [
+    {
+      "expected": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {
+                "displayName": "Large API"
+              },
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "Large API",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            },
+            {
+              "aliases": [
+                "local-alias"
+              ],
+              "capabilities": [],
+              "displayName": "manual-new",
+              "firstSeen": "2026-11-22T10:00:00.000Z",
+              "id": "manual-new",
+              "kind": "tts",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "local-alias"
+                ],
+                "kind": "tts"
+              },
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "entry": {
+          "aliases": [
+            "local-alias"
+          ],
+          "capabilities": [],
+          "displayName": "manual-new",
+          "firstSeen": "2026-11-22T10:00:00.000Z",
+          "id": "manual-new",
+          "kind": "tts",
+          "lastSeen": "2026-11-22T10:00:00.000Z",
+          "overrides": {
+            "aliases": [
+              "local-alias"
+            ],
+            "kind": "tts"
+          },
+          "provider": "fixture",
+          "source": "manual",
+          "status": "manual"
+        }
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {
+                "displayName": "Large API"
+              },
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "Large API",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "request": {
+          "create": true,
+          "id": "manual-new",
+          "provider": "fixture",
+          "set": {
+            "aliases": [
+              "local-alias"
+            ],
+            "kind": "tts"
+          }
+        },
+        "vendor": "example-vendor"
+      },
+      "name": "manual-create"
+    },
+    {
+      "expected": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {
+                "displayName": "Large API"
+              },
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "Renamed",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "displayName": "Renamed"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "entry": {
+          "aliases": [
+            "example-chat-latest"
+          ],
+          "api": {
+            "displayName": "Large API"
+          },
+          "capabilities": [
+            "tools",
+            "vision",
+            "reasoning"
+          ],
+          "contextWindow": 128000,
+          "displayName": "Renamed",
+          "firstSeen": "2026-11-22T09:00:00.000Z",
+          "id": "example-chat-large",
+          "kind": "chat",
+          "lastSeen": "2026-11-22T09:00:00.000Z",
+          "overrides": {
+            "displayName": "Renamed"
+          },
+          "provider": "fixture",
+          "source": "table",
+          "status": "available"
+        }
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {
+                "displayName": "Large API"
+              },
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "Large API",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "request": {
+          "clear": "all",
+          "id": "example-chat-large",
+          "provider": "fixture",
+          "set": {
+            "displayName": "Renamed"
+          }
+        },
+        "vendor": "example-vendor"
+      },
+      "name": "table-refresh"
+    },
+    {
+      "expected": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {
+                "displayName": "Large API"
+              },
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "Large API",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [
+                "tools"
+              ],
+              "displayName": "My manual model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "capabilities": [
+                  "tools"
+                ],
+                "displayName": "My manual model"
+              },
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "entry": {
+          "aliases": [],
+          "capabilities": [
+            "tools"
+          ],
+          "displayName": "My manual model",
+          "firstSeen": "2026-11-22T09:00:00.000Z",
+          "id": "manual-model",
+          "kind": "unknown",
+          "lastSeen": "2026-11-22T09:00:00.000Z",
+          "overrides": {
+            "capabilities": [
+              "tools"
+            ],
+            "displayName": "My manual model"
+          },
+          "provider": "fixture",
+          "source": "manual",
+          "status": "manual"
+        }
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {
+                "displayName": "Large API"
+              },
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "Large API",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "request": {
+          "clear": "all",
+          "id": "manual-model",
+          "provider": "fixture",
+          "set": {
+            "capabilities": [
+              "tools"
+            ],
+            "displayName": "My manual model"
+          }
+        },
+        "vendor": "example-vendor"
+      },
+      "name": "manual-reset"
+    },
+    {
+      "expected": {
+        "code": "conflict",
+        "field": "aliases"
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {
+                "displayName": "Large API"
+              },
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "Large API",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "request": {
+          "id": "example-chat-large",
+          "provider": "fixture",
+          "set": {
+            "aliases": [
+              "manual-model"
+            ]
+          }
+        },
+        "vendor": "example-vendor"
+      },
+      "name": "alias-conflict"
+    },
+    {
+      "expected": {
+        "code": "invalid",
+        "field": "aliases"
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {
+                "displayName": "Large API"
+              },
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "Large API",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "request": {
+          "id": "example-chat-large",
+          "provider": "fixture",
+          "set": {
+            "aliases": [
+              "same",
+              "same"
+            ]
+          }
+        },
+        "vendor": "example-vendor"
+      },
+      "name": "repeated-alias"
+    },
+    {
+      "expected": {
+        "code": "invalid",
+        "field": "ignoredField"
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {
+                "displayName": "Large API"
+              },
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "Large API",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "request": {
+          "id": "example-chat-large",
+          "provider": "fixture",
+          "set": {
+            "ignoredField": "value"
+          }
+        },
+        "vendor": "example-vendor"
+      },
+      "name": "invalid-override-key"
+    },
+    {
+      "expected": {
+        "code": "invalid",
+        "field": "displayName"
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {
+                "displayName": "Large API"
+              },
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "Large API",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "request": {
+          "id": "example-chat-large",
+          "provider": "fixture",
+          "set": {
+            "displayName": ""
+          }
+        },
+        "vendor": "example-vendor"
+      },
+      "name": "empty-display"
+    },
+    {
+      "expected": {
+        "code": "invalid",
+        "field": "clear"
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {
+                "displayName": "Large API"
+              },
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "Large API",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "request": {
+          "clear": [
+            "invented"
+          ],
+          "id": "example-chat-large",
+          "provider": "fixture"
+        },
+        "vendor": "example-vendor"
+      },
+      "name": "invalid-clear"
+    },
+    {
+      "expected": {
+        "code": "not-found"
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "other-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "other-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "other",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {
+                "displayName": "Large API"
+              },
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "Large API",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "my-chat"
+                ],
+                "capabilities": [
+                  "structured_output"
+                ],
+                "displayName": "My Large"
+              },
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "example-embed-gone",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "example-embed-gone",
+              "kind": "embedding",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "fixture-whisper-a1",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "fixture-whisper-a1",
+              "kind": "asr",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [],
+              "displayName": "unknown",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "unknown",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "manual-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "manual",
+              "status": "manual"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "request": {
+          "id": "absent",
+          "provider": "fixture",
+          "set": {
+            "kind": "tts"
+          }
+        },
+        "vendor": "example-vendor"
+      },
+      "name": "missing-model"
+    }
+  ],
+  "patterns": [
+    {
+      "input": {
+        "revision": "fixture-revision",
+        "schema": "plur1bus.model-metadata/1",
+        "vendors": {
+          "generic": [
+            {
+              "capabilities": [],
+              "kind": "chat",
+              "pattern": "^example-[0-9]+$"
+            }
+          ]
+        }
+      },
+      "valid": true
+    },
+    {
+      "input": {
+        "revision": "fixture-revision",
+        "schema": "plur1bus.model-metadata/1",
+        "vendors": {
+          "generic": [
+            {
+              "capabilities": [],
+              "kind": "chat",
+              "pattern": "not-anchored"
+            }
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "input": {
+        "revision": "fixture-revision",
+        "schema": "plur1bus.model-metadata/1",
+        "vendors": {
+          "generic": [
+            {
+              "capabilities": [],
+              "kind": "chat",
+              "pattern": "^(lo{2}){2}$"
+            }
+          ]
+        }
+      },
+      "valid": false
+    }
+  ],
+  "refreshed": {
+    "expected": {
+      "models": [
+        {
+          "aliases": [],
+          "api": {},
+          "capabilities": [],
+          "displayName": "other-model",
+          "firstSeen": "2026-11-22T09:00:00.000Z",
+          "id": "other-model",
+          "kind": "unknown",
+          "lastSeen": "2026-11-22T09:00:00.000Z",
+          "overrides": {},
+          "provider": "other",
+          "source": "scan",
+          "status": "available"
+        },
+        {
+          "aliases": [
+            "my-chat"
+          ],
+          "api": {
+            "displayName": "Large API"
+          },
+          "capabilities": [
+            "structured_output"
+          ],
+          "contextWindow": 29000,
+          "displayName": "My Large",
+          "firstSeen": "2026-11-22T09:00:00.000Z",
+          "id": "example-chat-large",
+          "kind": "chat",
+          "lastSeen": "2026-11-22T09:00:00.000Z",
+          "overrides": {
+            "aliases": [
+              "my-chat"
+            ],
+            "capabilities": [
+              "structured_output"
+            ],
+            "displayName": "My Large"
+          },
+          "provider": "fixture",
+          "source": "table",
+          "status": "available"
+        },
+        {
+          "aliases": [],
+          "api": {},
+          "capabilities": [],
+          "displayName": "example-embed-gone",
+          "firstSeen": "2026-11-22T09:00:00.000Z",
+          "id": "example-embed-gone",
+          "kind": "embedding",
+          "lastSeen": "2026-11-22T09:00:00.000Z",
+          "overrides": {},
+          "provider": "fixture",
+          "source": "scan",
+          "status": "available"
+        },
+        {
+          "aliases": [],
+          "api": {},
+          "capabilities": [],
+          "displayName": "fixture-whisper-a1",
+          "firstSeen": "2026-11-22T09:00:00.000Z",
+          "id": "fixture-whisper-a1",
+          "kind": "asr",
+          "lastSeen": "2026-11-22T09:00:00.000Z",
+          "overrides": {},
+          "provider": "fixture",
+          "source": "scan",
+          "status": "available"
+        },
+        {
+          "aliases": [],
+          "api": {},
+          "capabilities": [],
+          "displayName": "unknown",
+          "firstSeen": "2026-11-22T09:00:00.000Z",
+          "id": "unknown",
+          "kind": "unknown",
+          "lastSeen": "2026-11-22T09:00:00.000Z",
+          "overrides": {},
+          "provider": "fixture",
+          "source": "scan",
+          "status": "available"
+        },
+        {
+          "aliases": [],
+          "capabilities": [],
+          "displayName": "Manual",
+          "firstSeen": "2026-11-22T09:00:00.000Z",
+          "id": "manual-model",
+          "kind": "chat",
+          "lastSeen": "2026-11-22T09:00:00.000Z",
+          "overrides": {},
+          "provider": "fixture",
+          "source": "manual",
+          "status": "manual"
+        }
+      ],
+      "providers": {},
+      "revision": 0,
+      "schema": "plur1bus.model-catalog/1",
+      "tableRevision": "fixture-revision"
+    },
+    "input": {
+      "catalog": {
+        "models": [
+          {
+            "aliases": [],
+            "api": {},
+            "capabilities": [],
+            "displayName": "other-model",
+            "firstSeen": "2026-11-22T09:00:00.000Z",
+            "id": "other-model",
+            "kind": "unknown",
+            "lastSeen": "2026-11-22T09:00:00.000Z",
+            "overrides": {},
+            "provider": "other",
+            "source": "scan",
+            "status": "available"
+          },
+          {
+            "aliases": [
+              "example-chat-latest"
+            ],
+            "api": {
+              "displayName": "Large API"
+            },
+            "capabilities": [
+              "tools",
+              "vision",
+              "reasoning"
+            ],
+            "contextWindow": 128000,
+            "displayName": "Large API",
+            "firstSeen": "2026-11-22T09:00:00.000Z",
+            "id": "example-chat-large",
+            "kind": "chat",
+            "lastSeen": "2026-11-22T09:00:00.000Z",
+            "overrides": {
+              "aliases": [
+                "my-chat"
+              ],
+              "capabilities": [
+                "structured_output"
+              ],
+              "displayName": "My Large"
+            },
+            "provider": "fixture",
+            "source": "table",
+            "status": "available"
+          },
+          {
+            "aliases": [],
+            "api": {},
+            "capabilities": [],
+            "displayName": "example-embed-gone",
+            "firstSeen": "2026-11-22T09:00:00.000Z",
+            "id": "example-embed-gone",
+            "kind": "embedding",
+            "lastSeen": "2026-11-22T09:00:00.000Z",
+            "overrides": {},
+            "provider": "fixture",
+            "source": "table",
+            "status": "available"
+          },
+          {
+            "aliases": [],
+            "api": {},
+            "capabilities": [],
+            "displayName": "fixture-whisper-a1",
+            "firstSeen": "2026-11-22T09:00:00.000Z",
+            "id": "fixture-whisper-a1",
+            "kind": "asr",
+            "lastSeen": "2026-11-22T09:00:00.000Z",
+            "overrides": {},
+            "provider": "fixture",
+            "source": "scan",
+            "status": "available"
+          },
+          {
+            "aliases": [],
+            "api": {},
+            "capabilities": [],
+            "displayName": "unknown",
+            "firstSeen": "2026-11-22T09:00:00.000Z",
+            "id": "unknown",
+            "kind": "unknown",
+            "lastSeen": "2026-11-22T09:00:00.000Z",
+            "overrides": {},
+            "provider": "fixture",
+            "source": "scan",
+            "status": "available"
+          },
+          {
+            "aliases": [],
+            "capabilities": [],
+            "displayName": "Manual",
+            "firstSeen": "2026-11-22T09:00:00.000Z",
+            "id": "manual-model",
+            "kind": "chat",
+            "lastSeen": "2026-11-22T09:00:00.000Z",
+            "overrides": {},
+            "provider": "fixture",
+            "source": "manual",
+            "status": "manual"
+          }
+        ],
+        "providers": {},
+        "revision": 0,
+        "schema": "plur1bus.model-catalog/1",
+        "tableRevision": "2026-11-01.1"
+      },
+      "table": {
+        "revision": "fixture-revision",
+        "schema": "plur1bus.model-metadata/1",
+        "vendors": {
+          "example-vendor": [
+            {
+              "capabilities": [
+                "vision"
+              ],
+              "contextWindow": 29000,
+              "kind": "chat",
+              "pattern": "^example-chat-large$"
+            }
+          ]
+        }
+      },
+      "vendor": "example-vendor"
+    }
+  },
+  "source": "packages/core/src/discovery/reconcile.ts"
+}

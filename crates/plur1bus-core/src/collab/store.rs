@@ -617,8 +617,7 @@ impl CollabStore {
 
     /// `#tx`: `BEGIN IMMEDIATE`, commit on `Ok`, roll back on `Err`.
     pub(crate) fn tx<T>(&self, f: impl FnOnce(&Connection) -> R<T>) -> R<T> {
-        use rusqlite::{Transaction, TransactionBehavior};
-        let tx = Transaction::new_unchecked(self.conn()?, TransactionBehavior::Immediate)?;
+        let tx = plur1bus_store::begin_immediate(self.conn()?)?;
         let result = f(&tx)?;
         tx.commit()?;
         Ok(result)

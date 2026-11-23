@@ -6132,6 +6132,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "plur1bus-discovery"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "brotli",
+ "chrono",
+ "flate2",
+ "icu_collator",
+ "icu_locale_core",
+ "icu_normalizer",
+ "log",
+ "plur1bus-providers",
+ "plur1bus-wire-fixtures",
+ "plur1bus-wire-log",
+ "regex",
+ "regex-syntax",
+ "ring",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "ureq",
+ "url",
+]
+
+[[package]]
 name = "plur1bus-documents"
 version = "0.1.0"
 dependencies = [

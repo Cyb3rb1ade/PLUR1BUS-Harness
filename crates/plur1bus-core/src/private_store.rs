@@ -72,6 +72,72 @@ pub(crate) fn prepare_owner_only(
     }
 }
 
+/// Prepare the pathname for a versioned store. On Windows the host's ACL attestation
+/// must be read-only and cover the parent before SQLite may open the database.
+/// On Unix, new paths are created privately; existing permissions are left alone.
+pub(crate) fn prepare_versioned(
+    path: &Path,
+    verify: Option<&dyn Fn(&Path) -> bool>,
+) -> Result<(), PrepareError> {
+    if path == Path::new(":memory:") {
+        return Ok(());
+    }
+    #[cfg(unix)]
+    {
+        let _ = verify;
+        prepare(path).map_err(PrepareError::Io)
+    }
+    #[cfg(not(unix))]
+    {
+        prepare_owner_only(path, verify)
+    }
+}
+
+/// Inspect only the on-disk schema using a read-only connection. The owner
+/// callback runs before obtaining any writable SQLite handle. Check the schema
+/// again on that handle before configuration or migration.
+pub(crate) fn open_versioned<E: From<plur1bus_store::StoreError>>(
+    path: &Path,
+    owner: &plur1bus_store::OwnerSpec,
+    protect: impl FnOnce() -> Result<(), E>,
+) -> Result<plur1bus_store::Store, E> {
+    use plur1bus_store::{
+        rusqlite::{Connection, OpenFlags},
+        Store, StoreError,
+    };
+    let check = |cx: &Connection| -> Result<(), StoreError> {
+        let found: u32 = cx.pragma_query_value(None, "user_version", |r| r.get(0))?;
+        if found > owner.store.version {
+            return Err(StoreError::NewerSchema {
+                store: owner.store.name,
+                found,
+                supported: owner.store.version,
+            });
+        }
+        Ok(())
+    };
+    if path != Path::new(":memory:") {
+        let cx = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(StoreError::from)?;
+        check(&cx)?;
+        protect()?;
+    }
+    Store::open_owner_before_configure(path, owner, |cx| check(cx).map_err(E::from))
+}
+
+/// Apply Unix permissions only after checking the schema on the opened connection.
+pub(crate) fn protect_compatible(path: &Path, verify: Option<&dyn Fn(&Path) -> bool>) -> bool {
+    #[cfg(unix)]
+    {
+        path == Path::new(":memory:") || verify.unwrap_or(&default_secure)(path)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (path, verify);
+        true
+    }
+}
+
 /// An acquired advisory lock. Unlock explicitly so a duplicate file description
 /// held briefly across fork does not keep an already released operation busy.
 pub(crate) struct AdvisoryLease(pub(crate) std::fs::File);
@@ -94,4 +160,4 @@ pub(crate) fn fixture_owner_hook() -> Option<&'static dyn Fn(&Path) -> bool> {
 
 #[cfg(test)]
 #[path = "private_store_tests.rs"]
-mod tests;
+pub(crate) mod tests;

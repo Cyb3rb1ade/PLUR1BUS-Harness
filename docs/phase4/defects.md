@@ -1262,6 +1262,9 @@ refusal and K7-D5 identifies the calendar difference.
 | <a id="p4d-183"></a>P4D-183 | K10-D22 | [P4-31](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-31) · `packages/hostctl/src/` | security | Rust strict | Host document opening refuses the legacy launchable file classes plus additional platform launcher and configuration types. The vectors preserve both outcomes. |
 | <a id="p4d-197"></a>P4D-197 | K10-D23 | [P4-31](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-31) · `packages/hostctl/src/` | security | Rust strict | R-K-31 requires ASCII program names in direct calls and at the program position of shell commands. The flip must use the same admission rule. |
 | <a id="p4d-198"></a>P4D-198 | K10-D24 | [P4-31](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-31) · `packages/hostctl/src/` | security | flip blocker | RE-6 and R-K-30 require a private receipt when an effect precedes result or audit failure, and confirmed stop or continued management of a newly started process. |
+| <a id="p4d-199"></a>P4D-199 | K5-D11 | [P4-40](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-40) · `packages/core/src/session/` | security | Rust strict | R-K-28 requires an exclusive host writer lease through the file restore, including the final comparison. |
+| <a id="p4d-200"></a>P4D-200 | K9a-D8 | [P4-42](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-42) · `packages/core/src/triage/` | low | Rust strict | R-K-29 requires a nonempty string for each external task summary. The runtime uses its rule fallback on a segmentation error. |
+| <a id="p4d-201"></a>P4D-201 | K7-D53 | [P4-51](../superpowers/plans/phase4/MODULE-MAP.md#source-p4-51) · `packages/core/src/user-jobs/` | security | Rust strict | R-K-32 requires refusal on an explicit negative permission verdict even on Unix. |
 
 ### P4-K K11
 
@@ -1278,6 +1281,14 @@ refusal and K7-D5 identifies the calendar difference.
 | <a id="p4d-192"></a>P4D-192 | K11-D9 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | info | flip | The D2 golden test compares capability counters for identical events. The dispatch path that produces those events in a live turn still needs wiring. |
 | <a id="p4d-193"></a>P4D-193 | K11-D10 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | info | Rust design | The Rust-owned receipt database uses WAL. Marker checks cover the database and sidecars for accidental content. |
 | <a id="p4d-194"></a>P4D-194 | K11-D11 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | info | Rust design | A receipt records the injected clock at write time rather than trusting a host-supplied data timestamp. |
+
+<a id="p4d-203"></a>
+
+## P4D-203 — Hostctl shell control inputs (R-K-34)
+
+Rust excludes BASHOPTS, SHELLOPTS and PS4 from inherited and requested Hostctl
+environment values. The literal proc.shell subset excludes the arithmetic
+assignment builtin. The TypeScript admission policy has the earlier rules.
 
 <a id="p4d-195"></a>
 
@@ -1429,3 +1440,24 @@ The reader counts the bytes it receives, including after gzip decoding.
 HTTP setup, retry waits and body reads share the absolute operation deadline.
 An in-flight blocking read can defer cancellation until that deadline (R-W-9).
 The adapters apply separate file limits to binary media.
+
+
+<a id="p4d-224"></a>
+
+## P4D-224 — managed discovery reuses the Apple FM body cap
+
+The managed Unix transport shares the provider connector's one MiB ceiling
+and keeps the original deadline through body EOF. A response above the cap
+returns `response_too_large`; the TypeScript discovery path allows four MiB.
+TCP discovery retains the TypeScript four MiB per-page and eight MiB total
+bounds. Provider error bodies are not read by the Rust scanner.
+
+<a id="p4d-226"></a>
+
+## P4D-226 — discovery transport diagnostics
+
+The Rust scanner binds a credential lease to its authorized origin before
+admitting a request. Its errors omit headers and response bodies. If the
+signed catalogue falls back to an authenticated cached view after a transport
+failure, Rust preserves the failure code and uses a generic diagnostic message.
+The TypeScript view can name the request host.
