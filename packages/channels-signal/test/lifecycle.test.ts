@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { EventEmitter, once } from "node:events";
 import { test } from "node:test";
 import { SignalChannel, SignalRpcError } from "../src/index.ts";
 import { ACCOUNT, rig } from "./helpers/setup.ts";
@@ -90,12 +91,14 @@ test("lifecycle: backoff grows with attempts and is capped at 60 s (table)", asy
     [20, 60000],
   ];
   for (const [attempt, expected] of cases) {
-    const r = await rig({}, true);
+    const events = new EventEmitter();
+    const r = await rig({ logger: { log: (_level, event) => events.emit(event) } });
     try {
       r.daemon.failures["version"] = Array.from({ length: attempt + 1 }, () => ({ code: -1, message: "busy" }));
+      const reconnected = once(events, "channel.signal.reconnected", { signal: AbortSignal.timeout(5_000) });
       r.daemon.dropConnections();
-      await waitFor(() => r.logs.some((l) => l.event === "channel.signal.reconnected"));
-      assert.equal(r.sleeps[attempt] ?? r.sleeps.at(-1), expected, `attempt ${attempt}`);
+      await reconnected;
+      assert.equal(r.sleeps[attempt], expected, `attempt ${attempt}`);
     } finally {
       await r.close();
     }
