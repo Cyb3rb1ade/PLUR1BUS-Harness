@@ -189,7 +189,19 @@ fn utf16_prefix_end(text: &str, limit: usize) -> usize {
     text.len()
 }
 
-pub(super) fn parse(html: &str) -> Result<Vec<Element>, Failure> {
+pub(super) fn parse(
+    html: &str,
+    check: &dyn Fn() -> Result<(), Failure>,
+) -> Result<Vec<Element>, Failure> {
+    parse_limited(html, check, MAX_ELEMENTS, MAX_DEPTH)
+}
+
+fn parse_limited(
+    html: &str,
+    check: &dyn Fn() -> Result<(), Failure>,
+    max_elements: usize,
+    max_depth: usize,
+) -> Result<Vec<Element>, Failure> {
     let mut nodes = vec![Element {
         tag: "#root".to_owned(),
         ..Element::default()
@@ -198,9 +210,7 @@ pub(super) fn parse(html: &str) -> Result<Vec<Element>, Failure> {
     let mut lower = None;
     let mut at = 0;
     while at < html.len() {
-        if nodes.len() > MAX_ELEMENTS {
-            return Err(Failure::TooLarge);
-        }
+        check()?;
         let Some(&parent) = stack.last() else {
             return Err(Failure::TooLarge);
         };
@@ -233,6 +243,10 @@ pub(super) fn parse(html: &str) -> Result<Vec<Element>, Failure> {
                 at = terminator(&html[..end], tag_end, ">");
             }
             Some(letter) if letter.is_ascii_alphabetic() => {
+                // The synthetic root does not count as an HTML element.
+                if nodes.len() > max_elements {
+                    return Err(Failure::TooLarge);
+                }
                 let (node, end) = start_tag(html, at + 1);
                 implied_close(&node.tag, &nodes, &mut stack);
                 let Some(&parent) = stack.last() else {
@@ -259,7 +273,7 @@ pub(super) fn parse(html: &str) -> Result<Vec<Element>, Failure> {
                         nodes[id].children.push(Child::Text(content));
                     }
                     at = terminator(html, end, ">");
-                } else if !VOID.contains(&tag) && stack.len() < MAX_DEPTH {
+                } else if !VOID.contains(&tag) && stack.len() < max_depth {
                     stack.push(id);
                 }
             }
@@ -270,6 +284,7 @@ pub(super) fn parse(html: &str) -> Result<Vec<Element>, Failure> {
         }
     }
     for id in (0..nodes.len()).rev() {
+        check()?;
         nodes[id].frames_content = nodes[id].children.iter().any(|child| {
             if let Child::Element(child) = child {
                 let el = &nodes[*child];
@@ -280,4 +295,23 @@ pub(super) fn parse(html: &str) -> Result<Vec<Element>, Failure> {
         });
     }
     Ok(nodes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_limited, Failure};
+
+    #[test]
+    fn html_element_and_nesting_caps_apply_at_the_boundary() -> Result<(), Failure> {
+        let check = || Ok(());
+        assert_eq!(parse_limited("<hr><hr>", &check, 2, 3)?.len(), 3);
+        assert_eq!(
+            parse_limited("<hr><hr><hr>", &check, 2, 3).err(),
+            Some(Failure::TooLarge)
+        );
+        let nodes = parse_limited("<div><section><p>ordinary text", &check, 4, 3)?;
+        assert!(nodes[3].children.is_empty());
+        assert!(!nodes[2].children.is_empty());
+        Ok(())
+    }
 }

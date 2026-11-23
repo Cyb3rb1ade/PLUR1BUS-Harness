@@ -37,6 +37,10 @@ pub struct Crawl<'a> {
     pub aborted: &'a dyn Fn() -> bool,
 }
 
+fn policy_deadline(crawl_deadline: Instant, now: Instant) -> Instant {
+    crawl_deadline.min(now + Duration::from_secs(5))
+}
+
 impl Crawl<'_> {
     fn policy(&self, url: &Url, deadline: Instant) -> Result<Arc<Robots>, Failure> {
         let origin = url.origin().ascii_serialization();
@@ -45,7 +49,7 @@ impl Crawl<'_> {
             return Ok(cached);
         }
         let headers = HeaderMap::new();
-        let robots_deadline = deadline.min(Instant::now() + Duration::from_secs(5));
+        let robots_deadline = policy_deadline(deadline, Instant::now());
         let mut options = Options::get(
             &headers,
             self.agent,
@@ -124,5 +128,23 @@ impl Admission for Crawl<'_> {
     fn before_redirect(&self, target: &Url, deadline: Instant) -> Result<(), Failure> {
         self.egress.before_redirect(target, deadline)?;
         self.station(target, deadline)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{policy_deadline, Duration, Instant};
+
+    #[test]
+    fn robots_lookup_never_needs_the_full_crawl_deadline() {
+        let now = Instant::now();
+        assert_eq!(
+            policy_deadline(now + Duration::from_secs(60), now),
+            now + Duration::from_secs(5)
+        );
+        assert_eq!(
+            policy_deadline(now + Duration::from_secs(2), now),
+            now + Duration::from_secs(2)
+        );
     }
 }

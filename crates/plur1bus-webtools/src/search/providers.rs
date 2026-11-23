@@ -141,14 +141,8 @@ struct Call {
 }
 
 impl Configured<'_> {
-    fn run(
-        &self,
-        query: &Query,
-        deadline: Instant,
-        aborted: &dyn Fn() -> bool,
-    ) -> Result<Vec<RawResult>> {
-        let keyed = self.vendor != Vendor::Searxng;
-        let secret = if keyed {
+    fn credential(&self) -> Result<Option<Credential>> {
+        if self.vendor != Vendor::Searxng {
             let lease = self
                 .credentials
                 .ok_or_else(|| failure("no-provider"))?
@@ -158,10 +152,20 @@ impl Configured<'_> {
             if lease.origin != self.endpoint.origin() {
                 return Err(failure("egress-denied"));
             }
-            Some(lease)
+            Ok(Some(lease))
         } else {
-            None
-        };
+            Ok(None)
+        }
+    }
+
+    fn run(
+        &self,
+        query: &Query,
+        deadline: Instant,
+        aborted: &dyn Fn() -> bool,
+    ) -> Result<Vec<RawResult>> {
+        let keyed = self.vendor != Vendor::Searxng;
+        let secret = self.credential()?;
         let key = secret.as_ref().map(|lease| lease.value.as_str());
         let mut reply = self.once(query, key, deadline, aborted)?;
         if keyed && reply.status == 429 {
@@ -236,6 +240,16 @@ impl Configured<'_> {
             self.wait(delay, deadline, aborted)?;
         }
         let call = self.build(query, key)?;
+        let options = self.request_options(&call, deadline);
+        http::request(call.url.as_str(), &options, self.admission, aborted).map_err(|error| {
+            match error {
+                Failure::UnsupportedType => failure("http-error"),
+                _ => error.into(),
+            }
+        })
+    }
+
+    fn request_options<'a>(&'a self, call: &'a Call, deadline: Instant) -> Options<'a> {
         let mut options =
             Options::get(&call.headers, self.user_agent, "application/json", deadline);
         options.method = call.method.clone();
@@ -245,12 +259,7 @@ impl Configured<'_> {
         options.max_bytes = MAX_RESPONSE;
         options.accept_type =
             Some(&|header| header.is_some_and(|mime| mime.to_ascii_lowercase().contains("json")));
-        http::request(call.url.as_str(), &options, self.admission, aborted).map_err(|error| {
-            match error {
-                Failure::UnsupportedType => failure("http-error"),
-                _ => error.into(),
-            }
-        })
+        options
     }
 
     fn wait(&self, ms: u64, deadline: Instant, aborted: &dyn Fn() -> bool) -> Result<()> {
@@ -545,4 +554,85 @@ fn parse(vendor: Vendor, parsed: &Value) -> Option<Vec<RawResult>> {
         }
     });
     Some(items.collect())
+}
+
+#[cfg(test)]
+mod policy_tests {
+    use super::{Call, Configured, Credential, Credentials, RateLimit, Result, Vendor};
+    use crate::{
+        http::{Admission, Failure},
+        pacer::{self, Clock},
+    };
+    use std::{net::SocketAddr, time::Instant};
+    use ureq::http::{HeaderMap, Method};
+    use url::{Origin, Url};
+
+    struct Fixture(Origin);
+
+    impl Credentials for Fixture {
+        fn lease(&self, _: Vendor) -> Result<Option<Credential>> {
+            Ok(Some(Credential {
+                origin: self.0.clone(),
+                value: "fixture-marker".into(),
+            }))
+        }
+    }
+
+    impl Clock for Fixture {
+        fn now_ms(&self) -> u64 {
+            0
+        }
+        fn sleep_ms(&self, _: u64, _: &dyn Fn() -> bool) -> std::result::Result<(), pacer::Error> {
+            Ok(())
+        }
+    }
+
+    impl Admission for Fixture {
+        fn pin(&self, _: &Url, _: Instant) -> std::result::Result<SocketAddr, Failure> {
+            Err(Failure::EgressDenied)
+        }
+    }
+
+    #[test]
+    fn search_credentials_bind_to_the_endpoint_without_contacting_it(
+    ) -> std::result::Result<(), url::ParseError> {
+        let endpoint = Url::parse("https://search.example.invalid/query")?;
+        let limit = RateLimit::new(0);
+        let matching = Fixture(endpoint.origin());
+        let other = Fixture(Url::parse("https://other.example.invalid/query")?.origin());
+        let provider = Configured {
+            vendor: Vendor::Brave,
+            endpoint: &endpoint,
+            admission: &matching,
+            credentials: Some(&matching),
+            clock: &matching,
+            limiter: &limit,
+            user_agent: "fixture",
+            max_inline_wait_ms: 0,
+            default_cooldown_seconds: 1,
+            outcome: None,
+        };
+        assert!(provider
+            .credential()
+            .is_ok_and(|credential| credential.is_some()));
+        let provider = Configured {
+            credentials: Some(&other),
+            ..provider
+        };
+        assert_eq!(
+            provider.credential().err().map(|error| error.code),
+            Some("egress-denied")
+        );
+        let call = Call {
+            url: endpoint.clone(),
+            method: Method::GET,
+            headers: HeaderMap::new(),
+            body: None,
+        };
+        assert_eq!(
+            provider.request_options(&call, Instant::now()).max_bytes,
+            2 * 1024 * 1024
+        );
+        Ok(())
+    }
 }

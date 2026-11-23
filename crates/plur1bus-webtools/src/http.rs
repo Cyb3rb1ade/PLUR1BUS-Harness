@@ -129,11 +129,10 @@ pub struct Response {
 }
 
 fn checked_target(mut url: Url) -> Result<Url> {
-    if !matches!(url.scheme(), "http" | "https")
-        || url.host().is_none()
-        || !url.username().is_empty()
-        || url.password().is_some()
-    {
+    if !matches!(url.scheme(), "http" | "https") {
+        return Err(Failure::EgressDenied);
+    }
+    if url.host().is_none() || !url.username().is_empty() || url.password().is_some() {
         return Err(Failure::InvalidUrl);
     }
     url.set_fragment(None);
@@ -202,7 +201,25 @@ fn request_parts(options: &Options<'_>) -> Result<HeaderMap> {
     Ok(headers)
 }
 
-fn remaining(deadline: Instant, aborted: &dyn Fn() -> bool) -> Result<Duration> {
+fn checked_encodings(coding: Coding, encodings: &str) -> Result<Vec<String>> {
+    if coding == Coding::Identity
+        && !encodings.is_empty()
+        && !encodings.eq_ignore_ascii_case("identity")
+    {
+        return Err(Failure::UnsupportedType);
+    }
+    let encodings = encodings
+        .split(',')
+        .map(|coding| coding.trim().to_ascii_lowercase())
+        .filter(|coding| !coding.is_empty() && coding != "identity")
+        .collect::<Vec<_>>();
+    if encodings.len() > MAX_ENCODING_LAYERS {
+        return Err(Failure::UnsupportedType);
+    }
+    Ok(encodings)
+}
+
+pub(crate) fn remaining(deadline: Instant, aborted: &dyn Fn() -> bool) -> Result<Duration> {
     let left = deadline.saturating_duration_since(Instant::now());
     if left.as_millis() == 0 || aborted() {
         return Err(Failure::Timeout);
@@ -220,6 +237,12 @@ fn pin_matches(target: &Url, pin: SocketAddr) -> bool {
         && literal.is_none_or(|ip| ip.to_canonical() == pin.ip().to_canonical())
 }
 
+fn follows_redirects(options: &Options<'_>) -> bool {
+    options.redirects == Redirects::Follow
+        && matches!(options.method, Method::GET | Method::HEAD)
+        && options.headers.is_empty()
+}
+
 pub fn request(
     target: &str,
     options: &Options<'_>,
@@ -228,9 +251,7 @@ pub fn request(
 ) -> Result<Response> {
     let headers = request_parts(options)?;
     let mut url = checked_target(Url::parse(target).map_err(|_| Failure::InvalidUrl)?)?;
-    let follows = options.redirects == Redirects::Follow
-        && matches!(options.method, Method::GET | Method::HEAD)
-        && options.headers.is_empty();
+    let follows = follows_redirects(options);
     let mut redirects = Vec::new();
     loop {
         remaining(options.deadline, aborted)?;
@@ -373,20 +394,7 @@ fn read_response_body(
         .map(|value| value.to_str().map_err(|_| Failure::UnsupportedType))
         .collect::<Result<Vec<_>>>()?
         .join(",");
-    if options.coding == Coding::Identity
-        && !encodings.is_empty()
-        && !encodings.eq_ignore_ascii_case("identity")
-    {
-        return Err(Failure::UnsupportedType);
-    }
-    let encodings = encodings
-        .split(',')
-        .map(|coding| coding.trim().to_ascii_lowercase())
-        .filter(|coding| !coding.is_empty() && coding != "identity")
-        .collect::<Vec<_>>();
-    if encodings.len() > MAX_ENCODING_LAYERS {
-        return Err(Failure::UnsupportedType);
-    }
+    let encodings = checked_encodings(options.coding, &encodings)?;
     if !diagnostic
         && encodings.is_empty()
         && response
@@ -431,5 +439,76 @@ fn read_response_body(
             return Err(Failure::TooLarge);
         }
         body.extend_from_slice(&buffer[..received]);
+    }
+}
+
+#[cfg(test)]
+mod policy_tests {
+    use super::{
+        checked_encodings, checked_target, follows_redirects, request_parts, Coding, Failure,
+        HeaderMap, Instant, Options, Url,
+    };
+    use ureq::http::{header, HeaderValue};
+
+    #[test]
+    fn empty_credentials_and_supported_schemes_are_checked_before_egress(
+    ) -> Result<(), url::ParseError> {
+        assert_eq!(
+            checked_target(Url::parse("https://reader:fixture@example.invalid/page")?),
+            Err(Failure::InvalidUrl)
+        );
+        assert_eq!(
+            checked_target(Url::parse("ftp://example.invalid/page")?),
+            Err(Failure::EgressDenied)
+        );
+        assert_eq!(
+            checked_target(Url::parse("file:///fixture")?),
+            Err(Failure::EgressDenied)
+        );
+        assert!(checked_target(Url::parse("https://example.invalid/page")?).is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn redirects_require_a_headerless_request_and_cookies_are_reserved() {
+        let mut headers = HeaderMap::new();
+        assert!(follows_redirects(&Options::get(
+            &headers,
+            "fixture",
+            "*/*",
+            Instant::now()
+        )));
+        headers.insert("x-fixture-label", HeaderValue::from_static("draft"));
+        assert!(!follows_redirects(&Options::get(
+            &headers,
+            "fixture",
+            "*/*",
+            Instant::now()
+        )));
+        headers.insert(header::COOKIE, HeaderValue::from_static("theme=light"));
+        assert_eq!(
+            request_parts(&Options::get(&headers, "fixture", "*/*", Instant::now())).err(),
+            Some(Failure::InvalidUrl)
+        );
+    }
+
+    #[test]
+    fn encoding_depth_and_identity_policy_are_checked_before_reading() {
+        assert_eq!(
+            checked_encodings(Coding::Compressed, "gzip, br, gzip, br").map(|list| list.len()),
+            Ok(4)
+        );
+        assert_eq!(
+            checked_encodings(Coding::Compressed, "gzip, br, gzip, br, gzip"),
+            Err(Failure::UnsupportedType)
+        );
+        assert_eq!(
+            checked_encodings(Coding::Identity, "gzip"),
+            Err(Failure::UnsupportedType)
+        );
+        assert_eq!(
+            checked_encodings(Coding::Identity, "identity"),
+            Ok(Vec::new())
+        );
     }
 }

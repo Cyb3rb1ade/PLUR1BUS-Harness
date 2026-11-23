@@ -11,13 +11,14 @@ const agent = "fixture-web-tools/1";
 const accept = "text/plain,application/json";
 const marker = "fixture-web-request-marker";
 const plain = Buffer.from("a normal fixture page");
-type Reply = { status: number; headers?: Record<string, string>; bytes?: Buffer };
-type Options = Pick<HttpOptions, "method" | "headers" | "redirect" | "maxRedirects" | "maxBytes" | "errorBodyBytes" | "discardBody"> & { body?: string };
+type Reply = { status: number; headers?: Record<string, string>; bytes?: Buffer; chunkGapMs?: number };
+type Credentials = { username: string; password: string };
+type Options = Pick<HttpOptions, "method" | "headers" | "redirect" | "maxRedirects" | "maxBytes" | "errorBodyBytes" | "discardBody" | "timeoutMs"> & { body?: string };
 const ok = (bytes = plain, headers = {}): Reply => ({ status: 200, headers: { "content-type": "text/plain", ...headers }, bytes });
 const hop = { status: 302, headers: { location: "/archive?view=short" }, bytes: Buffer.from("redirect body") };
 
 export async function recordWebHttp() {
-  const cases: { name: string; options?: Options; replies: Reply[] }[] = [
+  const cases: { name: string; options?: Options; replies: Reply[]; credentials?: Credentials }[] = [
     { name: "plain", replies: [ok()] },
     { name: "relative-redirect", replies: [hop, ok()] },
     { name: "one-redirect-limit", options: { maxRedirects: 1 }, replies: [hop, hop] },
@@ -35,6 +36,10 @@ export async function recordWebHttp() {
     { name: "declared-cap", options: { maxBytes: 5 }, replies: [ok()] },
     { name: "status-only", options: { discardBody: true }, replies: [ok()] },
     { name: "head", options: { method: "HEAD" }, replies: [ok()] },
+    { name: "not-modified", replies: [{ status: 304 }] },
+    { name: "body-deadline", options: { timeoutMs: 300 }, replies: [{ ...ok(), chunkGapMs: 700 }] },
+    { name: "url-credentials", credentials: { username: "fixture-user", password: "fixture-password" },
+      replies: [] },
   ];
   const vectors = [];
   for (const entry of cases) {
@@ -47,12 +52,19 @@ export async function recordWebHttp() {
       const headers = Object.fromEntries(["accept", "accept-encoding", "authorization", "content-type", "content-length", "connection", "user-agent"]
         .filter(name => request.headers[name] !== undefined)
         .map(name => [name, request.headers[name] === marker ? "<credential>" : request.headers[name]]));
+      const chunks = reply.bytes
+        ? reply.chunkGapMs ? [reply.bytes.subarray(0, 1), reply.bytes.subarray(1)] : [reply.bytes]
+        : [];
       wire.push({
         request: { method: request.method, path: request.url, headers, bodyBase64: Buffer.concat(buffers).toString("base64") },
         response: { status: reply.status, headers: reply.headers,
-          chunksBase64: reply.bytes ? [reply.bytes.toString("base64")] : [] },
+          chunksBase64: chunks.map(chunk => chunk.toString("base64")), chunkGapMs: reply.chunkGapMs },
       });
-      response.writeHead(reply.status, { "content-length": reply.bytes?.length ?? 0, ...reply.headers }).end(reply.bytes);
+      response.writeHead(reply.status, { "content-length": reply.bytes?.length ?? 0, ...reply.headers });
+      if (reply.chunkGapMs) {
+        response.write(chunks[0]);
+        setTimeout(() => response.end(chunks[1]), reply.chunkGapMs);
+      } else response.end(reply.bytes);
     });
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
@@ -61,7 +73,12 @@ export async function recordWebHttp() {
     const path = (url: string) => { const uri = new URL(url); return uri.pathname + uri.search; };
     let expected;
     try {
-      const result = await guardedRequest(`http://127.0.0.1:${address.port}/current`, {
+      const target = new URL(`http://127.0.0.1:${address.port}/current`);
+      if (entry.credentials) {
+        target.username = entry.credentials.username;
+        target.password = entry.credentials.password;
+      }
+      const result = await guardedRequest(target.href, {
         ...entry.options, userAgent: agent, accept, policy: makeAddressPolicy(["127.0.0.0/8"]),
       });
       expected = { status: result.status, path: path(result.url), redirects: result.redirects.map(path), bodyBase64: result.body.toString("base64") };
@@ -75,7 +92,7 @@ export async function recordWebHttp() {
     const options = entry.options?.headers ? {
       ...entry.options, headers: { ...entry.options.headers, authorization: "<credential>" },
     } : entry.options;
-    vectors.push({ name: entry.name, transport: "http", options, requestPath: "/current", exchanges: wire, expected });
+    vectors.push({ name: entry.name, transport: "http", options, credentials: entry.credentials, requestPath: "/current", exchanges: wire, expected });
   }
   return { http: { source: "packages/core/src/tools/web/http.ts", agent, accept, cases: vectors } };
 }

@@ -4,7 +4,10 @@ use regex::Regex;
 use std::sync::LazyLock;
 use url::Url;
 
-use super::tree::{is_heading, space, Child, Element};
+use super::{
+    tree::{is_heading, space, Child, Element},
+    units,
+};
 use crate::http::Failure;
 
 static BANNER: LazyLock<Option<Regex>> =
@@ -129,20 +132,69 @@ pub(super) fn hidden(el: &Element) -> bool {
             .is_some_and(|rule| rule.is_match(el.attr("style")))
 }
 
-pub(super) fn raw_text(nodes: &[Element], id: usize, out: &mut String) {
+pub(super) fn raw_text(
+    nodes: &[Element],
+    id: usize,
+    emit: &mut impl FnMut(&str) -> Result<(), Failure>,
+    check: &dyn Fn() -> Result<(), Failure>,
+) -> Result<(), Failure> {
+    check()?;
     let element = &nodes[id];
     if element.tag == "br" {
-        out.push('\n');
-        return;
+        return emit("\n");
     }
     if DROP.contains(&element.tag.as_str()) && element.tag != "head" {
-        return;
+        return Ok(());
     }
     for child in &element.children {
+        check()?;
         match child {
-            Child::Text(text) => out.push_str(text),
-            Child::Element(id) => raw_text(nodes, *id, out),
+            Child::Text(text) => emit(text)?,
+            Child::Element(id) => raw_text(nodes, *id, emit, check)?,
         }
+    }
+    Ok(())
+}
+
+#[derive(Default)]
+struct Output {
+    text: String,
+    units: usize,
+}
+
+impl Output {
+    fn push(&mut self, piece: &str, renderer: &Renderer<'_>) -> Result<(), Failure> {
+        self.units = self.units.saturating_add(units(piece));
+        renderer.bound(self.units)?;
+        self.text.push_str(piece);
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+struct Blocks {
+    items: Vec<String>,
+    units: usize,
+}
+
+impl Blocks {
+    fn push(&mut self, text: String, renderer: &Renderer<'_>) -> Result<(), Failure> {
+        if !text.is_empty() {
+            self.units = self
+                .units
+                .saturating_add(units(&text))
+                .saturating_add(if self.items.is_empty() { 0 } else { 2 });
+            renderer.bound(self.units)?;
+            self.items.push(text);
+        }
+        Ok(())
+    }
+
+    fn extend(&mut self, items: Vec<String>, renderer: &Renderer<'_>) -> Result<(), Failure> {
+        for text in items {
+            self.push(text, renderer)?;
+        }
+        Ok(())
     }
 }
 
@@ -151,9 +203,64 @@ pub(super) struct Renderer<'a> {
     pub(super) base: Option<&'a Url>,
     pub(super) keep: Option<usize>,
     pub(super) keep_header: bool,
+    pub(super) max_units: usize,
+    pub(super) check: &'a dyn Fn() -> Result<(), Failure>,
 }
 
 impl Renderer<'_> {
+    pub(super) fn bound(&self, units: usize) -> Result<(), Failure> {
+        if units > self.max_units {
+            return Err(Failure::TooLarge);
+        }
+        Ok(())
+    }
+
+    pub(super) fn join(&self, items: &[String], separator: &str) -> Result<String, Failure> {
+        let mut total = units(separator).saturating_mul(items.len().saturating_sub(1));
+        for text in items {
+            (self.check)()?;
+            total = total.saturating_add(units(text));
+            self.bound(total)?;
+        }
+        Ok(items.join(separator))
+    }
+
+    fn raw(&self, id: usize) -> Result<String, Failure> {
+        let mut output = Output::default();
+        raw_text(
+            self.nodes,
+            id,
+            &mut |text| output.push(text, self),
+            self.check,
+        )?;
+        Ok(output.text)
+    }
+
+    fn collapse(&self, text: &str) -> Result<String, Failure> {
+        let mut out = String::new();
+        let mut used = 0usize;
+        let mut blank = false;
+        for (index, c) in text.chars().enumerate() {
+            if index.is_multiple_of(1024) {
+                (self.check)()?;
+            }
+            let whitespace = space(c);
+            if !whitespace || !blank {
+                let c = if whitespace { ' ' } else { c };
+                used += c.len_utf16();
+                self.bound(used)?;
+                out.push(c);
+            }
+            blank = whitespace;
+        }
+        Ok(out)
+    }
+
+    fn wrapped(&self, text: String, marker: &str) -> Result<String, Failure> {
+        self.bound(units(&text).saturating_add(2 * marker.len()))?;
+        Ok(wrap(text, marker))
+    }
+
     fn skip(&self, id: usize) -> bool {
         let el = &self.nodes[id];
         if Some(id) == self.keep || (el.tag == "header" && self.keep_header) {
@@ -176,80 +283,92 @@ impl Renderer<'_> {
                 }))
     }
 
-    fn inline_children(&self, id: usize) -> String {
-        self.nodes[id]
-            .children
-            .iter()
-            .map(|child| self.inline(child))
-            .collect()
+    fn inline_children(&self, id: usize) -> Result<String, Failure> {
+        let mut output = Output::default();
+        for child in &self.nodes[id].children {
+            output.push(&self.inline(child)?, self)?;
+        }
+        Ok(output.text)
     }
 
-    fn inline(&self, child: &Child) -> String {
+    fn inline(&self, child: &Child) -> Result<String, Failure> {
+        (self.check)()?;
         let id = match child {
-            Child::Text(text) => return collapse(text),
+            Child::Text(text) => return self.collapse(text),
             Child::Element(id) => *id,
         };
         if self.skip(id) {
-            return String::new();
+            return Ok(String::new());
         }
         let el = &self.nodes[id];
-        match el.tag.as_str() {
+        let text = match el.tag.as_str() {
             "br" => "\n".to_owned(),
-            "b" | "strong" => wrap(self.inline_children(id), "**"),
-            "i" | "em" => wrap(self.inline_children(id), "*"),
-            "del" | "s" => wrap(self.inline_children(id), "~~"),
+            "b" | "strong" => return self.wrapped(self.inline_children(id)?, "**"),
+            "i" | "em" => return self.wrapped(self.inline_children(id)?, "*"),
+            "del" | "s" => return self.wrapped(self.inline_children(id)?, "~~"),
             "code" | "kbd" | "samp" => {
-                let mut text = String::new();
-                raw_text(self.nodes, id, &mut text);
-                let text = collapse(&text);
+                let text = self.collapse(&self.raw(id)?)?;
                 if text.trim_matches(space).is_empty() {
                     String::new()
                 } else {
+                    self.bound(units(&text).saturating_add(2))?;
                     format!("`{text}`")
                 }
             }
             "a" => {
-                let text = self.inline_children(id);
+                let text = self.inline_children(id)?;
                 let text = text.trim_matches(space);
                 match absolute(el.attr("href"), self.base, &["http", "https", "mailto"]) {
-                    Some(href) if !text.is_empty() => format!("[{text}]({href})"),
+                    Some(href) if !text.is_empty() => {
+                        self.bound(units(text).saturating_add(units(&href)).saturating_add(4))?;
+                        format!("[{text}]({href})")
+                    }
                     _ => text.to_owned(),
                 }
             }
             "img" => {
-                let alt = collapse(el.attr("alt"));
+                let alt = self.collapse(el.attr("alt"))?;
                 let alt = alt.trim_matches(space);
                 match absolute(el.attr("src"), self.base, &["http", "https"]) {
-                    Some(src) if !alt.is_empty() => format!("![{alt}]({src})"),
+                    Some(src) if !alt.is_empty() => {
+                        self.bound(units(alt).saturating_add(units(&src)).saturating_add(5))?;
+                        format!("![{alt}]({src})")
+                    }
                     _ => String::new(),
                 }
             }
             tag if is_heading(tag) || BLOCK.contains(&tag) => {
-                format!(" {} ", self.inline_children(id))
+                let text = self.inline_children(id)?;
+                self.bound(units(&text).saturating_add(2))?;
+                format!(" {text} ")
             }
-            _ => self.inline_children(id),
-        }
+            _ => return self.inline_children(id),
+        };
+        Ok(text)
     }
 
     pub(super) fn blocks(&self, children: &[Child]) -> Result<Vec<String>, Failure> {
-        let mut blocks = Vec::new();
-        let mut buffer = String::new();
+        let mut blocks = Blocks::default();
+        let mut buffer = Output::default();
         for child in children {
+            (self.check)()?;
             if let Child::Element(id) = child {
                 if self.skip(*id) {
                     continue;
                 }
                 let tag = self.nodes[*id].tag.as_str();
                 if is_heading(tag) || BLOCK.contains(&tag) {
-                    flush(&mut buffer, &mut blocks);
-                    blocks.extend(self.block(*id)?);
+                    blocks.push(tidy(&buffer.text), self)?;
+                    buffer = Output::default();
+                    blocks.extend(self.block(*id)?, self)?;
                     continue;
                 }
             }
-            buffer.push_str(&self.inline(child));
+            buffer.push(&self.inline(child)?, self)?;
+            self.bound(blocks.units.saturating_add(buffer.units))?;
         }
-        flush(&mut buffer, &mut blocks);
-        Ok(blocks)
+        blocks.push(tidy(&buffer.text), self)?;
+        Ok(blocks.items)
     }
 
     fn block(&self, id: usize) -> Result<Vec<String>, Failure> {
@@ -271,8 +390,7 @@ impl Renderer<'_> {
                     .and_then(|regex| regex.captures(class))
                     .and_then(|parts| parts.get(1))
                     .map_or("", |lang| lang.as_str());
-                let mut body = String::new();
-                raw_text(self.nodes, id, &mut body);
+                let body = self.raw(id)?;
                 let body = body
                     .strip_prefix('\n')
                     .unwrap_or(&body)
@@ -280,37 +398,47 @@ impl Renderer<'_> {
                 if body.is_empty() {
                     String::new()
                 } else {
+                    self.bound(units(body).saturating_add(lang.len()).saturating_add(8))?;
                     format!("```{lang}\n{body}\n```")
                 }
             }
             "blockquote" => {
-                let body = self.blocks(&node.children)?.join("\n\n");
+                let body = self.join(&self.blocks(&node.children)?, "\n\n")?;
                 if body.is_empty() {
                     String::new()
                 } else {
-                    body.split('\n')
-                        .map(|line| {
-                            if line.is_empty() {
-                                ">".to_owned()
-                            } else {
-                                format!("> {line}")
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n")
+                    let mut expanded = units(&body);
+                    for line in body.split('\n') {
+                        (self.check)()?;
+                        expanded = expanded.saturating_add(if line.is_empty() { 1 } else { 2 });
+                        self.bound(expanded)?;
+                    }
+                    let mut result = String::new();
+                    for (index, line) in body.split('\n').enumerate() {
+                        (self.check)()?;
+                        if index > 0 {
+                            result.push('\n');
+                        }
+                        if line.is_empty() {
+                            result.push('>');
+                        } else {
+                            result.push_str("> ");
+                            result.push_str(line);
+                        }
+                    }
+                    result
                 }
             }
             "hr" => "---".to_owned(),
-            "dt" => wrap(tidy(&self.inline_children(id)), "**"),
+            "dt" => self.wrapped(tidy(&self.inline_children(id)?), "**")?,
             _ if is_heading(tag) => {
-                let text = tidy(&self.inline_children(id)).replace('\n', " ");
+                let text = tidy(&self.inline_children(id)?).replace('\n', " ");
                 if text.is_empty() {
                     String::new()
                 } else {
-                    format!(
-                        "{} {text}",
-                        "#".repeat(usize::from(tag.as_bytes()[1] - b'0'))
-                    )
+                    let prefix = usize::from(tag.as_bytes()[1] - b'0');
+                    self.bound(units(&text).saturating_add(prefix + 1))?;
+                    format!("{} {text}", "#".repeat(prefix))
                 }
             }
             _ => return self.blocks(&node.children),
@@ -319,70 +447,78 @@ impl Renderer<'_> {
     }
 
     fn list(&self, id: usize, ordered: bool) -> Result<String, Failure> {
-        let mut lines = Vec::new();
+        let mut output = Output::default();
+        let mut items = 0usize;
         for li in self.nodes[id].children.iter().filter_map(as_node) {
+            (self.check)()?;
             if self.nodes[li].tag != "li" || self.skip(li) {
                 continue;
             }
-            let body = self.blocks(&self.nodes[li].children)?.join("\n");
+            let body = self.join(&self.blocks(&self.nodes[li].children)?, "\n")?;
             if body.is_empty() {
                 continue;
             }
+            items += 1;
             let mark = if ordered {
-                format!("{}. ", lines.len() + 1)
+                format!("{items}. ")
             } else {
                 "- ".to_owned()
             };
             let pad = " ".repeat(mark.len());
-            let lines_in_item = body.split('\n').enumerate().map(|(index, line)| {
-                if index == 0 {
-                    format!("{mark}{line}")
-                } else if line.is_empty() {
-                    String::new()
-                } else {
-                    format!("{pad}{line}")
+            for (index, line) in body.split('\n').enumerate() {
+                (self.check)()?;
+                if !output.text.is_empty() {
+                    output.push("\n", self)?;
                 }
-            });
-            lines.push(lines_in_item.collect::<Vec<_>>().join("\n"));
+                if index == 0 {
+                    output.push(&mark, self)?;
+                } else if !line.is_empty() {
+                    output.push(&pad, self)?;
+                }
+                output.push(line, self)?;
+            }
         }
-        Ok(lines.join("\n"))
+        Ok(output.text)
     }
 
     fn table(&self, id: usize) -> Result<Vec<String>, Failure> {
         let mut rows = Vec::new();
-        self.rows(id, &mut rows);
-        if rows
-            .iter()
-            .any(|&row| self.cells(row).any(|cell| self.has_layout_content(cell)))
-        {
-            let mut out = Vec::new();
-            for row in rows {
-                for cell in self.cells(row) {
-                    out.extend(self.blocks(&self.nodes[cell].children)?);
+        self.rows(id, &mut rows)?;
+        for &row in &rows {
+            for cell in self.cells(row) {
+                (self.check)()?;
+                if self.has_layout_content(cell)? {
+                    let mut out = Blocks::default();
+                    for row in rows {
+                        for cell in self.cells(row) {
+                            out.extend(self.blocks(&self.nodes[cell].children)?, self)?;
+                        }
+                    }
+                    return Ok(out.items);
                 }
             }
-            return Ok(out);
         }
         let mut pending: Vec<usize> = Vec::new();
         let mut grid = Vec::new();
         let mut width = 0;
+        let mut content_units = 0usize;
         for row in rows {
+            (self.check)()?;
             let mut cells = Vec::new();
             for cell in self.cells(row) {
+                (self.check)()?;
                 place_pending(&mut cells, &mut pending);
                 let node = &self.nodes[cell];
                 let colspan = span(node.attr("colspan"));
                 let rowspan = span(node.attr("rowspan"));
                 let first = cells.len();
-                let end = first + colspan;
-                if end > MAX_TABLE_CELLS {
-                    return Err(Failure::TooLarge);
-                }
-                cells.push(
-                    tidy(&self.inline_children(cell))
-                        .replace('\n', " ")
-                        .replace('|', "\\|"),
-                );
+                let end = checked_cell_end(first, colspan)?;
+                let text = tidy(&self.inline_children(cell)?).replace('\n', " ");
+                content_units = content_units
+                    .saturating_add(units(&text))
+                    .saturating_add(text.bytes().filter(|byte| *byte == b'|').count());
+                self.bound(content_units)?;
+                cells.push(text.replace('|', "\\|"));
                 cells.resize(end, String::new());
                 if rowspan > 1 {
                     if pending.len() < end {
@@ -403,15 +539,32 @@ impl Renderer<'_> {
         if grid.is_empty() {
             return Ok(Vec::new());
         }
+        let row_count = grid.len() + 1;
+        let separators = row_count.saturating_mul(width.saturating_mul(3).saturating_add(1));
+        self.bound(
+            content_units
+                .saturating_add(separators)
+                .saturating_add(width.saturating_mul(3))
+                .saturating_add(row_count - 1),
+        )?;
         grid.insert(1, vec!["---".to_owned(); width]);
-        let table = grid
-            .into_iter()
-            .map(|mut row| {
-                row.resize(width, String::new());
-                format!("| {} |", row.join(" | "))
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
+        let mut table = Output::default();
+        for mut row in grid {
+            (self.check)()?;
+            row.resize(width, String::new());
+            if !table.text.is_empty() {
+                table.push("\n", self)?;
+            }
+            table.push("| ", self)?;
+            for (index, cell) in row.iter().enumerate() {
+                if index > 0 {
+                    table.push(" | ", self)?;
+                }
+                table.push(cell, self)?;
+            }
+            table.push(" |", self)?;
+        }
+
         let mut blocks = Vec::new();
         if let Some(caption) = self.nodes[id]
             .children
@@ -420,21 +573,23 @@ impl Renderer<'_> {
             .find(|&id| self.nodes[id].tag == "caption")
         {
             blocks.extend(nonempty(
-                tidy(&self.inline_children(caption)).replace('\n', " "),
+                tidy(&self.inline_children(caption)?).replace('\n', " "),
             ));
         }
-        blocks.push(table);
+        blocks.push(table.text);
         Ok(blocks)
     }
 
-    fn rows(&self, id: usize, rows: &mut Vec<usize>) {
+    fn rows(&self, id: usize, rows: &mut Vec<usize>) -> Result<(), Failure> {
         for child in self.nodes[id].children.iter().filter_map(as_node) {
+            (self.check)()?;
             match self.nodes[child].tag.as_str() {
                 "tr" => rows.push(child),
-                "thead" | "tbody" | "tfoot" => self.rows(child, rows),
+                "thead" | "tbody" | "tfoot" => self.rows(child, rows)?,
                 _ => {}
             }
         }
+        Ok(())
     }
 
     fn cells(&self, row: usize) -> impl Iterator<Item = usize> + '_ {
@@ -445,15 +600,15 @@ impl Renderer<'_> {
             .filter(|&id| matches!(self.nodes[id].tag.as_str(), "td" | "th"))
     }
 
-    fn has_layout_content(&self, id: usize) -> bool {
-        self.nodes[id]
-            .children
-            .iter()
-            .filter_map(as_node)
-            .any(|child| {
-                let tag = self.nodes[child].tag.as_str();
-                tag == "table" || is_heading(tag) || self.has_layout_content(child)
-            })
+    fn has_layout_content(&self, id: usize) -> Result<bool, Failure> {
+        for child in self.nodes[id].children.iter().filter_map(as_node) {
+            (self.check)()?;
+            let tag = self.nodes[child].tag.as_str();
+            if tag == "table" || is_heading(tag) || self.has_layout_content(child)? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 }
 
@@ -462,6 +617,14 @@ pub(super) fn as_node(child: &Child) -> Option<usize> {
         Child::Element(id) => Some(*id),
         Child::Text(_) => None,
     }
+}
+
+fn checked_cell_end(first: usize, colspan: usize) -> Result<usize, Failure> {
+    let end = first.saturating_add(colspan);
+    if end > MAX_TABLE_CELLS {
+        return Err(Failure::TooLarge);
+    }
+    Ok(end)
 }
 
 fn span(value: &str) -> usize {
@@ -497,7 +660,19 @@ fn nonempty(text: String) -> Vec<String> {
     }
 }
 
-fn flush(buffer: &mut String, blocks: &mut Vec<String>) {
-    blocks.extend(nonempty(tidy(buffer)));
-    buffer.clear();
+#[cfg(test)]
+mod tests {
+    use super::{checked_cell_end, Failure, MAX_TABLE_CELLS};
+
+    #[test]
+    fn table_reservation_checks_cells_before_allocating_a_grid() {
+        assert_eq!(
+            checked_cell_end(MAX_TABLE_CELLS - 1, 1),
+            Ok(MAX_TABLE_CELLS)
+        );
+        assert_eq!(
+            checked_cell_end(MAX_TABLE_CELLS - 1, 2),
+            Err(Failure::TooLarge)
+        );
+    }
 }

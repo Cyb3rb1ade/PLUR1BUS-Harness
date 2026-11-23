@@ -92,22 +92,71 @@ fn clip(text: String, cap: usize) -> String {
     prefix
 }
 
-fn text_of(nodes: &[Element], id: usize) -> String {
+fn text_of(
+    nodes: &[Element],
+    id: usize,
+    check: &dyn Fn() -> Result<(), Failure>,
+) -> Result<String, Failure> {
     let mut text = String::new();
-    raw_text(nodes, id, &mut text);
-    text
+    raw_text(
+        nodes,
+        id,
+        &mut |piece| {
+            text.push_str(piece);
+            Ok(())
+        },
+        check,
+    )?;
+    Ok(text)
+}
+
+fn is_small_root(
+    nodes: &[Element],
+    id: usize,
+    check: &dyn Fn() -> Result<(), Failure>,
+) -> Result<bool, Failure> {
+    let mut units = 0;
+    let mut blank = false;
+    match raw_text(
+        nodes,
+        id,
+        &mut |piece| {
+            for (index, ch) in piece.chars().enumerate() {
+                if index.is_multiple_of(1024) {
+                    check()?;
+                }
+                if space(ch) {
+                    blank = units > 0;
+                } else {
+                    units += usize::from(blank) + ch.len_utf16();
+                    blank = false;
+                    if units >= 25 {
+                        return Err(Failure::TooLarge);
+                    }
+                }
+            }
+            Ok(())
+        },
+        check,
+    ) {
+        Ok(()) => Ok(true),
+        Err(Failure::TooLarge) => Ok(false),
+        Err(error) => Err(error),
+    }
 }
 
 fn metadata(
     nodes: &[Element],
     base: Option<&Url>,
     mask: &dyn Fn(&str, Metadata) -> String,
-) -> Extracted {
+    check: &dyn Fn() -> Result<(), Failure>,
+) -> Result<Extracted, Failure> {
     let mut meta = Extracted::default();
     for (id, el) in nodes.iter().enumerate() {
+        check()?;
         match el.tag.as_str() {
             "title" if meta.title.is_none() => {
-                let title = collapse(&text_of(nodes, id));
+                let title = collapse(&text_of(nodes, id, check)?);
                 let title = title.trim_matches(space);
                 if !title.is_empty() {
                     meta.title = Some(clip(mask(title, Metadata::Title), 300));
@@ -161,13 +210,18 @@ fn metadata(
             _ => {}
         }
     }
-    meta
+    Ok(meta)
 }
 
-fn signals(nodes: &[Element], markdown: &str) -> PageSignals {
+fn signals(
+    nodes: &[Element],
+    markdown: &str,
+    check: &dyn Fn() -> Result<(), Failure>,
+) -> Result<PageSignals, Failure> {
     let mut evidence = PageSignals::default();
     let mut todo = vec![(0, false)];
     while let Some((id, ancestor_hidden)) = todo.pop() {
+        check()?;
         let node = &nodes[id];
         let now_hidden = ancestor_hidden || hidden(node) || node.tag == "template";
         if node.tag == "input" && node.attr("type").eq_ignore_ascii_case("password") && !now_hidden
@@ -194,14 +248,16 @@ fn signals(nodes: &[Element], markdown: &str) -> PageSignals {
     let title = nodes
         .iter()
         .position(|el| el.tag == "title")
-        .map_or_else(String::new, |id| collapse(&text_of(nodes, id)));
+        .map(|id| text_of(nodes, id, check))
+        .transpose()?
+        .map_or_else(String::new, |text| collapse(&text));
     evidence.captcha = len < 400
         && (evidence.captcha
             || matches(&CAPTCHA_WORDS, &title)
             || matches(&CAPTCHA_WORDS, markdown));
     evidence.password_form &= len < 400;
     evidence.paywall &= len < 1500;
-    evidence
+    Ok(evidence)
 }
 
 fn render(nodes: &[Element], id: usize, renderer: &Renderer<'_>) -> Result<String, Failure> {
@@ -211,7 +267,7 @@ fn render(nodes: &[Element], id: usize, renderer: &Renderer<'_>) -> Result<Strin
     } else {
         &selection
     };
-    let body = renderer.blocks(children)?.join("\n\n");
+    let body = renderer.join(&renderer.blocks(children)?, "\n\n")?;
     let body = LONG_BREAK.as_ref().map_or_else(
         || std::borrow::Cow::Borrowed(body.as_str()),
         |pattern| pattern.replace_all(&body, "\n\n"),
@@ -224,10 +280,26 @@ pub fn extract(
     base_url: &str,
     mask: &dyn Fn(&str, Metadata) -> String,
 ) -> Result<Extracted, Failure> {
-    let nodes = tree::parse(html)?;
+    extract_bounded(
+        html,
+        base_url,
+        mask,
+        crate::http::DEFAULT_BODY_BYTES,
+        &|| Ok(()),
+    )
+}
+
+pub(crate) fn extract_bounded(
+    html: &str,
+    base_url: &str,
+    mask: &dyn Fn(&str, Metadata) -> String,
+    max_units: usize,
+    check: &dyn Fn() -> Result<(), Failure>,
+) -> Result<Extracted, Failure> {
+    let nodes = tree::parse(html, check)?;
     let base = Url::parse(base_url).ok();
     let base = base.as_ref();
-    let mut meta = metadata(&nodes, base, mask);
+    let mut meta = metadata(&nodes, base, mask, check)?;
     let body_id = nodes.iter().position(|el| el.tag == "body").unwrap_or(0);
     let mut articles = nodes
         .iter()
@@ -242,6 +314,8 @@ pub fn extract(
         base,
         keep: picked,
         keep_header: picked.is_some(),
+        max_units,
+        check,
     };
     let mut markdown = render(&nodes, picked.unwrap_or(body_id), &renderer)?;
     if picked.is_some() && units(&markdown) < 200 {
@@ -251,34 +325,47 @@ pub fn extract(
             markdown = whole;
         }
     }
-    meta.signals = signals(&nodes, &markdown);
+    meta.signals = signals(&nodes, &markdown, check)?;
 
     let text_len = units(markdown.trim_matches(space));
-    let has_script = nodes.iter().any(|el| el.tag == "script");
-    let empty_root = nodes.iter().enumerate().any(|(id, el)| {
-        matches(&APP_ROOT, el.attr("id"))
-            && units(collapse(&text_of(&nodes, id)).trim_matches(space)) < 25
-    });
-    let loaded = nodes
-        .iter()
-        .any(|el| el.tag == "script" && !el.attr("src").is_empty());
+    let mut has_script = false;
+    let mut loaded = false;
+    let mut empty_root = false;
+    for (id, el) in nodes.iter().enumerate() {
+        check()?;
+        if el.tag == "script" {
+            has_script = true;
+            loaded |= !el.attr("src").is_empty();
+        }
+        if !empty_root && text_len < 80 && matches(&APP_ROOT, el.attr("id")) {
+            empty_root = is_small_root(&nodes, id, check)?;
+        }
+    }
     meta.looks_client_rendered =
         has_script && (text_len == 0 || (text_len < 80 && empty_root) || (text_len < 25 && loaded));
     if meta.looks_client_rendered || text_len == 0 {
         renderer.keep = None;
         renderer.keep_header = true;
-        let mut alternatives = Vec::new();
+        let mut text = String::new();
+        let mut used = 0usize;
         for el in &nodes {
+            check()?;
             if el.tag == "noscript"
                 && el.children.iter().any(|child| match child {
                     Child::Element(_) => true,
                     Child::Text(text) => !text.trim_matches(space).is_empty(),
                 })
             {
-                alternatives.push(renderer.blocks(&el.children)?.join("\n\n"));
+                let alternative = renderer.join(&renderer.blocks(&el.children)?, "\n\n")?;
+                let separator = if text.is_empty() { "" } else { "\n\n" };
+                used = used
+                    .saturating_add(separator.len())
+                    .saturating_add(units(&alternative));
+                renderer.bound(used)?;
+                text.push_str(separator);
+                text.push_str(&alternative);
             }
         }
-        let text = alternatives.join("\n\n");
         let text = text.trim_matches(space);
         if units(text) >= 80 && !matches(&NOSCRIPT_NAG, text) {
             markdown = text.to_owned();
@@ -286,6 +373,29 @@ pub fn extract(
             meta.from_noscript = Some(true);
         }
     }
+    check()?;
     meta.markdown = markdown;
     Ok(meta)
+}
+
+#[cfg(test)]
+mod budget_tests {
+    use super::{extract_bounded, Failure};
+
+    #[test]
+    fn quote_formatting_counts_against_the_output_limits() -> Result<(), Failure> {
+        let html = "<blockquote><blockquote><p>Ordinary quote</p></blockquote></blockquote>";
+        let mask = |text: &str, _| text.to_owned();
+        let base = "https://edition.example.invalid/";
+        let limit = ">> Ordinary quote".len() + 1;
+        assert_eq!(
+            extract_bounded(html, base, &mask, limit, &|| Ok(()))?.markdown,
+            "> > Ordinary quote"
+        );
+        assert_eq!(
+            extract_bounded(html, base, &mask, limit - 1, &|| Ok(())).err(),
+            Some(Failure::TooLarge)
+        );
+        Ok(())
+    }
 }

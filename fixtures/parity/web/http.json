@@ -563,6 +563,86 @@
       },
       "requestPath": "/current",
       "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [],
+            "status": 304
+          }
+        }
+      ],
+      "expected": {
+        "bodyBase64": "",
+        "path": "/current",
+        "redirects": [],
+        "status": 304
+      },
+      "name": "not-modified",
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunkGapMs": 700,
+            "chunksBase64": [
+              "YQ==",
+              "IG5vcm1hbCBmaXh0dXJlIHBhZ2U="
+            ],
+            "headers": {
+              "content-type": "text/plain"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "code": "timeout"
+      },
+      "name": "body-deadline",
+      "options": {
+        "timeoutMs": 300
+      },
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "credentials": {
+        "password": "fixture-password",
+        "username": "fixture-user"
+      },
+      "exchanges": [],
+      "expected": {
+        "code": "invalid-url"
+      },
+      "name": "url-credentials",
+      "requestPath": "/current",
+      "transport": "http"
     }
   ],
   "source": "packages/core/src/tools/web/http.ts"

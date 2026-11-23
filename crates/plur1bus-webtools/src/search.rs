@@ -314,3 +314,37 @@ fn normalize(items: Vec<RawResult>, query: &Query) -> Vec<Value> {
     }
     results
 }
+
+#[cfg(test)]
+mod normalization_tests {
+    use super::{normalize, Query, RawResult};
+
+    #[test]
+    fn normalized_search_results_have_web_urls_and_bounded_snippets() {
+        let query = Query {
+            query: "edition".into(),
+            count: 3,
+            lang: None,
+            site: None,
+            freshness: None,
+        };
+        let raw = |url: &str| RawResult {
+            title: "Edition".into(),
+            url: url.into(),
+            snippet: Some("x".repeat(501)),
+            published_at: None,
+        };
+        let items = normalize(
+            vec![
+                raw("ftp://archive.example.invalid/edition"),
+                raw("https://edition.example.invalid/page"),
+            ],
+            &query,
+        );
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0]["url"], "https://edition.example.invalid/page");
+        assert!(items[0]["snippet"]
+            .as_str()
+            .is_some_and(|s| s.encode_utf16().count() <= 500));
+    }
+}

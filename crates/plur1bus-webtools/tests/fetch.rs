@@ -223,3 +223,60 @@ fn a_cached_cursor_rechecks_the_current_secret_matcher_without_fetching_again() 
     assert!(!second.to_string().contains(marker));
     assert_eq!(server.received().len(), 1);
 }
+
+#[test]
+fn cancellation_after_read_interrupts_html_extraction() {
+    use std::cell::Cell;
+    struct CancelOnTimestamp(Cell<bool>);
+
+    impl Clock for CancelOnTimestamp {
+        fn now_ms(&self) -> u64 {
+            self.0.set(true);
+            1_764_000_000_000
+        }
+        fn sleep_ms(&self, _: u64, _: &dyn Fn() -> bool) -> Result<(), pacer::Error> {
+            Ok(())
+        }
+    }
+
+    let html = "<article><h1>Fixture edition</h1><p>Today’s ordinary summary.</p></article>";
+    let wire = {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        STANDARD.encode(html)
+    };
+    let server = FakeServer::start(&json!({"transport":"http","exchanges":[{
+        "request":{"method":"GET","path":"/edition"},
+        "response":{"status":200,"headers":{"content-type":"text/html"},"chunksBase64":[wire]}
+    }]}));
+    let clock = CancelOnTimestamp(Cell::new(false));
+    let port = Port(server.addr);
+    let docs = Docs::default();
+    let fetch = Client {
+        admission: &port,
+        crawl: None,
+        store: &docs,
+        clock: &clock,
+        user_agent: "fixture-browser",
+        max_bytes: http::DEFAULT_BODY_BYTES,
+        max_redirects: 10,
+        default_max_tokens: 100,
+        max_extracted_tokens: 1000,
+    };
+    let url = format!("http://{}/edition", server.addr);
+    let args = Args {
+        url: &url,
+        mode: Mode::Auto,
+        section: None,
+        cursor: None,
+        max_tokens: None,
+        crawl: false,
+    };
+    let ctx = Context {
+        agent_id: "reader",
+        matcher: None,
+        aborted: &|| clock.0.get(),
+    };
+    let result = fetch.fetch(&args, &ctx, Instant::now() + Duration::from_secs(2));
+    assert_eq!(result.err().map(|error| error.code), Some("timeout"));
+    assert_eq!(server.received().len(), 1);
+}

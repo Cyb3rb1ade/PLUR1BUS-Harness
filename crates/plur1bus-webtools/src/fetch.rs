@@ -134,7 +134,7 @@ impl Client<'_> {
         }
         let response = self.load(args, ctx, deadline)?;
         check_status(&response, self.clock.now_ms())?;
-        let document = self.document(args, ctx, &response)?;
+        let document = self.document(args, ctx, &response, deadline)?;
         self.present(document, None, 0, tokens, ctx)
     }
 
@@ -174,7 +174,10 @@ impl Client<'_> {
         args: &Args<'_>,
         ctx: &Context<'_>,
         response: &Response,
+        deadline: Instant,
     ) -> Result<Document> {
+        let check = || http::remaining(deadline, ctx.aborted).map(|_| ());
+        check()?;
         let content_type = content_type(response);
         let (mime, kind) = classify(content_type, &response.body)?;
         let input = masked(ctx.matcher, &decode_body(&response.body, content_type));
@@ -188,7 +191,12 @@ impl Client<'_> {
                     .unwrap_or(input)
             }
             (_, Kind::Html) => {
-                let extracted = html::extract(&input, response.url.as_str(), &|value, field| {
+                const HTML_LOOKAHEAD_UNITS: usize = 4096;
+                let max_units = self
+                    .max_extracted_tokens
+                    .saturating_mul(4)
+                    .saturating_add(HTML_LOOKAHEAD_UNITS);
+                let mask_metadata = |value: &str, field| {
                     let key = match field {
                         Metadata::Title => 0,
                         Metadata::Lang => 1,
@@ -198,7 +206,14 @@ impl Client<'_> {
                     let value = masked(ctx.matcher, value);
                     harvested.borrow_mut()[key] = Some(value.clone());
                     value
-                })?;
+                };
+                let extracted = html::extract_bounded(
+                    &input,
+                    response.url.as_str(),
+                    &mask_metadata,
+                    max_units,
+                    &check,
+                )?;
                 if let Some(code) = wall_code(&extracted.signals) {
                     return Err(Error::with_status(code, response.status));
                 }
@@ -208,6 +223,7 @@ impl Client<'_> {
                 extracted.markdown
             }
         };
+        check()?;
         if estimate_tokens(&markdown) > self.max_extracted_tokens {
             return Err(Failure::TooLarge.into());
         }

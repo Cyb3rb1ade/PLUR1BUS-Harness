@@ -358,6 +358,16 @@ Die gesetzten Transport- und Tabellenlimits stehen in [P4D-227](defects.md#p4d-2
 und [P4D-228](defects.md#p4d-228). Der Flip muss den Host-Port, den privaten Cursor- und
 Robots-Cache sowie die Freigabe für Provider-Credentials anbinden.
 
+
+HTML formatting and extraction use the bounded Markdown buffer in
+[P4D-250](defects.md#p4d-250). The host must use
+`plur1bus_core::egress::guard::resolve_guarded` against all A/AAAA answers
+and enforce its port rule at each station, including robots.txt, the initial
+request and every redirect. The connection uses the same approved pin. Search
+result URLs are descriptive data and must go through that port before fetching.
+At the flip, the host also owns queue sizing for per-origin pacing and the
+memory budget for decoded character sets.
+
 ### W7 · MCP (P4-70)
 
 - **Dateien.** [MCP](../../packages/core/src/mcp) mit Registry, Auth-/OAuth-Interaktion,

@@ -1749,3 +1749,14 @@ The port or WebSocket settings can set a total decoded audio limit and a
 maximum duration for HTTP, Polly, WebSocket synthesis, and realtime streams.
 Rust defaults to 64 MiB and at most 600 seconds. It rejects a chunk before
 delivery when the chunk would exceed the remaining budget.
+
+<a id="p4d-250"></a>
+
+## P4D-250 — Bounded HTML formatting and extraction (R-W-15)
+
+The Rust renderer bounds each accumulated Markdown projection to four UTF-16
+units per configured extraction token plus 4,096 units of fixed lookahead.
+It accounts for formatting prefixes and table delimiters before constructing
+the expanded output, and checks the fetch deadline and cancellation while
+walking the HTML tree. The final token check still governs the returned result.
+TypeScript applies its token check after rendering.

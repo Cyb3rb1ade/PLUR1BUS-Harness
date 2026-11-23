@@ -30,6 +30,13 @@ impl Admission for Pin {
     }
 }
 
+struct Deny;
+impl Admission for Deny {
+    fn pin(&self, _: &Url, _: Instant) -> Result<SocketAddr, Failure> {
+        Err(Failure::EgressDenied)
+    }
+}
+
 fn path(url: &Url) -> String {
     match url.query() {
         Some(query) => format!("{}?{query}", url.path()),
@@ -64,7 +71,7 @@ fn guarded_web_requests_replay_typescript_over_the_pinned_connector() {
             &headers,
             agent,
             accept,
-            Instant::now() + Duration::from_secs(4),
+            Instant::now() + Duration::from_millis(input["timeoutMs"].as_u64().unwrap_or(4000)),
         );
         if let Some(method) = input["method"].as_str() {
             options.method = method.parse().unwrap();
@@ -88,12 +95,22 @@ fn guarded_web_requests_replay_typescript_over_the_pinned_connector() {
             address: server.addr,
             seen: Mutex::new(Vec::new()),
         };
-        let url = format!(
+        let mut url = Url::parse(&format!(
             "http://{}{}",
             server.addr,
             case["requestPath"].as_str().unwrap()
-        );
-        let actual = match http::request(&url, &options, &pin, &|| false) {
+        ))
+        .unwrap();
+        let admission: &dyn Admission =
+            if let Some(username) = case["credentials"]["username"].as_str() {
+                url.set_username(username).unwrap();
+                url.set_password(case["credentials"]["password"].as_str())
+                    .unwrap();
+                &Deny
+            } else {
+                &pin
+            };
+        let actual = match http::request(url.as_str(), &options, admission, &|| false) {
             Ok(response) => {
                 use base64::{engine::general_purpose::STANDARD, Engine as _};
                 json!({
