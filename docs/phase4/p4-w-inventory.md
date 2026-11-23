@@ -402,6 +402,16 @@ Core-Peer-Implementierung für einen Delegationsaufruf. Der Flip verbindet
 die Ports mit der produktiven Zustandsverwaltung. Die Abweichungen stehen
 in [P4D-209](defects.md#p4d-209) und [P4D-235–238](defects.md#p4d-235).
 
+### Nachprüfung W6–W8
+
+Der lesende Durchgang nach W8 deckt HTTP-, SSE-, stdio-, Parser- und
+Freigabegrenzen der Transportschichten ab. Die Korrekturen in
+[P4D-239](defects.md#p4d-239) und [P4D-240](defects.md#p4d-240) beziehen sich
+auf Web-Fetch-Metadaten, Suchanbieter, die durchgehende Frist,
+die JSON-Ausgabegröße, MCP-Cachefreigaben und Fehlerantworten.
+Die Regressionsfälle verwenden Loopback-Server, synthetische
+Credential-Marker und lokale Host-Doubles.
+
 ### W9 · Matrix (P4-65, Owner-Entscheidung)
 
 [Quellen](../../packages/channels-matrix/src) und [Tests](../../packages/channels-matrix/test)

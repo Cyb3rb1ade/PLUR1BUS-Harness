@@ -33,8 +33,16 @@ impl Connection for TestConnection {
 }
 
 #[derive(Default)]
-struct TestHost(AtomicUsize);
+struct TestHost(AtomicUsize, AtomicBool);
 impl Host for TestHost {
+    fn admit(&self, _: &Definition) -> Result<(), Error> {
+        if self.1.load(Ordering::Acquire) {
+            Err(Error::AuthRequired)
+        } else {
+            Ok(())
+        }
+    }
+
     fn open(
         &self,
         _: &Definition,
@@ -178,4 +186,33 @@ fn a_late_start_after_reload_closes_the_old_session_and_cannot_fill_the_new_cach
         )
         .unwrap();
     assert_eq!(host.starts.load(Ordering::Acquire), 2);
+}
+
+#[test]
+fn fresh_tool_cache_requires_current_host_admission() {
+    let host = Arc::new(TestHost::default());
+    let registry = Registry::new(host.clone());
+    registry
+        .register(def(Scope::Agent("agent-a".into())))
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(1);
+    let listing = registry
+        .list_tools("fixture", "agent-a", false, deadline)
+        .unwrap();
+    assert_eq!(listing["tools"][0]["name"], "fixture");
+    host.1.store(true, Ordering::Release);
+    assert!(registry
+        .list_tools("fixture", "agent-a", false, deadline)
+        .is_err());
+    assert_eq!(host.0.load(Ordering::Acquire), 1);
+    host.1.store(false, Ordering::Release);
+    assert!(registry
+        .list_tools("fixture", "agent-a", false, Instant::now())
+        .is_err());
+    assert_eq!(
+        registry
+            .list_tools("fixture", "agent-a", false, deadline)
+            .unwrap(),
+        listing
+    );
 }

@@ -12,6 +12,8 @@ use ureq::http::{header, HeaderMap, Method};
 use url::{Origin, Url};
 
 use super::{failure, wall_clock, Freshness, Provider, Query, RawResult, Result};
+use plur1bus_log_schema::redact::{secret_forms_of, SecretMatcher};
+
 use crate::{
     fetch::Error,
     http::{self, Admission, Coding, Failure, Options, Redirects, Response},
@@ -198,7 +200,26 @@ impl Configured<'_> {
         }
         let parsed =
             serde_json::from_slice::<Value>(&reply.body).map_err(|_| failure("http-error"))?;
-        parse(self.vendor, &parsed).ok_or_else(|| failure("http-error"))
+        let mut results = parse(self.vendor, &parsed).ok_or_else(|| failure("http-error"))?;
+        if let Some(key) = key {
+            let forms = secret_forms_of(key);
+            let matcher = SecretMatcher::from_strs(forms.iter().map(String::as_str));
+            results.retain(|result| matcher.find_text_spans(&result.url).is_empty());
+            for result in &mut results {
+                result.title = matcher.mask_text(&result.title);
+                if let Some(snippet) = &mut result.snippet {
+                    *snippet = matcher.mask_text(snippet);
+                }
+                if result
+                    .published_at
+                    .as_ref()
+                    .is_some_and(|date| !matcher.find_text_spans(date).is_empty())
+                {
+                    result.published_at = None;
+                }
+            }
+        }
+        Ok(results)
     }
 
     fn once(

@@ -1630,3 +1630,27 @@ encodings in decoded JSON before returning output. It drops object fields
 whose names would copy a credential. Expansion from replacement text is
 bounded by the same output limit. The trusted host's output redactor
 remains responsible for wider Core secret/PII policy.
+
+<a id="p4d-239"></a>
+
+## P4D-239 — Web result presentation and cancellation
+
+The Rust fetch presenter applies the current redaction context to both
+locations of the final URL and to the content type on fresh and cached
+reads. Search providers mask reflected forms of their own credential
+leases in result text and discard result URLs containing those forms.
+JSON formatting charges UTF-16 output units before appending tokens and
+indentation, then reports the ordinary extraction limit if the projection
+would exceed it. The HTTP adapter also checks the original deadline and
+cancellation after receiving headers, before any bodyless result or
+redirect can leave the transport.
+
+<a id="p4d-240"></a>
+
+## P4D-240 — MCP registry cache admission and HTTP diagnostic IDs
+
+Reading a cached tool list requires current host admission and time in
+the request window. The library checks retirement and time again after
+redaction. Cache admission alone never opens a connection. Modern and
+legacy MCP HTTP requests use the same 128 UTF-16 unit limit on echoed
+string request IDs. The TypeScript server accepts longer IDs.

@@ -1,6 +1,9 @@
 //! Pretty-print parsed JSON in its JavaScript property order.
 
-use std::{collections::HashMap, fmt};
+use std::{
+    collections::HashMap,
+    fmt::{self, Write as _},
+};
 
 use serde::{de, Deserialize, Deserializer};
 
@@ -86,55 +89,93 @@ impl<'de> de::Visitor<'de> for Parse {
     }
 }
 
-fn indent(out: &mut String, depth: usize) {
-    out.push('\n');
-    out.extend(std::iter::repeat_n(' ', depth * 2));
+struct Output {
+    text: String,
+    units_left: usize,
 }
 
-fn write(value: &Value, out: &mut String, depth: usize) -> serde_json::Result<()> {
+impl fmt::Write for Output {
+    fn write_str(&mut self, text: &str) -> fmt::Result {
+        let next = self
+            .units_left
+            .checked_sub(text.encode_utf16().count())
+            .ok_or(fmt::Error)?;
+        self.text.push_str(text);
+        self.units_left = next;
+        Ok(())
+    }
+}
+
+fn indent(out: &mut Output, depth: usize) -> fmt::Result {
+    write!(out, "\n{:width$}", "", width = depth * 2)
+}
+
+fn write(value: &Value, out: &mut Output, depth: usize) -> fmt::Result {
     match value {
-        Value::Null => out.push_str("null"),
-        Value::Bool(true) => out.push_str("true"),
-        Value::Bool(false) => out.push_str("false"),
-        Value::Number(value) => out.push_str(&plur1bus_canon::format_double(*value)),
-        Value::String(value) => out.push_str(&serde_json::to_string(value)?),
+        Value::Null => out.write_str("null"),
+        Value::Bool(true) => out.write_str("true"),
+        Value::Bool(false) => out.write_str("false"),
+        Value::Number(value) => out.write_str(&plur1bus_canon::format_double(*value)),
+        Value::String(value) => {
+            out.write_str(&serde_json::to_string(value).map_err(|_| fmt::Error)?)
+        }
         Value::Array(items) => {
-            out.push('[');
+            out.write_char('[')?;
             for (index, item) in items.iter().enumerate() {
                 if index > 0 {
-                    out.push(',');
+                    out.write_char(',')?;
                 }
-                indent(out, depth + 1);
+                indent(out, depth + 1)?;
                 write(item, out, depth + 1)?;
             }
             if !items.is_empty() {
-                indent(out, depth);
+                indent(out, depth)?;
             }
-            out.push(']');
+            out.write_char(']')
         }
         Value::Object(entries) => {
-            out.push('{');
+            out.write_char('{')?;
             for (index, (key, value)) in entries.iter().enumerate() {
                 if index > 0 {
-                    out.push(',');
+                    out.write_char(',')?;
                 }
-                indent(out, depth + 1);
-                out.push_str(&serde_json::to_string(key)?);
-                out.push_str(": ");
+                indent(out, depth + 1)?;
+                out.write_str(&serde_json::to_string(key).map_err(|_| fmt::Error)?)?;
+                out.write_str(": ")?;
                 write(value, out, depth + 1)?;
             }
             if !entries.is_empty() {
-                indent(out, depth);
+                indent(out, depth)?;
             }
-            out.push('}');
+            out.write_char('}')
         }
     }
-    Ok(())
 }
 
-pub(super) fn pretty(input: &str) -> Option<String> {
-    let value = serde_json::from_str(input).ok()?;
-    let mut out = String::with_capacity(input.len());
-    write(&value, &mut out, 0).ok()?;
-    Some(out)
+pub(super) fn pretty(input: &str, limit: usize) -> Result<Option<String>, fmt::Error> {
+    let Ok(value) = serde_json::from_str(input) else {
+        return Ok(None);
+    };
+    let mut out = Output {
+        text: String::with_capacity(input.len().min(limit)),
+        units_left: limit,
+    };
+    write(&value, &mut out, 0)?;
+    Ok(Some(out.text))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pretty_print_charges_utf16_for_whitespace_and_unicode_before_appending() {
+        let input = r#"{"books":[{"title":"🌱"},3]}"#;
+        let expected = "{\n  \"books\": [\n    {\n      \"title\": \"🌱\"\n    },\n    3\n  ]\n}";
+        let bound = expected.encode_utf16().count();
+        assert_eq!(pretty(input, bound), Ok(Some(expected.to_owned())));
+        assert!(pretty(input, bound - 1).is_err());
+        assert!(pretty(input, input.encode_utf16().count()).is_err());
+        assert_eq!(pretty("{", 0), Ok(None));
+    }
 }
