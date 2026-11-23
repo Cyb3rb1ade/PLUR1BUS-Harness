@@ -12,7 +12,7 @@ fn a_newer_learning_store_is_refused_before_wal_or_permission_changes() {
     }
     let bytes = std::fs::read(&path).unwrap();
     let permission_calls = std::cell::Cell::new(0);
-    let result = LearnStore::open_with_permissions(&path, &|_, _| {
+    let result = LearnStore::open_private(&path, &|_, _| true, &|_, _| {
         permission_calls.set(permission_calls.get() + 1);
         true
     });

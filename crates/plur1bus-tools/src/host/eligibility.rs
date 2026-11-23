@@ -64,6 +64,7 @@ pub(super) fn validate_runtime(
                     | "do"
                     | "!"
                     | "eval"
+                    | "let"
                     | "builtin"
                     | "coproc"
                     | "source"

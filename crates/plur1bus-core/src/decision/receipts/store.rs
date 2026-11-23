@@ -174,7 +174,7 @@ impl ReceiptStore {
         Retention::new(o.retention.max_age_ms, o.retention.max_count)?;
         // A file from a newer schema must stay as it is: prepare() only creates what is missing, and the version check
         // of the store runs before any pragma.
-        private_store::prepare_owner_only(&o.path, o.secure_path.as_deref()).map_err(|error| {
+        private_store::prepare_versioned(&o.path, o.secure_path.as_deref()).map_err(|error| {
             match error {
                 private_store::PrepareError::Io(_) => {
                     ReceiptError::Store("cannot prepare the receipt store".into())
@@ -193,7 +193,14 @@ impl ReceiptStore {
             schema: Schema::Steps(&STEPS),
             create: true,
         };
-        let db = Store::open_owner(&o.path, &owner)?;
+        let db = private_store::open_versioned(&o.path, &owner, || -> Result<(), ReceiptError> {
+            if !private_store::protect_compatible(&o.path, o.secure_path.as_deref()) {
+                return Err(ReceiptError::Store(
+                    "receipt store permissions unavailable".into(),
+                ));
+            }
+            Ok(())
+        })?;
         Ok(Self {
             db,
             clock: o.clock,

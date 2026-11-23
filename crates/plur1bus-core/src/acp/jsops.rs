@@ -45,21 +45,38 @@ pub fn truthy(v: Option<&V>) -> bool {
 
 /// `String(v)` (and the template literal `${v}`).
 pub fn js_string(v: Option<&V>) -> String {
+    let Some(V::Arr(array)) = v else {
+        return scalar_string(v);
+    };
+    let mut result = String::new();
+    let mut frames = vec![array.iter().enumerate()];
+    while let Some(frame) = frames.last_mut() {
+        let Some((index, value)) = frame.next() else {
+            frames.pop();
+            continue;
+        };
+        if index != 0 {
+            result.push(',');
+        }
+        match value {
+            V::Null => {}
+            V::Arr(child) => frames.push(child.iter().enumerate()),
+            V::Str(text) => result.push_str(text),
+            _ => result.push_str(&scalar_string(Some(value))),
+        }
+    }
+    result
+}
+
+fn scalar_string(v: Option<&V>) -> String {
     match v {
         None => "undefined".to_owned(),
         Some(V::Null) => "null".to_owned(),
         Some(V::Bool(b)) => b.to_string(),
         Some(V::Num(n)) => js_number_to_string(*n),
         Some(V::Str(s)) => s.clone(),
-        Some(V::Arr(a)) => a
-            .iter()
-            .map(|x| match x {
-                V::Null => String::new(),
-                other => js_string(Some(other)),
-            })
-            .collect::<Vec<_>>()
-            .join(","),
         Some(V::Obj(_)) => "[object Object]".to_owned(),
+        Some(V::Arr(_)) => String::new(), // Arrays are handled by the traversal above.
     }
 }
 
@@ -155,6 +172,20 @@ mod tests {
         assert!(!strict_eq(Some(&V::Num(f64::NAN)), Some(&V::Num(f64::NAN))));
         assert!(strict_eq(Some(&V::Num(0.0)), Some(&V::Num(-0.0))));
         assert!(!strict_eq(Some(&V::s("1")), Some(&V::Num(1.0))));
+    }
+
+    #[test]
+    fn nested_array_stringification_preserves_join_on_a_small_stack() {
+        let deep = (0..4096).fold(V::s("leaf"), |item, _| V::Arr(vec![item]));
+        let output = std::thread::Builder::new()
+            .stack_size(64 * 1024)
+            .spawn(move || js_string(Some(&deep)))
+            .unwrap()
+            .join()
+            .unwrap();
+        assert_eq!(output, "leaf");
+        let mixed = parse(r#"[[],null,[1,[null,2]],{"a":true},"last"]"#).unwrap();
+        assert_eq!(js_string(Some(&mixed)), ",,1,,2,[object Object],last");
     }
 
     #[test]

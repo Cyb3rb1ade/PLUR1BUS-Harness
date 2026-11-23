@@ -356,6 +356,7 @@ impl Shared {
                     root: root.clone(),
                 }))
             }),
+            writer_lease: Some(Rc::new(|_| Some(Box::new(|| true)))),
             approval: Box::new(Approval {
                 asks: self.asks.clone(),
                 answer: self.answer.clone(),
@@ -446,6 +447,12 @@ impl World {
     /// A new lifecycle on the same store and repository: what a restart of the core does.
     pub fn restart(&mut self, project_throws: bool) {
         let deps = self.shared.deps(project_throws);
+        self.checkpoints = Rc::new(RewindCheckpoints::new(&mut self.store, deps).unwrap());
+    }
+
+    pub fn set_writer(&mut self, acquire: Option<super::rewind_checkpoints::AcquireWriter>) {
+        let mut deps = self.shared.deps(false);
+        deps.writer_lease = acquire;
         self.checkpoints = Rc::new(RewindCheckpoints::new(&mut self.store, deps).unwrap());
     }
 
