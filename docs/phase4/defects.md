@@ -1375,6 +1375,17 @@ the request's absolute deadline for every read. Rejected HTTP statuses return
 only their numeric code. The host connection must enforce the deadline while
 blocked in a read and release the body after a failure.
 
+<a id="p4d-209"></a>
+
+## P4D-209 — A2A Agent Card advertisement boundary
+
+The Rust card builder requires agent opt-in at the projection boundary,
+validates an HTTP(S) base URL without user information, query or fragment,
+and excludes path-navigation identities. The TypeScript handler enforces
+opt-in before it invokes the builder. The Rust field limits count UTF-16
+units and stop before a scalar that would cross the limit. TypeScript slicing
+can emit a lone surrogate at that boundary.
+
 <a id="p4d-210"></a>
 
 ## P4D-210 — cloud synthesis stream deadline and completion
@@ -1565,3 +1576,57 @@ caps schema and instance nodes, nesting, container sizes and validation work.
 The original descriptor remains available to the caller. A refused schema
 does not authorize the call. Validation errors omit peer diagnostics and
 response contents.
+
+<a id="p4d-235"></a>
+
+## P4D-235 — Signed A2A 1.0 cards and peer pins
+
+The Rust library validates typed fields before serializing the SDK's signed
+card projection. It rejects ambiguous camelCase and snake_case fields,
+ambiguous security alternatives, coercions of malformed field types, and
+non-scalar Unicode. The original TypeScript SDK coerces some malformed
+fields. Rust uses the registered key, key ID and RFC 7638 fingerprint. The
+single usable JSON-RPC 1.0 endpoint must share the registered card origin.
+The host records explicit human confirmation bound to the peer revision,
+key fingerprint and endpoint. Each operation verifies the card again.
+
+<a id="p4d-236"></a>
+
+## P4D-236 — A2A 0.3 request and event boundaries
+
+The Rust HTTP adapter refuses non-loopback bindings or an unmatched Host
+before reading an incoming body. It retains the one MiB request cap and
+the smaller limits for Parts. Diagnostic messages use fixed text for
+unsupported Parts, with a 128-unit limit on echoed RPC IDs. The TypeScript
+implementation echoes an unsupported kind and accepts longer string IDs.
+File URI parts are references. Push endpoints with URL fragments are
+refused. The host owns task policy and the filesystem and must enforce the
+provided absolute deadline. A response stream binds to the admitted task
+and context, and releases its subscription on disconnect, expiry or final
+status. Disconnect leaves the task available to a new subscription.
+
+<a id="p4d-237"></a>
+
+## P4D-237 — A2A 1.0 outbound lease and response bounds
+
+The existing Core defaults are 128 KiB for card JSON and 16 KiB each for
+requests and replies. The explicit Core maximum for requests and replies
+is 64 KiB. The Rust transport applies its reply cap to the entire SSE
+response including framing and verifies each event's correlation and task
+scope. An incomplete stream is a protocol error. Under R-W-9, cancellation
+during blocking I/O can be observed as late as the unchanged original
+deadline. The client re-admits each same-origin card redirect. An
+unsuccessful POST is never sent again by the library. Non-success response
+bodies are dropped, and a response error carries only its validated numeric
+RPC code. The host settles attempted writes with unknown outcomes against
+the reservation and uses the shared wire logger from R-W-11.
+
+<a id="p4d-238"></a>
+
+## P4D-238 — Reflected A2A credential representations
+
+The peer client masks known operation credentials and their canonical
+encodings in decoded JSON before returning output. It drops object fields
+whose names would copy a credential. Expansion from replacement text is
+bounded by the same output limit. The trusted host's output redactor
+remains responsible for wider Core secret/PII policy.

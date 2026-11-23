@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import { parseRobots, robotsAllows } from "../../packages/core/src/tools/web/robots.ts";
 import { exporterMain } from "./lib.mjs";
 
-function captureRobots() {
+export function captureRobots() {
   const inputs = [
     { body: "User-agent: *\nDisallow: /draft\nAllow: /draft/preview\nCrawl-delay: 45",
       agent: "FixtureBot/1", paths: ["/", "/draft", "/draft/preview"] },

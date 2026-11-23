@@ -1,0 +1,19 @@
+{
+  "chunks": [
+    "ZGF0YTogeyJqc29ucnBjIjoiMi4wIiwiaWQiOiJyZXF1ZXN0LWZpeHR1cmUiLCJyZXN1bHQiOnsia2luZCI6InRhc2siLCJpZCI6InRhc2stZml4dHVyZSIsImNvbnRleHRJZCI6ImNvbnRleHQtZml4dHVyZSIsInN0YXR1cyI6eyJzdGF0ZSI6InN1Ym1pdHRlZCIsInRpbWVzdGFtcCI6IjIwMjYtMDEtMDFUMDA6MDA6MDAuMDAwWiJ9fX0KCg==",
+    "ZGF0YTogeyJqc29ucnBjIjoiMi4wIiwiaWQiOiJyZXF1ZXN0LWZpeHR1cmUiLCJyZXN1bHQiOnsia2luZCI6InN0YXR1cy11cGRhdGUiLCJ0YXNrSWQiOiJ0YXNrLWZpeHR1cmUiLCJjb250ZXh0SWQiOiJjb250ZXh0LWZpeHR1cmUiLCJzdGF0dXMiOnsic3RhdGUiOiJ3b3JraW5nIiwidGltZXN0YW1wIjoiMjAyNi0wMS0wMVQwMDowMDowMS4wMDBaIn19fQoK",
+    "ZGF0YTogeyJqc29ucnBjIjoiMi4wIiwiaWQiOiJyZXF1ZXN0LWZpeHR1cmUiLCJyZXN1bHQiOnsia2luZCI6ImFydGlmYWN0LXVwZGF0ZSIsInRhc2tJZCI6InRhc2stZml4dHVyZSIsImNvbnRleHRJZCI6ImNvbnRleHQtZml4dHVyZSIsImFydGlmYWN0Ijp7ImFydGlmYWN0SWQiOiJhcnRpZmFjdC1maXh0dXJlIiwibmFtZSI6InJlcGx5IiwicGFydHMiOlt7ImtpbmQiOiJ0ZXh0IiwidGV4dCI6Is6xXG7OsiJ9XX0sImFwcGVuZCI6ZmFsc2UsImxhc3RDaHVuayI6ZmFsc2V9fQoK",
+    "ZGF0YTogeyJqc29ucnBjIjoiMi4wIiwiaWQiOiJyZXF1ZXN0LWZpeHR1cmUiLCJyZXN1bHQiOnsia2luZCI6ImFydGlmYWN0LXVwZGF0ZSIsInRhc2tJZCI6InRhc2stZml4dHVyZSIsImNvbnRleHRJZCI6ImNvbnRleHQtZml4dHVyZSIsImFydGlmYWN0Ijp7ImFydGlmYWN0SWQiOiJhcnRpZmFjdC1maXh0dXJlIiwibmFtZSI6InJlcGx5IiwicGFydHMiOlt7ImtpbmQiOiJ0ZXh0IiwidGV4dCI6IvCfjrUifV19LCJhcHBlbmQiOnRydWUsImxhc3RDaHVuayI6dHJ1ZX19Cgo=",
+    "ZGF0YTogeyJqc29ucnBjIjoiMi4wIiwiaWQiOiJyZXF1ZXN0LWZpeHR1cmUiLCJyZXN1bHQiOnsia2luZCI6InN0YXR1cy11cGRhdGUiLCJ0YXNrSWQiOiJ0YXNrLWZpeHR1cmUiLCJjb250ZXh0SWQiOiJjb250ZXh0LWZpeHR1cmUiLCJzdGF0dXMiOnsic3RhdGUiOiJjb21wbGV0ZWQiLCJ0aW1lc3RhbXAiOiIyMDI2LTAxLTAxVDAwOjAwOjAyLjAwMFoifSwiZmluYWwiOnRydWV9fQoK"
+  ],
+  "source": "packages/core/src/a2a/events.ts",
+  "task": {
+    "contextId": "context-fixture",
+    "id": "task-fixture",
+    "kind": "task",
+    "status": {
+      "state": "submitted",
+      "timestamp": "2026-01-01T00:00:00.000Z"
+    }
+  }
+}

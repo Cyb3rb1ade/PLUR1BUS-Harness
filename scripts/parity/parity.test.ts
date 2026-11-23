@@ -22,6 +22,14 @@ import { buildWireFixtures } from "./export-wire.ts";
 import { buildProviderFixtures } from "./export-providers.ts";
 import { buildChannelFixtures } from "./export-channels.ts";
 import { buildVoiceFixtures } from "./export-voice.ts";
+import { recordPureDocuments } from "./export-documents.ts";
+import { recordMediaUnits } from "./export-media-units.ts";
+import { captureRoles } from "./export-discovery.ts";
+import { captureRobots } from "./export-robots.ts";
+import { recordBridge } from "./export-mcp-bridge.ts";
+import { recordCards } from "./export-a2a-card.ts";
+import { recordA2aProtocol } from "./export-a2a-protocol.ts";
+import { recordA2aClient } from "./export-a2a-client.ts";
 import { buildLocalProbeFixtures, buildLocalProviderFixtures } from "./export-provider-local.ts";
 import { buildProviderCacheFixtures } from "./export-provider-cache.ts";
 import { buildProviderRouterFixtures } from "./export-provider-router.ts";
@@ -167,6 +175,26 @@ describe("cloud voice wire fixtures (W3)", () => {
       assert.doesNotMatch(text, /synthetic-voice-credential/);
     }
   });
+});
+
+describe("recordings for the W4–W8 wire library slices", () => {
+  for (const [area, build] of [
+    ["documents", recordPureDocuments],
+    ["media", recordMediaUnits],
+    ["discovery", captureRoles],
+    ["webtools", captureRobots],
+    ["mcp", recordBridge],
+    ["a2a", recordCards],
+    ["a2a", recordA2aProtocol],
+    ["a2a", recordA2aClient],
+  ] as const) {
+    it(`regenerates ${area} fixtures from TypeScript`, async () => {
+      for (const [name, data] of Object.entries(await build())) {
+        const expected = readFileSync(fixturePath(area, name), "utf8");
+        assert.equal(expected, fixtureText(data), `${area}/${name}: committed recording is stale`);
+      }
+    });
+  }
 });
 
 describe("channel wire fixtures (W2)", () => {
