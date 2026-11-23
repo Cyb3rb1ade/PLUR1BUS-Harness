@@ -1005,6 +1005,26 @@ impl Shared {
                 }
                 Ok(result)
             }
+            "engine.dreams.status" => {
+                self.live_core_instance(connection)?;
+                let agent = params
+                    .get("agentId")
+                    .map(|value| {
+                        let agent: String = decode(value)?;
+                        crate::context::safe_agent_id(&agent)
+                            .map_err(|_| WireError::invalid_params())
+                    })
+                    .transpose()?;
+                let (result, imported) = crate::store::dream_ledger::status(
+                    &self.home.join("state"),
+                    agent.as_deref(),
+                    &connection.cancel,
+                )?;
+                if let Some(imported) = imported {
+                    diagnostics::dream_ledger_import(imported);
+                }
+                Ok(result)
+            }
             "engine.jobs.run" => self.run_job(connection, params),
             "engine.capture.wait" => self.capture_wait(params, &connection.cancel),
             "engine.capture.abort" => {

@@ -1528,3 +1528,121 @@ fn dreams_log_reads_imported_rows_and_their_private_log_over_the_core_link() {
         "{missing}"
     );
 }
+
+#[test]
+fn dreams_status_projects_the_native_ledger_over_the_core_link() {
+    let _guard = process_test();
+    let home = home();
+    let engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let directory = home.path().join("state/dreams");
+    plur1bus_engine::store::paths::secure_dir(&directory).unwrap();
+    let path = directory.join("dreams.db");
+    let legacy = rusqlite::Connection::open(&path).unwrap();
+    plur1bus_engine::store::paths::secure_file(&path).unwrap();
+    legacy
+        .execute_batch(include_str!("../../plur1bus-core/src/dreams/store-v1.sql"))
+        .unwrap();
+    legacy.execute_batch("
+        PRAGMA user_version=1;
+        INSERT INTO dream_schedule
+            (agent_id,phase,cron,timezone,enabled,stagger_offset_s,next_run_at,breaker_state,breaker_until,breaker_reason,importance_acc,captures_acc)
+        VALUES
+            ('a2','light','0 4 * * *','UTC',1,10,99,'closed',NULL,NULL,0,0),
+            ('a1','rem','15 1 * * *','UTC',0,25,99,'open',256,'breaker_sessions',6.5,3),
+            ('a1','light','0 4 * * *','UTC',1,50,128,'closed',NULL,NULL,0,0);
+        INSERT INTO dream_run
+            (run_id,agent_id,phase,job_id,idempotency_key,trigger,started_at,finished_at,outcome)
+        VALUES
+            ('original','a1','rem','rem-dream','claim-first','manual',40,45,'completed'),
+            ('same-time-later','a1','rem','rem-dream','claim-later','manual',40,49,'completed');
+    ").unwrap();
+    drop(legacy);
+
+    let mut unauthorized = RawConnection::connect(engine.address());
+    assert!(unauthorized.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"dream-status-fixture"})
+    )["result"]
+        .is_object());
+    assert_unauthorized(&unauthorized.call(2, "engine.dreams.status", json!({})));
+    assert!(!directory.join("engine.sqlite").exists());
+
+    let mut core = core_peer(&engine, home.path());
+    let first = core.call(2, "engine.dreams.status", json!({"agentId":"a1"}));
+    let result = &first["result"];
+    assert_eq!(result["schemaVersion"], 1, "{first}");
+    let agents = result["agents"].as_array().unwrap();
+    assert_eq!(agents.len(), 1);
+    assert_eq!(agents[0]["agentId"], "a1");
+    let phase = &agents[0]["phases"][1];
+    assert_eq!(agents[0]["phases"][0]["phase"], "light");
+    assert_eq!(phase["phase"], "rem");
+    assert_eq!(phase["nextRunAt"], Value::Null);
+    assert_eq!(
+        phase["breaker"],
+        json!({"state":"open","until":256,"reason":"breaker_sessions"})
+    );
+    assert_eq!(
+        phase["importance"],
+        json!({"accumulated":6.5,"capturesSinceRun":3})
+    );
+    assert_eq!(phase["lastRun"]["runId"], "same-time-later");
+    assert_eq!(phase["lastRun"]["durationMs"], 9);
+    assert!(agents[0]["phases"][0]["lastRun"].is_null());
+    let everyone = core.call(3, "engine.dreams.status", json!({}));
+    assert_eq!(
+        everyone["result"]["agents"][1]["agentId"], "a2",
+        "{everyone}"
+    );
+    let empty = core.call(4, "engine.dreams.status", json!({"agentId":"absent"}));
+    assert_eq!(empty["result"]["agents"], json!([]), "{empty}");
+}
+
+#[test]
+fn dreams_status_replays_the_typescript_durable_projection() {
+    let _guard = process_test();
+    let home = home();
+    let engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let directory = home.path().join("state/dreams");
+    plur1bus_engine::store::paths::secure_dir(&directory).unwrap();
+    let path = directory.join("dreams.db");
+    let legacy = rusqlite::Connection::open(&path).unwrap();
+    plur1bus_engine::store::paths::secure_file(&path).unwrap();
+    legacy
+        .execute_batch(include_str!("../../plur1bus-core/src/dreams/store-v1.sql"))
+        .unwrap();
+    legacy.pragma_update(None, "user_version", 1).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/dreams/ledger-status.json"
+    ))
+    .unwrap();
+    for (table, rows) in [("dream_schedule", "schedules"), ("dream_run", "runs")] {
+        for values in fixture["input"][rows].as_array().unwrap() {
+            let values = values.as_object().unwrap();
+            let names = values.keys().cloned().collect::<Vec<_>>().join(",");
+            let marks = vec!["?"; values.len()].join(",");
+            let params = values.values().map(|value| {
+                use rusqlite::types::Value as Sql;
+                match value {
+                    Value::Null => Sql::Null,
+                    Value::String(value) => Sql::Text(value.to_owned()),
+                    Value::Number(value) => value
+                        .as_i64()
+                        .map_or_else(|| Sql::Real(value.as_f64().unwrap()), Sql::Integer),
+                    _ => panic!("unsupported value in the TypeScript ledger fixture"),
+                }
+            });
+            legacy
+                .execute(
+                    &format!("INSERT INTO {table} ({names}) VALUES ({marks})"),
+                    rusqlite::params_from_iter(params),
+                )
+                .unwrap();
+        }
+    }
+    drop(legacy);
+    let mut core = core_peer(&engine, home.path());
+    let status = core.call(2, "engine.dreams.status", json!({}));
+    assert_eq!(status["result"], fixture["expected"], "{status}");
+}

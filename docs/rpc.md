@@ -463,6 +463,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `engine.dreams.diary`: experimental, since 1.28.0
 - `engine.dreams.log`: experimental, since 1.28.0
 - `engine.dreams.schedule`: experimental, since 1.28.0
+- `engine.dreams.status`: experimental, since 1.28.0
 - `engine.media.index`: experimental, since 1.28.0
 - `engine.admin.reembedding.checkpoint.put`: experimental, since 1.27.0
 - `engine.admin.reembedding.checkpoint.get`: experimental, since 1.27.0
@@ -728,6 +729,52 @@ Read an agent's schedules over the verified Core link. The first call after the 
       "type": "array",
       "items": {
         "$ref": "#/$defs/DreamSchedule"
+      }
+    }
+  }
+}
+```
+
+### `engine.dreams.status`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Read the durable dreaming status over the verified Core link. The Core supplies live scheduler counters, thresholds and diary metadata.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "agents"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer"
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineDreamsStatusAgent"
       }
     }
   }
@@ -38396,6 +38443,132 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "integer",
         "null"
       ]
+    }
+  }
+}
+```
+
+### `EngineDreamPhaseStatus`
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.28.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "phase",
+    "enabled",
+    "cron",
+    "timezone",
+    "staggerOffsetS",
+    "nextRunAt",
+    "lastRun",
+    "breaker",
+    "importance"
+  ],
+  "properties": {
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "cron": {
+      "type": "string"
+    },
+    "timezone": {
+      "type": "string"
+    },
+    "staggerOffsetS": {
+      "type": "integer"
+    },
+    "nextRunAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "lastRun": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/DreamRun"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "breaker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "until",
+        "reason"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "closed",
+            "open"
+          ]
+        },
+        "until": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "importance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accumulated",
+        "capturesSinceRun"
+      ],
+      "properties": {
+        "accumulated": {
+          "type": "number"
+        },
+        "capturesSinceRun": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}
+```
+
+### `EngineDreamsStatusAgent`
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.28.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "phases"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineDreamPhaseStatus"
+      }
     }
   }
 }

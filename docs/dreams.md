@@ -55,6 +55,8 @@ money dimension (owner decision 2026-10-19); the ledger's legacy money column st
 The verified Core link can call `engine.dreams.schedule` and `engine.dreams.log` after retiring the legacy ledger writer.
 The log method lists recent imported runs or reads one run and the tail of its private log.
 The engine resolves per-run logs under the ledger's existing agent and phase directories and limits the tail to 262,144 UTF-16 units.
+The status method projects the durable schedules, breaker state, importance state and latest run for each phase.
+The Core supplies the live scheduler counters, thresholds and diary metadata for the public status response.
 The Core link can also call `engine.dreams.diary` for the workspace diary.
 The engine resolves the workspace through the host and returns at most 262,144 bytes of text on a UTF-8 boundary.
 The public Core handler owns application redaction.

@@ -1989,6 +1989,8 @@ table! {
     Result "engine.dreams.log" EngineDreamsLogResult,
     Params "engine.dreams.schedule" EngineDreamsScheduleParams,
     Result "engine.dreams.schedule" EngineDreamsScheduleResult,
+    Params "engine.dreams.status" EngineDreamsStatusParams,
+    Result "engine.dreams.status" EngineDreamsStatusResult,
     Params "engine.media.index" EngineMediaIndexParams,
     Result "engine.media.index" EngineMediaIndexResult,
     Params "engine.admin.reembedding.switch" EngineAdminReembeddingSwitchParams,

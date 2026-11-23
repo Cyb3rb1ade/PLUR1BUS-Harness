@@ -6758,6 +6758,122 @@
         }
       }
     },
+    "EngineDreamPhaseStatus": {
+      "x-stability": "experimental",
+      "x-since": "1.28.0",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phase",
+        "enabled",
+        "cron",
+        "timezone",
+        "staggerOffsetS",
+        "nextRunAt",
+        "lastRun",
+        "breaker",
+        "importance"
+      ],
+      "properties": {
+        "phase": {
+          "$ref": "#/$defs/DreamPhase"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "cron": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "staggerOffsetS": {
+          "type": "integer"
+        },
+        "nextRunAt": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "lastRun": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DreamRun"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "breaker": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "until",
+            "reason"
+          ],
+          "properties": {
+            "state": {
+              "enum": [
+                "closed",
+                "open"
+              ]
+            },
+            "until": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "importance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "accumulated",
+            "capturesSinceRun"
+          ],
+          "properties": {
+            "accumulated": {
+              "type": "number"
+            },
+            "capturesSinceRun": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "EngineDreamsStatusAgent": {
+      "x-stability": "experimental",
+      "x-since": "1.28.0",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agentId",
+        "phases"
+      ],
+      "properties": {
+        "agentId": {
+          "$ref": "#/$defs/AgentId"
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EngineDreamPhaseStatus"
+          }
+        }
+      }
+    },
     "DreamPhaseStatus": {
       "x-stability": "experimental",
       "x-since": "1.5.0",
@@ -8798,6 +8914,40 @@
               "type": "array",
               "items": {
                 "$ref": "#/$defs/DreamSchedule"
+              }
+            }
+          }
+        }
+      },
+      "engine.dreams.status": {
+        "x-server": "engine",
+        "x-stability": "experimental",
+        "x-since": "1.28.0",
+        "description": "Read the durable dreaming status over the verified Core link. The Core supplies live scheduler counters, thresholds and diary metadata.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schemaVersion",
+            "agents"
+          ],
+          "properties": {
+            "schemaVersion": {
+              "type": "integer"
+            },
+            "agents": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/EngineDreamsStatusAgent"
               }
             }
           }

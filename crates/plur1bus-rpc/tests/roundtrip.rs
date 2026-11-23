@@ -520,6 +520,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::EngineDreamsScheduleParams,
                 types::EngineDreamsScheduleResult,
             >(name, fixture, &root_schema),
+            "engine.dreams.status" => check_pair::<
+                types::EngineDreamsStatusParams,
+                types::EngineDreamsStatusResult,
+            >(name, fixture, &root_schema),
             "engine.media.index" => check_pair::<
                 types::EngineMediaIndexParams,
                 types::EngineMediaIndexResult,

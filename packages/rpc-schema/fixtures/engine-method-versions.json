@@ -29,6 +29,7 @@
   "engine.dreams.diary": "1.28.0",
   "engine.dreams.log": "1.28.0",
   "engine.dreams.schedule": "1.28.0",
+  "engine.dreams.status": "1.28.0",
   "engine.embedding.embed": "1.7.0",
   "engine.embedding.fingerprint": "1.7.0",
   "engine.embedding.identities": "1.7.0",

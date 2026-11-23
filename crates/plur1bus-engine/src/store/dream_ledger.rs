@@ -180,6 +180,97 @@ pub(crate) fn schedules(
     })
 }
 
+/// This read returns only authoritative ledger fields. The caller projects
+/// volatile scheduler state, runtime thresholds and workspace diary metadata.
+pub(crate) fn status(
+    state: &Path,
+    agent: Option<&str>,
+    cancel: &Cancel,
+) -> Result<(Value, Option<Imported>), EngineError> {
+    with_ledger(state, cancel, |db, _| {
+        let mut statement = db
+            .prepare(
+                "SELECT DISTINCT agent_id FROM dream_schedule
+             WHERE ?1 IS NULL OR agent_id = ?1 ORDER BY agent_id",
+            )
+            .map_err(StoreError::from)?;
+        let agents = statement
+            .query_map([agent], |row| row.get::<_, String>(0))
+            .map_err(StoreError::from)?;
+        let mut results = Vec::new();
+        for agent in agents {
+            cancel.check()?;
+            let agent = agent.map_err(StoreError::from)?;
+            results.push(json!({"agentId":agent,"phases":phase_status(db, &agent, cancel)?}));
+        }
+        Ok(json!({"schemaVersion":version(db)?, "agents":results}))
+    })
+}
+
+fn phase_status(db: &Connection, agent: &str, cancel: &Cancel) -> Result<Vec<Value>, EngineError> {
+    let mut schedules = db
+        .prepare(
+            "SELECT phase, cron, timezone, enabled, stagger_offset_s, next_run_at,
+                breaker_state, breaker_until, breaker_reason, importance_acc, captures_acc
+         FROM dream_schedule WHERE agent_id = ?
+         ORDER BY CASE phase WHEN 'light' THEN 0 WHEN 'rem' THEN 1 ELSE 2 END",
+        )
+        .map_err(StoreError::from)?;
+    let mut rows = schedules.query([agent]).map_err(StoreError::from)?;
+    let mut result = Vec::new();
+    while let Some(row) = rows.next().map_err(StoreError::from)? {
+        cancel.check()?;
+        let get = |index| row.get::<_, String>(index).map_err(StoreError::from);
+        let phase = get(0)?;
+        let breaker = get(6)?;
+        if !matches!(phase.as_str(), "light" | "rem" | "deep")
+            || !matches!(breaker.as_str(), "closed" | "open")
+        {
+            return Err(StoreError::Corrupt.into());
+        }
+        let enabled = row.get::<_, i64>(3).map_err(StoreError::from)? == 1;
+        let next: Option<i64> = if enabled {
+            row.get(5).map_err(StoreError::from)?
+        } else {
+            None
+        };
+        let mut last_run = read_runs(
+            db,
+            &LogQuery {
+                agent_id: Some(agent.into()),
+                phase: Some(phase.clone()),
+                run_id: None,
+                limit: Some(1),
+            },
+            cancel,
+        )?;
+        let importance = row.get::<_, f64>(9).map_err(StoreError::from)?;
+        if !importance.is_finite() {
+            return Err(StoreError::Corrupt.into());
+        }
+        let accumulated = if importance.fract() == 0.0 && importance.abs() <= (1i64 << 53) as f64 {
+            json!(importance as i64)
+        } else {
+            json!(importance)
+        };
+        result.push(json!({
+            "phase":phase, "cron":get(1)?, "timezone":get(2)?, "enabled":enabled,
+            "staggerOffsetS":row.get::<_, i64>(4).map_err(StoreError::from)?,
+            "nextRunAt":next, "lastRun":last_run.pop(),
+            "breaker": {
+                "state":breaker,
+                "until":row.get::<_, Option<i64>>(7).map_err(StoreError::from)?,
+                "reason":row.get::<_, Option<String>>(8).map_err(StoreError::from)?,
+            },
+            "importance": {
+                "accumulated":accumulated,
+                "capturesSinceRun":row.get::<_, i64>(10).map_err(StoreError::from)?,
+            },
+        }));
+    }
+    Ok(result)
+}
+
 fn with_ledger<T>(
     state: &Path,
     cancel: &Cancel,

@@ -350,6 +350,17 @@ export function engineRpcSurface() {
     "Read an agent's schedules over the verified Core link. The first call after the Core retires its writer imports the legacy ledger.",
     "1.28.0",
   );
+  add(
+    "engine.dreams.status",
+    { agentId: { $ref: "#/$defs/AgentId" } },
+    [],
+    object({
+      schemaVersion: { type: "integer" },
+      agents: { type: "array", items: { $ref: "#/$defs/EngineDreamsStatusAgent" } },
+    }, ["schemaVersion", "agents"]),
+    "Read the durable dreaming status over the verified Core link. The Core supplies live scheduler counters, thresholds and diary metadata.",
+    "1.28.0",
+  );
 
   from("engine.stores", "StoreOps");
   add(

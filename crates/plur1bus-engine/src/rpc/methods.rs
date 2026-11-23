@@ -944,6 +944,7 @@ mod tests {
                         // are exercised through authenticated connections in rpc_server.rs.
                         | "engine.media.index"
                         | "engine.dreams.schedule"
+                        | "engine.dreams.status"
                         | "engine.dreams.log"
                         | "engine.dreams.diary"
                         | "engine.tokens.count"

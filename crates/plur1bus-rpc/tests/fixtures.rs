@@ -263,6 +263,9 @@ fn method_fixture(name: &str, f: &Value) {
         "engine.dreams.schedule" => {
             pair::<EngineDreamsScheduleParams, EngineDreamsScheduleResult>(name, f)
         }
+        "engine.dreams.status" => {
+            pair::<EngineDreamsStatusParams, EngineDreamsStatusResult>(name, f)
+        }
         "engine.media.index" => pair::<EngineMediaIndexParams, EngineMediaIndexResult>(name, f),
         "engine.admin.reembedding.switch" => {
             pair::<EngineAdminReembeddingSwitchParams, EngineAdminReembeddingSwitchResult>(name, f)
