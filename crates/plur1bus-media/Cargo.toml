@@ -10,6 +10,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+crc32fast = "=1.5.2"
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "=0.10.9"

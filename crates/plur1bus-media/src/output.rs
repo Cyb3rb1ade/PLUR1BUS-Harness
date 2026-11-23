@@ -45,34 +45,7 @@ pub trait Stage {
     fn publish(self, id: &str, deadline: Instant) -> Result<()>;
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ImageFormat {
-    Png,
-    Jpeg,
-    Webp,
-}
-
-impl ImageFormat {
-    pub fn extension(self) -> &'static str {
-        match self {
-            Self::Png => "png",
-            Self::Jpeg => "jpeg",
-            Self::Webp => "webp",
-        }
-    }
-
-    pub fn sniff(bytes: &[u8]) -> Option<Self> {
-        if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
-            Some(Self::Png)
-        } else if bytes.starts_with(b"\xff\xd8\xff") {
-            Some(Self::Jpeg)
-        } else if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP") {
-            Some(Self::Webp)
-        } else {
-            None
-        }
-    }
-}
+pub use crate::images::Format as ImageFormat;
 
 #[derive(Clone, Copy)]
 pub struct Image<'a> {
