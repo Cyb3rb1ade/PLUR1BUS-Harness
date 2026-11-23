@@ -1606,3 +1606,14 @@ describe("discovery reconciliation and transport (P4-W W5)", () => {
     assert.equal(readFileSync(fixturePath("discovery", "trust"), "utf8"), fixtureText(recordCatalogTrust().trust));
   });
 });
+
+describe("guarded web HTTP (P4-W W6)", () => {
+  it("matches the readable HTML projections from the real TypeScript extractor", async () => {
+    const { recordWebHtml } = await import("./export-web-html.ts");
+    assert.equal(readFileSync(fixturePath("web", "html"), "utf8"), fixtureText(recordWebHtml().html));
+  });
+  it("replays requests and ordinary responses from the real TypeScript transport", async () => {
+    const { recordWebHttp } = await import("./export-web-http.ts");
+    assert.equal(readFileSync(fixturePath("web", "http"), "utf8"), fixtureText((await recordWebHttp()).http));
+  });
+});

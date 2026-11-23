@@ -10,9 +10,16 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+brotli = "=8.0.4"
+flate2 = "=1.1.10"
+plur1bus-providers = { path = "../plur1bus-providers" }
+ureq = { version = "=3.4.2", default-features = false, features = ["rustls", "platform-verifier"] }
+url = "=2.5.9"
 encoding_rs = "=0.8.42"
 regex = "=1.13.1"
 serde.workspace = true
 
 [dev-dependencies]
+base64 = "=0.22.1"
+plur1bus-wire-fixtures = { path = "../plur1bus-wire-fixtures" }
 serde_json.workspace = true

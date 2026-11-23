@@ -6398,10 +6398,17 @@ dependencies = [
 name = "plur1bus-webtools"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "brotli",
  "encoding_rs",
+ "flate2",
+ "plur1bus-providers",
+ "plur1bus-wire-fixtures",
  "regex",
  "serde",
  "serde_json",
+ "ureq",
+ "url",
 ]
 
 [[package]]

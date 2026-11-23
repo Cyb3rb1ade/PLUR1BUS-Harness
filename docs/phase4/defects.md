@@ -1471,3 +1471,22 @@ admitting a request. Its errors omit headers and response bodies. If the
 signed catalogue falls back to an authenticated cached view after a transport
 failure, Rust preserves the failure code and uses a generic diagnostic message.
 The TypeScript view can name the request host.
+
+<a id="p4d-227"></a>
+
+## P4D-227 — guarded web transport response bounds
+
+The Rust web transport admits up to four nested content encodings and keeps
+diagnostic response prefixes at or below 64 KiB. The TypeScript client permits
+a coding list of arbitrary depth and uses the diagnostic limit supplied by its
+caller. Body decoding and each authorized redirect share the original
+deadline. A blocking read can defer cancellation until that deadline (R-W-9).
+
+<a id="p4d-228"></a>
+
+## P4D-228 — readable HTML table admission
+
+The Rust renderer refuses table grids whose padded projection would exceed
+300,000 cells. It retains the legacy HTML element and nesting limits.
+Oversized tables fail the extraction as a whole. The TypeScript renderer
+does not apply a separate bound to the padded table grid.

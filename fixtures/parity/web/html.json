@@ -1,0 +1,336 @@
+{
+  "cases": [
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "# One edition\n\nText with **bold**, *emphasis*, and `a < b`.",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<nav>navigation</nav><article><header><h1>One edition</h1></header><p>Text with <b>bold</b>, <em>emphasis</em>, and <code>a &lt; b</code>.</p><footer>footer</footer></article>",
+      "name": "article"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "- one\n- two\n  - nested\n\n1. first\n2. second",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<ul><li>one</li><li>two<ul><li>nested</li></ul></li></ul><ol><li>first<li>second</ol>",
+      "name": "nested-list"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "[Read today](https://pages.fixture.invalid/story) [Contact](mailto:editor@fixture.invalid) ![Cover photo](https://pages.fixture.invalid/edition/cover.png) Archive",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<p><a href=\"/story\">Read today</a> <a href=\"mailto:editor@fixture.invalid\">Contact</a> <img src=\"cover.png\" alt=\"Cover photo\"> <a href=\"ftp://files.fixture.invalid/\">Archive</a></p>",
+      "name": "links"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "```rust\none\n  two\n```\n\n> quoted words\n>\n> next paragraph\n\n---",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<pre><code class=\"language-rust\">one\n  two\n</code></pre><blockquote><p>quoted words</p><p>next paragraph</p></blockquote><hr>",
+      "name": "code"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "Counts\n\n| Name | Items | Note |\n| --- | --- | --- |\n| A | one \\| two |  |\n|  | 3 | done |",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<table><caption>Counts</caption><thead><tr><th>Name<th>Items<th>Note</thead><tbody><tr><td rowspan=\"2\">A<td colspan=\"2\">one | two<tr><td>3<td>done</tbody></table>",
+      "name": "data-table"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "# Article table\n\nReadable text\n\nNote",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<table><tr><td><h1>Article table</h1><p>Readable text</p><td>Note</table>",
+      "name": "layout-table"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "keep",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<div class=\"has-sidebar\"><main class=\"layout\"><p>keep</p><div class=\"newsletter\">newsletter</div></main><aside>noise</aside></div>",
+      "name": "furniture"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "New\n\nA readable printed article contains several sentences on its own without loading a script.",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<main><p>New</p></main><p>A readable printed article contains several sentences on its own without loading a script.</p>",
+      "name": "conditional-fallback"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "Keep one",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<p class=\"first\" class=\"hidden\" title=\"a>b\">Keep one</p><p aria-hidden=\"true\">Hide one</p><p style=\"display:none\">Hide two</p>",
+      "name": "attrs"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "**Read this**\n\nRead more",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<p title=\"unfinished><b>Read this<p>Read more</p>",
+      "name": "malformed-attrs"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "First\n\nSecond**boldafter**\n\n## Heading\n\nTail",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<p>First<p>Second<b>bold</i>after<h2>Heading</h2><p>Tail",
+      "name": "malformed-inline"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "**Name**\n\nValue\n\n**Another**\n\nDifference",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<dl><dt>Name<dd>Value<dt>Another<dd>Difference</dl>",
+      "name": "definition-list"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "“Title” — 世界 🌍 <code> &unknown;",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<p>“Title” &mdash; 世界 &#x1f30d; &lt;code&gt; &#160; &unknown;</p><!-- hidden -->",
+      "name": "unicode-entities"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "canonicalUrl": "https://pages.fixture.invalid/canonical",
+        "lang": "de",
+        "looksClientRendered": false,
+        "markdown": "STRENGTH",
+        "publishedAt": "2026-11-23T12:30:00Z",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        },
+        "title": "Hallo & Welt"
+      },
+      "input": "<html lang=\"de\"><head><title> Hallo &amp; Welt </title><link href=\"../canonical\" rel=\"alternate Canonical\"><meta property=\"article:published_time\" content=\"2026-11-23T12:30:00Z\"></head><body><p>STRENGTH</p></body></html>",
+      "name": "metadata"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "lang": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa…",
+        "looksClientRendered": false,
+        "markdown": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa🌙 finalMonday",
+        "publishedAt": "2026-11-23",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        },
+        "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa…"
+      },
+      "input": "<html lang=\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"><title>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa🌙 final</title><time datetime=\"2026-11-23\">Monday</time></html>",
+      "name": "metadata-clip"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "# Sign in",
+        "signals": {
+          "captcha": false,
+          "passwordForm": true,
+          "paywall": false
+        }
+      },
+      "input": "<h1>Sign in</h1><form><input type=\"password\"></form>",
+      "name": "password-evidence"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "Public preview",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<p>Public preview</p><form hidden><input type=\"password\"></form>",
+      "name": "hidden-password"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "Subscriber preview",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": true
+        }
+      },
+      "input": "<main><p class=\"subscriber-only\">Subscriber preview</p></main>",
+      "name": "paywall-evidence"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "Confirm that you are a person\n\n# Continue",
+        "signals": {
+          "captcha": true,
+          "passwordForm": false,
+          "paywall": false
+        },
+        "title": "Confirm that you are a person"
+      },
+      "input": "<title>Confirm that you are a person</title><h1>Continue</h1>",
+      "name": "verification-evidence"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": true,
+        "markdown": "",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<div id=\"__next\"></div><script src=\"/app.js\"></script>",
+      "name": "scripted-shell"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "fromNoscript": true,
+        "looksClientRendered": false,
+        "markdown": "A readable printed article contains several sentences on its own without loading a script.",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<div id=\"app\"></div><script src=\"/app.js\"></script><noscript><p>A readable printed article contains several sentences on its own without loading a script.</p></noscript>",
+      "name": "scripted-fallback"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": true,
+        "markdown": "",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<script src=\"/app.js\"></script><noscript>Please enable JavaScript to view this site and read its articles and photos.</noscript>",
+      "name": "scripted-notice"
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "expected": {
+        "looksClientRendered": false,
+        "markdown": "这是一篇简短而真实的文章，读者可以在此阅读原文和简要信息。",
+        "signals": {
+          "captcha": false,
+          "passwordForm": false,
+          "paywall": false
+        }
+      },
+      "input": "<script src=\"/stats.js\"></script><p>这是一篇简短而真实的文章，读者可以在此阅读原文和简要信息。</p>",
+      "name": "unicode-short-article"
+    }
+  ],
+  "source": "packages/core/src/tools/web/html.ts"
+}

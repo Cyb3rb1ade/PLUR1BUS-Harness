@@ -1,5 +1,5 @@
 //! Crawl directives using deterministic segment matching.
-const MAX_BYTES: usize = 500 * 1024;
+pub(crate) const MAX_BYTES: usize = 500 * 1024;
 pub const MAX_CRAWL_DELAY_SECONDS: f64 = 30.;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
