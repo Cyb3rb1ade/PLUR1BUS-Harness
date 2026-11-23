@@ -4,9 +4,9 @@ use std::{
     cell::Cell,
     net::SocketAddr,
     sync::{
-        Mutex,
         atomic::{AtomicBool, Ordering},
         mpsc::sync_channel,
+        Mutex,
     },
     thread,
     time::{Duration, Instant},
@@ -14,7 +14,7 @@ use std::{
 
 use plur1bus_webtools::http::{self, Admission, Failure, Options, Redirects};
 use plur1bus_wire_fixtures::FakeServer;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use ureq::http::HeaderMap;
 use url::Url;
 
@@ -95,7 +95,7 @@ fn guarded_web_requests_replay_typescript_over_the_pinned_connector() {
         );
         let actual = match http::request(&url, &options, &pin, &|| false) {
             Ok(response) => {
-                use base64::{Engine as _, engine::general_purpose::STANDARD};
+                use base64::{engine::general_purpose::STANDARD, Engine as _};
                 json!({
                     "status": response.status,
                     "path": path(&response.url),
@@ -247,7 +247,7 @@ fn cancellation_during_a_body_read_keeps_the_original_deadline() {
 
 #[test]
 fn diagnostic_prefix_is_capped_even_when_the_caller_requests_more() {
-    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
 
     const LIMIT: usize = 64 * 1024;
     for extra in [0, 1] {
