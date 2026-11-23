@@ -8669,6 +8669,63 @@
       }
     },
     "methods": {
+      "engine.dreams.diary": {
+        "x-server": "engine",
+        "x-stability": "experimental",
+        "x-since": "1.28.0",
+        "description": "Read the workspace diary over the verified Core link. The Core applies its public redaction before returning the text.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "path",
+            "exists",
+            "bytes",
+            "text",
+            "truncated"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "path": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "exists": {
+              "type": "boolean"
+            },
+            "bytes": {
+              "type": "integer"
+            },
+            "text": {
+              "type": "string"
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
       "engine.dreams.log": {
         "x-server": "engine",
         "x-stability": "experimental",

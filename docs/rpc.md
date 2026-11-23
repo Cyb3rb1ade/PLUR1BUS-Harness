@@ -460,6 +460,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ### engine server
 
+- `engine.dreams.diary`: experimental, since 1.28.0
 - `engine.dreams.log`: experimental, since 1.28.0
 - `engine.dreams.schedule`: experimental, since 1.28.0
 - `engine.media.index`: experimental, since 1.28.0
@@ -562,6 +563,75 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `legacy.secret.changed`: experimental, since 1.27.0
 
 ## Methods
+
+### `engine.dreams.diary`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Read the workspace diary over the verified Core link. The Core applies its public redaction before returning the text.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "path",
+    "exists",
+    "bytes",
+    "text",
+    "truncated"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "path": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "exists": {
+      "type": "boolean"
+    },
+    "bytes": {
+      "type": "integer"
+    },
+    "text": {
+      "type": "string"
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+```
 
 ### `engine.dreams.log`
 

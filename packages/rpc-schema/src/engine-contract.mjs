@@ -315,6 +315,21 @@ export function engineRpcSurface() {
   );
 
   add(
+    "engine.dreams.diary",
+    { agentId: { $ref: "#/$defs/AgentId" } },
+    ["agentId"],
+    object({
+      agentId: { $ref: "#/$defs/AgentId" },
+      path: { oneOf: [{ type: "string" }, { type: "null" }] },
+      exists: { type: "boolean" },
+      bytes: { type: "integer" },
+      text: string,
+      truncated: { type: "boolean" },
+    }, ["agentId", "path", "exists", "bytes", "text", "truncated"]),
+    "Read the workspace diary over the verified Core link. The Core applies its public redaction before returning the text.",
+    "1.28.0",
+  );
+  add(
     "engine.dreams.log",
     {
       agentId: { $ref: "#/$defs/AgentId" },

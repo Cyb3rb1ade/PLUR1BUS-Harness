@@ -305,6 +305,55 @@ fn process_job_requires_a_core_peer_and_a_live_reverse_authority() {
 }
 
 #[test]
+fn process_dream_diary_resolves_only_the_workspace_from_the_verified_core() {
+    let _serial = rpc_process_support::process_test();
+    let home = rpc_process_support::home();
+    let root = home.path();
+    let workspace = root.join("fixture-workspace");
+    plur1bus_engine::store::paths::secure_dir(&workspace).unwrap();
+    let path = workspace.join("DREAMS.md");
+    let text = "Fixture diary\n";
+    std::fs::write(&path, text).unwrap();
+    plur1bus_engine::store::paths::secure_file(&path).unwrap();
+    let core = FakeCore::start(root, CORE_TOKEN, move |method, params| match method {
+        "host.workspaceDir" => {
+            assert_eq!(params["agentId"], "alpha");
+            Ok(json!({"path":workspace}))
+        }
+        "host.event" => Ok(json!({})),
+        _ => Err("E_NOT_AVAILABLE"),
+    });
+    let mut engine = rpc_process_support::EngineProcess::start_with_seam(root, "flat-embedder");
+    let mut peer = rpc_process_support::RawConnection::connect(engine.address());
+    assert!(peer.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"diary-fixture"})
+    )["result"]
+        .is_object());
+    let params = json!({"agentId":"alpha"});
+    let refused = peer.call(2, "engine.dreams.diary", params.clone());
+    assert_eq!(refused["error"]["data"]["reason"], "core-link-required");
+    assert_eq!(core.count("host.workspaceDir"), 0);
+    std::fs::write(
+        root.join("run/core.pid"),
+        format!("{} {}\n", std::process::id(), uuid::Uuid::from_u128(1)),
+    )
+    .unwrap();
+    let response = peer.call(3, "engine.dreams.diary", params);
+    assert_eq!(
+        response["result"],
+        json!({
+            "agentId":"alpha","path":path,"exists":true,"bytes":text.len(),"text":text,"truncated":false,
+        })
+    );
+    assert_eq!(core.count("host.workspaceDir"), 1);
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
+}
+
+#[test]
 fn authorized_episode_rebuild_completes_through_the_attributed_core_port() {
     use plur1bus_engine::{context::harness_user_principal, neo::merged::Layout};
 

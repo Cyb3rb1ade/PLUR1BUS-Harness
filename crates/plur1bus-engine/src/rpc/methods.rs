@@ -945,6 +945,7 @@ mod tests {
                         | "engine.media.index"
                         | "engine.dreams.schedule"
                         | "engine.dreams.log"
+                        | "engine.dreams.diary"
                         | "engine.tokens.count"
                         | "engine.tokens.families"
                         | "engine.tokens.observe"

@@ -945,6 +945,24 @@ impl Shared {
                 }
                 encode(self.engine.index_media(request, &connection.cancel)?)
             }
+            "engine.dreams.diary" => {
+                self.live_core_instance(connection)?;
+                let agent: AgentId = decode(&params["agentId"])?;
+                let safe = crate::context::safe_agent_id(agent.as_str())
+                    .map_err(|_| WireError::invalid_params())?;
+                let host = self
+                    .job_host
+                    .as_deref()
+                    .ok_or_else(WireError::not_available)?;
+                let workspace = host
+                    .workspace_dir(&agent)
+                    .map_err(crate::contract::EngineError::Host)?;
+                Ok(crate::store::dream_ledger::diary(
+                    workspace.as_deref(),
+                    &safe,
+                    &connection.cancel,
+                )?)
+            }
             "engine.dreams.log" => {
                 self.live_core_instance(connection)?;
                 let query: crate::store::dream_ledger::LogQuery = decode(params)?;

@@ -26,6 +26,8 @@ const DDL: &str = include_str!("dream-ledger-v1.sql");
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 const OPEN: OpenFlags = OpenFlags::SQLITE_OPEN_NO_MUTEX.union(OpenFlags::SQLITE_OPEN_NOFOLLOW);
 const MAX_LOG_UNITS: usize = 262_144;
+const DIARY_NAME: &str = "DREAMS.md";
+const MAX_DIARY_BYTES: usize = 262_144;
 
 const TABLES: [(&str, &str); 3] = [
     ("dream_run", "run_id,agent_id,phase,job_id,partition,idempotency_key,trigger,scheduled_for,started_at,finished_at,outcome,reason,counts_json,tokens_in,tokens_out,cost_micros,log_path,error_json"),
@@ -357,6 +359,45 @@ fn read_log_tail(dir: &TrustedDirectory, run: &Value) -> Option<String> {
     Some(text[start..].to_owned())
 }
 
+pub(crate) fn diary(
+    workspace: Option<&Path>,
+    agent: &str,
+    cancel: &Cancel,
+) -> Result<Value, EngineError> {
+    cancel.check()?;
+    let path = workspace.map(|dir| dir.join(DIARY_NAME));
+    let (size, text, truncated) = workspace.and_then(read_diary).unwrap_or_default();
+    cancel.check()?;
+    Ok(json!({
+        "agentId":agent,"path":path,"exists":size > 0,"bytes":size,"text":text,"truncated":truncated,
+    }))
+}
+
+fn read_diary(workspace: &Path) -> Option<(u64, String, bool)> {
+    let dir = TrustedDirectory::open(workspace).ok()?;
+    let file = dir.open_file(DIARY_NAME).ok()?;
+    regular_file_identity(&file).ok()?;
+    let size = file.metadata().ok()?.len();
+    let mut prefix = Vec::new();
+    file.take(MAX_DIARY_BYTES as u64 + 1)
+        .read_to_end(&mut prefix)
+        .ok()?;
+    dir.assert_unchanged().ok()?;
+    let truncated = prefix.len() > MAX_DIARY_BYTES;
+    if truncated {
+        let mut end = MAX_DIARY_BYTES;
+        while end > 0 && prefix[end] & 0xc0 == 0x80 {
+            end -= 1;
+        }
+        prefix.truncate(end);
+    }
+    Some((
+        size,
+        String::from_utf8_lossy(&prefix).into_owned(),
+        truncated,
+    ))
+}
+
 fn read_schedules(db: &Connection, agent: &str) -> Result<Vec<Value>, StoreError> {
     let mut query = db.prepare(
         "SELECT phase,cron,timezone,enabled,stagger_offset_s,next_run_at
@@ -373,4 +414,34 @@ fn read_schedules(db: &Connection, agent: &str) -> Result<Vec<Value>, StoreError
         }))
     })?;
     Ok(rows.collect::<Result<_, _>>()?)
+}
+
+#[cfg(test)]
+mod diary_tests {
+    #![allow(clippy::unwrap_used, reason = "private workspace fixture")]
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn diary_reports_absence_and_reads_a_utf8_prefix_with_true_file_size() {
+        let ws = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+        let path = ws.path().join("DREAMS.md");
+        let cancel = Cancel::never();
+        assert_eq!(
+            diary(None, "a1", &cancel).unwrap(),
+            json!({"agentId":"a1","path":null,"exists":false,"bytes":0,"text":"","truncated":false})
+        );
+        assert_eq!(
+            diary(Some(ws.path()), "a1", &cancel).unwrap(),
+            json!({"agentId":"a1","path":path,"exists":false,"bytes":0,"text":"","truncated":false})
+        );
+        let text = format!("{}🌙\n", "a".repeat(262_143));
+        fs::write(&path, &text).unwrap();
+        secure_file(&path).unwrap();
+        assert_eq!(
+            diary(Some(ws.path()), "a1", &cancel).unwrap(),
+            json!({"agentId":"a1","path":path,"exists":true,"bytes":text.len(),
+                "text":"a".repeat(262_143),"truncated":true})
+        );
+    }
 }
