@@ -126,6 +126,47 @@ fn slack_reacks_duplicates_without_redispatch() {
 }
 
 #[test]
+fn discord_gateway_delivers_the_same_message_ids_as_the_channel() {
+    let fixture = load_fixture("channels", "channel-admission");
+    let discord = &fixture["discord"];
+    let mut gateway = Gateway::new("test", 0, "test", discord["botId"].as_str().unwrap(), None);
+    let endpoint = Url::parse("wss://gateway.discord.gg").unwrap();
+    let mut delivered = Vec::new();
+    for message in discord["messages"].as_array().unwrap() {
+        let frame = json!({"op": 0, "t": "MESSAGE_CREATE", "d": message});
+        for event in gateway.receive(&frame.to_string(), 0, 0.5, &endpoint) {
+            if let Event::Dispatch(_, data) = event {
+                delivered.push(data["id"].clone());
+            }
+        }
+    }
+    assert_eq!(json!(delivered), discord["delivered"]);
+}
+
+#[test]
+fn slack_socket_acks_filtered_messages_without_dispatching_them() {
+    let fixture = load_fixture("channels", "channel-admission");
+    let slack = &fixture["slack"];
+    let mut mode = SocketMode::with_bot_user_id(slack["botId"].as_str().unwrap().to_owned());
+    let mut connection = mode.new_connection();
+    mode.receive(&mut connection, r#"{"type":"hello"}"#, |_| Ok(()));
+    let mut delivered = Vec::new();
+    for envelope in slack["envelopes"].as_array().unwrap() {
+        let mut acked = false;
+        if let Outcome::Envelope { value, .. } =
+            mode.receive(&mut connection, &envelope.to_string(), |_| {
+                acked = true;
+                Ok(())
+            })
+        {
+            delivered.push(value["payload"]["event"]["ts"].clone());
+        }
+        assert!(acked);
+    }
+    assert_eq!(json!(delivered), slack["delivered"]);
+}
+
+#[test]
 fn a_silent_peer_hits_the_read_deadline() {
     let server = FakeServer::start(&json!({"transport":"websocket", "exchanges":[]}));
     let mut socket = connect(&server, Limits::default());

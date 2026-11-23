@@ -144,3 +144,26 @@ fn webhook_checks_authentication_and_size_before_delivery() {
         assert_eq!(json!(received), row["delivered"], "{}", row["name"]);
     }
 }
+
+#[test]
+fn sender_admission_matches_the_typescript_webhook_channel() {
+    let fixture = load_fixture("channels", "channel-admission");
+    let telegram = &fixture["telegram"];
+    let allowlist = serde_json::from_value(telegram["allowlist"].clone()).unwrap();
+    let bot_id = telegram["botId"].as_i64().unwrap();
+    let delivered: Vec<_> = telegram["updates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|update| {
+            plur1bus_channels::telegram::accepts_sender(update, bot_id, Some(&allowlist))
+        })
+        .map(|update| {
+            update["message"]["message_id"]
+                .as_u64()
+                .unwrap()
+                .to_string()
+        })
+        .collect();
+    assert_eq!(json!(delivered), telegram["delivered"]);
+}

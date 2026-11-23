@@ -128,3 +128,29 @@ fn replays_slack_rest_forms_and_file_requests() {
         replay.verify(&case["name"]);
     }
 }
+
+#[test]
+fn discord_outbound_disables_mentions_in_the_message_payload() {
+    let admission = load_fixture("channels", "channel-admission");
+    let outbound = &admission["discord"]["outbound"];
+    let path = "/channels/123456/messages";
+    let reply = json!({"name":"send","exchanges":[{
+        "request": {
+            "method": "POST", "path": format!("/v1{path}"),
+            "bodyText": json!({"allowed_mentions":outbound, "content":"Reply"}).to_string(),
+            "headers": {"authorization": "Bot test", "content-type": "application/json"},
+        },
+        "response":{"status":200,"body":{"id":"42"}},
+    }]});
+    let replay = support::Replay::start(&reply, &[]);
+    let (http, base) = replay.connect();
+    let clock = TestClock {
+        ms: Cell::new(0),
+        waits: Default::default(),
+    };
+    let mut api = Discord::new(http, base, "test", &clock, 0);
+    let mut request = Request::new("POST", path);
+    request.json(serde_json::from_str::<&RawValue>(r#"{"content":"Reply"}"#).unwrap());
+    assert!(api.request(&request).is_ok());
+    replay.verify(&reply["name"]);
+}

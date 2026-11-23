@@ -100,32 +100,6 @@ fn encoded_body(bytes: &[u8]) -> String {
         .join(CRLF)
 }
 
-fn clean_filename(filename: &str) -> String {
-    let name = filename
-        .trim()
-        .rsplit(['/', '\\'])
-        .next()
-        .unwrap_or_default()
-        .trim();
-    let mut clean = String::new();
-    let mut run = false;
-    for b in name.bytes() {
-        if b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_') {
-            clean.push(char::from(b));
-            run = false;
-        } else if !run {
-            clean.push('_');
-            run = true;
-        }
-    }
-    let clean = clean.trim_start_matches('.');
-    if clean.is_empty() {
-        "attachment".into()
-    } else {
-        clean[..clean.len().min(100)].into()
-    }
-}
-
 fn text_entity(subtype: &str, text: &str) -> String {
     format!("Content-Type: text/{subtype}; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n{}", encoded_body(text.as_bytes()))
 }
@@ -162,7 +136,7 @@ pub fn build(input: &BuildInput, mut boundary: impl FnMut() -> String) -> Result
             "Content-Type: multipart/mixed; boundary=\"{mixed}\"\r\n\r\n--{mixed}\r\n{primary}\r\n"
         );
         for attachment in &input.attachments {
-            let name = clean_filename(&attachment.filename);
+            let name = super::clean_filename(&attachment.filename);
             let kind: String = header(
                 &attachment.mime_type,
                 "refusing header Content-Type with control characters",

@@ -1,0 +1,280 @@
+{
+  "discord": {
+    "botId": "900000000000000001",
+    "delivered": [
+      "1000000000000000102"
+    ],
+    "messages": [
+      {
+        "author": {
+          "bot": true,
+          "id": "111000000000000001"
+        },
+        "channel_id": "777000000000000001",
+        "content": "Reply",
+        "id": "1000000000000000100",
+        "type": 0
+      },
+      {
+        "author": {
+          "id": "900000000000000001"
+        },
+        "channel_id": "777000000000000001",
+        "content": "Reply",
+        "id": "1000000000000000101",
+        "type": 0
+      },
+      {
+        "author": {
+          "id": "111000000000000001"
+        },
+        "channel_id": "777000000000000001",
+        "content": "Reply",
+        "id": "1000000000000000102",
+        "type": 0
+      }
+    ],
+    "outbound": {
+      "parse": []
+    }
+  },
+  "exporter": "scripts/parity/export-channels.ts",
+  "schema": "plur1bus.parity-wire/1",
+  "slack": {
+    "botId": "UBOT0001",
+    "delivered": [
+      "1700000103.000200",
+      "1700000104.000200",
+      "1700000105.000200"
+    ],
+    "envelopes": [
+      {
+        "accepts_response_payload": false,
+        "envelope_id": "env-fixture-0",
+        "payload": {
+          "api_app_id": "A0FAKE",
+          "event": {
+            "bot_id": "BLOCAL01",
+            "channel": "D0FAKE01",
+            "channel_type": "im",
+            "text": "Reply",
+            "ts": "1700000100.000200",
+            "type": "message",
+            "user": "UHUMAN01"
+          },
+          "event_id": "fixture-0",
+          "event_time": 1700000000,
+          "team_id": "T0FAKE001",
+          "token": "verification-unused",
+          "type": "event_callback"
+        },
+        "retry_attempt": 0,
+        "retry_reason": "",
+        "type": "events_api"
+      },
+      {
+        "accepts_response_payload": false,
+        "envelope_id": "env-fixture-1",
+        "payload": {
+          "api_app_id": "A0FAKE",
+          "event": {
+            "channel": "D0FAKE01",
+            "channel_type": "im",
+            "subtype": "channel_join",
+            "text": "Reply",
+            "ts": "1700000101.000200",
+            "type": "message",
+            "user": "UHUMAN01"
+          },
+          "event_id": "fixture-1",
+          "event_time": 1700000000,
+          "team_id": "T0FAKE001",
+          "token": "verification-unused",
+          "type": "event_callback"
+        },
+        "retry_attempt": 0,
+        "retry_reason": "",
+        "type": "events_api"
+      },
+      {
+        "accepts_response_payload": false,
+        "envelope_id": "env-fixture-2",
+        "payload": {
+          "api_app_id": "A0FAKE",
+          "event": {
+            "channel": "D0FAKE01",
+            "channel_type": "im",
+            "text": "Reply",
+            "ts": "1700000102.000200",
+            "type": "message",
+            "user": "UBOT0001"
+          },
+          "event_id": "fixture-2",
+          "event_time": 1700000000,
+          "team_id": "T0FAKE001",
+          "token": "verification-unused",
+          "type": "event_callback"
+        },
+        "retry_attempt": 0,
+        "retry_reason": "",
+        "type": "events_api"
+      },
+      {
+        "accepts_response_payload": false,
+        "envelope_id": "env-fixture-3",
+        "payload": {
+          "api_app_id": "A0FAKE",
+          "event": {
+            "channel": "D0FAKE01",
+            "channel_type": "im",
+            "subtype": "file_share",
+            "text": "Reply",
+            "ts": "1700000103.000200",
+            "type": "message",
+            "user": "UHUMAN01"
+          },
+          "event_id": "fixture-3",
+          "event_time": 1700000000,
+          "team_id": "T0FAKE001",
+          "token": "verification-unused",
+          "type": "event_callback"
+        },
+        "retry_attempt": 0,
+        "retry_reason": "",
+        "type": "events_api"
+      },
+      {
+        "accepts_response_payload": false,
+        "envelope_id": "env-fixture-4",
+        "payload": {
+          "api_app_id": "A0FAKE",
+          "event": {
+            "channel": "D0FAKE01",
+            "channel_type": "im",
+            "subtype": "thread_broadcast",
+            "text": "Reply",
+            "ts": "1700000104.000200",
+            "type": "message",
+            "user": "UHUMAN01"
+          },
+          "event_id": "fixture-4",
+          "event_time": 1700000000,
+          "team_id": "T0FAKE001",
+          "token": "verification-unused",
+          "type": "event_callback"
+        },
+        "retry_attempt": 0,
+        "retry_reason": "",
+        "type": "events_api"
+      },
+      {
+        "accepts_response_payload": false,
+        "envelope_id": "env-fixture-5",
+        "payload": {
+          "api_app_id": "A0FAKE",
+          "event": {
+            "channel": "D0FAKE01",
+            "channel_type": "im",
+            "text": "Reply",
+            "ts": "1700000105.000200",
+            "type": "message",
+            "user": "UHUMAN01"
+          },
+          "event_id": "fixture-5",
+          "event_time": 1700000000,
+          "team_id": "T0FAKE001",
+          "token": "verification-unused",
+          "type": "event_callback"
+        },
+        "retry_attempt": 0,
+        "retry_reason": "",
+        "type": "events_api"
+      }
+    ]
+  },
+  "source": "packages/channels-{discord,slack,telegram}/src/channel.ts",
+  "telegram": {
+    "allowlist": [
+      "42"
+    ],
+    "botId": 123456789,
+    "delivered": [
+      "5"
+    ],
+    "updates": [
+      {
+        "message": {
+          "chat": {
+            "id": 42,
+            "type": "private"
+          },
+          "date": 1,
+          "message_id": 1,
+          "text": "Reply"
+        },
+        "update_id": 1
+      },
+      {
+        "message": {
+          "chat": {
+            "id": 42,
+            "type": "private"
+          },
+          "date": 1,
+          "from": {
+            "id": 42,
+            "is_bot": true
+          },
+          "message_id": 2,
+          "text": "Reply"
+        },
+        "update_id": 2
+      },
+      {
+        "message": {
+          "chat": {
+            "id": 42,
+            "type": "private"
+          },
+          "date": 1,
+          "from": {
+            "id": 123456789
+          },
+          "message_id": 3,
+          "text": "Reply"
+        },
+        "update_id": 3
+      },
+      {
+        "message": {
+          "chat": {
+            "id": 42,
+            "type": "private"
+          },
+          "date": 1,
+          "from": {
+            "id": 43
+          },
+          "message_id": 4,
+          "text": "Reply"
+        },
+        "update_id": 4
+      },
+      {
+        "message": {
+          "chat": {
+            "id": 42,
+            "type": "private"
+          },
+          "date": 1,
+          "from": {
+            "id": 42
+          },
+          "message_id": 5,
+          "text": "Reply"
+        },
+        "update_id": 5
+      }
+    ]
+  }
+}

@@ -306,3 +306,27 @@ fn lowercase_hex(value: &str) -> String {
 
 mod webhook;
 pub use webhook::Webhook;
+
+/// Check the sender before delivering a message or callback to the host. Keep
+/// transport acknowledgment and poll offset accounting independent of admission.
+pub fn accepts_sender(
+    update: &Value,
+    bot_id: i64,
+    allowlist: Option<&std::collections::HashSet<String>>,
+) -> bool {
+    let callback = update
+        .get("callback_query")
+        .filter(|value| value.is_object());
+    let message = &update["message"];
+    if callback.is_none() && message.get("migrate_to_chat_id").is_some() {
+        return true;
+    }
+
+    let sender = &callback.unwrap_or(message)["from"];
+    let Some(id) = sender["id"].as_i64() else {
+        return false;
+    };
+    sender["is_bot"] != true
+        && (callback.is_some() || id != bot_id)
+        && allowlist.is_none_or(|users| users.contains(&id.to_string()))
+}

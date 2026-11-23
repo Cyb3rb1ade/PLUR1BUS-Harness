@@ -10,6 +10,7 @@ const ENVELOPE_MEMORY: usize = 2048;
 pub struct SocketMode {
     seen: HashSet<String>,
     order: VecDeque<String>,
+    bot_user_id: Option<String>,
 }
 
 pub struct Connection {
@@ -31,6 +32,14 @@ pub enum OpenFailure {
 }
 
 impl SocketMode {
+    /// The bot user ID obtained from auth.test for this channel.
+    pub fn with_bot_user_id(bot_user_id: String) -> Self {
+        Self {
+            bot_user_id: Some(bot_user_id),
+            ..Self::default()
+        }
+    }
+
     pub fn new_connection(&self) -> Connection {
         Connection { ready: false }
     }
@@ -80,6 +89,9 @@ impl SocketMode {
                 self.seen.remove(&oldest);
             }
         }
+        if !eligible_message(&value["payload"]["event"], self.bot_user_id.as_deref()) {
+            return Outcome::Ignored;
+        }
         Outcome::Envelope { value, acked }
     }
 
@@ -114,4 +126,20 @@ impl SocketMode {
         let delay = (base as f64 * (0.75 + random.clamp(0., 1.) * 0.5)).round() as u64;
         delay.max(hint_ms)
     }
+}
+
+fn eligible_message(event: &Value, bot_id: Option<&str>) -> bool {
+    if !matches!(event["type"].as_str(), Some("message" | "app_mention")) {
+        return true;
+    }
+    let Some(user) = event["user"].as_str() else {
+        return false;
+    };
+    Some(user) != bot_id
+        && event.get("bot_id").is_none()
+        && event.get("bot_profile").is_none()
+        && matches!(
+            event["subtype"].as_str(),
+            None | Some("file_share" | "thread_broadcast")
+        )
 }

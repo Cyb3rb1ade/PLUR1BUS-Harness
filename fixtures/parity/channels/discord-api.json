@@ -5,7 +5,7 @@
       "exchanges": [
         {
           "request": {
-            "bodyText": "{\"content\":\"Grüße 👋\",\"flags\":4}",
+            "bodyText": "{\"content\":\"Grüße 👋\",\"flags\":4,\"allowed_mentions\":{\"parse\":[]}}",
             "headers": {
               "authorization": "Bot [FIXTURE:DISCORD]",
               "content-type": "application/json"
@@ -29,7 +29,7 @@
         }
       },
       "input": {
-        "json": "{\"content\":\"Grüße 👋\",\"flags\":4}",
+        "json": "{\"content\":\"Grüße 👋\",\"flags\":4,\"allowed_mentions\":{\"parse\":[]}}",
         "method": "PATCH",
         "path": "/channels/123456/messages/654321"
       },

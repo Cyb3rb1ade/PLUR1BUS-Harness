@@ -2,6 +2,7 @@
 use crate::http::{self, Attachment, Error, Failure, Http, Kind};
 use regex::Regex;
 use serde_json::{value::RawValue, Value};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 use std::time::Duration;
@@ -21,8 +22,9 @@ pub trait Clock {
 pub struct Request<'a> {
     method: &'a str,
     path: &'a str,
-    body: &'a [u8],
-    content_type: Option<&'a str>,
+    body: Cow<'a, [u8]>,
+    content_type: Option<Cow<'a, str>>,
+    projected_multipart: bool,
     pub token_route: bool,
 }
 
@@ -31,23 +33,91 @@ impl<'a> Request<'a> {
         Self {
             method,
             path,
-            body: &[],
+            body: Cow::Borrowed(&[]),
             content_type: None,
+            projected_multipart: false,
             token_route: false,
         }
     }
 
     pub fn json(&mut self, json: &'a RawValue) {
-        self.body = json.get().as_bytes();
-        self.content_type = Some("application/json");
+        self.body = Cow::Borrowed(json.get().as_bytes());
+        self.content_type = Some(Cow::Borrowed("application/json"));
+        self.projected_multipart = false;
     }
 
     pub fn multipart(&mut self, content_type: &'a str, body: &'a [u8]) -> Result<(), Error> {
         if !content_type.starts_with("multipart/form-data; boundary=") {
             return Err(Error::new(Kind::Protocol, "invalid Discord upload"));
         }
-        self.content_type = Some(content_type);
-        self.body = body;
+        self.content_type = Some(Cow::Borrowed(content_type));
+        self.body = Cow::Borrowed(body);
+        self.projected_multipart = false;
+        Ok(())
+    }
+
+    /// Prepare a message with one file and a protected payload_json part.
+    pub fn message_file(
+        &mut self,
+        payload: &RawValue,
+        boundary: &str,
+        filename: &str,
+        mime_type: &str,
+        bytes: &[u8],
+    ) -> Result<(), Error> {
+        let safe_token = |value: &str, extra: &[u8]| {
+            !value.is_empty()
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || extra.contains(&byte))
+        };
+        if boundary.len() > 70
+            || !safe_token(boundary, b"-_")
+            || filename.len() > 128
+            || !safe_token(filename, b"._-")
+            || !mime_type.split_once('/').is_some_and(|(kind, subtype)| {
+                safe_token(kind, b".+-") && safe_token(subtype, b".+-")
+            })
+        {
+            return Err(Error::new(Kind::Protocol, "invalid Discord upload"));
+        }
+        let interaction = message_route(self.method, self.path)
+            .ok_or_else(|| Error::new(Kind::Protocol, "invalid Discord message route"))?;
+        let payload = suppress_mentions(payload.get().as_bytes(), interaction)?;
+        let marker = format!("--{boundary}");
+        if bytes
+            .windows(marker.len())
+            .any(|window| window == marker.as_bytes())
+            || payload
+                .windows(marker.len())
+                .any(|window| window == marker.as_bytes())
+        {
+            return Err(Error::new(
+                Kind::Protocol,
+                "invalid Discord upload boundary",
+            ));
+        }
+        let head = format!(
+            "{marker}\r\nContent-Disposition: form-data; name=\"payload_json\"\r\nContent-Type: application/json\r\n\r\n",
+        );
+        let file = format!(
+            "\r\n{marker}\r\nContent-Disposition: form-data; name=\"files[0]\"; filename=\"{filename}\"\r\nContent-Type: {mime_type}\r\n\r\n",
+        );
+        let tail = format!("\r\n{marker}--\r\n");
+        self.body = Cow::Owned(
+            [
+                head.as_bytes(),
+                &payload,
+                file.as_bytes(),
+                bytes,
+                tail.as_bytes(),
+            ]
+            .concat(),
+        );
+        self.content_type = Some(Cow::Owned(format!(
+            "multipart/form-data; boundary={boundary}"
+        )));
+        self.projected_multipart = true;
         Ok(())
     }
 }
@@ -188,11 +258,26 @@ impl<'a> Discord<'a> {
         }
         let endpoint = http::endpoint(&self.base, request.path)?;
         let authorization = format!("Bot {}", self.token);
+        let content_type = request.content_type.as_deref();
+        let body = match (message_route(request.method, request.path), content_type) {
+            (Some(interaction), Some("application/json")) => {
+                suppress_mentions(&request.body, interaction)?
+            }
+            (Some(_), Some(kind))
+                if kind.starts_with("multipart/form-data;") && !request.projected_multipart =>
+            {
+                return Err(Error::new(
+                    Kind::Protocol,
+                    "Discord message upload requires a prepared payload",
+                ));
+            }
+            _ => Cow::Borrowed(request.body.as_ref()),
+        };
         let mut headers = Vec::with_capacity(2);
         if !request.token_route {
             headers.push(("authorization", authorization.as_str()));
         }
-        if let Some(content_type) = request.content_type {
+        if let Some(content_type) = content_type {
             headers.push(("content-type", content_type));
         }
 
@@ -203,7 +288,7 @@ impl<'a> Discord<'a> {
             let mut response =
                 match self
                     .http
-                    .request(request.method, &endpoint, &headers, request.body, TIMEOUT)
+                    .request(request.method, &endpoint, &headers, &body, TIMEOUT)
                 {
                     Ok(response) => response,
                     Err(Failure::Aborted) => return Err(aborted()),
@@ -334,6 +419,54 @@ impl<'a> Discord<'a> {
     }
 }
 
+/// Return whether this route carries an interaction response with nested data.
+fn message_route(method: &str, path: &str) -> Option<bool> {
+    let mut segments = path
+        .split('?')
+        .next()?
+        .trim_end_matches('/')
+        .split('/')
+        .skip(1);
+    match (
+        method,
+        segments.next()?,
+        segments.next()?,
+        segments.next()?,
+        segments.next(),
+        segments.next(),
+        segments.next(),
+    ) {
+        ("POST", "channels", _, "messages", None, None, None)
+        | ("PATCH", "channels", _, "messages", Some(_), None, None)
+        | ("POST", "webhooks", _, _, None, None, None)
+        | ("PATCH", "webhooks", _, _, Some("messages"), Some(_), None) => Some(false),
+        ("POST", "interactions", _, _, Some("callback"), None, None) => Some(true),
+        _ => None,
+    }
+}
+
+fn suppress_mentions(body: &[u8], interaction: bool) -> Result<Cow<'_, [u8]>, Error> {
+    let invalid = || Error::new(Kind::Protocol, "invalid Discord message payload");
+    let mut payload: Value = serde_json::from_slice(body).map_err(|_| invalid())?;
+    let message = if interaction {
+        if !matches!(payload["type"].as_u64(), Some(4 | 7)) {
+            return Ok(Cow::Borrowed(body));
+        }
+        &mut payload["data"]
+    } else {
+        &mut payload
+    };
+    let fields = message.as_object_mut().ok_or_else(invalid)?;
+    let safe = serde_json::json!({"parse": []});
+    if fields.get("allowed_mentions") == Some(&safe) {
+        return Ok(Cow::Borrowed(body));
+    }
+    fields.insert("allowed_mentions".into(), safe);
+    serde_json::to_vec(&payload)
+        .map(Cow::Owned)
+        .map_err(|_| invalid())
+}
+
 fn aborted() -> Error {
     Error::new(Kind::Aborted, "discord request aborted")
 }
@@ -457,3 +590,39 @@ pub fn route_key(method: &str, path: &str) -> String {
 }
 
 pub mod gateway;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_prepared_file_includes_the_message_policy_and_binary_data(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let payload = serde_json::from_str::<&RawValue>(r#"{"content":"Reply"}"#)?;
+        let mut request = Request::new("POST", "/channels/123456/messages");
+        assert!(request
+            .message_file(
+                payload,
+                "p1-fixture",
+                "report.bin",
+                "application/octet-stream",
+                &[1, 2, 3]
+            )
+            .is_ok());
+        assert!(request.projected_multipart);
+        let expected = b"\"allowed_mentions\":{\"parse\":[]}";
+        assert!(request
+            .body
+            .windows(expected.len())
+            .any(|window| window == expected));
+        assert!(request.body.windows(3).any(|window| window == [1, 2, 3]));
+        Ok(())
+    }
+
+    #[test]
+    fn discord_retry_after_is_inclusive_and_bounded() {
+        assert_eq!(retry_ms(Some(299.999)), 299_999);
+        assert_eq!(retry_ms(Some(300.)), 300_000);
+        assert_eq!(retry_ms(Some(600.)), 300_000);
+    }
+}

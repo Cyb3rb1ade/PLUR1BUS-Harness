@@ -4,6 +4,7 @@ import { DiscordApi, DiscordApiError, type RequestSpec } from "../../packages/ch
 import { SlackApi, SlackApiError } from "../../packages/channels-slack/src/api.ts";
 import { TelegramApi, TelegramApiError } from "../../packages/channels-telegram/src/api.ts";
 import { startStub } from "../../packages/providers/test/helpers/stub.ts";
+import { discordAdmission, slackAdmission, telegramAdmission } from "./channel-admission.ts";
 import { buzzRelay } from "./channel-buzz.ts";
 import { imap, mime, smtp } from "./channel-email.ts";
 import { telegramWebhook } from "./channel-telegram.ts";
@@ -114,7 +115,7 @@ async function discord() {
   const tokenRoute = "synthetic-discord-interaction-marker";
   const path = "/channels/123456/messages/654321";
   const sources = [
-    { name: "message", input: { method: "PATCH", path, json: '{"content":"Grüße 👋","flags":4}' },
+    { name: "message", input: { method: "PATCH", path, json: '{"content":"Grüße 👋","flags":4,"allowed_mentions":{"parse":[]}}' },
       responses: [{ status: 200, body: { id: "654321", content: "Grüße 👋" } }] },
     { name: "token-route", input: { method: "POST", path: "/interactions/123456/[FIXTURE:INTERACTION]/callback", tokenRoute: true, json: '{"type":5}' },
       responses: [{ status: 204 }] },
@@ -196,6 +197,10 @@ async function slack() {
 export async function buildChannelFixtures(): Promise<Record<string, unknown>> {
   return {
     "telegram-api": await telegram(), "discord-api": await discord(), "slack-api": await slack(),
+    "channel-admission": {
+      schema, exporter, source: "packages/channels-{discord,slack,telegram}/src/channel.ts",
+      discord: await discordAdmission(), slack: await slackAdmission(), telegram: await telegramAdmission(),
+    },
     "discord-identify": { schema, exporter, ...await discordGateway(false) },
     "discord-resume": { schema, exporter, ...await discordGateway(true) },
     "slack-socket": { schema, exporter, ...await slackSocket() },

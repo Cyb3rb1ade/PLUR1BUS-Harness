@@ -69,7 +69,7 @@ export async function discordGateway(resume: boolean) {
       user: { id: "42" }, application: { id: "43" },
       session_id: "recorded-session", resume_gateway_url: "wss://gateway.discord.gg",
     } });
-    put({ op: 0, t: "MESSAGE_CREATE", s: 11, d: { id: "44", content: "Hallo" } });
+    put({ op: 0, t: "MESSAGE_CREATE", s: 11, d: { id: "44", content: "Hallo", author: { id: "43" }, type: 0 } });
     await advance(500);
     put({ op: 11 });
     await advance(1000);

@@ -48,8 +48,12 @@
       "receive": [
         {
           "d": {
+            "author": {
+              "id": "43"
+            },
             "content": "Hallo",
-            "id": "44"
+            "id": "44",
+            "type": 0
           },
           "op": 0,
           "s": 11,
@@ -93,8 +97,12 @@
       },
       {
         "data": {
+          "author": {
+            "id": "43"
+          },
           "content": "Hallo",
-          "id": "44"
+          "id": "44",
+          "type": 0
         },
         "dispatch": "MESSAGE_CREATE"
       }
@@ -142,8 +150,12 @@
     {
       "frame": {
         "d": {
+          "author": {
+            "id": "43"
+          },
           "content": "Hallo",
-          "id": "44"
+          "id": "44",
+          "type": 0
         },
         "op": 0,
         "s": 11,

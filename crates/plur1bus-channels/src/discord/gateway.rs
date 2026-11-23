@@ -319,12 +319,25 @@ impl<'a> Gateway<'a> {
                 if self.session.is_some() && self.sequence.is_some_and(|seq| seq % 50 == 0) {
                     events.push(Event::Persist);
                 }
-                events.push(Event::Dispatch(event.to_owned(), d.clone()));
+                let bot_id = self
+                    .session
+                    .as_ref()
+                    .map_or(self.bot_id, |session| &session.bot_id);
+                if event != "MESSAGE_CREATE" || eligible_message(d, bot_id) {
+                    events.push(Event::Dispatch(event.to_owned(), d.clone()));
+                }
                 events
             }
             None => Vec::new(),
         }
     }
+}
+
+fn eligible_message(message: &Value, bot_id: &str) -> bool {
+    let author = &message["author"];
+    author["id"].as_str().is_some_and(|id| id != bot_id)
+        && author["bot"] != true
+        && matches!(message["type"].as_u64(), Some(0 | 19))
 }
 
 fn resume_candidate(raw: &str) -> Option<Url> {

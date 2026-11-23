@@ -769,7 +769,9 @@ impl Walk {
             let data = root.decoded();
             if data.len() <= self.options.max_attachment_bytes {
                 self.attachments.push(Attachment {
-                    filename: root.filename.clone(),
+                    filename: Some(super::clean_filename(
+                        root.filename.as_deref().unwrap_or_default(),
+                    )),
                     mime_type: root.kind.name(),
                     bytes: data,
                     inline: root.disposition == "inline",

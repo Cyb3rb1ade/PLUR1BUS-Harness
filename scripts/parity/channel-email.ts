@@ -2,7 +2,7 @@ import { connect, type Socket } from "node:net";
 import { openImap } from "../../packages/channels-email/src/imap.ts";
 import { sendMail } from "../../packages/channels-email/src/smtp.ts";
 import { EmailError } from "../../packages/channels-email/src/wire.ts";
-import { buildMessage } from "../../packages/channels-email/src/mime-build.ts";
+import { buildMessage, sanitizeFilename } from "../../packages/channels-email/src/mime-build.ts";
 import { parseMessage } from "../../packages/channels-email/src/mime-parse.ts";
 import { FakeImap } from "../../packages/channels-email/test/helpers/fake-imap.ts";
 import { FakeSmtp } from "../../packages/channels-email/test/helpers/fake-smtp.ts";
@@ -104,7 +104,7 @@ export async function imap(starttls: boolean) {
 
 function snapshot(bytes: Buffer, options = {}) {
   const { attachments, headers, ...parsed } = parseMessage(bytes, options);
-  return { ...parsed, attachments: attachments.map(({ data, ...metadata }) => ({ ...metadata, bytes: Array.from(data) })),
+  return { ...parsed, attachments: attachments.map(({ data, ...metadata }) => ({ ...metadata, filename: sanitizeFilename(metadata.filename), bytes: Array.from(data) })),
     headers: Object.fromEntries(["from", "to", "date", "content-type", "return-path"].map((key) => [key, headers.getAll(key)])),
   };
 }
@@ -138,9 +138,11 @@ export function mime() {
     { name: "depth-capped", bytes: built, options: { maxDepth: 1 } },
     { name: "html", bytes: Buffer.from(validFrom + "Content-Type: text/html\r\n\r\n<p>Gr&uuml;&szlig;e <a href='https://fixture.invalid/'>link</a></p><script>ignored</script>") },
     { name: "machine-report", bytes: Buffer.from(validFrom + "Content-Type: message/delivery-status\r\n\r\nstatus") },
+    { name: "filename-fallback", bytes: Buffer.from(validFrom + "Content-Type: image/png\r\nContent-Disposition: attachment\r\nContent-Transfer-Encoding: base64\r\n\r\nAAEC") },
+    { name: "filename-bounded", bytes: Buffer.from(validFrom + `Content-Type: image/png\r\nContent-Disposition: attachment; filename="Folder/${"a".repeat(125)}.png"\r\nContent-Transfer-Encoding: base64\r\n\r\nAAEC`) },
     { name: "filename-parameters", bytes: Buffer.from(validFrom + "Content-Type: image/png\r\nContent-Disposition: inline; filename*0*=utf-8''gr%C3%BC; filename*1*=sse.png\r\nContent-Transfer-Encoding: base64\r\n\r\nAAEC") },
   ].map(({ name, bytes, options }) => ({ name, bytesBase64: base64(bytes), options, expected: snapshot(bytes, options) }));
-  return { schema: "plur1bus.parity-email/1", source: "packages/channels-email/src/mime-build.ts and mime-parse.ts",
+  return { schema: "plur1bus.parity-email/1", source: "packages/channels-email/src/mime-build.ts and mime-parse.ts with channel.ts filename projection",
     build: { input, bytesBase64: base64(built) }, variants,
   };
 }

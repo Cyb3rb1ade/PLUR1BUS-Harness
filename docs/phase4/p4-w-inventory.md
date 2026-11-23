@@ -172,6 +172,14 @@ Fehlerkörper bleiben HTTP-Status und Retry-Header verfügbar. Abweichungen:
 [Telegram P4D-253](defects.md#p4d-253), [Slack P4D-254](defects.md#p4d-254)
 und [Discord P4D-255](defects.md#p4d-255).
 
+R-W-21: Discord filtert Bot- und Self-Nachrichten im Gateway und setzt
+die Erwähnungsregel bei Nachrichten-JSON und vorbereiteten Datei-Uploads.
+Slack bestätigt die Socket-Mode-Envelope vor der Bot- und Subtype-Prüfung;
+der Host übergibt die Bot-ID aus `auth.test`. Telegram stellt dieselbe
+Absenderprüfung für Polling und Webhook bereit. Der Host ruft sie vor der
+Zustellung auf und führt Update-IDs unabhängig von der Absenderentscheidung
+fort. MIME-Anhänge erhalten einen bereinigten Namen nach der TypeScript-Regel.
+
 Alle 27 neuen Registry-Einträge wurden gegen Veröffentlichungsdatum, Yank-Status und
 Lizenzliste geprüft. Die aktivierten direkten Neuzugänge sind `tungstenite =0.30.0` (MIT OR
 Apache-2.0, nur `handshake`), `nostr =0.45.5` (MIT, `std` und `nip44`) und

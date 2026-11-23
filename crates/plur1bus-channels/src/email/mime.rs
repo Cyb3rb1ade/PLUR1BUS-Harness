@@ -16,3 +16,29 @@ pub struct Mailbox {
     pub name: Option<String>,
     pub address: String,
 }
+
+fn clean_filename(filename: &str) -> String {
+    let name = filename
+        .trim()
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or_default()
+        .trim();
+    let mut clean = String::new();
+    let mut run = false;
+    for b in name.bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_') {
+            clean.push(char::from(b));
+            run = false;
+        } else if !run {
+            clean.push('_');
+            run = true;
+        }
+    }
+    let clean = clean.trim_start_matches('.');
+    if clean.is_empty() {
+        "attachment".into()
+    } else {
+        clean[..clean.len().min(100)].into()
+    }
+}
