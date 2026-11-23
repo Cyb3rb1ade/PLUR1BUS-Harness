@@ -53,6 +53,18 @@ impl WireError {
         Self::application("E_NOT_FOUND", "not-found", "dream run not found")
     }
 
+    pub(crate) fn dream_schedule_not_found() -> Self {
+        Self::application("E_NOT_FOUND", "not-found", "dream schedule not found")
+    }
+
+    pub(crate) fn stale_dream_schedule() -> Self {
+        Self::application(
+            "E_CONFLICT",
+            "stale-dream-schedule",
+            "dream schedule changed",
+        )
+    }
+
     pub(crate) fn engine_busy() -> Self {
         Self::application(
             "E_NOT_AVAILABLE",

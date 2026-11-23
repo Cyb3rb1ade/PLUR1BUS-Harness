@@ -995,6 +995,23 @@ impl Shared {
                 let agent: String = decode(&params["agentId"])?;
                 let agent = crate::context::safe_agent_id(&agent)
                     .map_err(|_| WireError::invalid_params())?;
+                if let Some(edit) = params.get("edit") {
+                    use crate::store::dream_ledger::{edit_schedule, ScheduleEditResult};
+                    let (result, imported) = edit_schedule(
+                        &self.home.join("state"),
+                        &agent,
+                        &decode(edit)?,
+                        &connection.cancel,
+                    )?;
+                    if let Some(imported) = imported {
+                        diagnostics::dream_ledger_import(imported);
+                    }
+                    return match result {
+                        ScheduleEditResult::Updated(schedules) => Ok(schedules),
+                        ScheduleEditResult::Missing => Err(WireError::dream_schedule_not_found()),
+                        ScheduleEditResult::Stale => Err(WireError::stale_dream_schedule()),
+                    };
+                }
                 let (result, imported) = crate::store::dream_ledger::schedules(
                     &self.home.join("state"),
                     &agent,

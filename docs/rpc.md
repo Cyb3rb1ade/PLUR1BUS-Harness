@@ -696,7 +696,7 @@ Read imported dream runs over the verified Core link, newest first. With runId, 
 
 **Served by:** engine
 
-Read an agent's schedules over the verified Core link. The first call after the Core retires its writer imports the legacy ledger.
+Read an agent's schedules or atomically apply an edit over the verified Core link. The Core validates cron and timezone and computes the next run. A stale expected schedule returns E_CONFLICT. The first call after the Core retires its writer imports the legacy ledger.
 
 **params**
 
@@ -710,6 +710,26 @@ Read an agent's schedules over the verified Core link. The first call after the 
   "properties": {
     "agentId": {
       "$ref": "#/$defs/AgentId"
+    },
+    "edit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phase",
+        "expected",
+        "desired"
+      ],
+      "properties": {
+        "phase": {
+          "$ref": "#/$defs/DreamPhase"
+        },
+        "expected": {
+          "$ref": "#/$defs/EngineDreamSchedulePlan"
+        },
+        "desired": {
+          "$ref": "#/$defs/EngineDreamSchedulePlan"
+        }
+      }
     }
   }
 }
@@ -38443,6 +38463,44 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "integer",
         "null"
       ]
+    }
+  }
+}
+```
+
+### `EngineDreamSchedulePlan`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cron",
+    "timezone",
+    "enabled",
+    "nextRunAt"
+  ],
+  "properties": {
+    "cron": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "timezone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "nextRunAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 9007199254740991
     }
   }
 }

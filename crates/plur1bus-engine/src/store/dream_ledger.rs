@@ -180,6 +180,79 @@ pub(crate) fn schedules(
     })
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub(crate) struct SchedulePlan {
+    cron: String,
+    timezone: String,
+    enabled: bool,
+    next_run_at: Option<i64>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub(crate) struct ScheduleEdit {
+    phase: String,
+    expected: SchedulePlan,
+    desired: SchedulePlan,
+}
+
+pub(crate) enum ScheduleEditResult {
+    Updated(Value),
+    Missing,
+    Stale,
+}
+
+pub(crate) fn edit_schedule(
+    state: &Path,
+    agent: &str,
+    edit: &ScheduleEdit,
+    cancel: &Cancel,
+) -> Result<(ScheduleEditResult, Option<Imported>), EngineError> {
+    with_ledger(state, cancel, |db, _| {
+        let expected = &edit.expected;
+        let desired = &edit.desired;
+        let updated = db
+            .execute(
+                "UPDATE dream_schedule
+             SET cron=?1, timezone=?2, enabled=?3,
+                 next_run_at=CASE WHEN ?3 THEN ?4 ELSE next_run_at END
+             WHERE agent_id=?5 AND phase=?6 AND cron=?7 AND timezone=?8 AND enabled=?9
+                 AND (CASE WHEN enabled THEN next_run_at ELSE NULL END) IS ?10",
+                params![
+                    desired.cron,
+                    desired.timezone,
+                    desired.enabled,
+                    desired.next_run_at,
+                    agent,
+                    edit.phase,
+                    expected.cron,
+                    expected.timezone,
+                    expected.enabled,
+                    expected.next_run_at,
+                ],
+            )
+            .map_err(StoreError::from)?;
+        if updated > 0 {
+            return Ok(ScheduleEditResult::Updated(
+                json!({"schedules": read_schedules(db, agent)?}),
+            ));
+        }
+        let exists = db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM dream_schedule WHERE agent_id=? AND phase=?)",
+                params![agent, edit.phase],
+                |row| row.get(0),
+            )
+            .map_err(StoreError::from)?;
+        Ok(if exists {
+            ScheduleEditResult::Stale
+        } else {
+            ScheduleEditResult::Missing
+        })
+    })
+}
+
 /// This read returns only authoritative ledger fields. The caller projects
 /// volatile scheduler state, runtime thresholds and workspace diary metadata.
 pub(crate) fn status(

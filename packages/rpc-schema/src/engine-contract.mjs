@@ -342,12 +342,20 @@ export function engineRpcSurface() {
     "Read imported dream runs over the verified Core link, newest first. With runId, include the private per-run log when available.",
     "1.28.0",
   );
+  const schedulePlan = { $ref: "#/$defs/EngineDreamSchedulePlan" };
   add(
     "engine.dreams.schedule",
-    { agentId: { $ref: "#/$defs/AgentId" } },
+    {
+      agentId: { $ref: "#/$defs/AgentId" },
+      edit: object({
+        phase: { $ref: "#/$defs/DreamPhase" },
+        expected: schedulePlan,
+        desired: schedulePlan,
+      }, ["phase", "expected", "desired"]),
+    },
     ["agentId"],
     object({ schedules: { type: "array", items: { $ref: "#/$defs/DreamSchedule" } } }, ["schedules"]),
-    "Read an agent's schedules over the verified Core link. The first call after the Core retires its writer imports the legacy ledger.",
+    "Read an agent's schedules or atomically apply an edit over the verified Core link. The Core validates cron and timezone and computes the next run. A stale expected schedule returns E_CONFLICT. The first call after the Core retires its writer imports the legacy ledger.",
     "1.28.0",
   );
   add(

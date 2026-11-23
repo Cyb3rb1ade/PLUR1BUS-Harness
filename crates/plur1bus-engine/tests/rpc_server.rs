@@ -1356,6 +1356,12 @@ fn dreams_schedule_imports_the_legacy_ledger_once() {
     )["result"]
         .is_object());
     assert_unauthorized(&unauthorized.call(2, "engine.dreams.schedule", request.clone()));
+    let edit = json!({"agentId":"a1","edit":{
+        "phase":"rem",
+        "expected":{"cron":"0 3 * * *","timezone":"UTC","enabled":false,"nextRunAt":null},
+        "desired":{"cron":"0 4 * * *","timezone":"UTC","enabled":true,"nextRunAt":2400}
+    }});
+    assert_unauthorized(&unauthorized.call(3, "engine.dreams.schedule", edit.clone()));
     let destination = state.join("engine.sqlite");
     assert!(!destination.exists());
 
@@ -1377,16 +1383,31 @@ fn dreams_schedule_imports_the_legacy_ledger_once() {
             .unwrap();
         assert_eq!(n, 1, "{table}");
     }
-    imported
-        .execute("UPDATE dream_schedule SET cron='0 4 * * *'", [])
-        .unwrap();
     drop(imported);
 
-    let again = core.call(3, "engine.dreams.schedule", request);
+    let changed = core.call(3, "engine.dreams.schedule", edit.clone());
     assert_eq!(
-        again["result"]["schedules"][0]["cron"], "0 4 * * *",
-        "{again}"
+        changed["result"],
+        json!({"schedules":[{
+            "agentId":"a1","phase":"rem","cron":"0 4 * * *","timezone":"UTC",
+            "enabled":true,"staggerOffsetS":0,"nextRunAt":2400
+        }]}),
+        "{changed}"
     );
+
+    let mut stale_edit = edit.clone();
+    stale_edit["edit"]["desired"]["cron"] = json!("0 5 * * *");
+    let stale = core.call(4, "engine.dreams.schedule", stale_edit);
+    assert_eq!(stale["error"]["data"]["error"], "E_CONFLICT", "{stale}");
+    let mut missing_edit = edit;
+    missing_edit["edit"]["phase"] = json!("light");
+    let missing = core.call(5, "engine.dreams.schedule", missing_edit);
+    assert_eq!(
+        missing["error"]["data"]["error"], "E_NOT_FOUND",
+        "{missing}"
+    );
+    let again = core.call(6, "engine.dreams.schedule", request);
+    assert_eq!(again["result"], changed["result"], "{again}");
     let legacy = rusqlite::Connection::open(&legacy_path).unwrap();
     let cron: String = legacy
         .query_row("SELECT cron FROM dream_schedule", [], |r| r.get(0))
