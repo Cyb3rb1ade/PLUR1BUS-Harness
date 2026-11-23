@@ -227,3 +227,170 @@ fn http_rpc_refuses_unbounded_ids_before_forming_a_diagnostic() {
     }
     assert_eq!(effect.0.load(Ordering::Acquire), 0);
 }
+
+#[test]
+fn stdio_session_ends_when_the_reply_sink_stays_unavailable() {
+    use std::{
+        io,
+        pin::Pin,
+        sync::{atomic::AtomicBool, mpsc},
+        task::{Context, Poll},
+    };
+    use tokio::{
+        io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader},
+        sync::watch,
+    };
+
+    struct ReplySink<W> {
+        inner: W,
+        paused: Arc<AtomicBool>,
+    }
+
+    impl<W: AsyncWrite + Unpin> AsyncWrite for ReplySink<W> {
+        fn poll_write(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            bytes: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            if self.paused.load(Ordering::Acquire) {
+                return Poll::Pending;
+            }
+            Pin::new(&mut self.inner).poll_write(cx, bytes)
+        }
+
+        fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.inner).poll_flush(cx)
+        }
+
+        fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.inner).poll_shutdown(cx)
+        }
+    }
+
+    let actor = Actor::new("fixture-agent", "fixture-person").unwrap();
+    let server = Server::new(actor, vec![echo_tool()], Arc::new(Echo::default()), 30_000).unwrap();
+    let (client, peer) = tokio::io::duplex(4096);
+    let (client_read, mut client_write) = tokio::io::split(client);
+    let (peer_read, peer_write) = tokio::io::split(peer);
+    let (stop, stop_receiver) = watch::channel(false);
+    let (finished, result) = mpsc::sync_channel(1);
+    let paused = Arc::new(AtomicBool::new(false));
+    let sink = ReplySink {
+        inner: peer_write,
+        paused: Arc::clone(&paused),
+    };
+    let server_thread = std::thread::spawn(move || {
+        let outcome = server.serve_stdio(
+            Box::new(peer_read),
+            Box::new(sink),
+            stop_receiver,
+            Duration::from_millis(250),
+        );
+        finished.send(outcome).unwrap();
+    });
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_time()
+        .build()
+        .unwrap();
+    rt.block_on(async {
+        let mut client_read = BufReader::new(client_read);
+        client_write
+            .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{},\"clientInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}}\n")
+            .await
+            .unwrap();
+        let mut reply = String::new();
+        tokio::time::timeout(Duration::from_secs(1), client_read.read_line(&mut reply))
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(serde_json::from_str::<Value>(&reply).unwrap()["result"].is_object());
+        paused.store(true, Ordering::Release);
+        client_write
+            .write_all(b"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n")
+            .await
+            .unwrap();
+        for id in 1..=5 {
+            let request = json!({"jsonrpc":"2.0","id":id,"method":"tools/list"});
+            client_write.write_all(format!("{request}\n").as_bytes()).await.unwrap();
+        }
+    });
+
+    let outcome = result.recv_timeout(Duration::from_secs(2));
+    let _ = stop.send(true);
+    server_thread.join().unwrap();
+    assert!(matches!(outcome, Ok(Err(_))), "{outcome:?}");
+}
+
+#[test]
+fn tool_admission_and_modern_headers_apply_before_dispatch() {
+    let echo = Arc::new(Echo::default());
+    let denied = Server::new(
+        Actor::new("other-agent", "fixture-person").unwrap(),
+        vec![echo_tool()],
+        echo.clone(),
+        30_000,
+    )
+    .unwrap();
+    let allowed = Server::new(
+        Actor::new("fixture-agent", "fixture-person").unwrap(),
+        vec![echo_tool()],
+        echo.clone(),
+        30_000,
+    )
+    .unwrap();
+    let deadline = || Instant::now() + Duration::from_secs(2);
+    let (mut headers, body) = request(
+        "tools/call",
+        &json!({"name":"alpha.echo","arguments":{"msg":"test"}}),
+    );
+    headers.insert("mcp-param-text", HeaderValue::from_static("test"));
+    headers.insert("mcp-name", HeaderValue::from_static("alpha.echo"));
+    assert_eq!(
+        denied.respond(&headers, &body, deadline()).message["error"]["code"],
+        -32601
+    );
+
+    headers.insert("mcp-name", HeaderValue::from_static("alpha.other"));
+    assert_eq!(
+        allowed.respond(&headers, &body, deadline()).message["error"]["code"],
+        -32020
+    );
+
+    headers.insert("mcp-name", HeaderValue::from_static("alpha.echo"));
+    headers.insert("mcp-param-unused", HeaderValue::from_static("test"));
+    assert_eq!(
+        allowed.respond(&headers, &body, deadline()).message["error"]["code"],
+        -32020
+    );
+    assert_eq!(echo.0.load(Ordering::Acquire), 0);
+}
+
+#[test]
+fn oversized_rpc_bodies_and_unknown_rpc_versions_are_refused() {
+    let server = Server::new(
+        Actor::new("fixture-agent", "fixture-person").unwrap(),
+        vec![echo_tool()],
+        Arc::new(Echo::default()),
+        30_000,
+    )
+    .unwrap();
+    let (headers, mut body) = request("tools/list", &json!({}));
+    body.resize(256 * 1024 + 1, b' ');
+    assert_eq!(
+        server
+            .respond(&headers, &body, Instant::now() + Duration::from_secs(2))
+            .status,
+        413
+    );
+
+    let (headers, body) = request("tools/list", &json!({}));
+    let mut message: Value = serde_json::from_slice(&body).unwrap();
+    message["jsonrpc"] = json!("1.0");
+    let answer = server.respond(
+        &headers,
+        &serde_json::to_vec(&message).unwrap(),
+        Instant::now() + Duration::from_secs(2),
+    );
+    assert_eq!(answer.message["error"]["code"], -32600);
+}

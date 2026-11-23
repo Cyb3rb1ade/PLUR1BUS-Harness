@@ -7,7 +7,12 @@ use std::{
 
 use serde_json::Value;
 
-use crate::session::{Call, Error, Session};
+pub use plur1bus_providers::provenance::Trust;
+
+use crate::{
+    provenance,
+    session::{Call, Error, Session},
+};
 
 const MAX_ENTRIES: usize = 128;
 
@@ -31,6 +36,12 @@ pub struct Definition {
     pub idle_for: Duration,
     pub cache_for: Duration,
     pub max_result_bytes: usize,
+    pub trust: Trust,
+}
+
+pub struct Caller<'a> {
+    pub agent_id: &'a str,
+    pub principal: &'a str,
 }
 
 pub trait Connection: Send + Sync {
@@ -359,10 +370,22 @@ impl Registry {
         Ok(matches)
     }
 
-    pub fn invoke(&self, name: &str, actor: &str, call: Call, deadline: Instant) -> Result<Value> {
-        let entry = self.resolve(name, actor)?;
+    pub fn invoke(
+        &self,
+        name: &str,
+        caller: Caller<'_>,
+        call: Call,
+        deadline: Instant,
+    ) -> Result<Value> {
+        if caller.principal.is_empty()
+            || caller.principal.len() > 256
+            || caller.principal.chars().any(char::is_control)
+        {
+            return Err(RegistryError::Invalid);
+        }
+        let entry = self.resolve(name, caller.agent_id)?;
         self.admit_entry(&entry, deadline)?;
-        self.invoke_entry(&entry, call, deadline)
+        self.invoke_entry(&entry, call, deadline, Some(caller.principal))
     }
 
     pub fn list_tools(
@@ -391,7 +414,7 @@ impl Registry {
                 }
             }
         }
-        self.invoke_entry(&entry, Call::ListTools, deadline)
+        self.invoke_entry(&entry, Call::ListTools, deadline, None)
     }
 
     pub fn invalidate_tools(&self, name: &str, actor: &str) -> Result<()> {
@@ -484,15 +507,61 @@ impl Registry {
         Ok(())
     }
 
-    fn invoke_entry(&self, entry: &Entry, call: Call, deadline: Instant) -> Result<Value> {
+    fn invoke_entry(
+        &self,
+        entry: &Entry,
+        call: Call,
+        deadline: Instant,
+        principal: Option<&str>,
+    ) -> Result<Value> {
         let _lease = Lease::new(entry, self.host.as_ref())?;
         let conn = entry.ensure(self.host.as_ref(), deadline)?;
         let cache = matches!(call, Call::ListTools);
+        let enveloped = matches!(
+            call,
+            Call::CallTool { .. } | Call::ReadResource { .. } | Call::GetPrompt { .. }
+        );
+        let tool = match &call {
+            Call::CallTool { name, .. } => Some(name.clone()),
+            _ => None,
+        };
         let generation = conn.tools_generation();
         match conn.invoke(call, deadline) {
             Ok(mut value) => {
+                let before = enveloped.then(|| value.clone());
                 self.host.redact(&entry.def, &mut value);
-                let value = bounded(&entry.def, value)?;
+                let redacted = before.is_some_and(|previous| previous != value);
+                if enveloped {
+                    let principal = principal.ok_or(RegistryError::Invalid)?;
+                    if let Some(tool) = tool {
+                        value = provenance::tool_result(
+                            value,
+                            &entry.def.name,
+                            tool,
+                            principal,
+                            entry.def.trust,
+                            redacted,
+                            entry.def.max_result_bytes,
+                        );
+                    } else {
+                        let object = value.as_object_mut().ok_or(RegistryError::Invalid)?;
+                        object.insert("server".into(), Value::String(entry.def.name.clone()));
+                        let origin = provenance::origin(
+                            &entry.def.name,
+                            principal,
+                            entry.def.trust,
+                            redacted,
+                            false,
+                        );
+                        object.insert(
+                            "provenance".into(),
+                            serde_json::to_value(origin).map_err(|_| RegistryError::Invalid)?,
+                        );
+                        value = bounded(&entry.def, value)?;
+                    }
+                } else {
+                    value = bounded(&entry.def, value)?;
+                }
                 let mut state = entry.state()?;
                 if state.retired {
                     return Err(RegistryError::NotRegistered);
@@ -515,11 +584,13 @@ impl Registry {
             Err(error) => {
                 let mut state = entry.state()?;
                 state.last_error = Some(error);
-                if error == Error::Closed
-                    && state
-                        .session
-                        .as_ref()
-                        .is_some_and(|current| Arc::ptr_eq(current, &conn))
+                if matches!(
+                    error,
+                    Error::Closed | Error::Backpressure | Error::ReconnectLimit
+                ) && state
+                    .session
+                    .as_ref()
+                    .is_some_and(|current| Arc::ptr_eq(current, &conn))
                 {
                     state.session = None;
                     state.cache = None;

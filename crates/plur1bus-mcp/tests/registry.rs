@@ -9,7 +9,10 @@ use std::{
 };
 
 use plur1bus_mcp::{
-    registry::{Connection, Definition, Host, Phase, Registry, RegistryError, Scope, Transport},
+    registry::{
+        Caller, Connection, Definition, Host, Phase, Registry, RegistryError, Scope, Transport,
+        Trust,
+    },
     session::{Call, Error},
 };
 use serde_json::{json, Value};
@@ -62,6 +65,7 @@ fn def(scope: Scope) -> Definition {
         idle_for: Duration::from_millis(10),
         cache_for: Duration::from_secs(30),
         max_result_bytes: 1024,
+        trust: Trust::default(),
     }
 }
 
@@ -215,4 +219,95 @@ fn fresh_tool_cache_requires_current_host_admission() {
             .unwrap(),
         listing
     );
+}
+
+#[test]
+fn tool_results_replay_the_recorded_provenance_and_content_budget() {
+    struct Replay(Value);
+
+    impl Connection for Replay {
+        fn protocol(&self) -> &str {
+            "2025-11-25"
+        }
+        fn closed(&self) -> bool {
+            false
+        }
+        fn close(&self) -> Result<(), Error> {
+            Ok(())
+        }
+        fn invoke(&self, _: Call, _: Instant) -> Result<Value, Error> {
+            Ok(self.0.clone())
+        }
+    }
+
+    impl Host for Replay {
+        fn open(
+            &self,
+            _: &Definition,
+            _: Option<&str>,
+            _: Instant,
+        ) -> Result<Arc<dyn Connection>, Error> {
+            Ok(Arc::new(Self(self.0.clone())))
+        }
+
+        fn redact(&self, _: &Definition, value: &mut Value) {
+            let cleaned = value.to_string().replace("sample-marker", "[REDACTED]");
+            *value = serde_json::from_str(&cleaned).unwrap();
+        }
+    }
+
+    let fixture: Value =
+        serde_json::from_str(include_str!("../../../fixtures/parity/mcp/provenance.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let input = &case["input"];
+        let registry = Registry::new(Arc::new(Replay(input["raw"].clone())));
+        let mut definition = def(Scope::Agent("fixture-agent".into()));
+        definition.max_result_bytes = usize::try_from(input["maxBytes"].as_u64().unwrap()).unwrap();
+        definition.trust = serde_json::from_value(input["trust"].clone()).unwrap();
+        registry.register(definition).unwrap();
+        let actual = registry.invoke(
+            "fixture",
+            Caller {
+                agent_id: "fixture-agent",
+                principal: "fixture-person",
+            },
+            Call::CallTool {
+                name: "summary".into(),
+                arguments: Default::default(),
+            },
+            Instant::now() + Duration::from_secs(2),
+        );
+        assert_eq!(actual, Ok(case["observed"].clone()), "{}", input["name"]);
+    }
+}
+
+#[test]
+fn result_and_scope_bounds_apply_with_an_existing_connection() {
+    let host = Arc::new(TestHost::default());
+    let registry = Registry::new(host.clone());
+    let mut definition = def(Scope::Agent("fixture-agent".into()));
+    definition.max_result_bytes = 4;
+    registry.register(definition).unwrap();
+    let deadline = || Instant::now() + Duration::from_secs(2);
+    assert_eq!(registry.list("fixture-agent").unwrap().len(), 1);
+    assert!(registry.list("other-agent").unwrap().is_empty());
+    assert_eq!(
+        registry.list_tools("fixture", "fixture-agent", true, deadline()),
+        Err(RegistryError::ResultLimit)
+    );
+    assert_eq!(host.0.load(Ordering::Acquire), 1);
+    host.1.store(true, Ordering::Release);
+    assert_eq!(
+        registry.invoke(
+            "fixture",
+            Caller {
+                agent_id: "fixture-agent",
+                principal: "fixture-person"
+            },
+            Call::ListResources,
+            deadline()
+        ),
+        Err(RegistryError::Connection(Error::AuthRequired))
+    );
+    assert_eq!(host.0.load(Ordering::Acquire), 1);
 }

@@ -11,10 +11,12 @@ use std::{
     time::{Duration, Instant},
 };
 
+use plur1bus_providers::display;
 use rmcp::{
     model::{
         CallToolRequestParams, GetPromptRequestParams, Implementation, JsonObject,
-        PaginatedRequestParams, ProtocolVersion, ReadResourceRequestParams, Tool,
+        PaginatedRequestParams, ProtocolVersion, ReadResourceRequestParams, ServerRequest,
+        ToolAnnotations,
     },
     service::{
         ClientInitializeError, ClientLifecycleMode, ClientServiceExt, Peer, RunningService,
@@ -34,9 +36,18 @@ use tokio::{
 use ureq::http::{HeaderName, HeaderValue};
 
 pub use crate::session_ports::{ClientPorts, Feature};
-use crate::{http, runtime, session_ports::Handler, session_schema::OutputSchema, stdio};
+use crate::{
+    connection_fault::{Cause, Fault},
+    http, replies, runtime,
+    session_ports::Handler,
+    session_schema::OutputSchema,
+    stdio,
+};
 
 const MAX_PAGES: usize = 50;
+const MAX_LIST_ITEMS: usize = 10_000;
+const MAX_NAME_UNITS: usize = 128;
+const MAX_DESCRIPTION_UNITS: usize = 8192;
 const INBOX: usize = 16;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -45,6 +56,8 @@ pub enum Error {
     AuthRequired,
     Closed,
     Busy,
+    Backpressure,
+    ReconnectLimit,
     Timeout,
     LegacyOnly,
     Protocol,
@@ -58,6 +71,8 @@ impl fmt::Display for Error {
             Self::AuthRequired => f.write_str("MCP authorization is required"),
             Self::Closed => f.write_str("MCP connection is closed"),
             Self::Busy => f.write_str("MCP connection is busy"),
+            Self::Backpressure => f.write_str("MCP reply budget exhausted"),
+            Self::ReconnectLimit => f.write_str("MCP event stream reconnect limit reached"),
             Self::Timeout => f.write_str("MCP request deadline reached"),
             Self::LegacyOnly => f.write_str("MCP peer offers a legacy protocol"),
             Self::Protocol => f.write_str("MCP protocol response refused"),
@@ -149,6 +164,7 @@ struct SessionInner {
     timing: Timing,
     info: Info,
     tools_generation: Arc<AtomicU64>,
+    reply_fault: Fault,
 }
 
 #[derive(Clone)]
@@ -181,13 +197,14 @@ impl Session {
         ports: Option<Arc<dyn ClientPorts>>,
     ) -> Result<Self, Error> {
         let timing = options.timing;
-        Self::spawn(timing, move |generation| async move {
+        Self::spawn(timing, move |generation, reply_fault| async move {
             let backend =
                 http::HttpClient::new(&options.endpoint, options.admission, timing.request)
                     .map_err(|_| Error::Start)?
                     .with_frame_limit(stdio::MAX_FRAME_BYTES)
                     .allow_legacy_probe(matches!(options.protocol, Protocol::Auto))
-                    .passive();
+                    .passive()
+                    .with_reconnect_limit(reply_fault.clone());
             let backend = if let Some(observer) = observer {
                 backend.with_challenges(observer)
             } else {
@@ -198,14 +215,29 @@ impl Session {
                 .max_sse_event_size(stdio::MAX_FRAME_BYTES)
                 .reinit_on_expired_session(false);
             config.auth_header = options.bearer;
-            let transport = StreamableHttpClientTransport::with_client(backend, config);
+            config.channel_buffer_capacity = 1;
+            config.retry_config = Arc::new(http::BackendRetry);
+            let transport = replies::Bounded::new(
+                StreamableHttpClientTransport::with_client(backend, config),
+                stdio::MAX_FRAME_BYTES,
+                timing.close,
+                reply_fault.clone(),
+                |request| matches!(request, ServerRequest::PingRequest(_)),
+            );
             let handler = Handler::new(
                 ports,
                 timing.request,
                 generation,
                 !matches!(options.protocol, Protocol::Legacy),
             )?;
-            let running = connect(transport, options.protocol, timing.connect, handler).await?;
+            let running = connect(
+                transport,
+                options.protocol,
+                timing.connect,
+                handler,
+                &reply_fault,
+            )
+            .await?;
             Ok((running, None))
         })
     }
@@ -224,7 +256,7 @@ impl Session {
         timing: Timing,
         ports: Option<Arc<dyn ClientPorts>>,
     ) -> Result<Self, Error> {
-        Self::spawn(timing, move |generation| async move {
+        Self::spawn(timing, move |generation, reply_fault| async move {
             let deadline = Instant::now() + timing.connect;
             let first = match protocol {
                 Protocol::Auto => Protocol::Modern,
@@ -248,6 +280,7 @@ impl Session {
                 modern_budget,
                 timing,
                 handler,
+                &reply_fault,
             )
             .await
             {
@@ -259,6 +292,7 @@ impl Session {
                         deadline.saturating_duration_since(Instant::now()),
                         timing,
                         Handler::new(ports, timing.request, generation, false)?,
+                        &reply_fault,
                     )
                     .await
                 }
@@ -269,7 +303,7 @@ impl Session {
 
     fn spawn<F, Fut>(timing: Timing, start: F) -> Result<Self, Error>
     where
-        F: FnOnce(Arc<AtomicU64>) -> Fut + Send + 'static,
+        F: FnOnce(Arc<AtomicU64>, Fault) -> Fut + Send + 'static,
         Fut: Future<Output = Result<Connected, Error>>,
     {
         for duration in [timing.connect, timing.request, timing.close] {
@@ -284,18 +318,21 @@ impl Session {
         let (done_tx, done_rx) = sync::sync_channel(1);
         let tools_generation = Arc::new(AtomicU64::new(0));
         let worker_generation = tools_generation.clone();
+        let reply_fault = Fault::new();
+        let worker_fault = reply_fault.clone();
         thread::Builder::new()
             .name("plur1bus-mcp".into())
             .spawn(move || {
                 let ran = runtime::quiet(
                     || {
                         serve(
-                            || start(worker_generation.clone()),
+                            || start(worker_generation.clone(), worker_fault.clone()),
                             rx,
                             closing,
                             ready_tx,
                             timing,
                             worker_generation.clone(),
+                            worker_fault.clone(),
                         )
                     },
                     timing.close,
@@ -319,6 +356,7 @@ impl Session {
             timing,
             info,
             tools_generation,
+            reply_fault,
         })))
     }
 
@@ -331,12 +369,12 @@ impl Session {
     }
 
     pub fn is_closed(&self) -> bool {
-        *self.0.close.borrow() || self.0.tx.is_closed()
+        *self.0.close.borrow() || self.0.tx.is_closed() || self.0.reply_fault.current().is_some()
     }
 
     pub fn invoke(&self, call: Call, deadline: Instant) -> Result<Value, Error> {
         if self.is_closed() {
-            return Err(Error::Closed);
+            return Err(self.closed_error());
         }
         let deadline = deadline.min(Instant::now() + self.0.timing.request);
         if deadline <= Instant::now() {
@@ -352,19 +390,30 @@ impl Session {
             })
             .map_err(|error| match error {
                 mpsc::error::TrySendError::Full(_) => Error::Busy,
-                mpsc::error::TrySendError::Closed(_) => Error::Closed,
+                mpsc::error::TrySendError::Closed(_) => self.closed_error(),
             })?;
         recv.recv_timeout(deadline.saturating_duration_since(Instant::now()))
             .map_err(|error| match error {
                 sync::RecvTimeoutError::Timeout => Error::Timeout,
-                sync::RecvTimeoutError::Disconnected => Error::Closed,
+                sync::RecvTimeoutError::Disconnected => self.closed_error(),
             })?
+    }
+
+    fn closed_error(&self) -> Error {
+        self.0
+            .reply_fault
+            .current()
+            .map_or(Error::Closed, connection_error)
     }
 
     pub fn close(&self) -> Result<(), Error> {
         let _ = self.0.close.send(true);
         let done = self.0.done.lock().map_err(|_| Error::Closed)?;
-        match done.recv_timeout(self.0.timing.close) {
+        let result = done.recv_timeout(self.0.timing.close);
+        if let Some(cause) = self.0.reply_fault.current() {
+            return Err(connection_error(cause));
+        }
+        match result {
             Ok(()) | Err(sync::RecvTimeoutError::Disconnected) => Ok(()),
             Err(sync::RecvTimeoutError::Timeout) => Err(Error::Timeout),
         }
@@ -384,6 +433,7 @@ async fn serve<F, Fut>(
     ready: sync::SyncSender<Result<Info, Error>>,
     timing: Timing,
     tools_generation: Arc<AtomicU64>,
+    reply_fault: Fault,
 ) where
     F: FnOnce() -> Fut,
     Fut: Future<Output = Result<Connected, Error>>,
@@ -408,6 +458,7 @@ async fn serve<F, Fut>(
         let mut observed = tools_generation.load(Ordering::Acquire);
         loop {
             let invocation = tokio::select! {
+                _ = reply_fault.wait() => break,
                 _ = closing.changed() => break,
                 message = rx.recv() => match message {
                     Some(message) => message,
@@ -424,6 +475,11 @@ async fn serve<F, Fut>(
                 observed = latest;
             }
             let result = tokio::select! {
+                biased;
+                cause = reply_fault.wait() => {
+                    let _ = invocation.answer.send(Err(connection_error(cause)));
+                    break;
+                }
                 _ = closing.changed() => {
                     let _ = invocation.answer.send(Err(Error::Closed));
                     break;
@@ -440,7 +496,11 @@ async fn serve<F, Fut>(
         }
     }
     rx.close();
-    let _ = running.close_with_timeout(timing.close).await;
+    if reply_fault.current().is_some() {
+        running.cancellation_token().cancel();
+    } else {
+        let _ = running.close_with_timeout(timing.close).await;
+    }
     if let Some(ref mut process) = process {
         let _ = process.stop(Instant::now() + timing.close);
     }
@@ -453,6 +513,7 @@ async fn open_child(
     connect_limit: Duration,
     timing: Timing,
     handler: Handler,
+    reply_fault: &Fault,
 ) -> Result<Connected, Error> {
     if deadline <= Instant::now() {
         return Err(Error::Timeout);
@@ -470,10 +531,17 @@ async fn open_child(
                 transport
             };
             connect(
-                transport.passive(),
+                replies::Bounded::new(
+                    transport.passive(),
+                    stdio::MAX_FRAME_BYTES,
+                    timing.close,
+                    reply_fault.clone(),
+                    |request| matches!(request, ServerRequest::PingRequest(_)),
+                ),
                 protocol,
                 connect_limit.min(deadline.saturating_duration_since(Instant::now())),
                 handler,
+                reply_fault,
             )
             .await
         }
@@ -493,6 +561,7 @@ async fn connect<T, E, A>(
     protocol: Protocol,
     timeout: Duration,
     handler: Handler,
+    reply_fault: &Fault,
 ) -> Result<Running, Error>
 where
     T: rmcp::transport::IntoTransport<RoleClient, E, A>,
@@ -508,10 +577,20 @@ where
             legacy_version: Some(ProtocolVersion::V_2025_11_25),
         },
     };
-    tokio::time::timeout(timeout, handler.serve_with_lifecycle(transport, lifecycle))
-        .await
-        .map_err(|_| Error::Timeout)?
-        .map_err(|error| initialize_error(&error))
+    tokio::select! {
+        biased;
+        cause = reply_fault.wait() => Err(connection_error(cause)),
+        result = tokio::time::timeout(timeout, handler.serve_with_lifecycle(transport, lifecycle)) => {
+            result.map_err(|_| Error::Timeout)?.map_err(|error| initialize_error(&error))
+        }
+    }
+}
+
+fn connection_error(cause: Cause) -> Error {
+    match cause {
+        Cause::Backpressure => Error::Backpressure,
+        Cause::ReconnectLimit => Error::ReconnectLimit,
+    }
 }
 
 fn initialize_error(error: &ClientInitializeError) -> Error {
@@ -548,9 +627,31 @@ fn rpc_error(error: ServiceError) -> Error {
     }
 }
 
+struct ToolEntry {
+    wire_name: String,
+    output_schema: Option<OutputSchema>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Descriptor {
+    name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    input_schema: Arc<JsonObject>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    output_schema: Option<Arc<JsonObject>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    annotations: Option<ToolAnnotations>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ui_resource_uri: Option<String>,
+}
+
 async fn execute(
     peer: &Peer<RoleClient>,
-    tools: &mut HashMap<String, Option<OutputSchema>>,
+    tools: &mut HashMap<String, ToolEntry>,
     call: Call,
 ) -> Result<Value, Error> {
     match call {
@@ -559,13 +660,15 @@ async fn execute(
             if !tools.contains_key(&name) {
                 refresh_tools(peer, tools).await?;
             }
-            let output = tools.get(&name).ok_or(Error::Rejected(-32601))?;
+            let tool = tools.get(&name).ok_or(Error::Rejected(-32601))?;
             let result = peer
-                .call_tool(CallToolRequestParams::new(name).with_arguments(arguments))
+                .call_tool(
+                    CallToolRequestParams::new(tool.wire_name.clone()).with_arguments(arguments),
+                )
                 .await
                 .map_err(rpc_error)?;
             if result.is_error != Some(true) {
-                if let Some(output) = output {
+                if let Some(output) = &tool.output_schema {
                     output.validate(result.structured_content.as_ref())?;
                 }
             }
@@ -617,33 +720,82 @@ async fn execute(
 
 async fn refresh_tools(
     peer: &Peer<RoleClient>,
-    tools: &mut HashMap<String, Option<OutputSchema>>,
-) -> Result<Vec<Tool>, Error> {
+    tools: &mut HashMap<String, ToolEntry>,
+) -> Result<Vec<Descriptor>, Error> {
     let values = collect_pages(|cursor| async move {
         let result = peer.list_tools(page(cursor)).await.map_err(rpc_error)?;
         Ok((result.tools, result.next_cursor))
     })
     .await?;
     let mut validated = HashMap::new();
-    for tool in &values {
-        let name = tool.name.as_ref();
-        if name.is_empty()
-            || name.encode_utf16().count() > 128
-            || name.chars().any(char::is_control)
-            || tool.input_schema.get("type") != Some(&Value::String("object".into()))
-            || validated.contains_key(name)
-        {
+    let mut descriptors = Vec::with_capacity(values.len());
+    for tool in values {
+        let name = tool_name(&tool.name)?;
+        if tool.input_schema.get("type").and_then(Value::as_str) != Some("object") {
             return Err(Error::Protocol);
         }
-        let output = tool
+        if name.is_empty() || validated.contains_key(&name) {
+            return Err(Error::Protocol);
+        }
+        let output_schema = tool
             .output_schema
             .as_deref()
             .map(OutputSchema::compile)
             .transpose()?;
-        validated.insert(name.to_owned(), output);
+        validated.insert(
+            name.clone(),
+            ToolEntry {
+                wire_name: tool.name.into_owned(),
+                output_schema,
+            },
+        );
+        let ui_resource_uri = tool.meta.as_ref().and_then(|meta| {
+            meta.0
+                .get("ui")
+                .and_then(|ui| ui.get("resourceUri"))
+                .filter(|uri| !uri.is_null())
+                .or_else(|| meta.0.get("ui/resourceUri"))
+                .and_then(Value::as_str)
+                .filter(|uri| uri.starts_with("ui://"))
+                .map(ToOwned::to_owned)
+        });
+        let mut annotations = tool.annotations;
+        if let Some(annotations) = &mut annotations {
+            annotations.title = annotations
+                .title
+                .as_deref()
+                .map(|text| display::sanitize(text, MAX_NAME_UNITS));
+        }
+        descriptors.push(Descriptor {
+            name,
+            title: tool
+                .title
+                .as_deref()
+                .map(|text| display::sanitize(text, MAX_NAME_UNITS)),
+            description: tool
+                .description
+                .as_deref()
+                .map(|text| display::sanitize(text, MAX_DESCRIPTION_UNITS)),
+            input_schema: tool.input_schema,
+            output_schema: tool.output_schema,
+            annotations,
+            ui_resource_uri,
+        });
     }
     *tools = validated;
-    Ok(values)
+    Ok(descriptors)
+}
+
+fn tool_name(name: &str) -> Result<String, Error> {
+    if name.is_empty()
+        || name.encode_utf16().count() > MAX_NAME_UNITS
+        || name
+            .chars()
+            .any(|character| character.is_control() || matches!(character, '\u{2028}' | '\u{2029}'))
+    {
+        return Err(Error::Protocol);
+    }
+    Ok(display::sanitize(name, MAX_NAME_UNITS))
 }
 
 fn page(cursor: Option<String>) -> Option<PaginatedRequestParams> {
@@ -668,6 +820,9 @@ async fn collect_pages<T, F: Future<Output = Result<(Vec<T>, Option<String>), Er
     let mut all = Vec::new();
     for _ in 0..MAX_PAGES {
         let (mut items, next_cursor) = next(cursor).await?;
+        if items.len() > MAX_LIST_ITEMS - all.len() {
+            return Err(Error::Protocol);
+        }
         all.append(&mut items);
         let Some(value) = next_cursor else {
             return Ok(all);
@@ -682,4 +837,48 @@ async fn collect_pages<T, F: Future<Output = Result<(Vec<T>, Option<String>), Er
 
 fn as_json<T: Serialize>(result: Result<T, ServiceError>) -> Result<Value, Error> {
     serde_json::to_value(result.map_err(rpc_error)?).map_err(|_| Error::Protocol)
+}
+
+#[cfg(test)]
+mod list_tests {
+    use super::{collect_pages, tool_name, Error, MAX_LIST_ITEMS};
+    use std::future::ready;
+
+    #[test]
+    fn tool_names_reject_control_characters_before_cleaning() {
+        for separator in ['\t', '\u{85}', '\u{2028}', '\u{2029}'] {
+            assert_eq!(
+                tool_name(&format!("first{separator}second")),
+                Err(Error::Protocol)
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn paged_lists_stop_on_a_repeated_cursor() {
+        let result = collect_pages(|_| ready(Ok((vec![1], Some("same".into()))))).await;
+        assert_eq!(result, Err(Error::Protocol));
+    }
+
+    #[tokio::test]
+    async fn paged_lists_enforce_the_combined_item_count() {
+        for extra in [0, 1] {
+            let result = collect_pages(|cursor| {
+                ready(Ok(if cursor.is_none() {
+                    (vec![(); MAX_LIST_ITEMS - 1], Some("more".into()))
+                } else {
+                    (vec![(); 1 + extra], None)
+                }))
+            })
+            .await;
+            assert_eq!(
+                result.map(|items| items.len()),
+                if extra == 0 {
+                    Ok(MAX_LIST_ITEMS)
+                } else {
+                    Err(Error::Protocol)
+                }
+            );
+        }
+    }
 }

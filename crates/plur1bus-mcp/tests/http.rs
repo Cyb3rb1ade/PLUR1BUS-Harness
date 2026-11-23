@@ -420,3 +420,109 @@ async fn smaller_session_limit_is_applied_to_decoded_http_results() {
         }
     }
 }
+
+#[tokio::test]
+async fn a_request_is_admitted_only_for_its_configured_endpoint_and_pin() {
+    let valid = STANDARD.encode(br#"{"jsonrpc":"2.0","id":1,"result":{}}"#);
+    let peer = server(200, "application/json", &[valid]);
+    let (client, endpoint) = client(&peer);
+    let other_route: Arc<str> = format!("http://{}/different", peer.addr).into();
+    assert!(matches!(
+        client
+            .post_message(other_route, message(), None, None, HashMap::new())
+            .await,
+        Err(StreamableHttpError::Client(Error::Denied))
+    ));
+    assert!(peer.received().is_empty());
+
+    let different_port = if peer.addr.port() == 1 { 2 } else { 1 };
+    let different_authority: Arc<str> = format!(
+        "http://{}/mcp",
+        SocketAddr::new(peer.addr.ip(), different_port)
+    )
+    .into();
+    let mismatched = HttpClient::new(
+        &different_authority,
+        Arc::new(Pin(peer.addr)),
+        Duration::from_secs(2),
+    )
+    .unwrap();
+    assert!(matches!(
+        mismatched
+            .post_message(different_authority, message(), None, None, HashMap::new())
+            .await,
+        Err(StreamableHttpError::Client(Error::Denied))
+    ));
+
+    let added = [(
+        ureq::http::header::ACCEPT_ENCODING,
+        ureq::http::HeaderValue::from_static("identity"),
+    )]
+    .into_iter()
+    .collect();
+    assert!(matches!(
+        client
+            .post_message(endpoint, message(), None, None, added)
+            .await,
+        Err(StreamableHttpError::Client(Error::InvalidHeader))
+    ));
+    assert!(peer.received().is_empty());
+}
+
+#[tokio::test]
+async fn redirect_is_a_response_from_the_configured_endpoint() {
+    let peer = FakeServer::start(&json!({"transport":"http","exchanges":[
+        {"request":{"method":"POST","path":"/mcp"},"response":{"status":303,
+            "headers":{"location":"/next","content-type":"text/plain"},"chunksBase64":[]}},
+        {"request":{"method":"GET","path":"/next"},"response":{"status":200,
+            "body":{"jsonrpc":"2.0","id":1,"result":{}}}}
+    ]}));
+    assert!(
+        matches!(post(&peer).await, Err(StreamableHttpError::HttpStatus(status)) if status.status == 303)
+    );
+    assert_eq!(peer.received().len(), 1);
+}
+
+#[tokio::test]
+async fn responses_require_identity_coding_and_use_a_local_error_message() {
+    let encoded = FakeServer::start(&json!({"transport":"http","exchanges":[
+        {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,
+            "headers":{"content-encoding":"deflate","content-type":"application/json"},
+            "body":{"jsonrpc":"2.0","id":1,"result":{}}}}
+    ]}));
+    assert!(matches!(
+        post(&encoded).await,
+        Err(StreamableHttpError::Client(Error::BodyCoding))
+    ));
+    let peer = FakeServer::start(&json!({"transport":"http","exchanges":[
+        {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,
+            "body":{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"fixture note"}}}}
+    ]}));
+    let result = post(&peer).await.unwrap();
+    assert!(
+        matches!(result, StreamableHttpPostResponse::Json(rmcp::model::ServerJsonRpcMessage::Error(reply), _)
+        if reply.error.message == "MCP peer rejected request")
+    );
+}
+
+#[tokio::test]
+async fn session_headers_limit_peer_ids_before_they_are_retained() {
+    for extra in [0, 1] {
+        let peer = FakeServer::start(&json!({"transport":"http","exchanges":[
+            {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,
+                "headers":{"mcp-session-id":"i".repeat(1024 + extra)},
+                "body":{"jsonrpc":"2.0","id":1,"result":{}}}}
+        ]}));
+        let result = post(&peer).await;
+        if extra == 0 {
+            assert!(
+                matches!(result, Ok(StreamableHttpPostResponse::Json(_, Some(id))) if id.len() == 1024)
+            );
+        } else {
+            assert!(matches!(
+                result,
+                Err(StreamableHttpError::Client(Error::InvalidHeader))
+            ));
+        }
+    }
+}

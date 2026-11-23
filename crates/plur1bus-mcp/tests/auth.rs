@@ -452,3 +452,167 @@ fn oauth_metadata_reader_checks_exact_bytes_and_the_original_body_deadline() {
         }
     }
 }
+
+#[test]
+fn oauth_metadata_and_callback_must_describe_the_same_flow() {
+    enum Change {
+        Resource,
+        Issuer,
+        Pkce,
+        ClientMetadata,
+        CallbackIssuer,
+        MissingCallbackIssuer,
+    }
+    struct CallbackHost(Change, String);
+    impl Interaction for CallbackHost {
+        fn approve(&self, prompt: &Prompt, _: Instant) -> Result<Callback, Error> {
+            let state = prompt
+                .authorization_url()
+                .query_pairs()
+                .find_map(|(key, value)| (key == "state").then(|| value.into_owned()))
+                .unwrap();
+            let issuer = match self.0 {
+                Change::CallbackIssuer => Some(format!("{}/alternate", self.1)),
+                Change::MissingCallbackIssuer => None,
+                _ => Some(format!("{}/issuer", self.1)),
+            };
+            Ok(Callback::new("<fixture-code>".into(), state, issuer))
+        }
+    }
+    for change in [
+        Change::Resource,
+        Change::Issuer,
+        Change::Pkce,
+        Change::ClientMetadata,
+        Change::CallbackIssuer,
+        Change::MissingCallbackIssuer,
+    ] {
+        let peer = FakeServer::start_with(|addr| {
+            let origin = format!("http://{addr}");
+            let resource = if matches!(change, Change::Resource) {
+                "other"
+            } else {
+                "mcp"
+            };
+            let issuer = if matches!(change, Change::Issuer) {
+                "alternate"
+            } else {
+                "issuer"
+            };
+            let challenge = if matches!(change, Change::Pkce) {
+                "other"
+            } else {
+                "S256"
+            };
+            json!({"transport":"http","exchanges":[
+                {"request":{"method":"GET","path":"/.well-known/oauth-protected-resource/mcp"},
+                 "response":{"status":200,"body":{"resource":format!("{origin}/{resource}"),
+                     "authorization_servers":[format!("{origin}/issuer")]}}},
+                {"request":{"method":"GET","path":"/.well-known/oauth-authorization-server/issuer"},
+                 "response":{"status":200,"body":{"issuer":format!("{origin}/{issuer}"),
+                     "authorization_endpoint":format!("{origin}/authorize"),"token_endpoint":format!("{origin}/token"),
+                     "code_challenge_methods_supported":[challenge],"authorization_response_iss_parameter_supported":true}}},
+                {"request":{"method":"POST","path":"/token"},"response":{"status":200,"body":{
+                    "token_type":"Bearer","access_token":"<fixture-access>","expires_in":60}}}
+            ]})
+        });
+        let origin = format!("http://{}", peer.addr);
+        let resource = format!("{origin}/mcp");
+        let host = TestHost::default();
+        let pin = Pin(peer.addr);
+        let client_id = if matches!(change, Change::ClientMetadata) {
+            "https://example.invalid/fixture-client"
+        } else {
+            "fixture-plain-client"
+        };
+        let client =
+            Client::new(&resource, client_id, "http://127.0.0.1:7081/callback", &pin).unwrap();
+        let expected = match change {
+            Change::CallbackIssuer | Change::MissingCallbackIssuer => Error::Callback,
+            _ => Error::Metadata,
+        };
+        let human = CallbackHost(change, origin);
+        let result = client.authorize(
+            Authorization::Pkce {
+                metadata: None,
+                scope: None,
+            },
+            &host,
+            &host,
+            &human,
+            Instant::now() + Duration::from_secs(2),
+        );
+        assert_eq!(result.err(), Some(expected));
+        assert!(peer
+            .received()
+            .iter()
+            .all(|request| request["method"] == "GET"));
+    }
+}
+
+#[test]
+fn device_metadata_requires_a_bounded_poll_interval_before_prompting() {
+    let peer = FakeServer::start_with(|addr| {
+        let origin = format!("http://{addr}");
+        json!({"transport":"http","exchanges":[
+            {"request":{"method":"GET","path":"/.well-known/oauth-protected-resource/mcp"},
+             "response":{"status":200,"body":{"resource":format!("{origin}/mcp"),
+                 "authorization_servers":[format!("{origin}/issuer")]}}},
+            {"request":{"method":"GET","path":"/.well-known/oauth-authorization-server/issuer"},
+             "response":{"status":200,"body":{"issuer":format!("{origin}/issuer"),
+                 "device_authorization_endpoint":format!("{origin}/device"),"token_endpoint":format!("{origin}/token")}}},
+            {"request":{"method":"POST","path":"/device"},"response":{"status":200,"body":{
+                "device_code":"<fixture-device>","user_code":"fixture-user","verification_uri":format!("{origin}/verify"),
+                "expires_in":120,"interval":61}}}
+        ]})
+    });
+    let origin = format!("http://{}", peer.addr);
+    let secrets = TestHost::default();
+    let pin = Pin(peer.addr);
+    let client = Client::new(
+        &format!("{origin}/mcp"),
+        "fixture-client",
+        "http://127.0.0.1:7081/callback",
+        &pin,
+    )
+    .unwrap();
+    let host = DeviceHost {
+        now: std::sync::atomic::AtomicU64::new(1_000),
+        waits: Mutex::default(),
+        prompt: Mutex::default(),
+    };
+    let result = client.authorize(
+        Authorization::Device {
+            metadata: None,
+            scope: None,
+        },
+        &host,
+        &secrets,
+        &host,
+        Instant::now() + Duration::from_secs(2),
+    );
+    assert_eq!(result.err(), Some(Error::Interaction));
+    assert!(host.prompt.lock().unwrap().is_none());
+    assert!(host.waits.lock().unwrap().is_empty());
+}
+
+#[test]
+fn public_oauth_resource_urls_require_tls_at_construction() {
+    let pin = Pin("127.0.0.1:8080".parse().unwrap());
+    assert!(matches!(
+        Client::new(
+            "http://example.invalid/mcp",
+            "fixture-client",
+            "http://127.0.0.1:7081/callback",
+            &pin
+        ),
+        Err(Error::Binding)
+    ));
+    assert!(Client::new(
+        "https://example.invalid/mcp",
+        "fixture-client",
+        "http://127.0.0.1:7081/callback",
+        &pin
+    )
+    .is_ok());
+}

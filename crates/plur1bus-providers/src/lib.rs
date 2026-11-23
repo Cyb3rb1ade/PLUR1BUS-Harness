@@ -2,10 +2,12 @@
 #![forbid(unsafe_code)]
 
 pub mod cache;
+pub mod display;
 mod error;
 mod gemini_schema;
 pub mod local;
 mod ordered;
+pub mod provenance;
 pub mod reasoning;
 mod request;
 mod response;

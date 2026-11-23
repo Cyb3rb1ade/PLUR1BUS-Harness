@@ -8,8 +8,8 @@ use std::{
 
 use rmcp::{
     model::{
-        CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, ErrorCode,
-        ErrorData, Implementation, JsonObject, ListToolsResult, PaginatedRequestParams,
+        CallToolRequestParams, CallToolResponse, CallToolResult, ClientRequest, ContentBlock,
+        ErrorCode, ErrorData, Implementation, JsonObject, ListToolsResult, PaginatedRequestParams,
         ProtocolVersion, ServerCapabilities, ServerConfig, Tool,
     },
     service::{RequestContext, ServiceExt},
@@ -23,7 +23,8 @@ use tokio::{
 use ureq::http::{HeaderMap, Method};
 
 use crate::{
-    runtime,
+    connection_fault::Fault,
+    replies, runtime,
     session::{Reader, Writer},
     stdio,
 };
@@ -41,6 +42,7 @@ pub enum Error {
     Unavailable,
     Timeout,
     Refused,
+    Backpressure,
 }
 
 pub struct Actor {
@@ -409,6 +411,14 @@ impl Server {
                     frame_deadline,
                 )
                 .map_err(|_| Error::Invalid)?;
+                let fault = Fault::new();
+                let transport = replies::Bounded::new(
+                    transport,
+                    BODY_LIMIT,
+                    frame_deadline,
+                    fault.clone(),
+                    |request| matches!(request, ClientRequest::PingRequest(_)),
+                );
                 if *stop.borrow() {
                     return Ok(());
                 }
@@ -422,6 +432,11 @@ impl Server {
                 let waiting = running.waiting();
                 tokio::pin!(waiting);
                 tokio::select! {
+                    biased;
+                    _ = fault.wait() => {
+                        cancel.cancel();
+                        return Err(Error::Backpressure);
+                    }
                     _ = &mut waiting => {}
                     _ = stop.changed() => {
                         cancel.cancel();
@@ -546,6 +561,7 @@ fn rpc_body(id: Value, kind: &'static str, content: Value) -> Value {
 fn error_message(error: Error) -> &'static str {
     match error {
         Error::Invalid => "MCP tool input or result invalid",
+        Error::Backpressure => "MCP reply budget exhausted",
         Error::Unavailable => "Core service unavailable",
         Error::Refused => "MCP tool unavailable",
         Error::Timeout => "MCP tool deadline reached",
@@ -555,9 +571,75 @@ fn error_message(error: Error) -> &'static str {
 fn protocol_error(error: Error) -> ErrorData {
     let code = match error {
         Error::Invalid => ErrorCode::INVALID_PARAMS,
-        Error::Unavailable => ErrorCode(-32000),
+        Error::Unavailable | Error::Backpressure => ErrorCode(-32000),
         Error::Refused => ErrorCode::METHOD_NOT_FOUND,
         Error::Timeout => ErrorCode(-32001),
     };
     ErrorData::new(code, error_message(error), None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Actor, Error, Host, Server};
+    use rmcp::model::{JsonObject, Tool};
+    use serde_json::{json, Value};
+    use std::{
+        sync::Arc,
+        time::{Duration, Instant},
+    };
+    use ureq::http::{HeaderMap, HeaderValue};
+
+    struct Echo;
+
+    impl Host for Echo {
+        fn admit(&self, _: &Actor, _: &str) -> bool {
+            true
+        }
+        fn call(
+            &self,
+            _: &Actor,
+            _: &str,
+            _: JsonObject,
+            _: Instant,
+            _: &dyn Fn() -> bool,
+        ) -> Result<Value, Error> {
+            Ok(json!({"fixture":true}))
+        }
+    }
+
+    #[test]
+    fn modern_http_refuses_dispatch_while_call_slots_are_unavailable() -> Result<(), Error> {
+        let tool: Tool =
+            serde_json::from_value(json!({"name":"fixture","inputSchema":{"type":"object"}}))
+                .map_err(|_| Error::Invalid)?;
+        let server = Server::new(
+            Actor::new("agent", "person")?,
+            vec![tool],
+            Arc::new(Echo),
+            100,
+        )?;
+        let _available = server
+            .0
+            .slots
+            .try_acquire_many(8)
+            .map_err(|_| Error::Unavailable)?;
+        let headers = [
+            ("mcp-protocol-version", "2026-07-28"),
+            ("mcp-method", "tools/call"),
+            ("mcp-name", "fixture"),
+        ]
+        .into_iter()
+        .fold(HeaderMap::new(), |mut headers, (name, value)| {
+            headers.insert(name, HeaderValue::from_static(value));
+            headers
+        });
+        let response = server.respond(&headers,
+            br#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fixture","arguments":{},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}"#,
+            Instant::now() + Duration::from_secs(1));
+        assert_eq!(
+            response.message["error"]["message"],
+            "MCP tool service busy"
+        );
+        Ok(())
+    }
 }
