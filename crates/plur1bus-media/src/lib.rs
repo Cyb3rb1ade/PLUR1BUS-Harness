@@ -1,6 +1,7 @@
 //! Media request admission and accounting.
 #![forbid(unsafe_code)]
 
+pub mod adapters;
 pub mod http;
 pub mod images;
 pub mod jobs;

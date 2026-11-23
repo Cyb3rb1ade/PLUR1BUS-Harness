@@ -93,7 +93,7 @@ impl Default for Retry {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 pub struct Options<'a> {
     pub auth: Auth,
     pub cleartext: Option<Cleartext>,
@@ -155,6 +155,46 @@ pub struct Client<'a> {
 }
 
 impl<'a> Client<'a> {
+    pub(crate) fn check(&self, deadline: Instant) -> Result<()> {
+        check(self.ports, deadline)
+    }
+
+    pub(crate) fn wall_time(&self) -> SystemTime {
+        self.ports.wall_time()
+    }
+
+    pub(crate) fn close_remote(&self, method: Method, route: &str, budget: Duration) {
+        struct Detached<'a>(&'a dyn Ports);
+        impl Ports for Detached<'_> {
+            fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr> {
+                self.0.pin(endpoint, deadline)
+            }
+            fn credential(&self, auth: Auth, deadline: Instant) -> Result<Option<String>> {
+                self.0.credential(auth, deadline)
+            }
+            fn random(&self) -> f64 {
+                self.0.random()
+            }
+            fn wait(&self, delay: Duration, deadline: Instant) -> Result<()> {
+                self.0.wait(delay, deadline)
+            }
+        }
+        let detached = Detached(self.ports);
+        let mut options = self.options;
+        options.retry.attempts = 1;
+        let client = Client {
+            ports: &detached,
+            base: self.base.clone(),
+            options,
+        };
+        let _ = client.json(
+            method,
+            route,
+            Some(Body::json(b"{}")),
+            Instant::now() + budget,
+        );
+    }
+
     pub fn new(ports: &'a dyn Ports, base: &str, options: Options<'a>) -> Result<Self> {
         let base = Url::parse(base).map_err(|_| Error::UnsupportedParameter)?;
         let retry = options.retry;

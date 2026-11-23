@@ -1488,6 +1488,17 @@ describe("media HTTP transport (P4-W W4)", () => {
   });
 });
 
+describe("media image provider protocols (P4-W W4)", () => {
+  it("matches the TypeScript adapter requests, progress and file bytes", async () => {
+    const { imageProviders, recordMediaImageWire } = await import("./export-media-image-wire.ts");
+    const cases = await recordMediaImageWire();
+    for (const provider of imageProviders) {
+      const name = "image-wire-" + provider;
+      assert.equal(readFileSync(fixturePath("media", name), "utf8"), fixtureText(cases[name]), provider);
+    }
+  });
+});
+
 describe("media video publication (P4-W W4)", () => {
   it("matches the TypeScript video store, processor and byte accounting", async () => {
     const { recordMediaVideoStore } = await import("./export-media-video-store.ts");
