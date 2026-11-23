@@ -154,6 +154,7 @@ fn ready_fixture(response: Value) -> FakeServer {
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum Record {
     Admitted(Purpose),
+    CredentialRead,
     Attempted,
     Settled(usize),
     Released,
@@ -171,6 +172,7 @@ impl Authorization for Grant {
         self.addr
     }
     fn bearer(&self) -> Option<&str> {
+        self.records.borrow_mut().push(Record::CredentialRead);
         Some(self.token)
     }
     fn mark_attempted(&mut self) {
@@ -196,6 +198,7 @@ struct PolicyFixture {
     revoke_during_admission: bool,
     permitted: bool,
     local_only: bool,
+    cleartext_peer: Option<&'static str>,
     offset_pin: bool,
     custom_pin: Option<SocketAddr>,
 }
@@ -211,6 +214,7 @@ impl PolicyFixture {
             revoke_during_admission: false,
             permitted: true,
             local_only: true,
+            cleartext_peer: None,
             offset_pin: false,
             custom_pin: None,
         }
@@ -233,6 +237,10 @@ impl Policy for PolicyFixture {
     fn local_only(&self, _: &str) -> bool {
         self.local_only
     }
+    fn allow_cleartext(&self, peer: &Peer) -> bool {
+        self.cleartext_peer == Some(peer.id())
+    }
+
     fn confirm_trust(
         &self,
         peer: &Peer,
@@ -956,4 +964,48 @@ fn content_coding_is_checked_even_when_the_body_is_valid_json() {
         error(client.perform(call(&registration), op, "rpc-fixture")),
         Error::RequestFailed
     );
+}
+
+#[test]
+fn a_remote_http_pin_is_checked_before_reading_the_bearer() {
+    let server = ready_fixture(rpc_response(success_task()));
+    let registration = peer(server.addr);
+    let mut policy = PolicyFixture::new(server.addr);
+    policy.local_only = false;
+    policy.custom_pin = Some(SocketAddr::new(
+        "192.0.2.4".parse().unwrap(),
+        server.addr.port(),
+    ));
+    // The deliberately different port guarantees the transport cannot dial.
+    policy.offset_pin = true;
+    let client = Client::new(&policy, Limits::default()).unwrap();
+    let op = Operation::Get {
+        task: "task-example",
+        history: None,
+    };
+    assert_eq!(
+        error(client.perform(call(&registration), op, "rpc-fixture")),
+        Error::Denied
+    );
+    assert!(!policy.records.borrow().contains(&Record::CredentialRead));
+    assert!(!policy.records.borrow().contains(&Record::Attempted));
+    policy.records.borrow_mut().clear();
+    policy.cleartext_peer = Some("another-peer");
+    let client = Client::new(&policy, Limits::default()).unwrap();
+    assert_eq!(
+        error(client.perform(call(&registration), op, "rpc-fixture")),
+        Error::Denied
+    );
+    assert!(!policy.records.borrow().contains(&Record::CredentialRead));
+
+    policy.records.borrow_mut().clear();
+    policy.cleartext_peer = Some("sample");
+    let client = Client::new(&policy, Limits::default()).unwrap();
+    assert_eq!(
+        error(client.perform(call(&registration), op, "rpc-fixture")),
+        Error::Denied
+    );
+    assert!(policy.records.borrow().contains(&Record::CredentialRead));
+    assert!(!policy.records.borrow().contains(&Record::Attempted));
+    assert!(server.received().is_empty());
 }

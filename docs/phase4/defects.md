@@ -1849,3 +1849,12 @@ each multipart. TypeScript applies the limit separately in each multipart.
 The Rust renderer takes at most 1 MiB of HTML at a UTF-8 character boundary.
 TypeScript caps this input by UTF-16 code units. Rust may shorten multibyte
 HTML earlier.
+
+<a id="p4d-261"></a>
+
+## P4D-261 — Require TLS for remote A2A peers (R-W-19)
+
+The Rust peer client refuses HTTP on a non-loopback socket unless policy
+expressly allows cleartext for that registered peer. The check runs before
+reading the bearer on discovery, each card redirect and every operation.
+TypeScript accepts registered HTTP peers without this separate switch.

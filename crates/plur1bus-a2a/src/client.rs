@@ -157,6 +157,11 @@ pub trait Policy {
     /// Endpoint of the current explicitly trusted (peer, revision, fingerprint), from the private registry.
     fn trusted_endpoint(&self, peer: &Peer) -> Option<Url>;
     fn local_only(&self, agent: &str) -> bool;
+    /// Permit non-loopback HTTP for this registered peer. The default is HTTPS.
+    fn allow_cleartext(&self, _peer: &Peer) -> bool {
+        false
+    }
+
     /// Obtain fresh human confirmation for exactly this endpoint, revision and public key.
     fn confirm_trust(
         &self,
@@ -273,6 +278,12 @@ impl<'a> Client<'a> {
         )?;
         self.check(call)?;
         if self.policy.local_only(call.execution.agent) && !http::local_address(grant.pin().ip()) {
+            return Err(Error::Denied);
+        }
+        if url.scheme() == "http"
+            && !grant.pin().ip().to_canonical().is_loopback()
+            && !self.policy.allow_cleartext(call.peer)
+        {
             return Err(Error::Denied);
         }
         let token =
