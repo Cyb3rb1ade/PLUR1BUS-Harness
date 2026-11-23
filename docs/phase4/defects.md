@@ -1343,6 +1343,30 @@ The Rust Gemini handshake accepts only the header form of the credential.
 The TypeScript gateway fallback can put credentials in a URL query. The
 Rust host can use a gateway that forwards the credential header.
 
+<a id="p4d-210"></a>
+
+## P4D-210 — cloud synthesis stream deadline and completion
+
+The Rust HTTP audio stream reads one decoded chunk at a time under the
+request's absolute deadline. WebSocket synthesis uses the same absolute
+deadline for writes and reads, admits structured frames up to the
+P4D-205 ceiling, and exposes usage only after the text input and the provider's
+final frame both complete. The TypeScript HTTP deadline ends at the headers.
+The TypeScript socket consumer queues audio frames asynchronously. The native
+host owns the ordering of calls to the blocking dialogue.
+
+<a id="p4d-211"></a>
+
+## P4D-211 — streaming text admission and usage identifiers
+
+The Rust Polly sentence splitter admits up to 1 MiB per input delta and
+keeps up to 1 MiB of unfinished text. Individual signed requests use Polly's
+3,000 UTF-16 code unit ceiling. The TypeScript sentence splitter has no bound
+on unfinished text. The Rust realtime host supplies the Gemini session
+identifier used to deduplicate usage events. Audio and transcripts remain
+application data and are omitted from event Debug output.
+
+<a id="p4d-212"></a>
 
 ## P4D-212 — retry after publishing a media result
 
@@ -1353,3 +1377,13 @@ returns the settlement error with the durable row still running. On recovery it
 finds the output, retries settlement under the same job id, and persists the
 success without calling the provider again. The budget port owns durable,
 idempotent settlement. The focused Rust failure test covers the retry boundary.
+
+<a id="p4d-219"></a>
+
+## P4D-219 — Polly diagnostic body admission
+
+The TypeScript SDK may read an AWS diagnostics body before classifying a
+failure. The Rust transport classifies a known error header without reading
+the body. A body-only error is decoded under the original request deadline
+and limited to 64 KiB. Overflow yields `bad_response`. Provider message text
+is discarded. The boundary and delayed-body tests cover both restrictions.

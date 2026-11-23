@@ -193,22 +193,49 @@ folgt in W10.
 - **Lücken.** W0 hat JSON-Frames des Voice-Fakes. W3 braucht aufzunehmende Provider-Header,
   Audio-Bytes, Fehler/Abbruch, Credential-Abweisung, Pipeline-Timeouts und ggf. binäre WS-Nachrichten.
 
-**W3 Rust partial delivery.** The cloud library covers the JSON HTTP boundary,
-ElevenLabs catalogs and buffered TTS/ASR, Gemini/XAI catalog discovery, Polly
+**W3 cloud library.** The Rust crate covers the JSON HTTP boundary,
+ElevenLabs catalogs, buffered TTS/ASR and streaming TTS, Gemini/XAI catalog discovery, Polly
 buffered synthesis and list projection through a signed-request port, and
 blocking Grok, Gemini and ElevenLabs ASR readiness and audio exchange. The
 exporter records actual TypeScript calls and frames for HTTP and WebSocket.
+Polly records synthesis, list pagination and model derivation through the
+TypeScript SDK client seam.
 
 The flip must supply authorized pins, TLS for WebSocket, resolved credentials,
 Polly signing, request deadlines and the ASR multipart boundary. R-W-12/R-W-13
 are recorded in [P4D-202](defects.md#p4d-202), [P4D-204](defects.md#p4d-204),
 [P4D-205](defects.md#p4d-205) and [P4D-206](defects.md#p4d-206). Audio and JSON
-have separate ceilings. Host registration uses the R-W-11 logger. A socket
-operation already blocked at cancellation can remain blocked until its deadline.
+have separate ceilings. Host registration uses the R-W-11 logger. Under R-W-9
+an in-flight blocking read may observe cancellation as late as its current
+deadline. For realtime reads this is the shortest of the caller's remaining
+read budget, the socket's configured timeout and 600 seconds. The session
+releases the stream when the interrupted read returns.
 
-Open W3 parity includes retry timing and the retry-after contract, ElevenLabs
-stream-input TTS, caller text and tool frames, and complete realtime event
-projection and usage. The cloud library has no production caller.
+The HTTP and WebSocket synthesis streams, Polly sentence windows, retry
+schedule, and Grok/Gemini/ElevenLabs dialogues are recorded from the TypeScript
+providers. The host supplies the duplex scheduling and usage sink. Retry
+waits are bounded by the same request deadline. See
+[P4D-210](defects.md#p4d-210) and [P4D-211](defects.md#p4d-211). The cloud
+library has no production caller. Polly's SynthesizeSpeech and DescribeVoices
+use the shared pinned Rust HTTP transport. The host supplies a signer for the
+exact request bytes after the destination is authorized. The SDK recording
+also covers pagination and an AWS error type. P4D-219 describes the diagnostic
+body bound. For a reproducible recording, run
+`node --experimental-strip-types --conditions=source scripts/parity/export-polly-http.ts <external-sdk-directory> --check`
+with the test-only AWS SDK version pinned in the exporter.
+
+The cloud registry replays configured statuses, capability lookup, independent
+catalog jobs and unified error codes in TypeScript order. A failed catalog
+operation leaves the results from the other operations available. The host
+supplies the credential lease and the signed Polly port. The catalog-to-socket
+recordings cover a configured model, selection from xAI and Gemini catalogs,
+and Gemini's fallback model. A test through the host logger checks a synthetic
+credential and a provider close reason against the R-W-11 boundary.
+The transport replay compares recorded outgoing text frames and upgrade
+targets and credential headers, together with the parsed dialogue events.
+The ElevenLabs settings port takes the ordered fields of the input object.
+Arbitrary tool arguments and results keep the serialization of the host's
+JSON values.
 
 ### W4 · Medien und Dokumente (P4-53)
 

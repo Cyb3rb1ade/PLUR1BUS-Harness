@@ -1,0 +1,146 @@
+{
+  "exchanges": [
+    {
+      "request": {
+        "headers": {
+          "xi-api-key": "<credential>"
+        },
+        "method": "GET",
+        "path": "/v1/v1/models"
+      },
+      "response": {
+        "body": {
+          "detail": "<credential>"
+        },
+        "status": 401
+      }
+    },
+    {
+      "request": {
+        "headers": {
+          "xi-api-key": "<credential>"
+        },
+        "method": "GET",
+        "path": "/v1/v2/voices?page_size=100"
+      },
+      "response": {
+        "body": {
+          "voices": [
+            {
+              "voice_id": "fixture-voice"
+            }
+          ]
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "headers": {
+          "xi-api-key": "<credential>"
+        },
+        "method": "GET",
+        "path": "/v1/v1/models"
+      },
+      "response": {
+        "body": [],
+        "status": 200
+      }
+    }
+  ],
+  "expected": {
+    "errors": [
+      {
+        "code": "auth",
+        "kind": "tts",
+        "provider": "elevenlabs"
+      },
+      {
+        "code": "auth",
+        "kind": "realtime",
+        "provider": "gemini"
+      }
+    ],
+    "models": [
+      {
+        "capabilities": [
+          "tts"
+        ],
+        "id": "neural",
+        "kind": "tts",
+        "name": "neural",
+        "provider": "polly"
+      },
+      {
+        "capabilities": [
+          "asr"
+        ],
+        "id": "scribe_fixture",
+        "kind": "asr",
+        "name": "scribe_fixture",
+        "provider": "elevenlabs"
+      }
+    ],
+    "voices": [
+      {
+        "id": "fixture-voice",
+        "name": "fixture-voice",
+        "provider": "elevenlabs"
+      },
+      {
+        "engines": [
+          "neural"
+        ],
+        "id": "polly-fixture",
+        "name": "polly-fixture",
+        "provider": "polly"
+      }
+    ]
+  },
+  "known": [
+    true,
+    true,
+    true,
+    false,
+    false,
+    false
+  ],
+  "references": [
+    "eleven-fixture",
+    "eleven-fixture",
+    "eleven-fixture",
+    "gemini-fixture"
+  ],
+  "status": [
+    {
+      "capabilities": [
+        "asr",
+        "tts"
+      ],
+      "id": "elevenlabs",
+      "state": "ready"
+    },
+    {
+      "capabilities": [
+        "realtime"
+      ],
+      "id": "xai",
+      "state": "missing_key"
+    },
+    {
+      "capabilities": [
+        "realtime"
+      ],
+      "id": "gemini",
+      "state": "ready"
+    },
+    {
+      "capabilities": [
+        "tts"
+      ],
+      "id": "polly",
+      "state": "ready"
+    }
+  ],
+  "transport": "http"
+}

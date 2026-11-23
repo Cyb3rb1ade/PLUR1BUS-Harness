@@ -19,6 +19,9 @@
             "outputAudioTranscription": {}
           }
         }
+      ],
+      "sendText": [
+        "{\"setup\":{\"model\":\"models/fixture-live\",\"generationConfig\":{\"responseModalities\":[\"AUDIO\"]},\"inputAudioTranscription\":{},\"outputAudioTranscription\":{}}}"
       ]
     },
     {
@@ -47,6 +50,9 @@
             }
           }
         }
+      ],
+      "sendText": [
+        "{\"realtimeInput\":{\"audio\":{\"data\":\"AQACAA==\",\"mimeType\":\"audio/pcm;rate=16000\"}}}"
       ]
     }
   ],

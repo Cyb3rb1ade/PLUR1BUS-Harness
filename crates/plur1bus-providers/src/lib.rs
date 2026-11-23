@@ -16,6 +16,6 @@ mod transport;
 pub use error::{ErrorKind, ProviderError, TimeoutPhase};
 pub use ordered::Json;
 pub use request::{RequestOptions, SignedThinking, Wire};
-pub use response::{ToolRepair, ToolRepairInput};
+pub use response::{retry_after_date_ms, ToolRepair, ToolRepairInput};
 pub use sse::{SseEvent, SseParser};
 pub use transport::{pinned_http_agent, Adapter, Config, Ports, Timeouts};
