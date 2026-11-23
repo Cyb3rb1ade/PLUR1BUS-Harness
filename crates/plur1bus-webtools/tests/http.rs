@@ -1,14 +1,20 @@
 #![allow(clippy::unwrap_used, reason = "recorded loopback fixture")]
 
 use std::{
+    cell::Cell,
     net::SocketAddr,
-    sync::Mutex,
+    sync::{
+        Mutex,
+        atomic::{AtomicBool, Ordering},
+        mpsc::sync_channel,
+    },
+    thread,
     time::{Duration, Instant},
 };
 
 use plur1bus_webtools::http::{self, Admission, Failure, Options, Redirects};
 use plur1bus_wire_fixtures::FakeServer;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use ureq::http::HeaderMap;
 use url::Url;
 
@@ -89,7 +95,7 @@ fn guarded_web_requests_replay_typescript_over_the_pinned_connector() {
         );
         let actual = match http::request(&url, &options, &pin, &|| false) {
             Ok(response) => {
-                use base64::{engine::general_purpose::STANDARD, Engine as _};
+                use base64::{Engine as _, engine::general_purpose::STANDARD};
                 json!({
                     "status": response.status,
                     "path": path(&response.url),
@@ -183,6 +189,97 @@ fn a_partial_page_cannot_extend_the_original_body_deadline() {
         Some(Failure::Timeout)
     );
     assert_eq!(server.received().len(), 1);
+}
+
+#[test]
+fn cancellation_during_a_body_read_keeps_the_original_deadline() {
+    for (gap_ms, budget_ms) in [(200, 1500), (1500, 900)] {
+        let case = json!({"transport":"http","exchanges":[{
+            "request":{"method":"GET","path":"/notes"},
+            "response":{"status":200,"headers":{"content-type":"text/plain"},
+                "chunksBase64":["bm90ZXM=","bW9yZQ=="],"chunkGapMs":gap_ms}
+        }]});
+        let server = FakeServer::start(&case);
+        let pin = Pin {
+            address: server.addr,
+            seen: Mutex::default(),
+        };
+        let headers = HeaderMap::new();
+        let reading_body = Cell::new(false);
+        let accept = |_: Option<&str>| {
+            reading_body.set(true);
+            true
+        };
+        let deadline = Instant::now() + Duration::from_millis(budget_ms);
+        let mut options = Options::get(&headers, "fixture-web-tools/1", "text/plain", deadline);
+        options.accept_type = Some(&accept);
+        let cancelled = AtomicBool::new(false);
+        let (starting_read, start) = sync_channel(1);
+        let signalled = Cell::new(false);
+        thread::scope(|scope| {
+            let cancellation = &cancelled;
+            let canceller = scope.spawn(move || {
+                start.recv_timeout(Duration::from_secs(2)).unwrap();
+                thread::sleep(Duration::from_millis(25));
+                cancellation.store(true, Ordering::Release);
+            });
+            let result = http::request(
+                &format!("http://{}/notes", server.addr),
+                &options,
+                &pin,
+                &|| {
+                    if reading_body.get() && !signalled.replace(true) {
+                        starting_read.send(()).unwrap();
+                        return false;
+                    }
+                    cancelled.load(Ordering::Acquire)
+                },
+            );
+            let returned_at = Instant::now();
+            canceller.join().unwrap();
+            assert!(cancelled.load(Ordering::Acquire));
+            assert_eq!(result.err(), Some(Failure::Timeout));
+            assert!(returned_at <= deadline + Duration::from_millis(300));
+        });
+        assert_eq!(server.received().len(), 1);
+    }
+}
+
+#[test]
+fn diagnostic_prefix_is_capped_even_when_the_caller_requests_more() {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+
+    const LIMIT: usize = 64 * 1024;
+    for extra in [0, 1] {
+        let bytes = vec![b'n'; LIMIT + extra];
+        let case = json!({"transport":"http","exchanges":[{
+            "request":{"method":"GET","path":"/notes"},
+            "response":{"status":429,"headers":{"content-type":"text/plain"},
+                "chunksBase64":[STANDARD.encode(&bytes)]}
+        }]});
+        let server = FakeServer::start(&case);
+        let pin = Pin {
+            address: server.addr,
+            seen: Mutex::default(),
+        };
+        let headers = HeaderMap::new();
+        let mut options = Options::get(
+            &headers,
+            "fixture-web-tools/1",
+            "text/plain",
+            Instant::now() + Duration::from_secs(3),
+        );
+        options.error_body_bytes = LIMIT + 1;
+        let response = http::request(
+            &format!("http://{}/notes", server.addr),
+            &options,
+            &pin,
+            &|| false,
+        )
+        .unwrap();
+        assert_eq!(response.status, 429);
+        assert_eq!(response.body, bytes[..LIMIT]);
+    }
 }
 
 #[test]
