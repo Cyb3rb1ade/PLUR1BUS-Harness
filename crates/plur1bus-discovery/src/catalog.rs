@@ -11,9 +11,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use url::{Host, Origin, Url};
 
-use crate::trust::{self, Envelope, Root};
+use crate::trust::{self, Envelope, Root, SAFE_INT};
 
-const SAFE_INT: u64 = 9_007_199_254_740_991;
 const MAX_METADATA: usize = 8 * 1024 * 1024;
 const DEFAULT_ARTIFACT_LIMIT: usize = 128 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS: u64 = 15_000;
@@ -189,8 +188,8 @@ fn stamp(value: &Value) -> Result<i64> {
 
 fn integer(value: &Value, min: u64) -> Result<u64> {
     value
-        .as_u64()
-        .filter(|n| (min..=SAFE_INT).contains(n))
+        .as_number()
+        .and_then(|number| trust::safe_integer(number, min))
         .ok_or(Error::SignatureInvalid)
 }
 
@@ -283,14 +282,18 @@ fn skeleton(id: &str) -> Result<String> {
     Ok(normalizer.normalize(&folded).into_owned())
 }
 
-fn check_index(index: &Value, packages: &[Value], test_origin: Option<&Origin>) -> Result<()> {
-    if index["format"] != 1
+fn check_index(index: &mut Value, test_origin: Option<&Origin>) -> Result<()> {
+    if integer(&index["format"], 1)? != 1
         || index
             .get("revocations")
             .is_some_and(|v| v.as_array().is_none_or(|v| !v.is_empty()))
     {
         return Err(Error::SignatureInvalid);
     }
+    index["format"] = json!(1);
+    let packages = index["packages"]
+        .as_array_mut()
+        .ok_or(Error::SignatureInvalid)?;
     let mut seen = HashSet::new();
     for entry in packages {
         let id = entry["id"]
@@ -302,9 +305,10 @@ fn check_index(index: &Value, packages: &[Value], test_origin: Option<&Origin>) 
         }
         let mut versions = HashSet::new();
         for version in entry["versions"]
-            .as_array()
+            .as_array_mut()
             .ok_or(Error::SignatureInvalid)?
         {
+            version["size"] = json!(integer(&version["size"], 1)?);
             let name = version["version"]
                 .as_str()
                 .filter(|s| !s.is_empty())
@@ -315,7 +319,6 @@ fn check_index(index: &Value, packages: &[Value], test_origin: Option<&Origin>) 
                 return Err(Error::SignatureInvalid);
             }
             hex_hash(&version["sha256"])?;
-            integer(&version["size"], 1)?;
         }
     }
     Ok(())
@@ -694,11 +697,14 @@ impl Client {
             .expires()
             .min(index_expires)
             .min(stamp(&revocation["expires"])?);
+        check_index(&mut index, self.config.test_origin.as_ref())?;
         let packages = index["packages"]
             .as_array()
             .ok_or(Error::SignatureInvalid)?;
-        check_index(&index, packages, self.config.test_origin.as_ref())?;
         let warnings = warnings(&keys, packages, &revoked_keys, &revoked_packages);
+        index["serial"] = json!(serial);
+        index["rootVersion"] = json!(root.version);
+        index["revocation"]["version"] = json!(revocation_version);
         index["revocations"] = json!([]);
         Ok(Verified {
             index,

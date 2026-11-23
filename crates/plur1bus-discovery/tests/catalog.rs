@@ -69,7 +69,10 @@ fn signed_catalogue_matches_typescript_sequences() {
         let configured_url = |key: &str| settings[key].as_str().map(|url| Url::parse(url).unwrap());
         let url = configured_url("url").unwrap();
         let catalog_origin = url.origin();
-        let mut config = Config::new(url, settings["root"].to_string());
+        let root = case["rootText"]
+            .as_str()
+            .map_or_else(|| settings["root"].to_string(), str::to_owned);
+        let mut config = Config::new(url, root);
         config.max_bytes = settings["maxBytes"].as_u64().unwrap() as usize;
         config.offline_grace_ms = settings["offlineGraceMs"].as_i64().unwrap();
         config.revocations_url = configured_url("revocationsUrl");

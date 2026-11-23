@@ -1,15 +1,16 @@
 //! Threshold verification of raw Ed25519 catalogue envelopes.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use chrono::{DateTime, SecondsFormat, Utc};
 use ring::signature::{UnparsedPublicKey, ED25519};
 use serde::{Deserialize, Serialize};
+use serde_json::Number;
 
 const MAX_KEYS: usize = 64;
 const MAX_SIGNED_BYTES: usize = 8 * 1024 * 1024;
-const SAFE_INT: u64 = 9_007_199_254_740_991;
+pub(crate) const SAFE_INT: u64 = 9_007_199_254_740_991;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Error {
@@ -44,8 +45,8 @@ struct KeyFile {
 struct RootFile {
     #[serde(rename = "type")]
     kind: String,
-    version: u64,
-    threshold: Option<usize>,
+    version: Number,
+    threshold: Option<Number>,
     expires: String,
     keys: Vec<KeyFile>,
 }
@@ -59,7 +60,7 @@ pub struct Root {
     pub version: u64,
     threshold: usize,
     expires: i64,
-    keys: BTreeMap<String, Key>,
+    keys: Vec<(String, Key)>,
     normalized: Vec<u8>,
 }
 
@@ -109,10 +110,18 @@ impl<'a> Verified<'a> {
     }
 }
 
+pub(crate) fn safe_integer(value: &Number, min: u64) -> Option<u64> {
+    let n = value.as_f64()?;
+    (n.fract() == 0.0 && (min as f64..=SAFE_INT as f64).contains(&n)).then_some(n as u64)
+}
+
 pub(crate) fn timestamp(raw: &str) -> Result<i64> {
     let Some(prefix) = raw.get(..19) else {
         return Err(Error::SignatureInvalid);
     };
+    if raw.get(17..19).is_none_or(|seconds| seconds >= "60") {
+        return Err(Error::SignatureInvalid);
+    }
     let canonical = match raw.len() {
         20 if raw.ends_with('Z') => format!("{prefix}.000Z"),
         24 if raw.ends_with('Z') => raw.into(),
@@ -146,42 +155,45 @@ impl Root {
             return Err(Error::SignatureInvalid);
         }
         let mut root: RootFile = serde_json::from_str(json).map_err(|_| Error::SignatureInvalid)?;
-        let threshold = root.threshold.unwrap_or(1);
-        if root.kind != "root"
-            || !(1..=SAFE_INT).contains(&root.version)
-            || threshold == 0
-            || root.keys.len() > MAX_KEYS
-        {
+        let version = safe_integer(&root.version, 1).ok_or(Error::SignatureInvalid)?;
+        let threshold = root
+            .threshold
+            .as_ref()
+            .map_or(Some(1), |n| safe_integer(n, 1))
+            .ok_or(Error::SignatureInvalid)?;
+        if root.kind != "root" || root.keys.len() > MAX_KEYS {
             return Err(Error::SignatureInvalid);
         }
         if root.keys.is_empty() {
             return Err(Error::KeyUnknown);
         }
-        if threshold > root.keys.len() {
+        if threshold > root.keys.len() as u64 {
             return Err(Error::SignatureInvalid);
         }
-        root.threshold = Some(threshold);
+        root.version = version.into();
+        root.threshold = Some(threshold.into());
         let normalized = serde_json::to_vec(&root).map_err(|_| Error::SignatureInvalid)?;
-        let mut keys = BTreeMap::new();
+        let mut keys = Vec::with_capacity(root.keys.len());
+        let mut ids = HashSet::new();
         let mut public_keys = HashSet::new();
         for key in root.keys {
             let public_key: [u8; 32] = decode(&key.public_key, 32)?
                 .try_into()
                 .map_err(|_| Error::SignatureInvalid)?;
-            if key.id.is_empty() || keys.contains_key(&key.id) || !public_keys.insert(public_key) {
+            if key.id.is_empty() || !ids.insert(key.id.clone()) || !public_keys.insert(public_key) {
                 return Err(Error::SignatureInvalid);
             }
-            keys.insert(
+            keys.push((
                 key.id,
                 Key {
                     public_key,
                     expires: timestamp(&key.expires)?,
                 },
-            );
+            ));
         }
         Ok(Self {
-            version: root.version,
-            threshold,
+            version,
+            threshold: threshold as usize,
             expires: timestamp(&root.expires)?,
             keys,
             normalized,
@@ -207,8 +219,15 @@ impl Root {
         self.expires
     }
 
+    fn key(&self, id: &str) -> Option<&Key> {
+        self.keys
+            .iter()
+            .find(|(name, _)| name == id)
+            .map(|(_, key)| key)
+    }
+
     pub(crate) fn material(&self, id: &str) -> Option<String> {
-        self.keys.get(id).map(|key| STANDARD.encode(key.public_key))
+        self.key(id).map(|key| STANDARD.encode(key.public_key))
     }
 
     pub(crate) fn materials(&self) -> impl Iterator<Item = (&str, String)> {
@@ -237,7 +256,7 @@ impl Root {
         let mut first_error = None;
         for signature in &signed.signatures {
             let id = signature.key_id.as_str();
-            let result = match self.keys.get(id) {
+            let result = match self.key(id) {
                 None => Err(Error::KeyUnknown),
                 Some(_) if revoked.contains(id) => return Err(Error::KeyRevoked),
                 Some(key) if !historical && key.expires <= now => Err(Error::SignatureInvalid),

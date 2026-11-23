@@ -15,6 +15,7 @@ const bytes = Buffer.from("synthetic package");
 const anchor = key("fixture-anchor", 1);
 const rotated = key("fixture-rotated", 2);
 const backup = key("fixture-backup", 3);
+const spare = key("fixture-spare", 4);
 const base = "https://catalog.fixture.invalid";
 const asset = "https://assets.test/skill.p1x";
 const pastExpiry = Date.parse(EXPIRES) + 1;
@@ -23,14 +24,14 @@ const selection = { serial: 2, id: "owner/skill", version: "1.0.0" };
 
 function serve(serial: number, options: {
   keys?: ReturnType<typeof key>[]; rotations?: unknown[]; version?: number; rev?: ReturnType<typeof revocations>;
-  indexOptions?: Record<string, unknown>; tamper?: boolean; artifact?: Buffer;
+  indexOptions?: Record<string, unknown>; indexText?: (doc: ReturnType<typeof index>) => string; tamper?: boolean; artifact?: Buffer;
 } = {}) {
   const signers = options.keys ?? [anchor];
   const rootVersion = options.version ?? 1;
   const rev = options.rev ?? revocations({ rootVersion });
   const revocation = signed(rev, signers);
   const doc = index(serial, bytes, { rootVersion, revocation: { version: rev.version, sha256: hash(Buffer.from(revocation.payload, "base64")) }, ...options.indexOptions });
-  const envelope = signed(doc, signers);
+  const envelope = signed(options.indexText?.(doc) ?? doc, signers);
   if (options.tamper) envelope.payload = Buffer.from(JSON.stringify({ ...doc, serial: serial + 1 })).toString("base64");
   return {
     "/index": envelope, "/rotations": options.rotations ?? [], "/revocations": revocation,
@@ -48,7 +49,7 @@ export async function recordDiscoveryCatalog() {
   const extraRevocations = "https://revocations.fixture.invalid/signed";
   const defaults = { url: `${base}/index`, maxBytes: 32_768, offlineGraceMs: 1000 };
   const reply = serve(2);
-  const cases: { name: string; keys?: ReturnType<typeof key>[]; legacySerial?: number; config?: Partial<CatalogConfig>; actions: Action[] }[] = [
+  const cases: { name: string; keys?: ReturnType<typeof key>[]; legacySerial?: number; decimalRoot?: boolean; config?: Partial<CatalogConfig>; actions: Action[] }[] = [
     { name: "network-cache-download", actions: [{ op: "refresh", routes: serve(2) }, { op: "download", routes: serve(2) }, { op: "get" }] },
     { name: "configured-catalogue-endpoints-and-caps", config: {
       rotationsUrl: `${base}/channel/rotations`, revocationsUrl: extraRevocations,
@@ -60,6 +61,20 @@ export async function recordDiscoveryCatalog() {
     { name: "explicit-loopback-test-origin", config: {
       url: "http://localhost:4781/index", testOrigin: "http://localhost:4781",
     }, actions: [{ op: "refresh", routes: reply }, { op: "download", routes: reply }] },
+    { name: "signed-integer-spellings", decimalRoot: true, actions: [
+      { op: "refresh", routes: serve(2, { indexText: doc => JSON.stringify(doc)
+        .replace('"format":1', '"format":1.0').replace('"serial":2', '"serial":2.0')
+        .replace('"rootVersion":1', '"rootVersion":1e0').replace(`"size":${bytes.length}`, `"size":${bytes.length}.0`) }) },
+      { op: "download", routes: reply },
+    ] },
+    { name: "revoked-material-checkpoint-order", keys: [spare, anchor, backup], actions: [
+      { op: "refresh", routes: serve(2, { keys: [backup],
+        rev: revocations({ keys: ["fixture-anchor", "fixture-spare"] }) }) }, { op: "get" },
+    ] },
+    { name: "utc-seconds-boundary", actions: [
+      { op: "refresh", routes: serve(2, { indexOptions: { generatedAt: "2026-10-07T00:00:60Z" } }) },
+      { op: "refresh", routes: reply },
+    ] },
     { name: "rollback-and-equivocation", actions: [
       { op: "refresh", routes: serve(2) }, { op: "refresh", routes: serve(1) },
       { op: "get", routes: serve(2, { indexOptions: { generatedAt: "2026-10-06T00:00:00Z" } }) },
@@ -94,6 +109,8 @@ export async function recordDiscoveryCatalog() {
   const vectors = [];
   for (const entry of cases) {
     const trustRoot = root(entry.keys ?? [anchor]);
+    const rootText = entry.decimalRoot ? JSON.stringify(trustRoot)
+      .replace('"version":1', '"version":1.0').replace('"threshold":1', '"threshold":1e0') : undefined;
     const config = { ...defaults, ...entry.config, root: trustRoot };
     const origin = new URL(config.url).origin;
     const { id, version } = selection;
@@ -133,7 +150,7 @@ export async function recordDiscoveryCatalog() {
       steps.push({ op: action.op, time: action.time ?? NOW, routes: action.routes, selected: action.selected,
         expected, requests: requests.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))), reports, checkpoint });
     }
-    vectors.push({ name: entry.name, config, legacySerial: entry.legacySerial, steps });
+    vectors.push({ name: entry.name, config, rootText, legacySerial: entry.legacySerial, steps });
   }
   return { catalog: { source: "packages/core/src/catalog/client.ts", selection, cases: vectors } };
 }
