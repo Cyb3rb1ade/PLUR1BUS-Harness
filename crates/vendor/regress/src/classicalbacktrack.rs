@@ -1312,3 +1312,47 @@ impl<'r, 't> exec::Executor<'r, 't> for BacktrackExecutor<'r, AsciiInput<'t>> {
         }
     }
 }
+
+#[cfg(all(test, feature = "utf16"))]
+mod budget_tests {
+    use super::*;
+
+    #[test]
+    fn ordinary_work_accounting_covers_each_single_character_loop_phase() {
+        let text: Vec<_> = "aaaa".encode_utf16().collect();
+        let input = indexing::Utf16Input::new(&text, true);
+        let start = input.left_end();
+        let dir = Forward::new();
+
+        for (min, max, steps) in [(4, 4, 3), (1, 4, 3)] {
+            let mut budget = StepBudget::Metered(steps);
+            assert_eq!(
+                MatchAttempter::run_scm_loop_impl(
+                    &mut budget,
+                    &input,
+                    start,
+                    min,
+                    max,
+                    dir,
+                    scm::Char { c: u32::from('a') },
+                ),
+                None
+            );
+            assert!(budget.exhausted());
+        }
+
+        let mut budget = StepBudget::Metered(3);
+        assert_eq!(
+            MatchAttempter::compute_max_pos(
+                &mut budget,
+                &input,
+                start,
+                4,
+                dir,
+                scm::Char { c: u32::from('a') },
+            ),
+            None
+        );
+        assert!(budget.exhausted());
+    }
+}
