@@ -243,6 +243,7 @@ impl Pipeline<'_> {
         let mut trace = snapshot.trace;
         append_final_observations(&mut trace, &finalised);
         Ok(NamespaceResult {
+            candidate_count: snapshot.candidate_ids.len(),
             identity_id: identity, namespace: namespace.map(str::to_owned),
             source_kind: Some("private".to_owned()), query_vector: Some(snapshot.query_vector),
             memories, trace: Some(trace), canonical: snapshot.canonical.iter().map(|c| {

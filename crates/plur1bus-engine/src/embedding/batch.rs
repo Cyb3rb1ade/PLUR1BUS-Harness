@@ -1,6 +1,7 @@
 //! Validation shared by service batches and provider probes.
 
-use super::EmbedError;
+use super::{Cancel, EmbedError, EmbedKind, EmbeddingProvider};
+use crate::contract::EngineError;
 
 /// Reject cardinality, non-finite values and wrong vector widths before caching.
 pub fn validate_vectors(
@@ -26,4 +27,19 @@ pub fn validate_vectors(
         }
     }
     Ok(())
+}
+
+/// Embed and validate an uncached batch on the already-selected provider.
+pub(super) fn embed_checked(
+    provider: &dyn EmbeddingProvider,
+    texts: &[String],
+    kind: EmbedKind,
+    width: usize,
+    cancel: &Cancel,
+) -> Result<Vec<Vec<f32>>, EngineError> {
+    cancel.check()?;
+    let result = provider.embed(texts, kind, cancel)?;
+    validate_vectors(&result, texts.len(), width)?;
+    cancel.check()?;
+    Ok(result)
 }

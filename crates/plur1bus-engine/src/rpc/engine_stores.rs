@@ -214,6 +214,21 @@ impl EngineStores {
         self.base.as_deref()
     }
 
+    /// Bind fresh, read-only routes without writer recovery or a process-wide lease cache.
+    pub(super) fn diagnostic_routes(&self) -> Result<Option<NamespaceStores>, StoreError> {
+        let base = self.base.as_deref().ok_or(StoreError::Unavailable)?;
+        if self.cancel.is_cancelled() {
+            return Err(StoreError::Unavailable);
+        }
+        NamespaceStores::open_for_warm(
+            base,
+            &self.config,
+            &self.identity,
+            &self.fingerprint,
+            IDLE_STORES_PER_ROUTE,
+        )
+    }
+
     pub(super) fn warm_sources(
         &self,
         context: &RequestContext,

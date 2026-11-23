@@ -20,6 +20,7 @@ struct Completed {
     namespace: Option<String>,
     phases: Vec<Phase>,
     stop: Option<Stop>,
+    candidate_count: usize,
 }
 
 /// One request's table pipeline. All worker scopes settle before this object is read or dropped.
@@ -74,7 +75,7 @@ impl<'a> BudgetedPipeline<'a> {
         control
     }
 
-    fn record(&self, namespace: Option<&str>, control: &RecallControl) {
+    fn record(&self, namespace: Option<&str>, control: &RecallControl, candidate_count: usize) {
         self.completed
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -82,6 +83,7 @@ impl<'a> BudgetedPipeline<'a> {
                 namespace: namespace.map(str::to_owned),
                 phases: control.timer.completed().to_vec(),
                 stop: control.stopped(),
+                candidate_count,
             });
     }
 
@@ -102,6 +104,15 @@ impl<'a> BudgetedPipeline<'a> {
         })
             })
             .collect()
+    }
+
+    pub(super) fn candidate_count(&self) -> usize {
+        self.completed
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .iter()
+            .map(|child| child.candidate_count)
+            .sum()
     }
 
     /// Whether an actual table callback ran (missing read-only tables do not write ledgers).
@@ -158,7 +169,11 @@ impl TableRecall for BudgetedPipeline<'_> {
             self.filter,
         );
         control.checkpoint(false);
-        self.record(namespace, &control);
+        self.record(
+            namespace,
+            &control,
+            result.as_ref().map_or(0, |rows| rows.candidate_count),
+        );
         result
     }
 
@@ -169,7 +184,7 @@ impl TableRecall for BudgetedPipeline<'_> {
     ) -> Result<(), NamespaceError> {
         let mut control = self.control();
         if !control.checkpoint(true) {
-            self.record(None, &control);
+            self.record(None, &control, 0);
             return Ok(());
         }
         let Some(reranker) = self.pipeline.reranker else {
@@ -189,7 +204,7 @@ impl TableRecall for BudgetedPipeline<'_> {
         );
         control.timer.end("global_rerank");
         let cancelled = !control.checkpoint(false);
-        self.record(None, &control);
+        self.record(None, &control, 0);
         if cancelled {
             Ok(())
         } else {

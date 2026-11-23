@@ -991,6 +991,23 @@ impl Shared {
                 }
                 result.ok_or_else(WireError::dream_run_not_found)
             }
+            "engine.recall.compare" => {
+                let core = self.live_core_instance(connection)?;
+                let process = self
+                    .process
+                    .as_deref()
+                    .ok_or_else(WireError::not_available)?;
+                let query = decode(&params["query"])?;
+                let options = match params.get("options") {
+                    Some(value) => decode(value)?,
+                    None => decode(&json!({}))?,
+                };
+                let comparison = process.compare_recall(&query, &options, &connection.cancel)?;
+                if self.live_core_instance(connection)? != core {
+                    return Err(unauthorized("core-link-required"));
+                }
+                encode(comparison)
+            }
             "engine.dreams.run" => {
                 use crate::store::dream_ledger::{transition, RunTransition, RunTransitionResult};
                 let core = self.live_core_instance(connection)?;

@@ -824,3 +824,273 @@ fn the_prompt_trace_does_not_count_a_masked_card() {
     };
     assert_eq!(summary(true), summary(false));
 }
+
+#[test]
+fn recall_comparison_uses_the_same_acl_and_leaves_the_store_byte_identical() {
+    use crate::embedding::{RerankError, Reranker};
+
+    struct RerankRecorder(Arc<Mutex<Vec<Vec<String>>>>);
+    impl Reranker for RerankRecorder {
+        fn empty_result_is_valid(&self) -> bool {
+            false
+        }
+
+        fn rerank(
+            &self,
+            _: &str,
+            docs: &[String],
+            _: usize,
+            _: &Cancel,
+        ) -> Result<Vec<RerankHit>, RerankError> {
+            self.0.lock().unwrap().push(docs.to_vec());
+            Ok((0..docs.len())
+                .rev()
+                .map(|index| RerankHit {
+                    index: index.into(),
+                    score: (index + 1).into(),
+                })
+                .collect())
+        }
+    }
+
+    fn snapshot(root: &Path) -> BTreeMap<std::path::PathBuf, Option<Vec<u8>>> {
+        fn collect(
+            root: &Path,
+            path: &Path,
+            files: &mut BTreeMap<std::path::PathBuf, Option<Vec<u8>>>,
+        ) {
+            for entry in fs::read_dir(path).unwrap() {
+                let entry = entry.unwrap();
+                let child = entry.path();
+                let relative = child.strip_prefix(root).unwrap().to_owned();
+                if entry.file_type().unwrap().is_dir() {
+                    files.insert(relative, None);
+                    collect(root, &child, files);
+                } else {
+                    files.insert(relative, Some(fs::read(child).unwrap()));
+                }
+            }
+        }
+        let mut files = BTreeMap::new();
+        collect(root, root, &mut files);
+        files
+    }
+
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let host = host(root, false);
+    let mut engine = ProcessEngine::new(host.clone(), Some(Seam::FlatEmbedder)).unwrap();
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let identity = engine.embedding().identities().remove(0);
+    let space = identity.space.as_ref().unwrap();
+    let width = space.dimension.as_u64().unwrap() as usize;
+    let provider = Seam::FlatEmbedder.embedder(width, space).unwrap();
+    let cache =
+        crate::store::sqlite::EmbeddingCache::open(&root.join("embedding-cache.sqlite")).unwrap();
+    engine.embedding = Arc::new(
+        Service::new(
+            provider,
+            Some(Box::new(RerankRecorder(seen.clone()))),
+            identity,
+            Some(cache),
+            ServiceOptions::default(),
+        )
+        .unwrap(),
+    );
+    let (store, first) = seeded(root, &engine);
+    let mut second = first.clone();
+    second.id = "22222222-2222-4222-8222-222222222222".into();
+    second.text = "A second distinct archive record.".into();
+    let mut foreign = first.clone();
+    foreign.id = "33333333-3333-4333-8333-333333333333".into();
+    foreign.scope = "workspace".into();
+    foreign.workspace_key = format!("workspace:v1:{}", "a".repeat(64));
+    foreign.text = "Private material from a foreign workspace.".into();
+    store.upsert(&[second.clone(), foreign.clone()]).unwrap();
+    let knowledge = root.join("workspace/memory");
+    fs::create_dir(&knowledge).unwrap();
+    fs::write(
+        knowledge.join("KNOWLEDGE.md"),
+        "## Reference\n\nLocal documentation belongs to this project.\n",
+    )
+    .unwrap();
+
+    let input = params("synthetic project archive comparison", "user");
+    let mut query: RecallQuery = serde_json::from_value(input["query"].clone()).unwrap();
+    let options: RecallOptions = serde_json::from_value(json!({"reranker":"on"})).unwrap();
+    let before = snapshot(root);
+    let events = host.events();
+    let comparison = engine
+        .compare_recall(&query, &options, &Cancel::never())
+        .unwrap();
+    let wire = serde_json::to_value(comparison).unwrap();
+    let cases = wire["cases"].as_array().unwrap();
+    assert_eq!(cases.len(), 3);
+    for (case, width) in cases.iter().zip([40, 50, 100]) {
+        assert_eq!(case["candidatePool"], width, "{case}");
+        assert_eq!(case["candidateCount"], 2, "{case}");
+        let order = case["orderedIds"].as_array().unwrap();
+        assert_eq!(order.len(), 2, "{case}");
+        assert!(order.contains(&json!(first.id)));
+        assert!(order.contains(&json!(second.id)));
+        assert!(!order.contains(&json!(foreign.id)));
+        assert_eq!(
+            case["difference"],
+            if width == 40 {
+                "baseline"
+            } else {
+                "same-order"
+            }
+        );
+    }
+    let inputs = seen.lock().unwrap().clone();
+    assert_eq!(inputs.len(), 3);
+    for docs in &inputs {
+        assert_eq!(docs.len(), 2);
+        assert!(docs.contains(&first.text));
+        assert!(docs.contains(&second.text));
+        assert!(!docs.contains(&foreign.text));
+    }
+    assert!(
+        snapshot(root) == before,
+        "the recall comparison changed store files"
+    );
+    assert_eq!(host.events(), events);
+
+    // A proved requester cannot replace the host's workspace binding.
+    let mut principal = serde_json::to_value(&query.principal).unwrap();
+    principal["trust"] = json!("proved");
+    principal["channel"] = json!("telegram");
+    principal["user"] = json!(crate::context::harness_user_principal("comparison-owner"));
+    principal["workspace"] = json!("workspace:v1:unbound-probe");
+    query.principal = serde_json::from_value(principal).unwrap();
+    assert!(engine
+        .compare_recall(&query, &options, &Cancel::never())
+        .is_err());
+    assert_eq!(*seen.lock().unwrap(), inputs);
+    assert!(
+        snapshot(root) == before,
+        "the recall comparison changed store files"
+    );
+}
+
+#[test]
+fn recall_comparison_retrieves_a_wider_pool_and_explains_a_changed_selection() {
+    use crate::embedding::{RerankError, Reranker};
+
+    struct PrioritizeWideMatch;
+    impl Reranker for PrioritizeWideMatch {
+        fn empty_result_is_valid(&self) -> bool {
+            false
+        }
+
+        fn rerank(
+            &self,
+            _: &str,
+            docs: &[String],
+            _: usize,
+            _: &Cancel,
+        ) -> Result<Vec<RerankHit>, RerankError> {
+            let mut rank = (0..docs.len()).collect::<Vec<_>>();
+            rank.sort_by_key(|index| !docs[*index].starts_with("Preferred match"));
+            Ok(rank
+                .into_iter()
+                .enumerate()
+                .map(|(place, index)| RerankHit {
+                    index: index.into(),
+                    score: (docs.len() - place).into(),
+                })
+                .collect())
+        }
+    }
+
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let host = host_with(
+        root,
+        &json!({"recall":{
+            "maxPromptMemories":5, "adaptiveBudget":{"enabled":false}, "dedup":false
+        }}),
+    );
+    let mut engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+    let identity = engine.embedding().identities().remove(0);
+    let space = identity.space.clone().unwrap();
+    let width = space.dimension.as_u64().unwrap() as usize;
+    engine.embedding = Arc::new(
+        Service::new(
+            Seam::FlatEmbedder.embedder(width, &space).unwrap(),
+            Some(Box::new(PrioritizeWideMatch)),
+            identity,
+            None,
+            ServiceOptions::default(),
+        )
+        .unwrap(),
+    );
+    let store = Store::create(&root.join("db/current/agent"), &space, width).unwrap();
+    let rows = (0..60)
+        .map(|index| {
+            let mut vector = vec![0.; width];
+            vector[0] = 1.;
+            vector[1] = index as f32 / 100.;
+            let mut row = adopt_tests::row(vector);
+            row.id = format!("10000000-0000-4000-8000-{index:012}");
+            row.text = if index == 55 {
+                "Preferred match from the larger candidate pool".into()
+            } else {
+                format!("Comparable project archive record {index}")
+            };
+            row
+        })
+        .collect::<Vec<_>>();
+    store.upsert(&rows).unwrap();
+
+    let input = params("synthetic project archive", "user");
+    let mut raw_query = input["query"].clone();
+    raw_query["budget"] = json!({"softMs":4000,"hardMs":6000});
+    let query: RecallQuery = serde_json::from_value(raw_query).unwrap();
+    let options: RecallOptions = serde_json::from_value(json!({"reranker":"on"})).unwrap();
+    let result = serde_json::to_value(
+        engine
+            .compare_recall(&query, &options, &Cancel::never())
+            .unwrap(),
+    )
+    .unwrap();
+    let cases = result["cases"].as_array().unwrap();
+    assert_eq!(
+        cases
+            .iter()
+            .map(|case| case["candidateCount"].as_u64().unwrap())
+            .collect::<Vec<_>>(),
+        [40, 50, 60]
+    );
+    assert!(!cases[0]["orderedIds"]
+        .as_array()
+        .unwrap()
+        .contains(&json!(rows[55].id)));
+    assert_eq!(cases[1]["difference"], "same-order");
+    assert_eq!(cases[2]["orderedIds"][0], rows[55].id);
+    assert_eq!(cases[2]["difference"], "selected-ids-changed");
+}
+
+#[test]
+fn recall_comparison_does_not_create_a_missing_store() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let host = host(root, false);
+    let engine = ProcessEngine::new(host.clone(), Some(Seam::FlatEmbedder)).unwrap();
+    let input = params("synthetic project archive", "user");
+    let query: RecallQuery = serde_json::from_value(input["query"].clone()).unwrap();
+    let options: RecallOptions = serde_json::from_value(input["options"].clone()).unwrap();
+    assert!(!root.join("db").exists());
+    let result = serde_json::to_value(
+        engine
+            .compare_recall(&query, &options, &Cancel::never())
+            .unwrap(),
+    )
+    .unwrap();
+    let cases = result["cases"].as_array().unwrap();
+    assert_eq!(cases.len(), 3);
+    assert!(cases.iter().all(|case| case["difference"] == "no-store"));
+    assert!(!root.join("db").exists());
+    assert!(host.events().is_empty());
+}

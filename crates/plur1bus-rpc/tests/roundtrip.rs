@@ -731,6 +731,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                     &root_schema,
                 )
             }
+            "engine.recall.compare" => check_pair::<
+                types::EngineRecallCompareParams,
+                types::EngineRecallCompareResult,
+            >(name, fixture, &root_schema),
             "engine.recall" => check_pair::<types::EngineRecallParams, types::EngineRecallResult>(
                 name,
                 fixture,

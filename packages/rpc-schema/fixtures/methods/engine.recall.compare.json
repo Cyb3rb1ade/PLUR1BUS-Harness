@@ -1,0 +1,50 @@
+{
+  "params": {
+    "query": {
+      "query": "synthetic project archive",
+      "principal": {
+        "agentId": "a1",
+        "workspace": "workspace:v1:fixture",
+        "channel": "cli",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "inferred"
+      },
+      "agent": {
+        "origin": "user",
+        "background": false
+      }
+    }
+  },
+  "result": {
+    "cases": [
+      {
+        "candidatePool": 40,
+        "candidateCount": 0,
+        "canonicalCount": 0,
+        "orderedIds": [],
+        "difference": "no-store",
+        "degradation": null
+      },
+      {
+        "candidatePool": 50,
+        "candidateCount": 0,
+        "canonicalCount": 0,
+        "orderedIds": [],
+        "difference": "no-store",
+        "degradation": null
+      },
+      {
+        "candidatePool": 100,
+        "candidateCount": 0,
+        "canonicalCount": 0,
+        "orderedIds": [],
+        "difference": "no-store",
+        "degradation": null
+      }
+    ]
+  }
+}

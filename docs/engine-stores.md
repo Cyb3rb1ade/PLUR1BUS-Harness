@@ -3429,6 +3429,26 @@ Three changes to where a foreground recall spends its time. None changes what a 
 changes one failure case, named there. The measurements are in the [parity report](evidence/engine-parity-phase1.md). Besides them, the trace redactor compiles the patterns of the
 shared redaction catalogue once per process instead of once per request.
 
+### RE-D241 · Read-only Recall comparison
+
+`engine.recall.compare` runs the native recall selector with candidate pools of 40, 50
+and 100. It accepts a foreground user query from the verified live Core link. Before
+forwarding, the host authorizes the person and binds the query to the selected agent
+and project. The engine resolves that principal with the ordinary recall ACL and
+checks the host workspace binding. The diagnostic result returns ordinary memory
+IDs in their selected order after tombstone revalidation, initial authorized
+candidate counts across tables, selected canonical counts, and the reason for
+the difference from the 40-candidate case. A degraded case is marked incomplete.
+The ID order is measured before prompt text clipping.
+
+The three cases use the same read-only namespace routes and the last stored mood
+projection. Store opening skips recovery and table creation. The embedding facade
+uses the same provider, batch bounds, and vector validation without consulting or
+populating the embedding cache. Recall statistics, mood updates, knowledge-cache
+writes, retrieval ledgers, and host events are excluded. The production defaults
+and the host's public RPC surface stay unchanged. Run a corpus comparison without
+concurrent writes to its fixture stores so differences can be attributed to the pool.
+
 ### RE-D230 · The turn's mood is committed beside retrieval
 
 A foreground recall applies the prompt's emotion to the caller's mood and scores with the result, as before. The

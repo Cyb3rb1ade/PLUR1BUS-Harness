@@ -21,6 +21,9 @@ pub struct NamespaceResult {
     pub identity_id: Option<String>,
     /// Bounded capability degradation, matching the namespace wrapper's Node shape.
     pub degraded: Option<Value>,
+    /// Count after the initial row ACL, before reranking. Internal diagnostic metadata.
+    #[serde(skip)]
+    pub candidate_count: usize,
     /// Namespace that produced this child.
     pub namespace: Option<String>,
     /// `private`, `workspace` or `user`; inferred from shared namespace labels when absent.

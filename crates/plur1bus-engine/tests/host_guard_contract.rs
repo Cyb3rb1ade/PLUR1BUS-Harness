@@ -1259,3 +1259,55 @@ fn policy_cache_distinguishes_targets_and_emit_rejects_oversized_payloads() {
     assert_eq!(host.dropped_events(), 2);
     assert_eq!(core.count("host.event"), 0);
 }
+
+#[test]
+fn recall_comparison_requires_a_live_core_link() {
+    let _guard = rpc_process_support::process_test();
+    let home = rpc_process_support::home();
+    let workspace = home.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let core = FakeCore::start(home.path(), CORE_TOKEN, move |method, _| match method {
+        "host.workspaceDir" => Ok(json!({"path":workspace})),
+        "host.event" => Ok(json!({})),
+        _ => Err("E_NOT_AVAILABLE"),
+    });
+    let engine = rpc_process_support::EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let params = json!({"query":{
+        "query":"synthetic project archive",
+        "principal":{"agentId":"a1","workspace":"workspace:v1:fixture","channel":"cli",
+            "accountId":"fixture","chat":{"id":"fixture","kind":"direct"},"trust":"inferred"},
+        "agent":{"origin":"user","background":false}
+    }});
+    let mut peer = rpc_process_support::RawConnection::connect(engine.address());
+    assert!(peer.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"comparison-unverified"})
+    )["result"]
+        .is_object());
+    let denied = peer.call(2, "engine.recall.compare", params.clone());
+    rpc_process_support::assert_unauthorized(&denied);
+    assert_eq!(denied["error"]["data"]["reason"], "core-link-required");
+    assert_eq!(core.count("host.workspaceDir"), 0);
+
+    let pid = home.path().join("run/core.pid");
+    std::fs::write(
+        &pid,
+        format!("{} {}\n", std::process::id(), uuid::Uuid::from_u128(1)),
+    )
+    .unwrap();
+    plur1bus_engine::store::paths::secure_file(&pid).unwrap();
+    let reply = peer.call(3, "engine.recall.compare", params);
+    let cases = reply["result"]["cases"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{reply}"));
+    assert_eq!(
+        cases
+            .iter()
+            .map(|case| case["candidatePool"].as_u64().unwrap())
+            .collect::<Vec<_>>(),
+        [40, 50, 100]
+    );
+    assert!(cases.iter().all(|case| case["orderedIds"] == json!([])));
+    assert!(core.count("host.workspaceDir") > 0);
+}

@@ -96,6 +96,22 @@ impl ProcessEngine {
         self.live_stores.configured_base()
     }
 
+    pub(super) fn compare_recall(
+        &self,
+        query: &RecallQuery,
+        options: &RecallOptions,
+        cancel: &Cancel,
+    ) -> Result<engine_recall::RecallComparison, EngineError> {
+        cancel.check()?;
+        if self.closed.load(Ordering::Acquire) {
+            return Err(self.unavailable.error());
+        }
+        let base = self
+            .configured_store_base()
+            .ok_or_else(|| self.unavailable.error())?;
+        engine_recall::compare(self, base, query, options, cancel)
+    }
+
     /// Run a job admitted by the native host for its bound principal. The legacy
     /// JobRegistry and process RPC do not accept a principal from their caller.
     pub fn run_authorized_job(

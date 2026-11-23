@@ -28,12 +28,12 @@ use crate::{
         neo_prelude::{NeoPrelude, NeoRequest},
         pattern_source::BoundPatternSource,
         render::{RenderError, RenderRequest},
-        runtime::{self, RuntimeRequest},
+        runtime::{self, DiagnosticSelection, RuntimeRequest},
         score::EmotionalRecallState,
         stages::{StageClocks, StageFlags, StageLimits},
         tombstone_mask::TombstoneMask,
     },
-    store::{directory::TrustedDirectory, recall_stats::RecallStats},
+    store::{directory::TrustedDirectory, recall_stats::RecallStats, StoreRoutes},
     text::{
         js::{js_trim, JsString},
         json::{parse_json, write_json, TolerantJsonValue as Json},
@@ -69,6 +69,187 @@ struct Foreground<'a> {
     missing_reranker: bool,
     started: Instant,
     caller: &'a Cancel,
+}
+
+enum RecallAccess<'a> {
+    Foreground,
+    Diagnostic {
+        routes: &'a dyn StoreRoutes,
+        embedder: &'a dyn crate::embedding::EmbeddingProvider,
+        candidate_pool: usize,
+        selection: &'a mut DiagnosticSelection,
+    },
+}
+
+#[derive(serde::Serialize)]
+pub(in crate::rpc) struct RecallComparison {
+    cases: Vec<ComparisonCase>,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ComparisonCase {
+    candidate_pool: usize,
+    candidate_count: usize,
+    canonical_count: usize,
+    ordered_ids: Vec<String>,
+    difference: &'static str,
+    degradation: Option<String>,
+}
+
+impl ComparisonCase {
+    fn empty(candidate_pool: usize, difference: &'static str) -> Self {
+        Self {
+            candidate_pool,
+            candidate_count: 0,
+            canonical_count: 0,
+            ordered_ids: Vec::new(),
+            difference,
+            degradation: None,
+        }
+    }
+
+    fn compare(&mut self, baseline: &Self) {
+        self.difference = if self.degradation.is_some() || baseline.degradation.is_some() {
+            "incomplete-comparison"
+        } else if self.ordered_ids == baseline.ordered_ids {
+            "same-order"
+        } else if self.ordered_ids.len() == baseline.ordered_ids.len()
+            && self
+                .ordered_ids
+                .iter()
+                .all(|id| baseline.ordered_ids.contains(id))
+        {
+            "rank-order-changed"
+        } else {
+            "selected-ids-changed"
+        };
+    }
+}
+
+pub(super) fn compare(
+    engine: &ProcessEngine,
+    base: &Path,
+    query: &RecallQuery,
+    options: &RecallOptions,
+    caller: &Cancel,
+) -> Result<RecallComparison, EngineError> {
+    const POOLS: [usize; 3] = [40, 50, 100];
+    caller.check()?;
+    let admitted = engine.operations.enter(&query.principal, &query.agent)?;
+    let context = &admitted.context;
+    if query.warm_only == Some(true)
+        || context.origin_wire() != "user"
+        || context.background()
+        || JsString::from(query.query.as_str()).utf16_len() < 5
+    {
+        return Err(EngineError::Invalid {
+            field: "query".into(),
+            message: "recall comparison requires a foreground user query".into(),
+        });
+    }
+    let host = engine.operations.host();
+    let (binding, workspace) =
+        RequestContext::build_with_host_path(&query.principal, &query.agent, host)?;
+    if &binding != context || (workspace.is_none() && !context.workspace_key.is_empty()) {
+        return Err(StoreError::UntrustedPath.into());
+    }
+    let workspace = workspace
+        .as_deref()
+        .map(TrustedDirectory::open)
+        .transpose()?;
+    let empty_cases = |reason| RecallComparison {
+        cases: POOLS
+            .into_iter()
+            .map(|pool| ComparisonCase::empty(pool, reason))
+            .collect(),
+    };
+    if !engine_warm::automatic_allowed(base, context) {
+        return Ok(empty_cases("memory-disabled"));
+    }
+    let Some(routes) = engine.live_stores.diagnostic_routes()? else {
+        return Ok(empty_cases("no-store"));
+    };
+    let raw = serde_json::to_value(host.config()).map_err(|_| composition_invalid())?;
+    let overrides = serde_json::to_value(&query.budget).map_err(|_| composition_invalid())?;
+    let reranker = if options.reranker == Some(RecallOptionsReranker::Off) {
+        None
+    } else {
+        engine.embedding.pipeline_reranker()
+    };
+    let missing_reranker =
+        options.reranker == Some(RecallOptionsReranker::On) && reranker.is_none();
+    let embedder = engine.embedding.diagnostic_embedder();
+    let now = host.now_ms();
+    let mood = engine.mood.snapshot(query, caller).ok();
+    let mut cases = Vec::with_capacity(POOLS.len());
+    for candidate_pool in POOLS {
+        caller.check()?;
+        if let Some(workspace) = &workspace {
+            workspace.assert_unchanged()?;
+        }
+        let started = Instant::now();
+        let mut control =
+            RecallControl::new(started, RecallBudget::resolve(&overrides, &raw), caller);
+        let request = Foreground {
+            engine,
+            base,
+            query,
+            options,
+            raw: raw.clone(),
+            overrides: overrides.clone(),
+            reranker: reranker.clone(),
+            missing_reranker,
+            started,
+            caller,
+        };
+        let mut selection = DiagnosticSelection::default();
+        let served = retrieve(
+            &request,
+            context,
+            &mut control,
+            workspace.as_ref().map(TrustedDirectory::path),
+            now,
+            mood.as_ref(),
+            RecallAccess::Diagnostic {
+                routes: &routes,
+                embedder: embedder.as_ref(),
+                candidate_pool,
+                selection: &mut selection,
+            },
+        )?;
+        let (Served::Silent(result) | Served::Announced(result)) = served;
+        let degradation = result
+            .degraded
+            .map(|degraded| degraded.reason)
+            .or_else(|| selection.soft_limited.then(|| "soft-budget".to_owned()))
+            .or_else(|| missing_reranker.then(|| "reranker-not-configured".to_owned()));
+        let mut case = ComparisonCase {
+            candidate_pool,
+            candidate_count: selection.candidate_count,
+            canonical_count: selection.canonical_count,
+            ordered_ids: selection.ordered_ids,
+            difference: if degradation.is_some() {
+                "incomplete-comparison"
+            } else {
+                "baseline"
+            },
+            degradation,
+        };
+        if let Some(baseline) = cases.first() {
+            case.compare(baseline);
+        }
+        cases.push(case);
+    }
+    caller.check()?;
+    if let Some(workspace) = &workspace {
+        workspace.assert_unchanged()?;
+    }
+    let (verified, _) = RequestContext::build_with_host_path(&query.principal, &query.agent, host)?;
+    if &verified != context {
+        return Err(StoreError::UntrustedPath.into());
+    }
+    Ok(RecallComparison { cases })
 }
 
 pub(super) fn run(
@@ -195,6 +376,7 @@ fn serve(
             workspace.as_deref(),
             now,
             mood.as_ref(),
+            RecallAccess::Foreground,
         );
     };
     // RE-D230: the turn's mood is computed and held under its writer lease; its durable
@@ -217,6 +399,7 @@ fn serve(
             workspace.as_deref(),
             now,
             mood.as_ref(),
+            RecallAccess::Foreground,
         );
         let committed = match worker {
             Ok(worker) => worker
@@ -243,6 +426,7 @@ fn retrieve(
     workspace: Option<&Path>,
     now: i64,
     mood: Option<&Mood>,
+    access: RecallAccess<'_>,
 ) -> Result<Served, EngineError> {
     let Foreground {
         engine,
@@ -263,23 +447,40 @@ fn retrieve(
     if !control.checkpoint(false) {
         return empty(control, Value::Null).map(Served::Announced);
     }
-    let pools = engine.live_stores.recall_pools()?;
+    let pools;
+    let foreground_embedder;
+    let (routes, embedder) = match &access {
+        RecallAccess::Foreground => {
+            pools = engine.live_stores.recall_pools()?;
+            foreground_embedder = engine.embedding.pipeline_embedder();
+            (
+                pools.as_ref() as &dyn StoreRoutes,
+                foreground_embedder.as_ref(),
+            )
+        }
+        RecallAccess::Diagnostic {
+            routes, embedder, ..
+        } => (*routes, *embedder),
+    };
+    let read_only = matches!(access, RecallAccess::Diagnostic { .. });
     let neo = engine_warm::neo_root(&raw["neo"], base);
     let graph = optional(BoundGraphSource::open(&neo, context))?;
     let patterns = optional(BoundPatternSource::open(&neo, context))?;
     // The same registry the memory readers consult (RE-D153).
     let tombstones = TombstoneMask::new(base);
-    let embedder = engine.embedding.pipeline_embedder();
     let recall = &raw["recall"];
     let continuity = raw["continuityEngine"]["enabled"] != false;
     let top_n = engine_warm::bounded(&recall["maxPromptMemories"], 12, 1, 100);
-    let top_k = engine_warm::bounded(&recall["candidateTopK"], 40, 1, 100);
+    let top_k = match &access {
+        RecallAccess::Foreground => engine_warm::bounded(&recall["candidateTopK"], 40, 1, 100),
+        RecallAccess::Diagnostic { candidate_pool, .. } => *candidate_pool,
+    };
     let pipeline = Pipeline {
         emotion: mood.map(|mood| &mood.boost as &dyn EmotionalRecallState),
         identity_providers: &[],
         context,
         denials: &Denials,
-        embedder: embedder.as_ref(),
+        embedder,
         reranker: reranker.as_deref(),
         workspace_dir: workspace,
         edges: &[],
@@ -347,18 +548,20 @@ fn retrieve(
     render.additions.persona =
         crate::jobs::persona_evolve::read_voice(base, context, raw, &control.cancel)
             .unwrap_or_default();
-    match crate::jobs::reminder_dispatch::recall_rows(
-        engine.live_stores.as_ref(),
-        context,
-        &tombstones,
-        now,
-        &control.cancel,
-    ) {
-        Ok((due, pending)) => {
-            render.due_reminders = due;
-            render.pending_reminders = pending;
+    if !read_only {
+        match crate::jobs::reminder_dispatch::recall_rows(
+            engine.live_stores.as_ref(),
+            context,
+            &tombstones,
+            now,
+            &control.cancel,
+        ) {
+            Ok((due, pending)) => {
+                render.due_reminders = due;
+                render.pending_reminders = pending;
+            }
+            Err(_) => log::debug!("recall: scoped reminders unavailable"),
         }
-        Err(_) => log::debug!("recall: scoped reminders unavailable"),
     }
     render.temporal_enabled = raw["temporalContext"]["enabled"] != false;
     render.trace_enabled = trace;
@@ -366,7 +569,7 @@ fn retrieve(
     render.mood = mood.map_or(Value::Null, |mood| mood.describe.clone());
     let runtime_request = RuntimeRequest {
         pipeline,
-        routes: pools.as_ref(),
+        routes,
         render,
         filter: None,
         started,
@@ -381,6 +584,11 @@ fn retrieve(
             None => reranker.is_some(),
         },
     };
+    if let RecallAccess::Diagnostic { selection, .. } = access {
+        return runtime::run_diagnostic(runtime_request, selection)?
+            .to_contract()
+            .map(Served::Silent);
+    }
     let mut outcome = match RecallStats::new(base) {
         Ok(stats) => {
             let counted = runtime::run_with_stats(runtime_request, &stats, host)?;
@@ -552,6 +760,22 @@ impl RecallMood {
     /// The per-owner emotion engines capture routes through.
     pub(super) fn engines(&self) -> Arc<EmotionEngines> {
         self.engines.clone()
+    }
+
+    /// Score a diagnostic against a read-only copy of the current state.
+    fn snapshot(&self, query: &RecallQuery, cancel: &Cancel) -> Result<Mood, EngineError> {
+        let (describe, state, now) =
+            self.pool
+                .read(&query.principal, &query.agent, cancel, |state, now| {
+                    Ok((state.describe(now)?, state.clone(), now))
+                })?;
+        Ok(Mood {
+            describe: serde_json::from_str(&write_json(&describe)).unwrap_or(Value::Null),
+            boost: MoodBoost {
+                state: Mutex::new(state),
+                now,
+            },
+        })
     }
 
     /// Classify the prompt (tier 1/2; no tier-3 route is composed) and apply it to the bound mood.

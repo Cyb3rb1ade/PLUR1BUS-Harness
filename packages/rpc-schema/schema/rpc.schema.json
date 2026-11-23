@@ -10197,6 +10197,96 @@
           "$ref": "#/$defs/EngineContractRecallResultData"
         }
       },
+      "engine.recall.compare": {
+        "x-server": "engine",
+        "x-stability": "experimental",
+        "x-since": "1.28.0",
+        "description": "Compare three candidate pool sizes in the native Recall pipeline. Requires the verified Core link and the caller’s bound agent and workspace. Returns IDs and counts without recall or learning writes.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "query"
+          ],
+          "properties": {
+            "query": {
+              "$ref": "#/$defs/EngineContractRecallQueryData"
+            },
+            "options": {
+              "$ref": "#/$defs/EngineContractRecallOptionsData"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cases"
+          ],
+          "properties": {
+            "cases": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "candidatePool",
+                  "candidateCount",
+                  "canonicalCount",
+                  "orderedIds",
+                  "difference",
+                  "degradation"
+                ],
+                "properties": {
+                  "candidatePool": {
+                    "type": "integer",
+                    "enum": [
+                      40,
+                      50,
+                      100
+                    ]
+                  },
+                  "candidateCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Initial authorized candidates summed across the scanned tables."
+                  },
+                  "canonicalCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "orderedIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 100
+                  },
+                  "difference": {
+                    "enum": [
+                      "baseline",
+                      "same-order",
+                      "rank-order-changed",
+                      "selected-ids-changed",
+                      "incomplete-comparison",
+                      "no-store",
+                      "memory-disabled"
+                    ]
+                  },
+                  "degradation": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "engine.capture": {
         "x-server": "engine",
         "x-stability": "experimental",

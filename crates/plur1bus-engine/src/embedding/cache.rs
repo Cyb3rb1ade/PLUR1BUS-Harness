@@ -267,10 +267,7 @@ impl Cache {
             return Ok(Vec::new());
         }
         if !self.enabled {
-            let result = provider.embed(texts, kind, cancel)?;
-            validate_vectors(&result, texts.len(), width)?;
-            cancel.check()?;
-            return Ok(result);
+            return super::batch::embed_checked(provider.as_ref(), texts, kind, width, cancel);
         }
         let identity = provider.identity();
         let model = if identity.provider == "local-transformers"

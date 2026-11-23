@@ -5,7 +5,17 @@ use crate::embedding::{model_selection::ModelSelection, VectorSpaceIdentity};
 impl Service {
     /// Reuse this service's identity, batching, cache and shutdown gates in native pipelines.
     pub fn pipeline_embedder(self: &Arc<Self>) -> Arc<dyn EmbeddingProvider> {
-        Arc::new(PipelineEmbedder(self.clone()))
+        Arc::new(PipelineEmbedder {
+            service: self.clone(),
+            cache: true,
+        })
+    }
+    /// The same provider and batching, without reading or publishing embedding-cache entries.
+    pub(crate) fn diagnostic_embedder(self: &Arc<Self>) -> Arc<dyn EmbeddingProvider> {
+        Arc::new(PipelineEmbedder {
+            service: self.clone(),
+            cache: false,
+        })
     }
     /// A warm request may share this facade only when its cache has no disk tier.
     pub(crate) fn memory_only_embedder(self: &Arc<Self>) -> Option<Arc<dyn EmbeddingProvider>> {
@@ -18,13 +28,16 @@ impl Service {
             .map(|_| Arc::new(PipelineReranker(self.clone())) as Arc<dyn Reranker>)
     }
 }
-struct PipelineEmbedder(Arc<Service>);
+struct PipelineEmbedder {
+    service: Arc<Service>,
+    cache: bool,
+}
 impl EmbeddingProvider for PipelineEmbedder {
     fn model_selection(&self) -> ModelSelection {
-        self.0.provider.model_selection()
+        self.service.provider.model_selection()
     }
     fn identity(&self) -> &VectorSpaceIdentity {
-        self.0.provider.identity()
+        self.service.provider.identity()
     }
     fn embed(
         &self,
@@ -32,16 +45,25 @@ impl EmbeddingProvider for PipelineEmbedder {
         kind: EmbedKind,
         cancel: &Cancel,
     ) -> Result<Vec<Vec<f32>>, EmbedError> {
-        EmbeddingService::embed(self.0.as_ref(), texts, kind, &self.0.identity, cancel).map_err(
-            |error| match error {
-                EngineError::Cancelled(reason) => EmbedError::Cancelled(reason),
-                EngineError::Embedding(error) => error,
-                _ => EmbedError::Unavailable,
-            },
-        )
+        let result = if self.cache {
+            EmbeddingService::embed(
+                self.service.as_ref(),
+                texts,
+                kind,
+                &self.service.identity,
+                cancel,
+            )
+        } else {
+            self.service.embed_uncached(texts, kind, cancel)
+        };
+        result.map_err(|error| match error {
+            EngineError::Cancelled(reason) => EmbedError::Cancelled(reason),
+            EngineError::Embedding(error) => error,
+            _ => EmbedError::Unavailable,
+        })
     }
     fn invalidate_egress(&self) {
-        self.0.invalidate_egress();
+        self.service.invalidate_egress();
     }
 }
 struct PipelineReranker(Arc<Service>);

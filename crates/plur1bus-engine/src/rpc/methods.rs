@@ -656,6 +656,8 @@ pub(crate) fn dispatch(
         "engine.snapshot.create" | "engine.snapshot.verify" | "engine.tombstones.reapply" => {
             Err(core_link_required())
         }
+        // The read-only comparison still requires the verified live Core link.
+        "engine.recall.compare" => Err(core_link_required()),
         // These frozen native methods require a principal/context that this wire
         // contract does not carry. RE-07 must supply an explicit adapter. Its
         // runtime re-embedding request/id arguments must also remain unconsumed.
