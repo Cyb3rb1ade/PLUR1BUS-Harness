@@ -1354,6 +1354,16 @@ The Rust Gemini handshake accepts only the header form of the credential.
 The TypeScript gateway fallback can put credentials in a URL query. The
 Rust host can use a gateway that forwards the credential header.
 
+<a id="p4d-207"></a>
+
+## P4D-207 — robots.txt byte ceiling
+
+The TypeScript crawl path limits the fetched body to 512 KiB and passes up
+to 500 Ki UTF-16 code units to the parser. The Rust parser rejects a complete
+body over 500 KiB of UTF-8 bytes. Its eventual fetch port must limit decoded
+bytes before parsing and map overflow to a denied crawl, keeping an incomplete
+policy out of the crawler's cache.
+
 <a id="p4d-210"></a>
 
 ## P4D-210 — cloud synthesis stream deadline and completion
@@ -1461,3 +1471,22 @@ admitting a request. Its errors omit headers and response bodies. If the
 signed catalogue falls back to an authenticated cached view after a transport
 failure, Rust preserves the failure code and uses a generic diagnostic message.
 The TypeScript view can name the request host.
+
+<a id="p4d-227"></a>
+
+## P4D-227 — guarded web transport response bounds
+
+The Rust web transport admits up to four nested content encodings and keeps
+diagnostic response prefixes at or below 64 KiB. The TypeScript client permits
+a coding list of arbitrary depth and uses the diagnostic limit supplied by its
+caller. Body decoding and each authorized redirect share the original
+deadline. A blocking read can defer cancellation until that deadline (R-W-9).
+
+<a id="p4d-228"></a>
+
+## P4D-228 — readable HTML table admission
+
+The Rust renderer refuses table grids whose padded projection would exceed
+300,000 cells. It retains the legacy HTML element and nesting limits.
+Oversized tables fail the extraction as a whole. The TypeScript renderer
+does not apply a separate bound to the padded table grid.

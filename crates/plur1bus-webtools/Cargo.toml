@@ -1,0 +1,30 @@
+[package]
+name = "plur1bus-webtools"
+description = "Wire rules for web tools"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
+plur1bus-canon = { path = "../plur1bus-canon" }
+plur1bus-log-schema = { path = "../plur1bus-log-schema" }
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+brotli = "=8.0.4"
+flate2 = "=1.1.10"
+plur1bus-providers = { path = "../plur1bus-providers" }
+ureq = { version = "=3.4.2", default-features = false, features = ["rustls", "platform-verifier"] }
+url = "=2.5.9"
+encoding_rs = "=0.8.42"
+regex = "=1.13.1"
+serde.workspace = true
+
+[dev-dependencies]
+log = "=0.4.34"
+plur1bus-wire-log = { path = "../plur1bus-wire-log" }
+base64 = "=0.22.1"
+plur1bus-wire-fixtures = { path = "../plur1bus-wire-fixtures" }

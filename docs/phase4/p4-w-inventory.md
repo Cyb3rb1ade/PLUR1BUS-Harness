@@ -326,8 +326,20 @@ HTTP-Wechsel, Reconcile, Overrides und den Katalog-Lebenszyklus auf.
   Der Tool-Registry-/Dispatcher-Anteil von `tools.test.ts` folgt beim Flip.
 - **Ports.** Resolver, Egress, Verbindung an freigegebene Adressen, Provider-Credentials, Clock,
   Limits und Abbruch. Eine Host-Freigabe darf beim Verbindungsaufbau nicht neu aufgelöst werden.
-- **Lücken.** Explizite IP-Klassifikation und Robots-Präzedenz, Extraktionsgoldens,
-  Redirect-Entscheidungen pro Hop, Body-/Zeitgrenzen, Fehlerabbildung und Suchfallbacks.
+- **Robots-Grenze.** Die aus TypeScript aufgezeichneten Regeln decken Gruppenwahl,
+  Präzedenz und Crawl-Delay ab. [P4D-207](defects.md#p4d-207) dokumentiert das Byte-Limit.
+  Fetch prüft den Inhaltstyp und begrenzt den dekodierten Körper beim Lesen.
+
+Rust nutzt den gemeinsamen gepinnten HTTP/Rustls-Connector für Fetch und Suche.
+Der Host-Port führt vor jedem Hop die vorhandene plur1bus-core-Egress-Klassifikation
+und URL-Freigabe aus und liefert einen Socket-Pin. Regeln für Robots werden pro Origin
+über einen injizierten Cache gelesen, ein Redirect braucht seine eigene Crawl-Station.
+Fetch extrahiert Markdown und Seitensignale, führt Source-Koordinaten für agentengebundene
+Cursor und prüft neue bekannte Geheimnisse beim Lesen. Die Suche spielt Brave, Tavily,
+Exa und SearXNG mit Fallthrough, Statusklassifikation, Retry-After und Cooldown ab.
+Die gesetzten Transport- und Tabellenlimits stehen in [P4D-227](defects.md#p4d-227)
+und [P4D-228](defects.md#p4d-228). Der Flip muss den Host-Port, den privaten Cursor- und
+Robots-Cache sowie die Freigabe für Provider-Credentials anbinden.
 
 ### W7 · MCP (P4-70)
 

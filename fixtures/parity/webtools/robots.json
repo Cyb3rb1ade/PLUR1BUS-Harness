@@ -1,0 +1,88 @@
+{
+  "cases": [
+    {
+      "agent": "FixtureBot/1",
+      "body": "User-agent: *\nDisallow: /draft\nAllow: /draft/preview\nCrawl-delay: 45",
+      "expected": {
+        "decisions": [
+          true,
+          false,
+          true
+        ],
+        "delay": 30
+      },
+      "paths": [
+        "/",
+        "/draft",
+        "/draft/preview"
+      ]
+    },
+    {
+      "agent": "FixtureBot/1",
+      "body": "User-agent: *\nDisallow: /\nUser-agent: Fixture\nUser-agent: Sample\nAllow: /\nCrawl-delay: 0x5",
+      "expected": {
+        "decisions": [
+          true,
+          true
+        ],
+        "delay": 5
+      },
+      "paths": [
+        "/",
+        "/draft"
+      ]
+    },
+    {
+      "agent": "FixtureBot",
+      "body": "User-agent: *\nDisallow: /same\nAllow: /same\nDisallow: /assets/*.png$",
+      "expected": {
+        "decisions": [
+          true,
+          false,
+          true,
+          false
+        ],
+        "delay": null
+      },
+      "paths": [
+        "/same",
+        "/assets/a.png",
+        "/assets/a.png?x=1",
+        "/assets/.png"
+      ]
+    },
+    {
+      "agent": "FixtureBot",
+      "body": "User-agent:\nDisallow: /secret\nUser-agent: *\nCrawl-delay: 0.5 # comment",
+      "expected": {
+        "decisions": [
+          true,
+          true
+        ],
+        "delay": 0.5
+      },
+      "paths": [
+        "/",
+        "/secret"
+      ]
+    },
+    {
+      "agent": "test",
+      "body": "User-agent: *\r\nDisallow:\r\nDisallow: /print$\r\nCrawl-delay: -1",
+      "expected": {
+        "decisions": [
+          false,
+          true,
+          true
+        ],
+        "delay": null
+      },
+      "paths": [
+        "/print",
+        "/printer",
+        "/print/"
+      ]
+    }
+  ],
+  "source": "packages/core/src/tools/web/robots.ts"
+}

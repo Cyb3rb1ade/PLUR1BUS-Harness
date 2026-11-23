@@ -331,15 +331,23 @@ fn read_bounded(mut input: impl Read, limit: usize, deadline: Instant) -> Result
     loop {
         deadline_remaining(deadline)?;
         let count = buffer.len().min(limit - bytes.len() + 1);
-        let n = input
-            .read(&mut buffer[..count])
-            .map_err(|error| match error.kind() {
-                io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => {
-                    Error::network("request_timeout")
-                }
-                _ => Error::invalid("response_body"),
-            })?;
+        let received = input.read(&mut buffer[..count]);
         deadline_remaining(deadline)?;
+        let n = received.map_err(|error| {
+            if matches!(
+                error.kind(),
+                io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
+            ) || error.get_ref().is_some_and(|cause| {
+                matches!(
+                    cause.downcast_ref::<ureq::Error>(),
+                    Some(ureq::Error::Timeout(_))
+                )
+            }) {
+                Error::network("request_timeout")
+            } else {
+                Error::invalid("response_body")
+            }
+        })?;
         if n == 0 {
             return Ok(bytes);
         }
