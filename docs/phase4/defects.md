@@ -1654,3 +1654,14 @@ the request window. The library checks retirement and time again after
 redaction. Cache admission alone never opens a connection. Modern and
 legacy MCP HTTP requests use the same 128 UTF-16 unit limit on echoed
 string request IDs. The TypeScript server accepts longer IDs.
+
+<a id="p4d-241"></a>
+
+## P4D-241 — IMAP response metadata budget
+
+The TypeScript client limits individual literals. The Rust client also
+limits decoded metadata across a command response to 1 MiB under R-W-13,
+including an IDLE exchange. Mail payload keeps its 50 MiB per-literal
+limit and shares the existing 64 MiB total with metadata. The reader
+charges literal bytes before allocating their buffer. The existing
+SMTP/IMAP error projection uses static protocol descriptions.

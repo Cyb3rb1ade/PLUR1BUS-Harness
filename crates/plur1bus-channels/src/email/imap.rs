@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 
 const MAX_LITERAL: usize = 50 * 1024 * 1024;
 const MAX_LOGICAL: usize = 64 * 1024 * 1024;
+const MAX_METADATA: usize = 1024 * 1024;
 const MAX_RESPONSES: usize = 8192;
 const IDLE_MAX: Duration = Duration::from_secs(25 * 60);
 
@@ -26,6 +27,41 @@ struct Response {
 struct Tagged {
     status: Status,
     untagged: Vec<Response>,
+}
+
+struct ResponseBudget {
+    metadata: usize,
+    logical: usize,
+}
+
+impl Default for ResponseBudget {
+    fn default() -> Self {
+        Self {
+            metadata: MAX_METADATA,
+            logical: MAX_LOGICAL,
+        }
+    }
+}
+
+impl ResponseBudget {
+    fn line_limit(&self) -> usize {
+        self.metadata.min(self.logical).min(65_536)
+    }
+
+    fn add_metadata(&mut self, bytes: usize) -> Result<(), Error> {
+        let large = || Error::new(Kind::Protocol, "IMAP response too large");
+        self.metadata = self.metadata.checked_sub(bytes).ok_or_else(large)?;
+        self.logical = self.logical.checked_sub(bytes).ok_or_else(large)?;
+        Ok(())
+    }
+
+    fn add_literal(&mut self, bytes: usize) -> Result<(), Error> {
+        if bytes > MAX_LITERAL || bytes > self.logical {
+            return Err(Error::new(Kind::Protocol, "IMAP literal too large"));
+        }
+        self.logical -= bytes;
+        Ok(())
+    }
 }
 
 #[derive(Serialize)]
@@ -106,7 +142,7 @@ pub fn open(
         wire: Wire::open(ports, opt, "IMAP connection failed")?,
         tag: 0,
     };
-    let greeting = conn.response()?;
+    let greeting = conn.response(&mut ResponseBudget::default())?;
     if bye(&greeting.text) {
         return Err(Error::new(Kind::Network, "server refused connection"));
     }
@@ -139,12 +175,12 @@ pub fn open(
 }
 
 impl Connection {
-    fn response(&mut self) -> Result<Response, Error> {
+    fn response(&mut self, budget: &mut ResponseBudget) -> Result<Response, Error> {
         let mut text = String::new();
         let mut literals = Vec::new();
-        let mut total: usize = 0;
         loop {
-            let line = self.wire.line(65_536)?;
+            let line = self.wire.line(budget.line_limit())?;
+            budget.add_metadata(line.len())?;
             let literal = line
                 .strip_suffix('}')
                 .and_then(|line| line.rsplit_once('{'))
@@ -158,10 +194,10 @@ impl Connection {
             let size = size
                 .parse::<usize>()
                 .map_err(|_| Error::new(Kind::Protocol, "IMAP literal too large"))?;
-            total = total.saturating_add(size).saturating_add(prefix.len());
-            if size > MAX_LITERAL || total > MAX_LOGICAL || literals.len() >= MAX_RESPONSES {
+            if literals.len() >= MAX_RESPONSES {
                 return Err(Error::new(Kind::Protocol, "IMAP literal too large"));
             }
+            budget.add_literal(size)?;
             text.push_str(prefix);
             text.push_str(&format!("{{#{}}}", literals.len()));
             literals.push(self.wire.bytes(size)?);
@@ -183,9 +219,9 @@ impl Connection {
     fn command(&mut self, command: &str, mut continuation: Option<&str>) -> Result<Tagged, Error> {
         let tag = self.begin(command)?;
         let mut untagged = Vec::new();
-        let mut total = 0usize;
+        let mut budget = ResponseBudget::default();
         loop {
-            let response = self.response()?;
+            let response = self.response(&mut budget)?;
             if response.text.starts_with('+') {
                 let answer = continuation
                     .take()
@@ -195,10 +231,7 @@ impl Connection {
                 if bye(&response.text) {
                     return Err(Error::new(Kind::Network, "server closed the connection"));
                 }
-                total = total
-                    .saturating_add(response.text.len())
-                    .saturating_add(response.literals.iter().map(Vec::len).sum());
-                if total > MAX_LOGICAL || untagged.len() >= MAX_RESPONSES {
+                if untagged.len() >= MAX_RESPONSES {
                     return Err(Error::new(Kind::Protocol, "IMAP response too large"));
                 }
                 untagged.push(response);
@@ -338,8 +371,9 @@ impl Connection {
 
     pub fn idle(&mut self, budget: Duration) -> Result<Idle, Error> {
         let tag = self.begin("IDLE")?;
+        let mut received = ResponseBudget::default();
         loop {
-            let frame = self.response()?;
+            let frame = self.response(&mut received)?;
             if frame.text.starts_with('+') {
                 break;
             }
@@ -352,7 +386,7 @@ impl Connection {
         }
         self.wire.deadline_at(Instant::now() + budget.min(IDLE_MAX));
         let reason = loop {
-            match self.response() {
+            match self.response(&mut received) {
                 Ok(frame) => {
                     if let Some(status) = status(&frame.text, &tag)? {
                         return idle_result(status, Idle::Timeout);
@@ -380,7 +414,7 @@ impl Connection {
         self.wire.reset_deadline();
         self.wire.write_line("DONE")?;
         loop {
-            let frame = self.response()?;
+            let frame = self.response(&mut received)?;
             if let Some(status) = status(&frame.text, &tag)? {
                 return idle_result(status, reason);
             }
@@ -405,5 +439,42 @@ fn idle_result(status: Status, reason: Idle) -> Result<Idle, Error> {
         Ok(reason)
     } else {
         Err(Error::new(Kind::Protocol, "IDLE failed"))
+    }
+}
+
+#[cfg(test)]
+mod budget_tests {
+    use super::*;
+
+    #[test]
+    fn structured_reply_metadata_shares_one_mebibyte() {
+        let mut budget = ResponseBudget::default();
+        assert_eq!(budget.line_limit(), 65_536);
+        assert!(budget.add_metadata(MAX_METADATA - 8).is_ok());
+        assert_eq!(budget.line_limit(), 8);
+        assert!(budget.add_metadata(8).is_ok());
+        assert_eq!(budget.line_limit(), 0);
+        assert_eq!(
+            budget.add_metadata(1).err().map(|e| e.kind),
+            Some(Kind::Protocol)
+        );
+    }
+
+    #[test]
+    fn mail_payload_keeps_its_literal_ceiling_and_shares_the_total() {
+        let mut budget = ResponseBudget::default();
+        assert_eq!(
+            budget.add_literal(MAX_LITERAL + 1).err().map(|e| e.kind),
+            Some(Kind::Protocol)
+        );
+        assert!(budget.add_metadata(4).is_ok());
+        assert!(budget.add_literal(MAX_LITERAL).is_ok());
+        assert_eq!(budget.metadata, MAX_METADATA - 4);
+        let remaining = MAX_LOGICAL - MAX_LITERAL - 4;
+        assert!(budget.add_literal(remaining).is_ok());
+        assert_eq!(
+            budget.add_literal(1).err().map(|e| e.kind),
+            Some(Kind::Protocol)
+        );
     }
 }
