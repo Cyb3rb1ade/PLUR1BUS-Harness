@@ -89,7 +89,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             base_url: "http://127.0.0.1".into(),
-            version: env!("CARGO_PKG_VERSION").into(),
+            version: "0.1.0".into(),
             default_agent: None,
             features: Features::default(),
             max_body_bytes: MAX_STRUCTURED,
@@ -244,6 +244,7 @@ pub enum Output {
 
 pub struct TaskScope<'a> {
     pub peer: &'a str,
+    pub provenance: plur1bus_providers::provenance::Provenance,
     pub agent: &'a str,
 }
 
@@ -610,6 +611,7 @@ impl Endpoint {
             host,
             TaskScope {
                 peer: &peer.id,
+                provenance: crate::peer_provenance(&peer.id, false),
                 agent,
             },
             actions,

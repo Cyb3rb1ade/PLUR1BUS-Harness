@@ -1,0 +1,305 @@
+{
+  "cases": [
+    {
+      "admissions": [
+        "https://callbacks.example.invalid/report",
+        "https://callbacks.example.invalid/receipt"
+      ],
+      "deadlines": [
+        15000,
+        15000
+      ],
+      "denied": [],
+      "name": "same-origin",
+      "posts": [
+        {
+          "authorization": true,
+          "task": {
+            "contextId": "fixture-context",
+            "id": "fixture-task",
+            "kind": "task",
+            "status": {
+              "state": "completed",
+              "timestamp": "2026-01-01T00:00:00.000Z"
+            }
+          },
+          "token": true,
+          "url": "https://callbacks.example.invalid/report"
+        },
+        {
+          "authorization": true,
+          "task": {
+            "contextId": "fixture-context",
+            "id": "fixture-task",
+            "kind": "task",
+            "status": {
+              "state": "completed",
+              "timestamp": "2026-01-01T00:00:00.000Z"
+            }
+          },
+          "token": true,
+          "url": "https://callbacks.example.invalid/receipt"
+        }
+      ],
+      "results": [
+        {
+          "location": "/receipt",
+          "status": 307
+        },
+        {
+          "status": 204
+        }
+      ],
+      "waits": []
+    },
+    {
+      "admissions": [
+        "https://callbacks.example.invalid/report",
+        "https://receipts.example.invalid/receipt"
+      ],
+      "deadlines": [
+        15000,
+        15000
+      ],
+      "denied": [],
+      "name": "changed-origin",
+      "posts": [
+        {
+          "authorization": true,
+          "task": {
+            "contextId": "fixture-context",
+            "id": "fixture-task",
+            "kind": "task",
+            "status": {
+              "state": "completed",
+              "timestamp": "2026-01-01T00:00:00.000Z"
+            }
+          },
+          "token": true,
+          "url": "https://callbacks.example.invalid/report"
+        },
+        {
+          "authorization": false,
+          "task": {
+            "contextId": "fixture-context",
+            "id": "fixture-task",
+            "kind": "task",
+            "status": {
+              "state": "completed",
+              "timestamp": "2026-01-01T00:00:00.000Z"
+            }
+          },
+          "token": false,
+          "url": "https://receipts.example.invalid/receipt"
+        }
+      ],
+      "results": [
+        {
+          "location": "https://receipts.example.invalid/receipt",
+          "status": 307
+        },
+        {
+          "status": 204
+        }
+      ],
+      "waits": []
+    },
+    {
+      "admissions": [
+        "https://callbacks.example.invalid/report",
+        "https://receipts.example.invalid/receipt",
+        "https://callbacks.example.invalid/report",
+        "https://receipts.example.invalid/receipt",
+        "https://callbacks.example.invalid/report",
+        "https://receipts.example.invalid/receipt"
+      ],
+      "deadlines": [
+        15000,
+        15000,
+        15000
+      ],
+      "denied": [
+        "https://receipts.example.invalid/receipt"
+      ],
+      "name": "denied-hop",
+      "posts": [
+        {
+          "authorization": true,
+          "task": {
+            "contextId": "fixture-context",
+            "id": "fixture-task",
+            "kind": "task",
+            "status": {
+              "state": "completed",
+              "timestamp": "2026-01-01T00:00:00.000Z"
+            }
+          },
+          "token": true,
+          "url": "https://callbacks.example.invalid/report"
+        },
+        {
+          "authorization": true,
+          "task": {
+            "contextId": "fixture-context",
+            "id": "fixture-task",
+            "kind": "task",
+            "status": {
+              "state": "completed",
+              "timestamp": "2026-01-01T00:00:00.000Z"
+            }
+          },
+          "token": true,
+          "url": "https://callbacks.example.invalid/report"
+        },
+        {
+          "authorization": true,
+          "task": {
+            "contextId": "fixture-context",
+            "id": "fixture-task",
+            "kind": "task",
+            "status": {
+              "state": "completed",
+              "timestamp": "2026-01-01T00:00:00.000Z"
+            }
+          },
+          "token": true,
+          "url": "https://callbacks.example.invalid/report"
+        }
+      ],
+      "results": [
+        {
+          "location": "https://receipts.example.invalid/receipt",
+          "status": 307
+        },
+        {
+          "location": "https://receipts.example.invalid/receipt",
+          "status": 307
+        },
+        {
+          "location": "https://receipts.example.invalid/receipt",
+          "status": 307
+        }
+      ],
+      "waits": [
+        100,
+        200
+      ]
+    },
+    {
+      "admissions": [
+        "https://callbacks.example.invalid/report",
+        "https://callbacks.example.invalid/report",
+        "https://callbacks.example.invalid/report"
+      ],
+      "deadlines": [
+        15000,
+        15000,
+        15000
+      ],
+      "denied": [],
+      "name": "retry-then-deliver",
+      "posts": [
+        {
+          "authorization": true,
+          "task": {
+            "contextId": "fixture-context",
+            "id": "fixture-task",
+            "kind": "task",
+            "status": {
+              "state": "completed",
+              "timestamp": "2026-01-01T00:00:00.000Z"
+            }
+          },
+          "token": true,
+          "url": "https://callbacks.example.invalid/report"
+        },
+        {
+          "authorization": true,
+          "task": {
+            "contextId": "fixture-context",
+            "id": "fixture-task",
+            "kind": "task",
+            "status": {
+              "state": "completed",
+              "timestamp": "2026-01-01T00:00:00.000Z"
+            }
+          },
+          "token": true,
+          "url": "https://callbacks.example.invalid/report"
+        },
+        {
+          "authorization": true,
+          "task": {
+            "contextId": "fixture-context",
+            "id": "fixture-task",
+            "kind": "task",
+            "status": {
+              "state": "completed",
+              "timestamp": "2026-01-01T00:00:00.000Z"
+            }
+          },
+          "token": true,
+          "url": "https://callbacks.example.invalid/report"
+        }
+      ],
+      "results": [
+        {
+          "status": 503
+        },
+        {
+          "status": 429
+        },
+        {
+          "status": 204
+        }
+      ],
+      "waits": [
+        100,
+        200
+      ]
+    },
+    {
+      "admissions": [
+        "https://callbacks.example.invalid/report"
+      ],
+      "deadlines": [
+        15000
+      ],
+      "denied": [],
+      "name": "final-client-status",
+      "posts": [
+        {
+          "authorization": true,
+          "task": {
+            "contextId": "fixture-context",
+            "id": "fixture-task",
+            "kind": "task",
+            "status": {
+              "state": "completed",
+              "timestamp": "2026-01-01T00:00:00.000Z"
+            }
+          },
+          "token": true,
+          "url": "https://callbacks.example.invalid/report"
+        }
+      ],
+      "results": [
+        {
+          "status": 403
+        }
+      ],
+      "waits": []
+    }
+  ],
+  "source": "packages/core/src/a2a/push.ts",
+  "task": {
+    "contextId": "fixture-context",
+    "id": "fixture-task",
+    "kind": "task",
+    "status": {
+      "state": "completed",
+      "timestamp": "2026-01-01T00:00:00.000Z"
+    }
+  },
+  "url": "https://callbacks.example.invalid/report"
+}

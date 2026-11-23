@@ -49,10 +49,17 @@ impl Error {
     }
 }
 
-#[derive(Debug)]
 pub struct Parsed {
     pub parts: Vec<Json>,
     pub text: String,
+}
+
+impl std::fmt::Debug for Parsed {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        out.debug_struct("Parsed")
+            .field("part_count", &self.parts.len())
+            .finish_non_exhaustive()
+    }
 }
 
 pub(crate) fn js_space(c: char) -> bool {

@@ -48,7 +48,8 @@ async function recordDelegation() {
     const result = await client.target.run({ agentId: "a2a:sample", question, context, signal,
       principal: owner, origin: { fromAgent: execution.agent, traceId: "trace", spanId: "span" }, outbound: execution });
     if (!requestBody) throw new Error("fixture did not record the production peer envelope");
-    return { requestBodyBase64: Buffer.from(requestBody).toString("base64"), answer: result.text };
+    return { requestBodyBase64: Buffer.from(requestBody).toString("base64"), answer: result.text,
+      targetKind: result.targetKind, origin: result.origin };
   } finally {
     client.close();
     store.close();

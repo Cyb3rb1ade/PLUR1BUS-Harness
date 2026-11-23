@@ -7,6 +7,7 @@ import { verifyPeerCard } from "../../packages/core/src/a2a/peer-card.ts";
 import { hashKey } from "../../packages/core/src/a2a/policy.ts";
 import { createA2aServer } from "../../packages/core/src/a2a/server.ts";
 import { DEFAULT_LIMITS, type A2aTask } from "../../packages/core/src/a2a/types.ts";
+import { recordPush } from "./a2a-push.ts";
 import { exporterMain } from "./lib.mjs";
 
 const base = "https://fixture-peer.example.invalid";
@@ -220,7 +221,7 @@ async function recordLifecycle() {
 
 export async function recordA2aProtocol() {
   const [events, peerCards, endpoint, lifecycle] = await Promise.all([recordEvents(), recordPeerCards(), recordEndpoint(), recordLifecycle()]);
-  return { parts: recordParts(), events, "peer-cards": peerCards, endpoint, lifecycle };
+  return { parts: recordParts(), events, "peer-cards": peerCards, endpoint, lifecycle, push: await recordPush() };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

@@ -11,7 +11,7 @@ use url::{Host, Url};
 use super::{Authorization, Error};
 use crate::endpoint::Window;
 
-pub(super) fn check(window: Window<'_>) -> Result<(), Error> {
+pub(crate) fn check(window: Window<'_>) -> Result<(), Error> {
     if (window.canceled)() {
         return Err(Error::Aborted);
     }
@@ -26,7 +26,7 @@ pub(super) fn check(window: Window<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-pub(super) fn pin_matches(target: &Url, pin: SocketAddr) -> bool {
+pub(crate) fn pin_matches(target: &Url, pin: SocketAddr) -> bool {
     let ip = match target.host() {
         Some(Host::Ipv4(ip)) => Some(IpAddr::V4(ip)),
         Some(Host::Ipv6(ip)) => Some(IpAddr::V6(ip)),
@@ -100,6 +100,23 @@ pub(super) fn send(
         .body(body.unwrap_or_default())
         .map_err(|_| Error::InvalidRequest)?;
     check(window)?;
+    // From here the write may reach the peer even when there is no reply.
+    grant.mark_attempted();
+    let response = direct_agent(pin, window).run(request);
+    check(window)?;
+    let response = response.map_err(|_| Error::RequestFailed)?;
+    if response
+        .headers()
+        .get_all(header::CONTENT_ENCODING)
+        .iter()
+        .any(|coding| !coding.as_bytes().eq_ignore_ascii_case(b"identity"))
+    {
+        return Err(Error::RequestFailed);
+    }
+    Ok(response)
+}
+
+pub(crate) fn direct_agent(pin: SocketAddr, window: Window<'_>) -> ureq::Agent {
     let transport_deadline = window.deadline;
     let config = ureq::config::Config::builder()
         .proxy(None)
@@ -116,24 +133,11 @@ pub(super) fn send(
                 .build(),
         )
         .build();
-    // From here the write may reach the peer even when there is no reply.
-    grant.mark_attempted();
-    let response = pinned_http_agent(config, pin, transport_deadline).run(request);
-    check(window)?;
-    let response = response.map_err(|_| Error::RequestFailed)?;
-    if response
-        .headers()
-        .get_all(header::CONTENT_ENCODING)
-        .iter()
-        .any(|coding| !coding.as_bytes().eq_ignore_ascii_case(b"identity"))
-    {
-        return Err(Error::RequestFailed);
-    }
-    Ok(response)
+    pinned_http_agent(config, pin, transport_deadline)
 }
 
 pub(super) fn check_media(
-    response: &Response<ureq::Body>,
+    response: &Response<impl Sized>,
     stream: bool,
     cap: usize,
 ) -> Result<(), Error> {
@@ -180,7 +184,7 @@ pub(super) fn check_media(
     Ok(())
 }
 
-pub(super) fn read_json(
+pub(crate) fn read_json(
     body: &mut ureq::Body,
     cap: usize,
     window: Window<'_>,
@@ -211,5 +215,27 @@ pub(super) fn read_json(
             return Err(Error::TooLarge);
         }
         bytes.extend_from_slice(&buf[..n]);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bodyless_http_statuses_do_not_enter_the_rpc_body_reader() -> Result<(), ureq::http::Error> {
+        for status in [204, 205, 304] {
+            let response = Response::builder()
+                .status(status)
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::CONTENT_LENGTH, "0")
+                .body(())?;
+            assert_eq!(
+                check_media(&response, false, 128),
+                Err(Error::RequestFailed)
+            );
+            assert_eq!(check_media(&response, true, 128), Err(Error::RequestFailed));
+        }
+        Ok(())
     }
 }

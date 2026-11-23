@@ -1,5 +1,5 @@
 //! A2A 1.0 peer client. Core supplies the trust registry, consent and outbound leases.
-mod http;
+pub(crate) mod http;
 mod operation;
 mod reply;
 
@@ -204,8 +204,22 @@ pub struct Call<'a> {
     pub window: Window<'a>,
 }
 
+#[derive(PartialEq)]
+pub struct Received {
+    pub value: serde_json::Value,
+    pub provenance: plur1bus_providers::provenance::Provenance,
+}
+
+impl std::fmt::Debug for Received {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        out.debug_struct("Received")
+            .field("provenance", &self.provenance)
+            .finish_non_exhaustive()
+    }
+}
+
 pub enum Output<'a> {
-    Json(serde_json::Value),
+    Json(Received),
     Stream(Box<Stream<'a>>),
 }
 
@@ -416,9 +430,12 @@ impl<'a> Client<'a> {
         let result = reply::rpc_result(&raw, id)?;
         let mut result = reply::operation_result(result, operation)?;
         let mut remaining = self.limits.reply_bytes;
-        secrets.redact(&mut result, &mut remaining)?;
+        let redacted = secrets.redact(&mut result, &mut remaining)?;
         self.check(&call)?;
-        Ok(Output::Json(result))
+        Ok(Output::Json(Received {
+            value: result,
+            provenance: crate::peer_provenance(call.peer.id(), redacted),
+        }))
     }
 }
 

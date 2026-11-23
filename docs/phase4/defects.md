@@ -1858,3 +1858,22 @@ The Rust peer client refuses HTTP on a non-loopback socket unless policy
 expressly allows cleartext for that registered peer. The check runs before
 reading the bearer on discovery, each card redirect and every operation.
 TypeScript accepts registered HTTP peers without this separate switch.
+
+<a id="p4d-262"></a>
+
+## P4D-262 — Bound A2A push delivery (R-W-20)
+
+Rust bounds the serialized task at 1 MiB and the diagnostic response at
+64 KiB. It validates and pins each redirect target, refuses user information
+and fragments, and removes both credential headers when the origin changes.
+TypeScript discards the body. Rust uses a bounded reader, preserving the
+status decision when a diagnostic reply is oversized or ends early.
+
+<a id="p4d-263"></a>
+
+## P4D-263 — A2A JSON and card admission
+
+The Rust endpoint rejects numbers outside the finite f64 range and unpaired
+Unicode surrogates as parse errors. The TypeScript parser accepts these JSON
+tokens. The Rust peer card verifier also rejects control characters in
+`kid`, overlong URLs and a JSON-RPC 1.0 interface with no URL.

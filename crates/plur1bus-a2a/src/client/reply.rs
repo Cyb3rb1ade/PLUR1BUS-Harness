@@ -8,7 +8,7 @@ use serde_json::Value;
 use std::fmt::Write as _;
 use std::{collections::VecDeque, io::Read};
 
-use super::{http, Authorization, Call, Error, Operation, Policy};
+use super::{http, Authorization, Call, Error, Operation, Policy, Received};
 
 #[derive(Default)]
 pub(super) struct Secrets {
@@ -82,33 +82,37 @@ impl Secrets {
         Ok(result)
     }
 
-    pub(super) fn redact(&self, value: &mut Value, remaining: &mut usize) -> Result<(), Error> {
+    pub(super) fn redact(&self, value: &mut Value, remaining: &mut usize) -> Result<bool, Error> {
         let Some(matcher) = &self.matcher else {
-            return Ok(());
+            return Ok(false);
         };
+        let mut redacted = false;
         match value {
             Value::String(value) => {
                 if matcher.is_match(&*value) {
                     *value = Self::text(matcher, value, *remaining)?;
+                    redacted = true;
                 }
                 *remaining = remaining.checked_sub(value.len()).ok_or(Error::TooLarge)?;
             }
             Value::Array(items) => {
                 for item in items {
-                    self.redact(item, remaining)?;
+                    redacted |= self.redact(item, remaining)?;
                 }
             }
             Value::Object(fields) => {
                 // Secret-bearing property names are not part of the peer protocol.
+                let original_count = fields.len();
                 fields.retain(|key, _| !matcher.is_match(key));
+                redacted = fields.len() != original_count;
                 for (key, item) in fields {
                     *remaining = remaining.checked_sub(key.len()).ok_or(Error::TooLarge)?;
-                    self.redact(item, remaining)?;
+                    redacted |= self.redact(item, remaining)?;
                 }
             }
             _ => {}
         }
-        Ok(())
+        Ok(redacted)
     }
 }
 
@@ -282,7 +286,7 @@ impl<'a> Stream<'a> {
         Ok(())
     }
 
-    fn parse(&mut self, event: &SseEvent) -> Result<(Value, bool), Error> {
+    fn parse(&mut self, event: &SseEvent) -> Result<(Received, bool), Error> {
         if event.event.as_deref() == Some("error") {
             return Err(Error::RequestFailed);
         }
@@ -320,12 +324,19 @@ impl<'a> Stream<'a> {
             }
             _ => return Err(Error::RequestFailed),
         };
-        self.secrets
+        let redacted = self
+            .secrets
             .redact(&mut result, &mut self.output_remaining)?;
-        Ok((result, terminal))
+        Ok((
+            Received {
+                value: result,
+                provenance: crate::peer_provenance(self.call.peer.id(), redacted),
+            },
+            terminal,
+        ))
     }
 
-    pub fn next_event(&mut self) -> Result<Option<Value>, Error> {
+    pub fn next_event(&mut self) -> Result<Option<Received>, Error> {
         if self.wire.is_none() {
             return Ok(None);
         }
@@ -341,7 +352,7 @@ impl<'a> Stream<'a> {
         result.map(|(event, _)| Some(event))
     }
 
-    fn next_open(&mut self) -> Result<(Value, bool), Error> {
+    fn next_open(&mut self) -> Result<(Received, bool), Error> {
         loop {
             self.current()?;
             if let Some(event) = self.events.pop_front() {

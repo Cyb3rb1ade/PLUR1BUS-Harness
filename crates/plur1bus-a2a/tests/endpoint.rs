@@ -34,6 +34,12 @@ impl Host for FixtureHost {
 
     fn task(&self, scope: TaskScope<'_>, op: Command, _: Window<'_>) -> Result<Output, RpcError> {
         assert_eq!(scope.peer, "fixture-reader");
+        assert_eq!(scope.provenance.origin.system, "a2a");
+        assert_eq!(scope.provenance.origin.principal, scope.peer);
+        assert_eq!(
+            scope.provenance.origin.trust,
+            plur1bus_providers::provenance::Trust::Untrusted
+        );
         assert_eq!(scope.agent, "sample");
         self.calls.set(self.calls.get() + 1);
         assert!(matches!(op, Command::Get { ref id, .. } if id == "unassigned"));

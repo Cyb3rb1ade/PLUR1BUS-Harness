@@ -356,9 +356,26 @@ fn signed_peer_replays_ten_sdk_operations_over_the_pinned_socket() {
                 .clone()
         });
         match response {
-            Output::Json(actual) => assert_eq!([actual], decoded.collect::<Vec<_>>().as_slice()),
+            Output::Json(actual) => {
+                assert_eq!(actual.provenance.origin.system, "a2a");
+                assert_eq!(actual.provenance.origin.principal, peer.id());
+                assert_eq!(
+                    actual.provenance.origin.trust,
+                    plur1bus_providers::provenance::Trust::Untrusted
+                );
+                assert_eq!([actual.value], decoded.collect::<Vec<_>>().as_slice());
+            }
             Output::Stream(mut wire) => {
-                let actual: Vec<_> = std::iter::from_fn(|| wire.next_event().unwrap()).collect();
+                let actual: Vec<_> = std::iter::from_fn(|| wire.next_event().unwrap())
+                    .map(|event| {
+                        assert_eq!(event.provenance.origin.system, "a2a");
+                        assert_eq!(
+                            event.provenance.origin.trust,
+                            plur1bus_providers::provenance::Trust::Untrusted
+                        );
+                        event.value
+                    })
+                    .collect();
                 assert_eq!(actual, decoded.collect::<Vec<_>>());
             }
         }
@@ -608,9 +625,10 @@ fn request_cap_precedes_even_discovery_and_decoded_replies_are_bounded() {
 
 #[test]
 fn delegation_uses_the_production_envelope_recorded_from_the_typescript_peer_client() {
-    let fixture = records();
+    let recordings = records();
+    let recorded = &recordings["delegation"];
     let bytes = STANDARD
-        .decode(fixture["delegation"]["requestBodyBase64"].as_str().unwrap())
+        .decode(recorded["requestBodyBase64"].as_str().unwrap())
         .unwrap();
     let request: Value = serde_json::from_slice(&bytes).unwrap();
     let text = request["params"]["message"]["parts"][0]["text"]
@@ -636,7 +654,16 @@ fn delegation_uses_the_production_envelope_recorded_from_the_typescript_peer_cli
     else {
         panic!("expected JSON")
     };
-    assert_eq!(result["message"]["parts"][0]["text"], "Antwort 🌱");
+    assert_eq!(
+        result.value["message"]["parts"][0]["text"],
+        recorded["answer"]
+    );
+    assert_eq!(result.provenance.origin.system, recorded["origin"]);
+    assert_eq!(recorded["targetKind"], "external");
+    assert_eq!(
+        result.provenance.origin.trust,
+        plur1bus_providers::provenance::Trust::Untrusted
+    );
 }
 
 #[test]
@@ -802,10 +829,14 @@ fn logs_hide_credentials_and_peer_diagnostics_and_results_mask_reflections() {
         panic!("expected JSON")
     };
     assert_eq!(
-        result["text"],
+        result.value["text"],
         "[REDACTED:secret] [REDACTED:secret] [REDACTED:secret]"
     );
-    assert!(result.get(BEARER).is_none());
+    assert!(result.value.get(BEARER).is_none());
+    assert_eq!(
+        result.provenance.transformed_by,
+        [plur1bus_providers::provenance::Transformation::Redact]
+    );
     let messages = log.lock().unwrap().join("\n");
     assert!(messages.contains("logging control"));
     for secret in [MARKER, BEARER, TOKEN] {
@@ -1008,4 +1039,30 @@ fn a_remote_http_pin_is_checked_before_reading_the_bearer() {
     assert!(policy.records.borrow().contains(&Record::CredentialRead));
     assert!(!policy.records.borrow().contains(&Record::Attempted));
     assert!(server.received().is_empty());
+}
+
+#[test]
+fn a_peer_204_cannot_complete_a_json_rpc_call() {
+    let server = ready_fixture(json!({"status":204}));
+    let policy = PolicyFixture::new(server.addr);
+    let registration = peer(server.addr);
+    let client = Client::new(&policy, Limits::default()).unwrap();
+    let op = Operation::DeletePush {
+        task: "task-example",
+        config: "push-example",
+    };
+    assert_eq!(
+        error(client.perform(call(&registration), op, "rpc-fixture")),
+        Error::RequestFailed
+    );
+    assert_eq!(server.received().len(), 2);
+    assert_eq!(
+        policy
+            .records
+            .borrow()
+            .iter()
+            .filter(|r| matches!(r, Record::Settled(_)))
+            .count(),
+        1
+    );
 }

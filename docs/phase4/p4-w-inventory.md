@@ -472,12 +472,12 @@ registry and reserves OAuth attempt capacity per principal.
   Client und Endpunkt sowie V für Card-/Part-/Event-Formen und Protokollvalidierung. Persistenz,
   Session-Turns und Core-Policy-Bindung bekommen ihre Abnahme beim Flip (T/S).
 - **Ports.** Egress, Identitäts-/Bearer-Prüfung, Policy-Abfrage, Task-/Peer-Zustand, Turn und
-  Cancellation, Uhr/Zufall, Push-Transport.
+  Cancellation, Uhr/Zufall, Push-Zielfreigabe und Terminierung.
 Der Rust-Endpunkt gibt die geschlossene öffentliche 0.3-Karte aus. Die
 Request-Gates prüfen Loopback, Host, Rate, Peer, Agent-Freigabe und Bodygröße.
 Parts, Task- und Push-Kommandos sowie SSE-Frames sind native Protokolltypen.
-Der Host-Port besitzt Tasks, Turn-Laufzeit, Einwilligung, Push-Zustellung und
-Aufbewahrung. Die Aufnahmen enthalten Ablehnungen und vollständige HTTP-
+Der Host-Port besitzt Tasks, Turn-Laufzeit, Einwilligung, Terminierung der
+Push-Zustellung und Aufbewahrung. Die Aufnahmen enthalten Ablehnungen und vollständige HTTP-
 Wechsel mit Status, Abbruch, Push-Konfiguration und Wiederanmeldung eines
 Streams. Der Rust-Test vergleicht die Antwortbytes nach Ersetzung flüchtiger
 IDs im Exporter.
@@ -491,6 +491,19 @@ TypeScript-SDK-Client für zehn protokollierte Operationen und die
 Core-Peer-Implementierung für einen Delegationsaufruf. Der Flip verbindet
 die Ports mit der produktiven Zustandsverwaltung. Die Abweichungen stehen
 in [P4D-209](defects.md#p4d-209) und [P4D-235–238](defects.md#p4d-235).
+
+HTTP für registrierte Peers ist außerhalb von Loopback nur mit einer
+ausdrücklichen Freigabe je Peer erlaubt ([P4D-261](defects.md#p4d-261)).
+Die Push-Bibliothek prüft und pinnt jeden Redirect-Sprung über den
+Egress-Port, entfernt bei einem Origin-Wechsel beide Zugangsdaten und
+setzt Fristen, Retry/Backoff und Körpergrenzen durch
+([P4D-262](defects.md#p4d-262)). Der Host autorisiert die Push-Konfiguration
+und plant die Zustellung. Antworten und eingehende Task-Kommandos tragen
+die lokale A2A-Herkunftsmarke. Beim Flip bildet der Host gemäß R-K-26
+`a2a-peer:<id>` separat von `ext:a2a:person:` und `ext:a2a:token:`.
+Die präzisierte JSON- und Kartenzulassung steht in
+[P4D-263](defects.md#p4d-263). A2A-RPC verlangt einen korrelierten Körper,
+auch wenn ein Peer mit 204 antwortet.
 
 ### Nachprüfung W6–W8
 
