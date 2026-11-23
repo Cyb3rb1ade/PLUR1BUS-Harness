@@ -266,3 +266,28 @@ fn failed_scans_keep_credentials_and_response_details_out_of_diagnostics() {
         assert!(records.iter().all(|record| !record.contains(marker)));
     }
 }
+
+#[test]
+fn a_partial_scanner_page_maps_the_body_deadline_to_timeout() {
+    let fixture = json!({"transport":"http","exchanges":[{
+        "request":{"method":"GET","path":"/models"},
+        "response":{"status":200,"headers":{"content-type":"application/json"},
+            "chunksBase64":["eyJkYXRhIjo=","W119"],"chunkGapMs":1500}
+    }]});
+    let server = FakeServer::start(&fixture);
+    let uri = format!("http://{}/", server.addr).parse().unwrap();
+    let host = Fixture(server.addr);
+    let mut http = Http::new(&host, &uri, "fixture-discovery/1", None, true).unwrap();
+    assert_eq!(
+        scanners::scan(
+            Scanner::OpenAi,
+            false,
+            &mut http,
+            Instant::now() + Duration::from_secs(1),
+            &|| false,
+        )
+        .err(),
+        Some(Error::network("request_timeout"))
+    );
+    assert_eq!(server.received().len(), 1);
+}
