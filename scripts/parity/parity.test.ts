@@ -1499,6 +1499,17 @@ describe("media image provider protocols (P4-W W4)", () => {
   });
 });
 
+describe("media video provider protocols (P4-W W4)", () => {
+  it("matches the TypeScript submission, checkpoint, poll and binary exchanges", async () => {
+    const { videoProviders, recordMediaVideoWire } = await import("./export-media-video-wire.ts");
+    const cases = await recordMediaVideoWire();
+    for (const provider of videoProviders) {
+      const name = "video-wire-" + provider;
+      assert.equal(readFileSync(fixturePath("media", name), "utf8"), fixtureText(cases[name]), provider);
+    }
+  });
+});
+
 describe("media video publication (P4-W W4)", () => {
   it("matches the TypeScript video store, processor and byte accounting", async () => {
     const { recordMediaVideoStore } = await import("./export-media-video-store.ts");

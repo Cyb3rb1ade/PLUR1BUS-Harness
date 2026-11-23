@@ -16,8 +16,12 @@ mod image;
 mod ordered;
 mod payload;
 mod schema;
+mod video;
 
 pub use image::{ImageAdapter, ImageOutput, ImageRequest};
+pub use video::{
+    Download, ReferenceVideo, SanitizedVideo, VideoAdapter, VideoOutput, VideoProfile, VideoRequest,
+};
 
 type Call<T> = std::result::Result<T, Failure>;
 
