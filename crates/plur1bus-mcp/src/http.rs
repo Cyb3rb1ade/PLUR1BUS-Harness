@@ -11,16 +11,21 @@ use std::{
 use futures::stream::BoxStream;
 use plur1bus_providers::pinned_http_agent;
 use rmcp::{
-    model::{ClientJsonRpcMessage, ClientRequest, ErrorData, ServerJsonRpcMessage},
+    model::{
+        ClientJsonRpcMessage, ClientRequest, ErrorCode, ErrorData, ProtocolVersion,
+        ServerJsonRpcMessage,
+    },
     transport::streamable_http_client::{
-        AuthRequiredError, HttpStatusError, SseError, StreamableHttpClient, StreamableHttpError,
-        StreamableHttpPostResponse,
+        AuthRequiredError, HttpStatusError, InsufficientScopeError, SseError, StreamableHttpClient,
+        StreamableHttpError, StreamableHttpPostResponse,
     },
 };
 use sse_stream::Sse;
 use tokio::task::spawn_blocking;
 use ureq::http::{header, HeaderMap, HeaderName, HeaderValue, Method, Request, Response};
 use url::{Host, Url};
+
+use crate::auth::challenge::{Challenge, Observer};
 
 pub(crate) mod encode;
 mod sse;
@@ -73,6 +78,9 @@ pub struct HttpClient {
     admission: Arc<dyn Admission>,
     timeout: Duration,
     frame_limit: usize,
+    include_progress: bool,
+    challenges: Option<Arc<dyn Observer>>,
+    allow_legacy_probe: bool,
 }
 
 impl fmt::Debug for HttpClient {
@@ -105,12 +113,92 @@ impl HttpClient {
             admission,
             timeout,
             frame_limit: MAX_FRAME_BYTES,
+            include_progress: true,
+            challenges: None,
+            allow_legacy_probe: false,
         })
     }
 
     /// A caller may apply a smaller frame limit, such as the legacy Core's 1 MiB.
     pub fn with_frame_limit(mut self, limit: usize) -> Self {
         self.frame_limit = limit.min(MAX_FRAME_BYTES);
+        self
+    }
+
+    pub fn with_challenges(mut self, observer: Arc<dyn Observer>) -> Self {
+        self.challenges = Some(observer);
+        self
+    }
+
+    fn challenge(&self, response: &Response<ureq::Body>) -> Option<SdkError> {
+        let status = response.status().as_u16();
+        if !matches!(status, 401 | 403) {
+            return None;
+        }
+        let challenge = response
+            .headers()
+            .get_all(header::WWW_AUTHENTICATE)
+            .iter()
+            .filter_map(|header| header.to_str().ok())
+            .find_map(Challenge::parse)
+            .unwrap_or_default();
+        if status == 403 && !challenge.insufficient_scope() {
+            return None;
+        }
+        if let Some(observer) = &self.challenges {
+            observer.required(&self.endpoint, challenge);
+        }
+        Some(if status == 401 {
+            SdkError::AuthRequired(AuthRequiredError::new(String::new()))
+        } else {
+            SdkError::InsufficientScope(InsufficientScopeError::new(String::new(), None))
+        })
+    }
+
+    pub(crate) fn allow_legacy_probe(mut self, allow: bool) -> Self {
+        self.allow_legacy_probe = allow;
+        self
+    }
+
+    fn legacy_probe(&self, message: &ClientJsonRpcMessage, reply: &mut ServerJsonRpcMessage) {
+        if !self.allow_legacy_probe {
+            return;
+        }
+        let ClientJsonRpcMessage::Request(request) = message else {
+            return;
+        };
+        if !matches!(request.request, ClientRequest::DiscoverRequest(_)) {
+            return;
+        }
+        let ServerJsonRpcMessage::Error(reply) = reply else {
+            return;
+        };
+        if reply.error.code != ErrorCode::UNSUPPORTED_PROTOCOL_VERSION {
+            return;
+        }
+        if reply
+            .error
+            .data
+            .as_ref()
+            .and_then(|data| data["supported"].as_array())
+            .is_some_and(|supported| {
+                !supported
+                    .iter()
+                    .any(|version| version == ProtocolVersion::V_2026_07_28.as_str())
+                    && supported.iter().any(|version| {
+                        matches!(
+                            version.as_str(),
+                            Some("2025-11-25" | "2025-06-18" | "2025-03-26")
+                        )
+                    })
+            })
+        {
+            reply.error = ErrorData::invalid_request("MCP peer advertises a legacy version", None);
+        }
+    }
+
+    pub(crate) fn passive(mut self) -> Self {
+        self.include_progress = false;
         self
     }
 
@@ -205,6 +293,9 @@ impl HttpClient {
         let session_attached = request.session_id.is_some();
         let (mut response, deadline) = self.open(request).map_err(SdkError::Client)?;
         let status = response.status().as_u16();
+        if let Some(error) = self.challenge(&response) {
+            return Err(error);
+        }
         if status == 404 && session_attached {
             return Err(SdkError::SessionExpired);
         }
@@ -223,7 +314,9 @@ impl HttpClient {
             return match mime {
                 Mime::Json => {
                     let body = read_bounded(&mut response, deadline, self.frame_limit)?;
-                    Ok(StreamableHttpPostResponse::Json(decode(&body)?, session))
+                    let mut reply = decode(&body)?;
+                    self.legacy_probe(message, &mut reply);
+                    Ok(StreamableHttpPostResponse::Json(reply, session))
                 }
                 Mime::Sse => Ok(StreamableHttpPostResponse::Sse(
                     sse::stream(response.into_body(), deadline, sse_limit),
@@ -233,16 +326,17 @@ impl HttpClient {
             };
         }
         let body = read_bounded(&mut response, deadline, MAX_DIAGNOSTIC_BYTES)?;
-        if status == 401 {
-            return Err(SdkError::AuthRequired(
-                AuthRequiredError::new(String::new()),
-            ));
-        }
         if !session_attached && (400..500).contains(&status) && status != 403 {
             if let ClientJsonRpcMessage::Request(request) = message {
                 if matches!(request.request, ClientRequest::DiscoverRequest(_)) {
                     let error = match decode(&body) {
-                        Ok(ServerJsonRpcMessage::Error(reply)) => reply.error,
+                        Ok(mut parsed @ ServerJsonRpcMessage::Error(_)) => {
+                            self.legacy_probe(message, &mut parsed);
+                            match parsed {
+                                ServerJsonRpcMessage::Error(reply) => reply.error,
+                                _ => ErrorData::invalid_request("MCP discovery rejected", None),
+                            }
+                        }
                         _ => ErrorData::invalid_request("MCP discovery rejected", None),
                     };
                     return Ok(StreamableHttpPostResponse::Json(
@@ -262,11 +356,11 @@ impl HttpClient {
 
     fn get(&self, request: Outbound, sse_limit: usize) -> SdkResult<SseStream> {
         let (mut response, deadline) = self.open(request).map_err(SdkError::Client)?;
+        if let Some(error) = self.challenge(&response) {
+            return Err(error);
+        }
         match response.status().as_u16() {
             405 => Err(SdkError::ServerDoesNotSupportSse),
-            401 => Err(SdkError::AuthRequired(
-                AuthRequiredError::new(String::new()),
-            )),
             404 => Err(SdkError::SessionExpired),
             200 if media_type(response.headers()) == Mime::Sse => {
                 Ok(sse::stream(response.into_body(), deadline, sse_limit))
@@ -313,8 +407,8 @@ impl StreamableHttpClient for HttpClient {
     ) -> SdkResult<StreamableHttpPostResponse> {
         let client = self.clone();
         spawn_blocking(move || {
-            let body =
-                encode::message(&message).map_err(|_| SdkError::Client(Error::InvalidBody))?;
+            let body = encode::message(&message, client.include_progress, false)
+                .map_err(|_| SdkError::Client(Error::InvalidBody))?;
             client.post(
                 Outbound {
                     method: Method::POST,
@@ -598,7 +692,28 @@ fn decode(body: &[u8]) -> SdkResult<ServerJsonRpcMessage> {
         serde_json::from_slice(body).map_err(|_| SdkError::Client(Error::InvalidBody))?;
     if let ServerJsonRpcMessage::Error(reply) = &mut message {
         reply.error.message = "MCP peer rejected request".into();
-        reply.error.data = None;
+        reply.error.data = if reply.error.code == ErrorCode::UNSUPPORTED_PROTOCOL_VERSION {
+            let versions = reply
+                .error
+                .data
+                .as_ref()
+                .and_then(|data| data.get("supported"))
+                .and_then(serde_json::Value::as_array);
+            versions.map(|versions| {
+                let supported = ProtocolVersion::KNOWN_VERSIONS
+                    .iter()
+                    .filter(|known| {
+                        versions
+                            .iter()
+                            .any(|raw| raw.as_str() == Some(known.as_str()))
+                    })
+                    .map(ProtocolVersion::as_str)
+                    .collect::<Vec<_>>();
+                serde_json::json!({"supported":supported})
+            })
+        } else {
+            None
+        };
     }
     Ok(message)
 }

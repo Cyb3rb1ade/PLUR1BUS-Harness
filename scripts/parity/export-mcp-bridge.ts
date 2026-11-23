@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { runMcpMain } from "../../packages/core/src/mcp/stdio-server.ts";
 import { exporterMain } from "./lib.mjs";
 
-async function recordBridge() {
+export async function recordBridge() {
   const token = "fixture-bridge-token";
   const old = process.env.PLUR1BUS_MCP_TOKEN;
   process.env.PLUR1BUS_MCP_TOKEN = token;

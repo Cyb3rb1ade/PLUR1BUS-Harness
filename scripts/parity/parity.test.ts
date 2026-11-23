@@ -1639,3 +1639,16 @@ describe("MCP OAuth exchanges (P4-W W7)", () => {
     assert.equal(readFileSync(fixturePath("mcp", "auth"), "utf8"), fixtureText((await recordMcpAuth()).auth));
   });
 });
+
+describe("MCP server and stdio exchanges (P4-W W7)", () => {
+  it("matches the TypeScript server's modern and legacy results", async () => {
+    const { recordMcpServer } = await import("./export-mcp-server.ts");
+    assert.equal(readFileSync(fixturePath("mcp", "server"), "utf8"), fixtureText((await recordMcpServer()).server));
+  });
+  it("matches the TypeScript stdio and bridge frames", async () => {
+    const { recordMcpStdio } = await import("./export-mcp-stdio.ts");
+    const { recordBridge } = await import("./export-mcp-bridge.ts");
+    assert.equal(readFileSync(fixturePath("mcp", "stdio"), "utf8"), fixtureText((await recordMcpStdio()).stdio));
+    assert.equal(readFileSync(fixturePath("mcp", "bridge"), "utf8"), fixtureText((await recordBridge()).bridge));
+  });
+});

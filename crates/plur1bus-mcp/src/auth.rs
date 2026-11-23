@@ -768,3 +768,7 @@ fn scopes(raw: Option<&str>) -> Result<BTreeSet<String>, Error> {
         })
         .collect()
 }
+
+pub mod attempts;
+
+pub mod challenge;

@@ -311,3 +311,59 @@ fn rust_oauth_replays_typescript_forms_refresh_and_device_backoff() {
         }
     }
 }
+
+#[test]
+fn attempt_callback_is_explicit_caller_bound_single_use_and_expires() {
+    use plur1bus_mcp::auth::attempts::{Attempts, Error as AttemptError, State};
+    let attempts = Attempts::default();
+    let redirect = "http://127.0.0.1:7081/callback";
+    attempts
+        .start("a", "person-a", "server", redirect, 100, 200)
+        .unwrap();
+    assert!(matches!(
+        attempts.start("b", "person-b", "server", redirect, 100, 100),
+        Err(AttemptError::Conflict)
+    ));
+    assert_eq!(
+        attempts.status("missing", "person-b", 130).err(),
+        Some(AttemptError::Access)
+    );
+    assert_eq!(
+        attempts.status("a", "person-b", 130).err(),
+        Some(AttemptError::Access)
+    );
+    attempts.awaiting("a", "person-a", 140, false).unwrap();
+    assert_eq!(
+        attempts
+            .submit(
+                "a",
+                "person-a",
+                150,
+                "http://127.0.0.1:7081/another?code=fixture&state=example"
+            )
+            .err(),
+        Some(AttemptError::Invalid)
+    );
+    let callback = format!("{redirect}?code=fixture&state=example");
+    attempts.submit("a", "person-a", 150, &callback).unwrap();
+    assert_eq!(
+        attempts.submit("a", "person-a", 151, &callback).err(),
+        Some(AttemptError::Conflict)
+    );
+    assert_eq!(
+        attempts.finish("a", "person-a", 152, true).unwrap().state,
+        State::Authorized
+    );
+    attempts
+        .start("b", "person-a", "server", redirect, 160, 30)
+        .unwrap();
+    attempts.awaiting("b", "person-a", 175, false).unwrap();
+    assert_eq!(
+        attempts.status("b", "person-a", 190).unwrap().state,
+        State::Expired
+    );
+    assert_eq!(
+        attempts.submit("b", "person-a", 190, &callback).err(),
+        Some(AttemptError::Conflict)
+    );
+}

@@ -49,8 +49,10 @@ async fn byte_limit_applies_to_each_complete_line_across_reads() {
 async fn an_unfinished_line_has_a_deadline_and_ends_the_connection() {
     let (mut stdio, mut peer) = paired();
     peer.write_all(br#"{"jsonrpc":"2.0","#).await.unwrap();
+    let started = std::time::Instant::now();
     assert!(stdio.receive().await.is_none());
     assert_eq!(stdio.failure(), Some(Error::Timeout));
+    assert!(started.elapsed() < Duration::from_millis(1_100));
 }
 
 #[tokio::test]
@@ -66,4 +68,45 @@ async fn output_is_a_single_frame_and_close_flushes_owned_stdin() {
         actual,
         b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}\n"
     );
+}
+
+#[tokio::test]
+async fn native_stdio_preserves_recorded_typescript_request_frames() {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use serde_json::Value;
+    let data: Value =
+        serde_json::from_str(include_str!("../../../fixtures/parity/mcp/stdio.json")).unwrap();
+    for case in data["cases"].as_array().unwrap() {
+        let (local, mut peer) = duplex(64 * 1024);
+        let (read, write) = split(local);
+        let mut framed = Framed::<RoleClient, _, _>::new(read, write, 1024 * 1024, WAIT).unwrap();
+        if case["mode"] == "legacy" {
+            framed = framed.with_legacy_envelope();
+        }
+        let request = STANDARD.decode(case["request"].as_str().unwrap()).unwrap();
+        for line in request.split_inclusive(|byte| *byte == b'\n') {
+            framed
+                .send(serde_json::from_slice(line).unwrap())
+                .await
+                .unwrap();
+        }
+        let replies = STANDARD.decode(case["response"].as_str().unwrap()).unwrap();
+        peer.write_all(&replies).await.unwrap();
+        peer.shutdown().await.unwrap();
+        for line in replies.split_inclusive(|byte| *byte == b'\n') {
+            let expected: Value = serde_json::from_slice(line).unwrap();
+            let actual = serde_json::to_value(framed.receive().await.unwrap()).unwrap();
+            assert_eq!(actual["id"], expected["id"]);
+            assert_eq!(actual["result"], expected["result"]);
+        }
+        assert!(framed.receive().await.is_none());
+        assert_eq!(framed.failure(), None);
+        framed.close().await.unwrap();
+        let mut sent = Vec::new();
+        peer.read_to_end(&mut sent).await.unwrap();
+        assert_eq!(
+            String::from_utf8(sent).unwrap(),
+            String::from_utf8(request).unwrap()
+        );
+    }
 }

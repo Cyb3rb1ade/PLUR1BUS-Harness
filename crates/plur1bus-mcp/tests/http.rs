@@ -348,3 +348,45 @@ async fn typed_http_backend_replays_modern_and_session_bound_typescript_exchange
         }
     }
 }
+
+#[test]
+fn oauth_hint_reaches_the_private_observer_and_stays_out_of_sdk_diagnostics() {
+    use plur1bus_mcp::auth::challenge::{Challenge, Observer};
+    use plur1bus_mcp::session::{Error as SessionError, HttpOptions, Protocol, Session, Timing};
+    struct Observe(std::sync::Mutex<Option<(String, Challenge)>>);
+    impl Observer for Observe {
+        fn required(&self, resource: &Url, challenge: Challenge) {
+            *self.0.lock().unwrap() = Some((resource.to_string(), challenge));
+        }
+    }
+    let marker = "ordinary-oauth-peer-marker";
+    let peer = FakeServer::start_with(|addr| {
+        json!({"transport":"http","exchanges":[{
+            "request":{"method":"POST","path":"/mcp"},
+            "response":{"status":403,"headers":{
+                "www-authenticate":format!("Bearer resource_metadata=\"http://{addr}/oauth\", scope=\"read\", error=\"insufficient_scope\", error_description=\"{marker}\"")
+            },"body":{"message":marker}}
+        }]})
+    });
+    let observer = Arc::new(Observe(std::sync::Mutex::new(None)));
+    let endpoint = format!("http://{}/mcp", peer.addr);
+    let options = HttpOptions {
+        endpoint: endpoint.clone(),
+        admission: Arc::new(Pin(peer.addr)),
+        bearer: None,
+        headers: Default::default(),
+        protocol: Protocol::Modern,
+        timing: Timing::default(),
+    };
+    let result = Session::open_http_with_challenges(options, Some(observer.clone()));
+    assert!(
+        matches!(result, Err(SessionError::AuthRequired)),
+        "{result:?}"
+    );
+    assert!(!format!("{result:?}").contains(marker));
+    let (resource, challenge) = observer.0.lock().unwrap().take().unwrap();
+    assert_eq!(resource, endpoint);
+    assert!(challenge.insufficient_scope());
+    assert_eq!(challenge.scope(), Some("read"));
+    assert_eq!(challenge.metadata().unwrap().path(), "/oauth");
+}

@@ -56,6 +56,8 @@ pub struct Framed<Role, R, W> {
     limit: usize,
     timeout: Duration,
     failure: Fault,
+    include_progress: bool,
+    legacy_envelope: bool,
     _role: PhantomData<fn() -> Role>,
 }
 
@@ -80,8 +82,21 @@ where
             limit: limit.min(MAX_FRAME_BYTES),
             timeout,
             failure: Fault::default(),
+            include_progress: true,
+            legacy_envelope: false,
             _role: PhantomData,
         })
+    }
+
+    /// Emit the legacy TypeScript SDK's request envelope order on stdio.
+    pub fn with_legacy_envelope(mut self) -> Self {
+        self.legacy_envelope = true;
+        self
+    }
+
+    pub(crate) fn passive(mut self) -> Self {
+        self.include_progress = false;
+        self
     }
 
     pub fn failure(&self) -> Option<Error> {
@@ -141,11 +156,14 @@ where
         let write = Arc::clone(&self.write);
         let failure = Arc::clone(&self.failure);
         let limit = self.limit;
+        let include_progress = self.include_progress;
+        let legacy_envelope = self.legacy_envelope;
         let deadline = Instant::now().checked_add(self.timeout);
         async move {
             let deadline = deadline.ok_or(Error::Timeout)?;
             let mut bytes =
-                crate::http::encode::message(&message).map_err(|_| Error::InvalidFrame)?;
+                crate::http::encode::message(&message, include_progress, legacy_envelope)
+                    .map_err(|_| Error::InvalidFrame)?;
             if bytes.len() > limit {
                 return Err(Error::FrameLimit);
             }

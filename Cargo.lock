@@ -6262,6 +6262,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "futures",
+ "jsonschema",
  "plur1bus-providers",
  "plur1bus-wire-fixtures",
  "rmcp",
@@ -6270,6 +6271,7 @@ dependencies = [
  "sha2 0.10.9",
  "sse-stream",
  "tokio",
+ "tracing",
  "ureq",
  "url",
 ]

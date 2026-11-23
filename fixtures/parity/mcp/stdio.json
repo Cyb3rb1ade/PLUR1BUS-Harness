@@ -1,0 +1,48 @@
+{
+  "cases": [
+    {
+      "mode": "modern",
+      "observed": {
+        "result": {
+          "content": [
+            {
+              "text": "ok",
+              "type": "text"
+            }
+          ],
+          "resultType": "complete",
+          "structuredContent": {
+            "answer": "café"
+          }
+        },
+        "tools": [
+          "echo"
+        ]
+      },
+      "request": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjEsIm1ldGhvZCI6InNlcnZlci9kaXNjb3ZlciIsInBhcmFtcyI6eyJfbWV0YSI6eyJpby5tb2RlbGNvbnRleHRwcm90b2NvbC9wcm90b2NvbFZlcnNpb24iOiIyMDI2LTA3LTI4IiwiaW8ubW9kZWxjb250ZXh0cHJvdG9jb2wvY2xpZW50Q2FwYWJpbGl0aWVzIjp7fSwiaW8ubW9kZWxjb250ZXh0cHJvdG9jb2wvY2xpZW50SW5mbyI6eyJuYW1lIjoicGx1cjFidXMtaGFybmVzcyIsInZlcnNpb24iOiIwLjEuMCJ9fX19CnsianNvbnJwYyI6IjIuMCIsImlkIjoyLCJtZXRob2QiOiJ0b29scy9saXN0IiwicGFyYW1zIjp7Il9tZXRhIjp7ImlvLm1vZGVsY29udGV4dHByb3RvY29sL3Byb3RvY29sVmVyc2lvbiI6IjIwMjYtMDctMjgiLCJpby5tb2RlbGNvbnRleHRwcm90b2NvbC9jbGllbnRDYXBhYmlsaXRpZXMiOnt9LCJpby5tb2RlbGNvbnRleHRwcm90b2NvbC9jbGllbnRJbmZvIjp7Im5hbWUiOiJwbHVyMWJ1cy1oYXJuZXNzIiwidmVyc2lvbiI6IjAuMS4wIn19fX0KeyJqc29ucnBjIjoiMi4wIiwiaWQiOjMsIm1ldGhvZCI6InRvb2xzL2NhbGwiLCJwYXJhbXMiOnsibmFtZSI6ImVjaG8iLCJhcmd1bWVudHMiOnsidGV4dCI6ImNhZsOpIn0sIl9tZXRhIjp7ImlvLm1vZGVsY29udGV4dHByb3RvY29sL3Byb3RvY29sVmVyc2lvbiI6IjIwMjYtMDctMjgiLCJpby5tb2RlbGNvbnRleHRwcm90b2NvbC9jbGllbnRDYXBhYmlsaXRpZXMiOnt9LCJpby5tb2RlbGNvbnRleHRwcm90b2NvbC9jbGllbnRJbmZvIjp7Im5hbWUiOiJwbHVyMWJ1cy1oYXJuZXNzIiwidmVyc2lvbiI6IjAuMS4wIn19fX0K",
+      "response": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjEsInJlc3VsdCI6eyJyZXN1bHRUeXBlIjoiY29tcGxldGUiLCJ0dGxNcyI6MCwiY2FjaGVTY29wZSI6InByaXZhdGUiLCJzdXBwb3J0ZWRWZXJzaW9ucyI6WyIyMDI2LTA3LTI4Il0sImNhcGFiaWxpdGllcyI6eyJ0b29scyI6e30sInJlc291cmNlcyI6e30sInByb21wdHMiOnt9fSwiX21ldGEiOnsiaW8ubW9kZWxjb250ZXh0cHJvdG9jb2wvc2VydmVySW5mbyI6eyJuYW1lIjoiY29uZm9ybWFuY2UiLCJ2ZXJzaW9uIjoiMSJ9fX19CnsianNvbnJwYyI6IjIuMCIsImlkIjoyLCJyZXN1bHQiOnsicmVzdWx0VHlwZSI6ImNvbXBsZXRlIiwidHRsTXMiOjAsImNhY2hlU2NvcGUiOiJwcml2YXRlIiwidG9vbHMiOlt7Im5hbWUiOiJlY2hvIiwiaW5wdXRTY2hlbWEiOnsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidGV4dCI6eyJ0eXBlIjoic3RyaW5nIiwieC1tY3AtaGVhZGVyIjoiVGV4dCJ9fX0sIm91dHB1dFNjaGVtYSI6eyJ0eXBlIjoib2JqZWN0IiwicmVxdWlyZWQiOlsiYW5zd2VyIl0sInByb3BlcnRpZXMiOnsiYW5zd2VyIjp7InR5cGUiOiJzdHJpbmcifX19fV19fQp7Impzb25ycGMiOiIyLjAiLCJpZCI6MywicmVzdWx0Ijp7InJlc3VsdFR5cGUiOiJjb21wbGV0ZSIsImNvbnRlbnQiOlt7InR5cGUiOiJ0ZXh0IiwidGV4dCI6Im9rIn1dLCJzdHJ1Y3R1cmVkQ29udGVudCI6eyJhbnN3ZXIiOiJjYWbDqSJ9fX0K"
+    },
+    {
+      "mode": "legacy",
+      "observed": {
+        "result": {
+          "content": [
+            {
+              "text": "ok",
+              "type": "text"
+            }
+          ],
+          "structuredContent": {
+            "answer": "café"
+          }
+        },
+        "tools": [
+          "echo"
+        ]
+      },
+      "request": "eyJtZXRob2QiOiJpbml0aWFsaXplIiwicGFyYW1zIjp7InByb3RvY29sVmVyc2lvbiI6IjIwMjUtMTEtMjUiLCJjYXBhYmlsaXRpZXMiOnt9LCJjbGllbnRJbmZvIjp7Im5hbWUiOiJwbHVyMWJ1cy1oYXJuZXNzIiwidmVyc2lvbiI6IjAuMS4wIn19LCJqc29ucnBjIjoiMi4wIiwiaWQiOjB9CnsibWV0aG9kIjoibm90aWZpY2F0aW9ucy9pbml0aWFsaXplZCIsImpzb25ycGMiOiIyLjAifQp7Im1ldGhvZCI6InRvb2xzL2xpc3QiLCJwYXJhbXMiOnt9LCJqc29ucnBjIjoiMi4wIiwiaWQiOjF9CnsibWV0aG9kIjoidG9vbHMvY2FsbCIsInBhcmFtcyI6eyJuYW1lIjoiZWNobyIsImFyZ3VtZW50cyI6eyJ0ZXh0IjoiY2Fmw6kifX0sImpzb25ycGMiOiIyLjAiLCJpZCI6Mn0K",
+      "response": "eyJyZXN1bHQiOnsicHJvdG9jb2xWZXJzaW9uIjoiMjAyNS0xMS0yNSIsImNhcGFiaWxpdGllcyI6eyJ0b29scyI6eyJsaXN0Q2hhbmdlZCI6dHJ1ZX0sInJlc291cmNlcyI6eyJzdWJzY3JpYmUiOnRydWUsImxpc3RDaGFuZ2VkIjp0cnVlfSwicHJvbXB0cyI6eyJsaXN0Q2hhbmdlZCI6dHJ1ZX19LCJzZXJ2ZXJJbmZvIjp7Im5hbWUiOiJjb25mb3JtYW5jZSIsInZlcnNpb24iOiIxIn19LCJqc29ucnBjIjoiMi4wIiwiaWQiOjB9CnsicmVzdWx0Ijp7InRvb2xzIjpbeyJuYW1lIjoiZWNobyIsImlucHV0U2NoZW1hIjp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InRleHQiOnsidHlwZSI6InN0cmluZyIsIngtbWNwLWhlYWRlciI6IlRleHQifX19LCJvdXRwdXRTY2hlbWEiOnsidHlwZSI6Im9iamVjdCIsInJlcXVpcmVkIjpbImFuc3dlciJdLCJwcm9wZXJ0aWVzIjp7ImFuc3dlciI6eyJ0eXBlIjoic3RyaW5nIn19fX1dfSwianNvbnJwYyI6IjIuMCIsImlkIjoxfQp7InJlc3VsdCI6eyJjb250ZW50IjpbeyJ0eXBlIjoidGV4dCIsInRleHQiOiJvayJ9XSwic3RydWN0dXJlZENvbnRlbnQiOnsiYW5zd2VyIjoiY2Fmw6kifX0sImpzb25ycGMiOiIyLjAiLCJpZCI6Mn0K"
+    }
+  ],
+  "source": "packages/core/src/mcp/stdio.ts"
+}

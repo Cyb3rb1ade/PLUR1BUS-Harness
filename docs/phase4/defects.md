@@ -1509,9 +1509,11 @@ does not apply a separate bound to the padded table grid.
 The generic Rust MCP backend reads structured HTTP replies up to the 16 MiB
 SDK ceiling and caps error replies at 64 KiB. It applies a single finite
 deadline from the egress decision through the last read and counts raw SSE
-event bytes before parsing. The HTTP adapter asks for identity coding and
-rejects other encodings. Error diagnostics contain status and category. The
-adapter discards peer-provided error text and arbitrary error data.
+event bytes before parsing. The composed connection keeps the TypeScript
+1 MiB frame limit. The HTTP adapter asks for identity coding and rejects
+other encodings. Error diagnostics contain status and category. The adapter
+discards peer-provided error text and arbitrary error data. It keeps only
+known version names for a bounded discovery fallback.
 
 <a id="p4d-230"></a>
 
@@ -1532,3 +1534,34 @@ line starts. The deadline survives read cancellation and applies to the
 remainder of that line. If a send stops after taking the writer, the stream
 closes so a partial write cannot prefix a new frame. Process-group termination
 and stderr ownership remain with the launcher port.
+
+<a id="p4d-232"></a>
+
+## P4D-232 — MCP runtime request IDs and SDK logging
+
+The rmcp client numbers its own modern requests from zero. The TypeScript
+modern peer numbers them from one. The IDs are local correlation values,
+and the replay accounts for the offset while comparing the other request
+bytes. The Rust SDK runs on a dedicated thread with a scoped tracing
+dispatcher so that SDK events carrying peer data cannot enter host logs.
+The host still applies the shared wire-record filter to the HTTP library.
+
+<a id="p4d-233"></a>
+
+## P4D-233 — content-free MCP server diagnostics
+
+The Rust HTTP protocol uses the same JSON-RPC codes for mismatched
+MCP parameter headers. Its message omits parameter-header names and
+values. Tool lookup likewise uses one response for both an unavailable
+tool and a name the actor is not allowed to use.
+
+<a id="p4d-234"></a>
+
+## P4D-234 — MCP tool output schema admission
+
+Like TypeScript, the native client checks a structural copy of a tool's output
+schema with regex keywords removed. Rust also refuses schema references and
+caps schema and instance nodes, nesting, container sizes and validation work.
+The original descriptor remains available to the caller. A refused schema
+does not authorize the call. Validation errors omit peer diagnostics and
+response contents.
