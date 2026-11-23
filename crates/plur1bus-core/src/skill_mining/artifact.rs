@@ -9,7 +9,7 @@ use crate::rbac::{
     authorize::authorize,
     types::{AuthorizeContext, Principal, Resource, Role},
 };
-use plur1bus_store::rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
+use plur1bus_store::rusqlite::{params, OptionalExtension};
 use serde::Serialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -150,7 +150,7 @@ impl Store {
 
     fn inspect_snapshot(&self, snapshot: Snapshot) -> R<Inspection> {
         let digest = hash(&snapshot.bytes);
-        let tx = Transaction::new_unchecked(self.db.conn(), TransactionBehavior::Immediate)?;
+        let tx = plur1bus_store::begin_immediate(self.db.conn())?;
         let row = tx
             .query_row(
                 "SELECT author,hash FROM artifact_provenance WHERE path=?",
