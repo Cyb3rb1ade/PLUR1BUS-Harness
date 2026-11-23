@@ -264,6 +264,7 @@ pub fn request(
         } else {
             agent.run(builder.body(()).map_err(|_| Failure::InvalidUrl)?)
         };
+        remaining(options.deadline, aborted)?;
         let mut response = response.map_err(wire_failure)?;
         let status = response.status().as_u16();
         let redirection = matches!(status, 301 | 302 | 303 | 307 | 308);

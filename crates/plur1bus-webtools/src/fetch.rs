@@ -182,7 +182,11 @@ impl Client<'_> {
         let mut metadata_windows = [None; 4];
         let mut markdown = match (args.mode, kind) {
             (Mode::Raw, _) | (_, Kind::Text) => input,
-            (_, Kind::Json) => crate::json::pretty(&input).unwrap_or(input),
+            (_, Kind::Json) => {
+                crate::json::pretty(&input, self.max_extracted_tokens.saturating_mul(4))
+                    .map_err(|_| Failure::TooLarge)?
+                    .unwrap_or(input)
+            }
             (_, Kind::Html) => {
                 let extracted = html::extract(&input, response.url.as_str(), &|value, field| {
                     let key = match field {
@@ -307,6 +311,14 @@ impl Client<'_> {
             next = Some(begin);
         }
         let mut output = entry.meta.clone();
+        if let Some(url) = output["finalUrl"].as_str() {
+            let shown = masked(ctx.matcher, url);
+            output["finalUrl"] = json!(shown);
+            output["provenance"]["url"] = json!(shown);
+        }
+        if let Some(content_type) = output["contentType"].as_str() {
+            output["contentType"] = json!(masked(ctx.matcher, content_type));
+        }
         for (index, (field, limit)) in META_LIMITS.into_iter().enumerate() {
             if let Some(value) = output[field].as_str() {
                 let need = limit

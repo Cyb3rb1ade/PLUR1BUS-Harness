@@ -402,6 +402,16 @@ Core-Peer-Implementierung für einen Delegationsaufruf. Der Flip verbindet
 die Ports mit der produktiven Zustandsverwaltung. Die Abweichungen stehen
 in [P4D-209](defects.md#p4d-209) und [P4D-235–238](defects.md#p4d-235).
 
+### Nachprüfung W6–W8
+
+Der lesende Durchgang nach W8 deckt HTTP-, SSE-, stdio-, Parser- und
+Freigabegrenzen der Transportschichten ab. Die Korrekturen in
+[P4D-239](defects.md#p4d-239) und [P4D-240](defects.md#p4d-240) beziehen sich
+auf Web-Fetch-Metadaten, Suchanbieter, die durchgehende Frist,
+die JSON-Ausgabegröße, MCP-Cachefreigaben und Fehlerantworten.
+Die Regressionsfälle verwenden Loopback-Server, synthetische
+Credential-Marker und lokale Host-Doubles.
+
 ### W9 · Matrix (P4-65, Owner-Entscheidung)
 
 [Quellen](../../packages/channels-matrix/src) und [Tests](../../packages/channels-matrix/test)
@@ -454,3 +464,20 @@ Fehlerstatus, Header-Normalisierung, Request-Framing, Body-Grenze und Byteprotok
 SSE-Chunk-Länge und -Abschluss sowie WebSocket-Accept, Maskierung, Close-Code und
 serverseitige Erstnachricht. Die Laufzeit- und Plattformabnahme gehört zum Abschluss
 des Pakets.
+
+## W10 · Paketabnahme
+
+Die Modulkarte ordnet die 328 Quell- und 397 Testzeilen im Prüfbereich
+den Bibliotheken, den beteiligten Core-Ports und ihren Paritätsmodi zu.
+Das schließt die gemeinsam genutzte Egress-Klassifikation und die explizit
+ausgenommene lokale Voice-Laufzeit ein. Die Modulkarte führt außerdem
+Speicher-, Prozess-, Sitzungs- und RPC-Tests zu den Hosts, die sie beim
+Flip ausführen. Die zwölf Generator-Tests prüfen unter anderem vollständige
+Erfassung, verwendete Regeln und Reproduzierbarkeit.
+
+Die lokale Abnahme umfasst alle W-Crates und ihre gemeinsamen
+Transport-Fixtures, die TypeScript-Suite, die Paritätsexporter und die
+Dokument-Goldens mit demselben Chromium für beide Renderer. Die
+gezielten Rücknahmen und ihre Testnamen liegen im Lauf-Ledger. Native
+Linux- und Windows-Checks und die unabhängigen Reviews gehören zum
+Paketnachweis im PR.

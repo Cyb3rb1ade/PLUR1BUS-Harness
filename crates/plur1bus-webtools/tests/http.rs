@@ -313,3 +313,38 @@ fn the_port_must_attest_the_requested_socket() {
     );
     assert!(desired.received().is_empty() && separate.received().is_empty());
 }
+
+#[test]
+fn cancellation_after_headers_also_closes_bodyless_responses_and_redirects() {
+    let server = FakeServer::start(&json!({
+        "transport":"http", "exchanges":[
+            { "request":{ "method":"HEAD", "path":"/empty" }, "response":{ "status":204 }},
+            { "request":{ "method":"GET", "path":"/old" },
+              "response":{ "status":302, "headers":{ "location":"/new" } }},
+        ],
+    }));
+    let pin = Pin {
+        address: server.addr,
+        seen: Mutex::new(Vec::new()),
+    };
+    for (method, path, total) in [
+        (ureq::http::Method::HEAD, "/empty", 1),
+        (ureq::http::Method::GET, "/old", 2),
+    ] {
+        let target = format!("http://{}{path}", server.addr);
+        let fields = HeaderMap::new();
+        let mut options = Options::get(
+            &fields,
+            "fixture-web",
+            "*/*",
+            Instant::now() + Duration::from_secs(2),
+        );
+        options.method = method;
+        let exchanged = || server.received().len() >= total;
+        assert_eq!(
+            http::request(&target, &options, &pin, &exchanged).err(),
+            Some(Failure::Timeout)
+        );
+        assert_eq!(pin.seen.lock().unwrap().len(), total);
+    }
+}

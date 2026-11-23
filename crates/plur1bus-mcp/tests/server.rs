@@ -203,3 +203,27 @@ fn legacy_and_modern_sdk_sessions_share_the_native_stdio_protocol_layer() {
     }
     assert_eq!(effect.0.load(Ordering::Acquire), 2);
 }
+
+#[test]
+fn http_rpc_refuses_unbounded_ids_before_forming_a_diagnostic() {
+    let actor = Actor::new("fixture-agent", "fixture-person").unwrap();
+    let effect = Arc::new(Echo::default());
+    let server = Server::new(actor, vec![echo_tool()], effect.clone(), 30_000).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let fields = HeaderMap::new();
+    for units in [128, 129] {
+        let id = "a".repeat(units);
+        let raw =
+            serde_json::to_vec(&json!({"jsonrpc":"2.0", "id": id, "method": "tools/inspect"}))
+                .unwrap();
+        let reply = server.respond(&fields, &raw, deadline);
+        if units == 128 {
+            assert_eq!(reply.message["id"], id);
+            assert_eq!(reply.message["error"]["code"], -32601);
+        } else {
+            assert!(reply.message["id"].is_null());
+            assert_eq!(reply.message["error"]["code"], -32600);
+        }
+    }
+    assert_eq!(effect.0.load(Ordering::Acquire), 0);
+}

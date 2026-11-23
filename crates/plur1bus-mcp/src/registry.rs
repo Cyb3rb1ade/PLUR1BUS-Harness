@@ -360,7 +360,9 @@ impl Registry {
     }
 
     pub fn invoke(&self, name: &str, actor: &str, call: Call, deadline: Instant) -> Result<Value> {
-        self.invoke_entry(self.resolve(name, actor)?.as_ref(), call, deadline)
+        let entry = self.resolve(name, actor)?;
+        self.admit_entry(&entry, deadline)?;
+        self.invoke_entry(&entry, call, deadline)
     }
 
     pub fn list_tools(
@@ -371,6 +373,7 @@ impl Registry {
         deadline: Instant,
     ) -> Result<Value> {
         let entry = self.resolve(name, actor)?;
+        self.admit_entry(&entry, deadline)?;
         if !refresh {
             let state = entry.state()?;
             if let Some(cache) = &state.cache {
@@ -378,6 +381,12 @@ impl Registry {
                     let mut data = cache.data.clone();
                     drop(state);
                     self.host.redact(&entry.def, &mut data);
+                    if entry.state()?.retired {
+                        return Err(RegistryError::NotRegistered);
+                    }
+                    if Instant::now() >= deadline {
+                        return Err(Error::Timeout.into());
+                    }
                     return bounded(&entry.def, data);
                 }
             }
@@ -467,8 +476,15 @@ impl Registry {
             .ok_or(RegistryError::NotRegistered)
     }
 
-    fn invoke_entry(&self, entry: &Entry, call: Call, deadline: Instant) -> Result<Value> {
+    fn admit_entry(&self, entry: &Entry, deadline: Instant) -> Result<()> {
+        if Instant::now() >= deadline {
+            return Err(Error::Timeout.into());
+        }
         self.host.admit(&entry.def)?;
+        Ok(())
+    }
+
+    fn invoke_entry(&self, entry: &Entry, call: Call, deadline: Instant) -> Result<Value> {
         let _lease = Lease::new(entry, self.host.as_ref())?;
         let conn = entry.ensure(self.host.as_ref(), deadline)?;
         let cache = matches!(call, Call::ListTools);

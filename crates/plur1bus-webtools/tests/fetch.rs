@@ -168,8 +168,9 @@ fn a_cached_cursor_rechecks_the_current_secret_matcher_without_fetching_again() 
         use base64::{engine::general_purpose::STANDARD, Engine as _};
         STANDARD.encode(text.as_bytes())
     };
+    let route = format!("/notes?section={marker}");
     let server = FakeServer::start(&json!({"transport":"http","exchanges":[{
-        "request":{"method":"GET","path":"/notes"},
+        "request":{"method":"GET","path": route},
         "response":{"status":200,"headers":{"content-type":"text/plain"},"chunksBase64":[encoded]}
     }]}));
     let port = Port(server.addr);
@@ -186,7 +187,7 @@ fn a_cached_cursor_rechecks_the_current_secret_matcher_without_fetching_again() 
         default_max_tokens: 100,
         max_extracted_tokens: 200_000,
     };
-    let url = format!("http://{}/notes", server.addr);
+    let url = format!("http://{}{route}", server.addr);
     let mut args = Args {
         url: &url,
         mode: Mode::Auto,
@@ -213,5 +214,12 @@ fn a_cached_cursor_rechecks_the_current_secret_matcher_without_fetching_again() 
         format!("Here is {} in a later paragraph. Notes continue.", mask())
     );
     assert_eq!(second["fromCache"], true);
+    assert!(first["finalUrl"].as_str().unwrap().contains(marker));
+    assert!(!second["finalUrl"].as_str().unwrap().contains(marker));
+    assert!(!second["provenance"]["url"]
+        .as_str()
+        .unwrap()
+        .contains(marker));
+    assert!(!second.to_string().contains(marker));
     assert_eq!(server.received().len(), 1);
 }

@@ -174,7 +174,18 @@ impl Server {
                 "Invalid Request: batch or non-object payload",
             );
         }
-        let id = request.get("id").cloned().unwrap_or(Value::Null);
+        let id = match request.get("id") {
+            None | Some(Value::Null) => Value::Null,
+            Some(value)
+                if value.is_i64()
+                    || value
+                        .as_str()
+                        .is_some_and(|id| id.encode_utf16().count() <= 128) =>
+            {
+                value.clone()
+            }
+            _ => return failure(200, Value::Null, -32600, "Invalid JSON-RPC 2.0 request"),
+        };
         let Some(method) = request["method"]
             .as_str()
             .filter(|method| !method.is_empty())
@@ -189,9 +200,6 @@ impl Server {
                 status: 202,
                 message: Value::Null,
             };
-        }
-        if !(id.is_string() || id.is_i64() || id.is_null()) {
-            return failure(200, Value::Null, -32600, "Invalid JSON-RPC 2.0 request");
         }
         let params = &request["params"];
         let versions = [

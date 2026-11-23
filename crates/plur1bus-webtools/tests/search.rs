@@ -219,3 +219,54 @@ fn vendor_requests_retry_fallback_and_results_match_typescript() {
     assert!(records.iter().any(|record| record == CONTROL));
     assert!(records.iter().all(|record| !record.contains(MARKER)));
 }
+
+#[test]
+fn a_vendor_reply_cannot_copy_the_bound_lease_into_a_search_result() {
+    let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, MARKER);
+    let server = FakeServer::start(&json!({
+        "transport":"http", "exchanges":[
+            { "request":{ "method":"POST", "path":"/search" },
+              "response":{ "status":200, "body": { "results":[
+                  { "title": format!("Catalog {MARKER}"), "url":"https://books.example.invalid/catalog",
+                    "content": format!("Description {encoded}") },
+                  { "title":"About", "url":format!("https://books.example.invalid/{MARKER}") },
+              ] } }},
+        ],
+    }));
+    let endpoint = Url::parse(&format!("http://{}/search", server.addr)).unwrap();
+    let clock = FixedClock {
+        now: Cell::new(1_700_000_000_000),
+        sleeps: RefCell::new(Vec::new()),
+    };
+    let keys = Keys {
+        origin: endpoint.origin(),
+        missing: false,
+    };
+    let vendor = Configured {
+        vendor: Vendor::Tavily,
+        endpoint: &endpoint,
+        admission: &Port(server.addr),
+        credentials: Some(&keys),
+        clock: &clock,
+        limiter: &RateLimit::new(0),
+        user_agent: "fixture-web",
+        max_inline_wait_ms: 10,
+        default_cooldown_seconds: 1,
+        outcome: None,
+    };
+    let query = Query {
+        query: "Catalog".into(),
+        count: 2,
+        freshness: None,
+        site: None,
+        lang: None,
+    };
+    let actual = vendor
+        .search(&query, Instant::now() + Duration::from_secs(2), &|| false)
+        .unwrap();
+    let result = serde_json::to_string(&actual).unwrap();
+    assert_eq!(actual.len(), 1);
+    assert!(result.contains("Catalog"));
+    assert!(!result.contains(MARKER));
+    assert!(!result.contains(&encoded));
+}
