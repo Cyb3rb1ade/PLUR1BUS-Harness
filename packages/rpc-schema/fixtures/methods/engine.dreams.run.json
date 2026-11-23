@@ -6,7 +6,6 @@
       "runId": "fixture-phase",
       "phase": "deep",
       "trigger": "manual",
-      "scheduledFor": null,
       "idempotencyKey": "fixture-corpus-window",
       "claim": true
     }

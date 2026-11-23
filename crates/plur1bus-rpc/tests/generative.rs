@@ -1987,6 +1987,8 @@ table! {
     Result "engine.dreams.diary" EngineDreamsDiaryResult,
     Params "engine.dreams.log" EngineDreamsLogParams,
     Result "engine.dreams.log" EngineDreamsLogResult,
+    Params "engine.dreams.run" EngineDreamsRunParams,
+    Result "engine.dreams.run" EngineDreamsRunResult,
     Params "engine.dreams.schedule" EngineDreamsScheduleParams,
     Result "engine.dreams.schedule" EngineDreamsScheduleResult,
     Params "engine.dreams.status" EngineDreamsStatusParams,

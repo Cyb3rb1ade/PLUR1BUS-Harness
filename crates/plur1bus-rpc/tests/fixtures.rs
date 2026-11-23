@@ -260,6 +260,7 @@ fn method_fixture(name: &str, f: &Value) {
         >(name, f),
         "engine.dreams.diary" => pair::<EngineDreamsDiaryParams, EngineDreamsDiaryResult>(name, f),
         "engine.dreams.log" => pair::<EngineDreamsLogParams, EngineDreamsLogResult>(name, f),
+        "engine.dreams.run" => pair::<EngineDreamsRunParams, EngineDreamsRunResult>(name, f),
         "engine.dreams.schedule" => {
             pair::<EngineDreamsScheduleParams, EngineDreamsScheduleResult>(name, f)
         }
