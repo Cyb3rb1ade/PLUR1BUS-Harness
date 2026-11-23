@@ -1548,6 +1548,11 @@ describe("media job orchestration (P4-W W4)", () => {
     const expected = fixtureText((await recordMediaJobs())["job-runner"]);
     assert.equal(readFileSync(fixturePath("media", "job-runner"), "utf8"), expected);
   });
+  it("matches persisted Buffer and Uint8Array requests and adapter inputs", async () => {
+    const { recordMediaJobInputs } = await import("./export-media-job-inputs.ts");
+    const expected = fixtureText((await recordMediaJobInputs())["job-inputs"]);
+    assert.equal(readFileSync(fixturePath("media", "job-inputs"), "utf8"), expected);
+  });
 });
 
 describe("document template assembly (P4-W W4)", () => {

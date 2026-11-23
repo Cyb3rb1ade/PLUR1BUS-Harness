@@ -1397,6 +1397,8 @@ The storage port applies the size limit during the read. The library checks
 the returned size, schema and output identity before handing the manifest to
 its caller, and applies the same bound before publishing new manifests.
 
+<a id="p4d-221"></a>
+
 ## P4D-221 — document review font family matching
 
 The TypeScript font check in the document library compares lowercased
@@ -1406,6 +1408,8 @@ flags families absent from the document and the system fallback list. The
 fixture records the TypeScript finding. The Rust check also resolves the
 template's three CSS font variables against their declared family lists.
 
+<a id="p4d-222"></a>
+
 ## P4D-222 — document widow check with inline markup
 
 The Chromium layout check addresses the last words of each paragraph
@@ -1413,6 +1417,8 @@ relative to the complete paragraph text. The TypeScript script applies
 those offsets to the first child alone. A paragraph with emphasis or a
 link can therefore abort the check. The Rust asset maps word offsets to
 the corresponding text nodes before comparing line positions.
+
+<a id="p4d-223"></a>
 
 ## P4D-223 — media adapter structured response and diagnostics limits
 

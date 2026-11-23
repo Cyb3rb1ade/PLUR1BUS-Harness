@@ -13,6 +13,9 @@ use serde_json::Value;
 
 use crate::units::{self, Invalid, Units};
 
+mod request;
+pub use request::{Input, JobRequest};
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -118,7 +121,7 @@ pub enum Update {
 pub struct AdapterCall<'a> {
     pub adapter: &'a str,
     pub operation: AdapterOperation,
-    pub request: &'a Value,
+    pub request: &'a JobRequest,
     pub checkpoint: Option<&'a Checkpoint>,
     /// The adapter transport observes this during blocking operations and returns
     /// the corresponding typed end reason before the caller proceeds.
@@ -141,7 +144,7 @@ pub trait Host: Sync {
     fn claim(&self, id: &str) -> Result<()>;
     fn release(&self, id: &str) -> Result<()>;
     fn find_output(&self, id: &str) -> Result<Option<Value>>;
-    fn publish(&self, id: &str, request: &Value, output: Self::Output) -> Result<Value>;
+    fn publish(&self, id: &str, request: &JobRequest, output: Self::Output) -> Result<Value>;
     fn reserve(&self, id: &str, requested: Units) -> Result<()>;
     fn settle(&self, id: &str, delivered: Option<Units>) -> Result<()>;
     fn produce(
@@ -165,7 +168,7 @@ impl<'a, H: Host> Runner<'a, H> {
     }
 
     pub fn enqueue(&self, adapter: &str, request: Value, operation: Operation) -> Result<Job> {
-        units::requested(&request)?;
+        JobRequest::decode(&request)?.units()?;
         if !self.host.supports(adapter) {
             return Err(Error::BackendUnavailable);
         }
@@ -306,13 +309,12 @@ impl<'a, H: Host> Runner<'a, H> {
             (_, Operation::Edit) => AdapterOperation::Edit,
             (_, Operation::Generate) => AdapterOperation::Generate,
         };
-        self.host
-            .reserve(&job.id, units::requested(&job.request)?)?;
+        let request = JobRequest::decode(&job.request)?;
+        self.host.reserve(&job.id, request.units()?)?;
         *reserved = true;
         job.state = State::Running;
         self.save(job)?;
         let adapter = job.adapter.clone();
-        let request = job.request.clone();
         let checkpoint = job.checkpoint.clone();
         let output = self.host.produce(
             AdapterCall {
@@ -337,7 +339,7 @@ impl<'a, H: Host> Runner<'a, H> {
             },
         )?;
         no_abort(abort)?;
-        self.host.publish(&job.id, &job.request, output)
+        self.host.publish(&job.id, &request, output)
     }
 
     fn finish(&self, job: &mut Job, output: Value) -> Result<()> {
@@ -346,7 +348,7 @@ impl<'a, H: Host> Runner<'a, H> {
             .iter()
             .map(|f| f["durationSeconds"].as_f64())
             .collect();
-        let delivered = units::delivered(units::requested(&job.request)?, &durations)?;
+        let delivered = units::delivered(request::requested(&job.request)?, &durations)?;
         // A failed settle or terminal save leaves the running row recoverable via
         // the already published output. Retrying never resubmits the provider job.
         self.host.settle(&job.id, Some(delivered))?;

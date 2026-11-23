@@ -23,6 +23,7 @@ const CDP_MESSAGE_LIMIT: usize = 32 * 1024 * 1024;
 const MAX_HTML: usize = 20 * 1024 * 1024;
 const MAX_PAGED_JS: u64 = 2 * 1024 * 1024;
 const POLL: Duration = Duration::from_millis(25);
+const PROFILE_CLOSE_GRACE: Duration = Duration::from_secs(1);
 
 pub struct Chromium<'a> {
     binary: &'a Path,
@@ -91,10 +92,22 @@ impl<'a> Chromium<'a> {
             .prefix("plur1bus-doc-")
             .tempdir_in(self.private_root)
             .map_err(|_| Error::BrowserUnavailable)?;
-        let document = directory.path().join("document.html");
+        let result = self.with_profile(directory.path(), html, control, run);
+        let cleanup = remove_profile(directory);
+        result.and_then(|value| cleanup.map(|()| value))
+    }
+
+    fn with_profile<T>(
+        &self,
+        directory: &Path,
+        html: &str,
+        control: Control<'_>,
+        run: impl FnOnce(&mut Client<'_, LocalWire>) -> Result<T>,
+    ) -> Result<T> {
+        let document = directory.join("document.html");
         fs::write(&document, html).map_err(|_| Error::BrowserUnavailable)?;
         let file_url = Url::from_file_path(&document).map_err(|()| Error::BrowserUnavailable)?;
-        let profile = directory.path().join("profile");
+        let profile = directory.join("profile");
         let mut browser = BrowserProcess::spawn(self.binary, &profile)?;
         let address = discover(&mut browser, &profile, control)?;
         let endpoint = find_page(address, control)?;
@@ -123,6 +136,34 @@ impl<'a> Chromium<'a> {
         })();
         browser.close(&mut wire.socket, control.deadline);
         result
+    }
+}
+
+fn remove_profile(directory: tempfile::TempDir) -> Result<()> {
+    let path = directory.path().to_owned();
+    if directory.close().is_ok() {
+        return Ok(());
+    }
+    // Chromium can close its final file handles during recursive removal.
+    // Retry only the private directory this launch created.
+    let deadline = Instant::now() + PROFILE_CLOSE_GRACE;
+    loop {
+        match fs::remove_dir_all(&path) {
+            Ok(()) => return Ok(()),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+            Err(error)
+                if Instant::now() < deadline
+                    && matches!(
+                        error.kind(),
+                        io::ErrorKind::DirectoryNotEmpty
+                            | io::ErrorKind::PermissionDenied
+                            | io::ErrorKind::ResourceBusy
+                    ) =>
+            {
+                thread::sleep(POLL.min(deadline.saturating_duration_since(Instant::now())));
+            }
+            Err(_) => return Err(Error::BrowserUnavailable),
+        }
     }
 }
 
@@ -177,7 +218,7 @@ impl BrowserProcess {
     }
 
     fn close(&mut self, socket: &mut Socket, deadline: Instant) {
-        let deadline = deadline.min(Instant::now() + Duration::from_millis(250));
+        let deadline = deadline.min(Instant::now() + PROFILE_CLOSE_GRACE);
         let _ = socket.send_text_until(
             r#"{"id":9007199254740991,"method":"Browser.close"}"#,
             deadline,

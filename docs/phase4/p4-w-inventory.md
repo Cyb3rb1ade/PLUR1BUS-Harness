@@ -260,7 +260,7 @@ JSON values.
 - **Flip-Ports.** Der Host bleibt zuständig für Credentials, DNS-Pin, Warteplan, Takt, Zufall,
   Abbruch, dauerhafte Job- und Store-Backends, Upload-Bindungen, die privaten ffmpeg-
   und CoreML-Prozesse sowie Chromium- und Asset-Pfade. R-W-13 begrenzt die dekodierte
-  JSON-Antwort und die Diagnose in [P4D-223](defects.md#p4d-223--media-adapter-structured-response-and-diagnostics-limits).
+  JSON-Antwort und die Diagnose in [P4D-223](defects.md#p4d-223).
   Abbruch einer blockierten HTTP-Leseoperation wirkt spätestens nach ihrer absoluten Frist
   (R-W-9). Das CoreML-JSONL-Cancel verwendet die explizite, separat begrenzte Grace-Zeit
   des Ports, bevor der Kindprozess bei ausbleibender Bestätigung beendet wird.
@@ -270,36 +270,21 @@ Das Rust-Dokumentmodul rendert Markdown in alle neun Vorlagen und bindet die dre
 DevTools-Transport auf deren Loopback-Endpunkt. Mit konfiguriertem Asset verwendet er das unveränderte
 Paged.js aus dem Workspace. R-W-9 erlaubt den blockierenden CDP-Aufruf bis zu der vom Host gesetzten
 absoluten Frist. Die statische und die Chromium-Layout-Prüfung führen die Abweichungen
-[P4D-221](defects.md#p4d-221--document-review-font-family-matching) und
-[P4D-222](defects.md#p4d-222--document-widow-check-with-inline-markup).
+[P4D-221](defects.md#p4d-221) und [P4D-222](defects.md#p4d-222).
 Der Golden-Treiber liest dieselben neun Eingaben wie `documents-golden`, vergleicht die gerenderten
 Bilder mit dessen Schwellenwerten und prüft PDF-Seitenzahlen und eingebettete Schrift. Der lokale Lauf
 mit Chrome 158 verglich Rust und TypeScript auf demselben macOS-Host. Die reproduzierbare Abnahme
 gegen die eingecheckten PNGs verwendet die in `golden/manifest.json` genannte Chrome-Version.
-  Die Downloads und Prozesse im Rust-Test durch Fixtures oder mitgelieferte Testassets steuern.
 
-Der generierte Bildspeicher übernimmt Manifest, Hashes, Kontingent und
-Aufbewahrung aus dem TypeScript-Replay. Der Host liefert den privaten
-Filesystem-Port und hält eine gemeinsame Sperre für Kontingent und
-Veröffentlichung. Der Speicher schreibt Dateien und Manifest ins Staging
-und übergibt die Veröffentlichung erst nach dem Schreiben aller Dateien.
-Fehler beim Schreiben lassen keinen sichtbaren Eintrag zurück.
-
-Die Markdown-Fragmente, die Kontrastrechnung und die reinen Medien-Einheiten
-spielen aufgezeichnete TypeScript-Ausgaben ab. Der Video-Port belegt die
-Container-Erkennung und die Argumente von ffprobe, Remux und Poster-Export.
-Der Aufrufer stellt absolute, private Staging-Pfade und eine gemeinsame
-Absolutfrist bereit. Der Prozessport startet ohne Shell, begrenzt stdout
-beim Lesen und beendet den Prozess bei Abbruch oder Fristüberschreitung.
-Der JobRunner hat Ports für Claim, Zustand, Fortschritt, Checkpoint, Ausgabe,
-Budget und Uhr. Replays belegen Generierung, Edit, Resume, Cancel und die
-Wiederaufnahme einer vorhandenen Ausgabe. Binäre Anfragen brauchen noch
-den typisierten Medienport. Die neun HTML-Vorlagen spielen das Rendering
-mit escaped Markdown, neutralen und überschriebenen Farbtokens ab.
-Der CDP-Client prüft Antwort-IDs, Frist und Format und reproduziert
-PDF- und Screenshot-Parameter. Private Chromium-Prozessbindung, Font- und
-pagedjs-Einbettung sowie PDF-Goldens bleiben offen. Zusätzlich fehlen die
-Medienadapter, der OutputStore und die vollständige Dokumentprüfung.
+Der JobRunner lädt bestehende TypeScript-Jobdatensätze mit Buffer- und
+Uint8Array-Referenzen. Die Adapter und die Veröffentlichung erhalten
+Bildreferenzen, Masken und Videos getrennt von den Anfrageparametern.
+Der Video-Prozessport verwendet absolute, private Staging-Pfade und begrenzt
+stdout beim Lesen. Bei Abbruch oder Fristüberschreitung beendet der Host den
+Prozess. Der Renderer schließt Chromium und überprüft, ob das private Profil
+entfernt wurde. Wenn das Betriebssystem das Löschen beim Schließen der letzten
+Dateihandles vorübergehend verweigert, wiederholt der Renderer es bis zu einer
+Sekunde auf dem eigenen temporären Verzeichnis.
 
 ### W5 · Erkennung und Katalog (P4-44)
 
