@@ -185,6 +185,19 @@ Absenderprüfung für Polling und Webhook bereit. Der Host ruft sie vor der
 Zustellung auf und führt Update-IDs unabhängig von der Absenderentscheidung
 fort. MIME-Anhänge erhalten einen bereinigten Namen nach der TypeScript-Regel.
 
+IMAP begrenzt Literale und ungetaggte Antworten zusätzlich in Summe und
+Anzahl ([P4D-258](defects.md#p4d-258)). MIME begrenzt besuchte Teile über den
+ganzen Baum ([P4D-259](defects.md#p4d-259)) und HTML vor der Umwandlung nach
+UTF-8-Bytes ([P4D-260](defects.md#p4d-260)).
+
+Beim Flip prüft die Konfiguration den E-Mail-Anzeigenamen mit derselben
+`PLAIN`-Regel wie TypeScript. Der Host protokolliert Discord-Identify- und
+Resume-Frames nicht. Er begrenzt die Menge der Discord-Routen pro Client und
+die gleichzeitig offenen Signal-Aufrufe. MIME-Fristen und Parseroptionen
+kommen vom Host. Nach dem Parsen kürzt der Host Betreff und Anzeigenamen vor
+der Anzeige. Der Build-Graph darf keine Release-Logstufe für TRACE
+aktivieren, welche den kompilierten TRACE-Filter aushebelt.
+
 Alle 27 neuen Registry-Einträge wurden gegen Veröffentlichungsdatum, Yank-Status und
 Lizenzliste geprüft. Die aktivierten direkten Neuzugänge sind `tungstenite =0.30.0` (MIT OR
 Apache-2.0, nur `handshake`), `nostr =0.45.5` (MIT, `std` und `nip44`) und

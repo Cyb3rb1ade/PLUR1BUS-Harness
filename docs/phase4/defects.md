@@ -1825,3 +1825,27 @@ A server that omits the UID from the FETCH response cannot deliver that body.
 Rust drops the underlying stream when a literal read ends early. In IDLE,
 it returns the timeout to the caller. A timeout while waiting for the next
 response still permits DONE if the stream is synchronized.
+
+<a id="p4d-258"></a>
+
+## P4D-258 — Bound aggregate IMAP reply data
+
+The Rust client bounds literal data and metadata together at 64 MiB, limits
+each literal to 50 MiB and permits at most 8192 literals per response or 8192
+untagged responses per command. TypeScript limits each literal without these
+aggregate ceilings. P4D-241 documents the separate 1 MiB metadata ceiling.
+
+<a id="p4d-259"></a>
+
+## P4D-259 — Apply the MIME part budget across the tree
+
+Rust counts parts across a message and passes the remaining budget into
+each multipart. TypeScript applies the limit separately in each multipart.
+
+<a id="p4d-260"></a>
+
+## P4D-260 — Bound MIME HTML input by UTF-8 bytes
+
+The Rust renderer takes at most 1 MiB of HTML at a UTF-8 character boundary.
+TypeScript caps this input by UTF-16 code units. Rust may shorten multibyte
+HTML earlier.

@@ -200,7 +200,7 @@ describe("recordings for the W4–W8 wire library slices", () => {
 describe("channel wire fixtures (W2)", () => {
   it("commits every recorded exchange with credential placeholders", async () => {
     const recordings = await buildChannelFixtures();
-    assert.equal(Object.keys(recordings).length, 16);
+    assert.equal(Object.keys(recordings).length, 18);
     for (const [name, data] of Object.entries(recordings)) {
       const text = readFileSync(fixturePath("channels", name), "utf8");
       assert.equal(text, fixtureText(data), `channels/${name}: committed recording is stale`);
