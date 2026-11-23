@@ -2,3 +2,5 @@
 #![forbid(unsafe_code)]
 
 pub mod bridge_body;
+
+pub mod http;

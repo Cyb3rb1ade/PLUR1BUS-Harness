@@ -1625,3 +1625,10 @@ describe("guarded web HTTP (P4-W W6)", () => {
     assert.equal(readFileSync(fixturePath("web", "http"), "utf8"), fixtureText((await recordWebHttp()).http));
   });
 });
+
+describe("MCP HTTP exchanges (P4-W W7)", () => {
+  it("matches the TypeScript request-scoped and session-bound HTTP exchanges", async () => {
+    const { recordMcpHttp } = await import("./export-mcp-http.ts");
+    assert.equal(readFileSync(fixturePath("mcp", "http"), "utf8"), fixtureText((await recordMcpHttp()).http));
+  });
+});

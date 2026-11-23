@@ -1501,3 +1501,14 @@ The Rust renderer refuses table grids whose padded projection would exceed
 300,000 cells. It retains the legacy HTML element and nesting limits.
 Oversized tables fail the extraction as a whole. The TypeScript renderer
 does not apply a separate bound to the padded table grid.
+
+<a id="p4d-229"></a>
+
+## P4D-229 — MCP HTTP response deadlines and limits
+
+The generic Rust MCP backend reads structured HTTP replies up to the 16 MiB
+SDK ceiling and caps error replies at 64 KiB. It applies a single finite
+deadline from the egress decision through the last read and counts raw SSE
+event bytes before parsing. The HTTP adapter asks for identity coding and
+rejects other encodings. Error diagnostics contain status and category. The
+adapter discards peer-provided error text and arbitrary error data.
