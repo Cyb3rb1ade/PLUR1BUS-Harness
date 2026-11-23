@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { validateAllowlist, cvssSeverity, parsePnpm, parseCargo, evaluate, renderSummary, assertOwnerChange, assertNoPnpmIgnores } from '../audit-policy.mjs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { validateAllowlist, cvssSeverity, parsePnpm, parseCargo, collectVendoredRust, evaluate, renderSummary, assertOwnerChange, assertNoPnpmIgnores } from '../audit-policy.mjs';
 
 const id = 'RUSTSEC-2026-0001';
 const ghsaId = 'GHSA-aaaa-bbbb-cccc';
@@ -207,4 +209,48 @@ test('unused interval warnings preserve both comparison operators when rendered'
   const summary = renderSummary([], [], approved);
   assert.ok(summary.includes(`Warning: unused audit exception: ${id}/runtime/&gt;=1.0.0, &lt;2.0.0`),
     'warning must retain both comparison operators in its rendered version range');
+});
+
+
+test('vendored crates use RustSec version requirements and the regular release policy', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'plur1bus-vendor-audit-test-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const db = join(dir, 'db');
+  const scratch = join(dir, 'scratch');
+  mkdirSync(scratch);
+  const write = (path, body) => {
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, body);
+  };
+  for (const [folder, name, version] of [
+    ['crates/vendor', 'runtime', '1.0.0'],
+    ['vendor', 'patched', '1.2.0'],
+  ]) {
+    write(join(dir, folder, name, 'Cargo.toml'), `[package]\nname = "${name}"\nversion = "${version}"\n[lib]\n`);
+    write(join(dir, name === 'runtime' ? 'crates/vendor' : 'vendor', name, 'src/lib.rs'), '');
+    const advisoryId = name === 'runtime' ? id : 'RUSTSEC-2026-0002';
+    write(join(db, 'crates', name, `${advisoryId}.md`), [
+      '```toml',
+      '[advisory]',
+      `id = "${advisoryId}"`,
+      `package = "${name}"`,
+      'date = "2026-10-15"',
+      'cvss = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"',
+      '[versions]',
+      'patched = [">= 1.1.0"]',
+      '```',
+      '',
+      '# Synthetic audit fixture',
+      '',
+      'Exercises local path-patch advisory coverage.',
+      '',
+    ].join('\n'));
+  }
+
+  const found = collectVendoredRust(dir, db, scratch);
+  assert.deepEqual(found.map(item => [item.id, item.crate, item.version, item.severity]), [
+    [id, 'runtime', '1.0.0', 'critical'],
+  ]);
+  assert.equal(evaluate(found, found, new Map())[0].block, true);
+  assert.equal(evaluate(found, found, validateAllowlist(policy(exception), now))[0].block, false);
 });

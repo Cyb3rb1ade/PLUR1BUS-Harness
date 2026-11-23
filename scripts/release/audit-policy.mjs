@@ -1,4 +1,4 @@
-import { appendFileSync, readFileSync, realpathSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { appendFileSync, readFileSync, realpathSync, existsSync, readdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
@@ -116,22 +116,27 @@ export function assertNoPnpmIgnores(raw) {
   if (!config || typeof config !== 'object' || Array.isArray(config) || Object.entries(config).some(([key, value]) => !['ignoreCves', 'ignoreGhsas'].includes(key) || !Array.isArray(value) || value.length)) throw new Error('pnpm auditConfig suppressions are forbidden; use audit-allowlist.json');
 }
 
+function rustFinding({ advisory, package: pkg }, informational) {
+  if (!idPattern.test(advisory?.id) || typeof pkg?.name !== 'string' || typeof pkg.version !== 'string') throw new Error('Invalid RustSec finding');
+  return { id: advisory.id, package: `${pkg.name}@${pkg.version}`, crate: pkg.name, version: pkg.version,
+    severity: informational ? 'info' : cvssSeverity(advisory.cvss), title: advisory.title };
+}
+
+function rustWarnings(warnings) {
+  return Object.entries(warnings).flatMap(([kind, list]) => {
+    if (!Array.isArray(list)) throw new Error('Invalid RustSec warnings');
+    return list.map(item => rustFinding(item, !['unsound', 'vulnerability'].includes(kind)));
+  });
+}
+
 export function parseCargo(raw, diagnostics) {
   const report = JSON.parse(raw);
   if (!Array.isArray(report.vulnerabilities) || !report.warnings || !Array.isArray(report.settings?.ignore) || report.settings.ignore.length || report.settings.severity !== null || !Number.isInteger(report.lockfile?.['dependency-count'])) throw new Error('Incomplete or filtered cargo-deny report');
   const messages = diagnostics.trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
   if (!messages.some(m => m.type === 'summary') || messages.some(m => (m.type === 'diagnostic' && m.fields?.severity === 'error' && !['vulnerability', 'unsound', 'unmaintained', 'notice', 'yanked'].includes(m.fields?.code)) || [m.level, m.fields?.level].some(level => String(level).toLowerCase() === 'error'))) throw new Error('cargo-deny collection failed');
-  const finding = (v, informational) => {
-    if (!idPattern.test(v.advisory?.id) || typeof v.package?.name !== 'string' || typeof v.package.version !== 'string') throw new Error('Invalid RustSec finding');
-    return { id: v.advisory.id, package: `${v.package.name}@${v.package.version}`, crate: v.package.name, version: v.package.version,
-      severity: informational ? 'info' : cvssSeverity(v.advisory.cvss), title: v.advisory.title };
-  };
   return [
-    ...report.vulnerabilities.map(v => finding(v, false)),
-    ...Object.entries(report.warnings).flatMap(([kind, list]) => {
-      if (!Array.isArray(list)) throw new Error('Invalid RustSec warnings');
-      return list.map(v => finding(v, !['unsound', 'vulnerability'].includes(kind)));
-    }),
+    ...report.vulnerabilities.map(item => rustFinding(item, false)),
+    ...rustWarnings(report.warnings),
     ...messages.filter(m => m.type === 'diagnostic' && m.fields?.code === 'yanked').map(m => ({ id: 'yanked', package: m.fields.labels?.[0]?.span ?? 'crate', severity: 'info', title: m.fields.message })),
   ];
 }
@@ -170,6 +175,58 @@ function run(command, args, cwd) {
   return result;
 }
 
+function vendoredManifests(directory) {
+  const manifest = join(directory, 'Cargo.toml');
+  if (existsSync(manifest)) return [manifest];
+  return readdirSync(directory, { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .flatMap(entry => vendoredManifests(join(directory, entry.name)));
+}
+
+export function collectVendoredRust(root, database, scratch) {
+  const manifests = ['vendor', 'crates/vendor'].map(path => join(root, path))
+    .filter(existsSync).flatMap(vendoredManifests).sort();
+  if (!manifests.length) return [];
+
+  const auditVersion = run('cargo', ['audit', '--version'], scratch);
+  if (!/^cargo-audit(?:-audit)? 0\.22\.2$/.test(auditVersion.stdout.trim())) {
+    throw new Error('cargo-audit 0.22.2 is required');
+  }
+
+  const identities = new Map();
+  for (const manifest of manifests) {
+    const result = run('cargo', ['metadata', '--format-version=1', '--no-deps', '--offline', '--manifest-path', manifest], root);
+    if (result.status !== 0) throw new Error(`Cannot identify vendored crate at ${manifest}`);
+    const metadata = JSON.parse(result.stdout);
+    const pkg = metadata.packages.find(item => realpathSync(item.manifest_path) === realpathSync(manifest));
+    if (!pkg) throw new Error(`Missing Cargo package for ${manifest}`);
+    identities.set(JSON.stringify([pkg.name, pkg.version]), pkg);
+  }
+
+  // RustSec matches crate identities in their upstream source. Cargo.lock marks
+  // a workspace path patch as local, so check these copies as crates.io entries
+  // in a separate lockfile using RustSec's own version requirement evaluator.
+  const lockfile = join(scratch, 'vendored.Cargo.lock');
+  const packages = [...identities.values()].map(({ name, version }) =>
+    ['[[package]]', `name = ${JSON.stringify(name)}`, `version = ${JSON.stringify(version)}`,
+      'source = "registry+https://github.com/rust-lang/crates.io-index"'].join('\n'));
+  writeFileSync(lockfile, ['version = 3', ...packages, ''].join('\n\n'));
+  const result = run('cargo', ['audit', '--no-fetch', '--no-yanked', '--json', '--db', database, '--file', lockfile], scratch);
+  const report = JSON.parse(result.stdout);
+  const vulnerabilities = report.vulnerabilities?.list;
+  const settings = report.settings;
+  if (!Number.isInteger(report.database?.['advisory-count']) || report.database['advisory-count'] < 1
+      || report.lockfile?.['dependency-count'] !== identities.size
+      || !Array.isArray(vulnerabilities) || vulnerabilities.length !== report.vulnerabilities.count
+      || report.vulnerabilities.found !== (vulnerabilities.length > 0) || !report.warnings
+      || settings?.severity !== null
+      || !['ignore', 'target_arch', 'target_os'].every(key => Array.isArray(settings[key]) && settings[key].length === 0)
+      || !['unsound', 'unmaintained', 'notice'].every(kind => settings.informational_warnings?.includes(kind))) {
+    throw new Error('Incomplete or filtered vendored-crate advisory report');
+  }
+  return [...vulnerabilities.map(item => rustFinding(item, false)), ...rustWarnings(report.warnings)];
+}
+
 // The PR author must be the repository owner if the allowlist differs from its
 // base. CODEOWNERS additionally requests owner review; required checks/reviews
 // must be enabled by the owner in GitHub branch protection.
@@ -193,12 +250,17 @@ export function main(root = process.cwd()) {
   try {
     const config = join(scratch, 'deny.toml');
     // Never inherit deny.toml ignores or severity thresholds as hidden exceptions.
-    writeFileSync(config, '[advisories]\nignore = []\n');
-    let rustDatabaseError;
+    const databaseRoot = join(scratch, 'advisory-dbs');
+    writeFileSync(config, `[advisories]\nignore = []\ndb-path = ${JSON.stringify(databaseRoot)}\n`);
+    let rustDatabaseError, database;
     try {
       const fetched = run('cargo', ['deny', '--config', config, 'fetch', 'db'], root);
       if (fetched.status !== 0) throw new Error('RustSec database refresh failed');
+      const paths = readdirSync(databaseRoot, { withFileTypes: true }).filter(entry => entry.isDirectory());
+      if (paths.length !== 1) throw new Error('Expected one fetched RustSec database');
+      database = join(databaseRoot, paths[0].name);
     } catch (error) { rustDatabaseError = error; }
+    let vendored;
     const collectors = [
       ['npm', prod => {
         assertNoPnpmIgnores(run('pnpm', ['config', 'get', 'auditConfig', '--json'], root).stdout);
@@ -215,6 +277,11 @@ export function main(root = process.cwd()) {
         const result = run('cargo', ['deny', '--format', 'json', '--manifest-path', manifest, '--config', config, '--workspace', '--all-features', '--locked', ...(prod ? ['--exclude-dev'] : []), 'check', 'advisories', '--audit-compatible-output'], root);
         return parseCargo(result.stdout, result.stderr);
       }]),
+      ['vendored Rust', () => {
+        if (rustDatabaseError) throw rustDatabaseError;
+        // All checked-in upstream copies are held to the production policy.
+        return vendored ??= collectVendoredRust(root, database, scratch);
+      }],
     ];
     for (const [ecosystem, collect] of collectors) {
       try { findings.push(...evaluate(collect(true), collect(false), exceptions ?? new Map()).map(item => ({ ...item, ecosystem }))); }
