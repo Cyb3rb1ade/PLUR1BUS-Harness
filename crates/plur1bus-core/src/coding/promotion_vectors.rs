@@ -366,7 +366,11 @@ fn private_receipts_round_trip_between_typescript_and_rust() {
         audit: &mut audit,
     };
     for (name, expected) in [("promotion-ts.sqlite", 1), ("promotion-rust.sqlite", 0)] {
-        let mut service = ChatPromotion::open(&dir.path().join(name)).unwrap();
+        let mut service = ChatPromotion::open_with_permissions(
+            &dir.path().join(name),
+            crate::private_store::fixture_owner_hook(),
+        )
+        .unwrap();
         assert_eq!(
             service.links(&owner, "ses_1", &ports).unwrap().len(),
             expected

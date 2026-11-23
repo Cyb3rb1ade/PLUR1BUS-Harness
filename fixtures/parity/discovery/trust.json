@@ -1,0 +1,104 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "bytes": "{\"serial\":1,\"label\":\"offline fixture\"}",
+        "ignored": [],
+        "signers": [
+          "fixture-a",
+          "fixture-b"
+        ]
+      },
+      "expires": "2027-01-01T00:00:00Z",
+      "name": "ordinary threshold",
+      "now": 1795352400000,
+      "payload": "{\"serial\":1,\"label\":\"offline fixture\"}",
+      "signers": [
+        0,
+        1
+      ]
+    },
+    {
+      "expected": {
+        "code": "signature_invalid"
+      },
+      "expires": "2027-01-01T00:00:00Z",
+      "name": "duplicate signer counts once",
+      "now": 1795352400000,
+      "payload": "{\"serial\":1,\"label\":\"offline fixture\"}",
+      "signers": [
+        0,
+        0
+      ]
+    },
+    {
+      "expected": {
+        "code": "signature_invalid"
+      },
+      "expired": true,
+      "expires": "2027-01-01T00:00:00Z",
+      "name": "key expired",
+      "now": 1795352400000,
+      "payload": "{\"serial\":1,\"label\":\"offline fixture\"}",
+      "signers": [
+        0,
+        1
+      ]
+    },
+    {
+      "expected": {
+        "code": "key_revoked"
+      },
+      "expires": "2027-01-01T00:00:00Z",
+      "name": "revoked signatory",
+      "now": 1795352400000,
+      "payload": "{\"serial\":1,\"label\":\"offline fixture\"}",
+      "revoked": [
+        "fixture-b"
+      ],
+      "signers": [
+        0,
+        1
+      ]
+    },
+    {
+      "expected": {
+        "bytes": "{\"serial\":1,\"label\":\"offline fixture\"}",
+        "ignored": [
+          {
+            "code": "key_unknown",
+            "keyId": "unknown-fixture"
+          }
+        ],
+        "signers": [
+          "fixture-a",
+          "fixture-b"
+        ]
+      },
+      "expires": "2027-01-01T00:00:00Z",
+      "name": "unknown additional signer",
+      "now": 1795352400000,
+      "payload": "{\"serial\":1,\"label\":\"offline fixture\"}",
+      "signers": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "expected": {
+        "code": "stale_index"
+      },
+      "expires": "2027-01-01T00:00:00Z",
+      "name": "root expiration",
+      "now": 1795352400000,
+      "oldRoot": true,
+      "payload": "{\"serial\":1,\"label\":\"offline fixture\"}",
+      "signers": [
+        0,
+        1
+      ]
+    }
+  ],
+  "source": "packages/core/src/catalog/verify.ts"
+}

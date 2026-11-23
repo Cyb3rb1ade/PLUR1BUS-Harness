@@ -7,7 +7,7 @@ use crate::js::{js_trim, utf16_len};
 use crate::rbac::audit::{AuditEvent, AuditSink};
 use crate::rbac::authorize::authorize;
 use crate::rbac::types::{AuthorizeContext, Principal, PrincipalKind, Resource, Role};
-use plur1bus_store::rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
+use plur1bus_store::rusqlite::{params, OptionalExtension};
 use plur1bus_store::Store;
 use serde_json::Value;
 use std::cell::{Cell, RefCell};
@@ -730,7 +730,7 @@ impl UserJobs {
         record.set("durationMs", num(0));
         record.set("outcome", J::s("abandoned"));
         // The claim and future slot advance are one SQLite transaction, before any turn can start.
-        let tx = Transaction::new_unchecked(self.conn()?, TransactionBehavior::Immediate)?;
+        let tx = plur1bus_store::begin_immediate(self.conn()?)?;
         let Some(observed) = tx
             .query_row("SELECT definition FROM user_jobs WHERE id=?", [&id], |r| {
                 r.get::<_, String>(0)

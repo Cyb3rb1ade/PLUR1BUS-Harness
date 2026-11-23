@@ -2,7 +2,7 @@
   "exchanges": [
     {
       "request": {
-        "bodyText": "{\"text\":\"A fixture voice 👋\",\"model_id\":\"eleven_flash_v2_5\",\"language_code\":\"en\"}",
+        "bodyText": "{\"text\":\"A fixture voice 👋\",\"model_id\":\"eleven_flash_v2_5\",\"voice_settings\":{\"stability\":0.5,\"use_speaker_boost\":true,\"similarity_boost\":0.75},\"language_code\":\"en\"}",
         "headers": {
           "accept": "audio/*",
           "content-type": "application/json",
@@ -37,7 +37,21 @@
   "input": {
     "language": "en",
     "text": "A fixture voice 👋",
-    "voice": "synthetic/a b"
+    "voice": "synthetic/a b",
+    "voiceSettingsEntries": [
+      [
+        "stability",
+        0.5
+      ],
+      [
+        "use_speaker_boost",
+        true
+      ],
+      [
+        "similarity_boost",
+        0.75
+      ]
+    ]
   },
   "schema": "plur1bus.parity-wire/1",
   "transport": "http"

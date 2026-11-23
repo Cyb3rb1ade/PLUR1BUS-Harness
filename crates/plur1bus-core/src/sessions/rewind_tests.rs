@@ -206,6 +206,62 @@ fn a_capture_for_a_repository_without_a_commit_is_refused_and_leaves_nothing_beh
 }
 
 #[test]
+fn restore_requires_a_held_writer_through_the_final_comparison() {
+    use super::rewind_checkpoints::AcquireWriter;
+    use std::{cell::Cell, rc::Rc};
+
+    for (available, confirmations, restores) in [
+        (false, 0, false),
+        (true, 0, false),
+        (true, 1, false),
+        (true, 2, true),
+    ] {
+        let Some(mut world) = World::new(SessionKind::Card) else {
+            return;
+        };
+        let turn = world.turn();
+        world.repo.write("tracked.txt", "new revision\n");
+        let root = world.root.clone();
+        let checks = Rc::new(Cell::new(0));
+        let observed = checks.clone();
+        let port: AcquireWriter = Rc::new(move |binding| {
+            assert_eq!(binding.root, root);
+            assert_eq!(binding.project_id, "p");
+            assert_eq!(binding.card_id, "c");
+            let observed = observed.clone();
+            Some(Box::new(move || {
+                let count = observed.get();
+                observed.set(count + 1);
+                count < confirmations
+            }))
+        });
+        world.set_writer(available.then_some(port));
+        let result = restore(&mut world, &turn);
+        if restores {
+            result.unwrap();
+            assert_eq!(
+                world.repo.read("tracked.txt").as_deref(),
+                Some("original\n")
+            );
+        } else {
+            assert_eq!(result.unwrap_err().reason(), Some("rewind-writer-lease"));
+            assert_eq!(
+                world.repo.read("tracked.txt").as_deref(),
+                Some("new revision\n")
+            );
+        }
+        assert_eq!(
+            checks.get(),
+            if available {
+                (confirmations + 1).min(2)
+            } else {
+                0
+            }
+        );
+    }
+}
+
+#[test]
 fn restore_puts_tracked_files_back_and_leaves_untracked_files_and_the_real_index_alone() {
     let Some(mut w) = World::new(SessionKind::Card) else {
         return;

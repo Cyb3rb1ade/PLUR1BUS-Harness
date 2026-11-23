@@ -315,6 +315,7 @@ fn hostctl_gate_binding_and_begin_audit_precede_the_effect() {
         ..Default::default()
     };
     let mut host = Hostctl {
+        receipts: &mut receipts::MemoryReceipts::default(),
         config: &config,
         policy: &policy,
         clock: &clock,
@@ -329,6 +330,7 @@ fn hostctl_gate_binding_and_begin_audit_precede_the_effect() {
 
     let mut audit = MemoryAudit::default();
     let mut host = Hostctl {
+        receipts: &mut receipts::MemoryReceipts::default(),
         config: &config,
         policy: &policy,
         clock: &clock,
@@ -368,6 +370,7 @@ fn hostctl_gate_binding_and_begin_audit_precede_the_effect() {
     }
     let mut slow = SlowAudit(&clock);
     let mut host = Hostctl {
+        receipts: &mut receipts::MemoryReceipts::default(),
         config: &config,
         policy: &policy,
         clock: &clock,
@@ -542,6 +545,7 @@ fn hostctl_verified_file_operations_reuse_the_gate_and_path_executor() {
         )
         .unwrap_or_else(|error| panic!("{name}: {error:?}"));
         Hostctl {
+            receipts: &mut receipts::MemoryReceipts::default(),
             config: &config,
             policy: &policy,
             clock: &clock,
@@ -704,6 +708,7 @@ fn hostctl_shell_refuses_wrapper_builtins() {
     assert!(admit("printf fixture").is_ok());
     for wrapper in [
         "eval",
+        "let",
         "builtin",
         "coproc",
         "source",
@@ -809,6 +814,7 @@ fn hostctl_native_clipboard_and_urls_use_typed_ports() {
         )
         .unwrap();
         Hostctl {
+            receipts: &mut receipts::MemoryReceipts::default(),
             config: &config,
             policy: &policy,
             clock: &clock,
@@ -963,6 +969,7 @@ fn hostctl_process_port_receives_only_owned_ids_and_bounded_input() {
         )
         .unwrap();
         Hostctl {
+            receipts: &mut receipts::MemoryReceipts::default(),
             config: &config,
             policy: &policy,
             clock: &clock,
@@ -1107,6 +1114,7 @@ impl<'a> HostReviewFixture<'a> {
         effects: &mut dyn Effects,
     ) -> Result<Value, Failure> {
         Hostctl {
+            receipts: &mut receipts::MemoryReceipts::default(),
             config: &self.config,
             policy: &self.policy,
             clock: &self.clock,
@@ -1368,5 +1376,105 @@ fn both_audit_lines_identify_the_approved_target_without_its_raw_name() {
         assert_eq!(fields[0]["actionHash"], action_hash);
         assert_eq!(fields[0]["targetHash"], binding);
         assert!(!fields[0].to_string().contains(name));
+    }
+}
+
+#[test]
+fn recovery_survives_failed_delivery_and_preserves_unconfirmed_processes() {
+    struct Native {
+        confirmed_stop: bool,
+        oversized: bool,
+        invoked: Option<(Uuid, Uuid)>,
+        stopped: Option<Uuid>,
+    }
+    impl Effects for Native {
+        fn process_identity(&self) -> ProcessIdentity {
+            EffectsFixture::default().process_identity()
+        }
+        fn apply(&mut self, call: Invocation<'_>) -> Result<Value, Failure> {
+            self.invoked = Some((call.operation_id(), call.process_id().unwrap()));
+            let output = if self.oversized {
+                "private-marker".repeat(1000)
+            } else {
+                String::from("private-marker")
+            };
+            Ok(json!({"running":true, "output":output}))
+        }
+        fn stop_after_failure(&mut self, id: Uuid) -> bool {
+            self.stopped = Some(id);
+            self.confirmed_stop
+        }
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let roots = [fixture_root(dir.path())];
+    let mut fixture = HostReviewFixture::new(&roots);
+    fixture.config = Config::from_json(&json!({"output":{"maxBytes":32}}));
+    for (oversized, stopped) in [(false, false), (false, true), (true, false), (true, true)] {
+        let mut audit = MemoryAudit::default();
+        if !oversized {
+            audit.failing.push("hostctl.end".into());
+        }
+        let mut processes = ProcessSessions::default();
+        let mut receipts = receipts::MemoryReceipts::default();
+        let mut native = Native {
+            oversized,
+            confirmed_stop: stopped,
+            invoked: None,
+            stopped: None,
+        };
+        let action = fixture.approval(
+            "hostctl.proc.start",
+            json!({"program":"fixture","cwd":"."}),
+            &mut Permits::approving(),
+            None,
+        );
+        let err = Hostctl {
+            config: &fixture.config,
+            policy: &fixture.policy,
+            clock: &fixture.clock,
+            random: &plur1bus_core::approvals::OsRandom,
+            audit: &mut audit,
+            receipts: &mut receipts,
+            processes: &mut processes,
+            effects: &mut native,
+            aborted: &|| false,
+        }
+        .execute(action, &fixture.who)
+        .unwrap_err();
+        let (op, process) = native.invoked.unwrap();
+        assert_eq!(err.operation_id, Some(op));
+        assert_eq!(err.code, if oversized { "TOO_LARGE" } else { "IO_ERROR" });
+        assert_eq!(audit.of("hostctl.begin")[0]["operationId"], op.to_string());
+        assert_eq!(err.to_result()["error"]["operationId"], op.to_string());
+        let receipt = receipts.get(ReceiptOwner::of(&fixture.who), op).unwrap();
+        assert_eq!(
+            receipt,
+            Receipt {
+                id: op,
+                process: Some(process),
+                confirmed: true,
+                stopped
+            }
+        );
+        assert_eq!(native.stopped, Some(process));
+        assert!(!format!("{receipt:?} {err:?}").contains("private-marker"));
+        for other in [
+            Caller {
+                principal: "else".into(),
+                ..fixture.who.clone()
+            },
+            Caller {
+                agent_id: "else".into(),
+                ..fixture.who.clone()
+            },
+            Caller {
+                session_id: None,
+                ..fixture.who.clone()
+            },
+        ] {
+            assert!(receipts.get(ReceiptOwner::of(&other), op).is_none());
+        }
+        let running = processes.revoke_session(fixture.who.session_id.as_deref().unwrap());
+        assert_eq!(running, if stopped { vec![] } else { vec![process] });
     }
 }

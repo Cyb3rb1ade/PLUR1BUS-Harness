@@ -1,0 +1,107 @@
+{
+  "exchanges": [
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/models/owner/fixture"
+      },
+      "response": {
+        "body": {},
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "{\"input\":{\"prompt\":\"A paper tree 🌳\",\"seed\":7,\"aspect_ratio\":\"1:1\",\"output_format\":\"png\",\"num_outputs\":1}}",
+        "headers": {
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "path": "/models/owner/fixture/predictions"
+      },
+      "response": {
+        "body": {
+          "id": "fixture-id",
+          "status": "starting"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/predictions/fixture-id"
+      },
+      "response": {
+        "body": {
+          "status": "running"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/predictions/fixture-id"
+      },
+      "response": {
+        "body": {
+          "output": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+          "status": "succeeded"
+        },
+        "status": 200
+      }
+    }
+  ],
+  "expected": {
+    "checkpoints": [
+      {
+        "id": "fixture-id",
+        "model": "owner/fixture"
+      }
+    ],
+    "files": [
+      {
+        "bytes": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+        "format": "png"
+      }
+    ],
+    "metadata": {
+      "adapter": "replicate",
+      "model": "owner/fixture",
+      "seed": 7
+    },
+    "partial": false,
+    "progress": [
+      {
+        "fraction": 0,
+        "stage": "running"
+      },
+      {
+        "fraction": 0.5,
+        "stage": "running"
+      },
+      {
+        "fraction": 0.9,
+        "stage": "downloading"
+      }
+    ]
+  },
+  "input": {
+    "id": "replicate",
+    "model": "owner/fixture",
+    "request": {
+      "aspect": "1:1",
+      "prompt": "A paper tree 🌳",
+      "seed": 7
+    }
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "http"
+}

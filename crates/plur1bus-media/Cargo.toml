@@ -1,6 +1,6 @@
 [package]
 name = "plur1bus-media"
-description = "Pure media request and accounting rules"
+description = "Media request, job and output protocols"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,4 +10,19 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+base64 = "=0.22.1"
+crc32fast = "=1.5.2"
+flate2 = "=1.1.10"
+plur1bus-providers = { path = "../plur1bus-providers" }
+regex = "=1.13.1"
+serde.workspace = true
 serde_json.workspace = true
+sha2 = "=0.10.9"
+ureq = { version = "=3.4.2", default-features = false, features = ["rustls", "platform-verifier"] }
+url = "=2.5.9"
+
+[dev-dependencies]
+log = "=0.4.34"
+plur1bus-wire-fixtures = { path = "../plur1bus-wire-fixtures" }
+plur1bus-wire-log = { path = "../plur1bus-wire-log" }
+tempfile.workspace = true

@@ -106,7 +106,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | `packages/channels-telegram` | 10 | 12 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
 | `packages/config-schema` | 10 | 42 | 0 | 0 | 0 | 0 | 0 | 10 | 0 |
 | `packages/core` | 801 | 1081 | 1 | 662 | 2 | 3 | 2 | 132 | 0 |
-| `packages/documents` | 14 | 9 | 2 | 14 | 0 | 0 | 0 | 0 | 0 |
+| `packages/documents` | 14 | 9 | 3 | 14 | 0 | 0 | 0 | 0 | 0 |
 | `packages/embedding-adapters` | 27 | 25 | 0 | 0 | 0 | 27 | 0 | 0 | 0 |
 | `packages/hostctl` | 10 | 21 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
 | `packages/log-schema` | 3 | 6 | 0 | 0 | 3 | 0 | 0 | 0 | 0 |
@@ -3521,6 +3521,7 @@ Neither `src` nor tests; kept visible so nothing hides.
 | File | What |
 |---|---|
 | `packages/core/bench/rewind-checkpoints.ts` | benchmark script, not harness runtime |
+| `packages/documents/scripts/golden-samples.ts` | golden-render script of the documents-golden CI job |
 | `packages/documents/scripts/golden.ts` | golden-render script of the documents-golden CI job |
 | `packages/documents/scripts/png-diff.ts` | golden-render script of the documents-golden CI job |
 | `packages/module-fixture/build.mjs` | fixture module entry point |

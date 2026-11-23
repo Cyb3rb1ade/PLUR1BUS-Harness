@@ -1,0 +1,210 @@
+{
+  "exchanges": [
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/models/owner/fixture"
+      },
+      "response": {
+        "body": {
+          "openapi_schema": {
+            "components": {
+              "schemas": {
+                "Input": {
+                  "properties": {
+                    "duration": {
+                      "maximum": 5,
+                      "minimum": 1,
+                      "type": "number"
+                    },
+                    "prompt": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "{\"input\":{\"prompt\":\"A short scene 🌳\",\"duration\":4}}",
+        "headers": {
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "path": "/models/owner/fixture/predictions"
+      },
+      "response": {
+        "body": {
+          "id": "fixture-id",
+          "status": "queued"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/predictions/fixture-id"
+      },
+      "response": {
+        "body": {
+          "progress": 20,
+          "status": "running"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/predictions/fixture-id"
+      },
+      "response": {
+        "body": {
+          "output": "<fixture-origin>/asset",
+          "status": "succeeded"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/asset"
+      },
+      "response": {
+        "chunksBase64": [
+          "AAAAGGZ0eXBpcw==",
+          "b20AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        ],
+        "headers": {
+          "content-type": "video/mp4"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/predictions/fixture-id"
+      },
+      "response": {
+        "body": {
+          "output": "<fixture-origin>/asset",
+          "status": "succeeded"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/asset"
+      },
+      "response": {
+        "chunksBase64": [
+          "AAAAGGZ0eXBpcw==",
+          "b20AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        ],
+        "headers": {
+          "content-type": "video/mp4"
+        },
+        "status": 200
+      }
+    }
+  ],
+  "expected": {
+    "bytes": "AAAAGGZ0eXBpc29tAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+    "checkpoints": [
+      {
+        "id": "fixture-id",
+        "model": "owner/fixture"
+      }
+    ],
+    "metadata": {
+      "adapter": "replicate",
+      "model": "owner/fixture"
+    },
+    "progress": [
+      {
+        "fraction": 0.2,
+        "stage": "queued"
+      },
+      {
+        "fraction": 0.2,
+        "stage": "running"
+      },
+      {
+        "fraction": 0.9,
+        "stage": "downloading"
+      }
+    ],
+    "resume": {
+      "bytes": "AAAAGGZ0eXBpc29tAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+      "progress": [
+        {
+          "fraction": 0.2,
+          "stage": "running"
+        },
+        {
+          "fraction": 0.9,
+          "stage": "downloading"
+        }
+      ],
+      "waits": [
+        7
+      ]
+    },
+    "waits": [
+      7,
+      7
+    ]
+  },
+  "input": {
+    "capabilities": {
+      "durationSeconds": [
+        1,
+        5
+      ],
+      "imageToVideo": true,
+      "inputSchema": {
+        "duration": {
+          "maximum": 5,
+          "minimum": 1,
+          "type": "number"
+        },
+        "prompt": {
+          "type": "string"
+        }
+      },
+      "textToVideo": true,
+      "videoToVideo": true
+    },
+    "id": "replicate",
+    "model": "owner/fixture",
+    "request": {
+      "durationSeconds": 4,
+      "kind": "video",
+      "prompt": "A short scene 🌳"
+    }
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "http"
+}

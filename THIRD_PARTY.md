@@ -6,8 +6,8 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: 4b3c965dc05fc91562b22243aae37c326a24d3c5e8c6a83821bec84f9f3730f0
-Cargo.lock: a7085484adba1318f23dbcb579b9dbbbcd2956ddccef8e69f48671dc6c41161e
-apps/desktop/Cargo.lock: 2d66361b89e5e5075b61e68e4cd8f74fb69dae883f1bf9c9b91d200852014065
+Cargo.lock: e7edcdf3c778b0b6b4b7a685dc067a723483e5812f32fc360aec9f0bf9f631a6
+apps/desktop/Cargo.lock: b03303bdf16ec6ab57ae3fd0c4d9f6756e9a4c36be1b3ab7a940d365d546f992
 ```
 
 | Ecosystem | Dependency | Version | Licence | Attribution |
@@ -347,7 +347,7 @@ apps/desktop/Cargo.lock: 2d66361b89e5e5075b61e68e4cd8f74fb69dae883f1bf9c9b91d200
 | cargo | foreign-types-shared | 0.3.1 | MIT/Apache-2.0 | Steven Fackler <sfackler@gmail.com> |
 | cargo | foreign-types | 0.3.2 | MIT/Apache-2.0 | Steven Fackler <sfackler@gmail.com> |
 | cargo | foreign-types | 0.5.0 | MIT/Apache-2.0 | Steven Fackler <sfackler@gmail.com> |
-| cargo | form_urlencoded | 1.2.2 | MIT OR Apache-2.0 | The rust-url developers |
+| cargo | form_urlencoded | 1.2.3 | MIT OR Apache-2.0 | The rust-url developers |
 | cargo | fraction | 0.15.4 | MIT OR Apache-2.0 | dnsl48 <dnsl48@gmail.com> |
 | cargo | fs4 | 0.8.4 | MIT OR Apache-2.0 | Dan Burkert <dan@danburkert.com>, Al Liu <scygliu1@gmail.com> |
 | cargo | fsst | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
@@ -1050,7 +1050,7 @@ apps/desktop/Cargo.lock: 2d66361b89e5e5075b61e68e4cd8f74fb69dae883f1bf9c9b91d200
 | cargo | untrusted | 0.9.0 | ISC | Brian Smith <brian@briansmith.org> |
 | cargo | ureq-proto | 0.6.4 | MIT OR Apache-2.0 | Martin Algesten <martin@algesten.se> |
 | cargo | ureq | 3.4.2 | MIT OR Apache-2.0 | Martin Algesten <martin@algesten.se>, Jacob Hoffman-Andrews <ureq@hoffman-andrews.com> |
-| cargo | url | 2.5.8 | MIT OR Apache-2.0 | The rust-url developers |
+| cargo | url | 2.5.9 | MIT OR Apache-2.0 | The rust-url developers |
 | cargo | urlpattern | 0.6.0 | MIT | the Deno authors, crowlKats <crowlkats@toaxl.com> |
 | cargo | utf-8 | 0.7.6 | MIT OR Apache-2.0 | Simon Sapin <simon.sapin@exyr.org> |
 | cargo | utf16_iter | 1.0.5 | Apache-2.0 OR MIT | Henri Sivonen <hsivonen@hsivonen.fi> |

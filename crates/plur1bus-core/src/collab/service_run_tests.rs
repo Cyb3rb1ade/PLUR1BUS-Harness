@@ -643,7 +643,7 @@ fn a_nested_reader_inherits_its_stored_parent_path_and_live_budget() {
 
     let h = open();
     let owner = owner();
-    let project = setup(&h, &["sender", "receiver", "other"]);
+    let project = setup(&h, &["sender", "receiver", "other", "reviewer"]);
     let tools = ["file.read".to_owned()];
     let child_tools = ["file.read".to_owned(), "file.list".to_owned()];
     let enqueue = |admission, parent_task: Option<&str>| {
@@ -735,6 +735,13 @@ fn a_nested_reader_inherits_its_stored_parent_path_and_live_budget() {
     assert!(budget.reserve(1.0).is_err());
     held.release();
     assert!(budget.reserve(1.0).is_ok());
+
+    let mut incomplete = input(&owner, &project, "other", "reviewer", "Check the sources");
+    incomplete.trace_id = Some(&child.queued.trace_id);
+    assert_eq!(
+        h.svc.start_consult(&incomplete).unwrap_err().guardrail,
+        Some(GuardrailReason::Depth)
+    );
 }
 
 #[test]

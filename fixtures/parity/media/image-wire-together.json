@@ -1,0 +1,63 @@
+{
+  "exchanges": [
+    {
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"prompt\":\"A paper tree 🌳\",\"n\":1,\"response_format\":\"base64\",\"output_format\":\"png\",\"width\":256,\"height\":256,\"seed\":7}",
+        "headers": {
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "path": "/images/generations"
+      },
+      "response": {
+        "body": {
+          "data": [
+            {
+              "b64_json": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg=="
+            }
+          ]
+        },
+        "status": 200
+      }
+    }
+  ],
+  "expected": {
+    "checkpoints": [],
+    "files": [
+      {
+        "bytes": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+        "format": "png"
+      }
+    ],
+    "metadata": {
+      "adapter": "together",
+      "model": "fixture-model",
+      "seed": 7
+    },
+    "partial": false,
+    "progress": [
+      {
+        "fraction": 0,
+        "stage": "running"
+      },
+      {
+        "fraction": 0.9,
+        "stage": "downloading"
+      }
+    ]
+  },
+  "input": {
+    "id": "together",
+    "model": "fixture-model",
+    "request": {
+      "prompt": "A paper tree 🌳",
+      "seed": 7,
+      "size": {
+        "height": 256,
+        "width": 256
+      }
+    }
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "http"
+}

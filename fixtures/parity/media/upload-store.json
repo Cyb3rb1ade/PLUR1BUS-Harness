@@ -1,0 +1,43 @@
+{
+  "expected": {
+    "absent": null,
+    "changedHash": "backend_unavailable",
+    "cleanupFailure": "backend_unavailable",
+    "expired": 1,
+    "generatedLookup": null,
+    "index": {
+      "bytes": 385,
+      "createdAt": 1700000000000,
+      "schema": "media.upload-index/1",
+      "unavailable": false
+    },
+    "manifest": {
+      "createdAt": 1700000000000,
+      "file": {
+        "bytes": 89,
+        "format": "png",
+        "path": "0.png",
+        "sha256": "11637550a78679e8f3de6d4a000c8187b95b0d7fb3142cf8562b8dc984f612a8"
+      },
+      "filename": "folder_sample🌳.png",
+      "id": "00000000-0000-4000-8000-000000000000",
+      "kind": "image",
+      "mimeType": "image/png",
+      "schema": "media.upload/1"
+    },
+    "presentAfterFailure": true,
+    "quota": "quota",
+    "raw": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggnVuY2hhbmdlZCB1cGxvYWQgYnl0ZXM=",
+    "retained": 0,
+    "wrongType": "unsupported_parameter"
+  },
+  "input": {
+    "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggnVuY2hhbmdlZCB1cGxvYWQgYnl0ZXM=",
+    "filename": "  folder/sample🌳.png  ",
+    "id": "00000000-0000-4000-8000-000000000000",
+    "kind": "image",
+    "mimeType": "image/png",
+    "now": 1700000000000
+  },
+  "source": "packages/media/src/store.ts"
+}

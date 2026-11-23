@@ -127,7 +127,7 @@ function triageVectors() {
   for (const [name, answer] of answers) {
     for (const cost of [undefined, "economy", "quality"] as const) {
       const classifiedJson = JSON.stringify(answer);
-      const base = { name, message: MESSAGE, classifiedJson, ...(cost ? { cost } : {}), ...(name === "thirty-three-tasks" ? { divergence: "K9a-D6" } : {}) };
+      const base = { name, message: MESSAGE, classifiedJson, ...(cost ? { cost } : {}), ...(name === "thirty-three-tasks" ? { divergence: "K9a-D6" } : name === "summary-number" ? { divergence: "P4D-200" } : {}) };
       try { cases.push({ ...base, json: JSON.stringify(triage(MESSAGE, { classifier: () => JSON.parse(classifiedJson) as TriageDecision, ...(cost ? { cost } : {}) })) }); } catch (e) { cases.push({ ...base, ...failure(e) }); }
     }
   }
@@ -162,6 +162,10 @@ async function runtimeVectors() {
       { message: MESSAGE, scope: "m", answer: { json: JSON.stringify(decision([task({ effort: "low" }), second({ modelClass: large, effort: "high" })])) } },
       { message: MESSAGE, scope: "n", answer: { json: JSON.stringify(decision([task({ effort: "medium" }), second({ effort: "high" })])) } }, { message: MESSAGE, scope: "n", answer: { json: JSON.stringify(decision([task(), second()])) }, cost: "quality" },
       { message: MESSAGE, scope: "n", answer: { json: JSON.stringify(decision([task(), second()])) }, cost: "economy" }] },
+    { name: "summary-type-followup", steps: [
+      { message: "do it", scope: "summary", answer: { json: single("do it", { summary: 7 }) } },
+      { message: "do it", scope: "summary", answer: { json: valid } }
+    ] },
     { name: "fallbacks", steps: [
       { message: "debug the code; then write a report", scope: "f", answer: "fail" }, { message: "debug the code", scope: "f", answer: "hang", timeoutMs: 5 }, { message: "debug the code", scope: "f", answer: { json: "{}" } }, { message: "debug the code", scope: "f", answer: { json: "null" } },
       { message: "do it", scope: "f", answer: { json: JSON.stringify(decision([task()], { shape: "multi" })) } }, { message: MESSAGE, scope: "f", answer: { json: JSON.stringify(decision([task(), second()], { shape: "single" })) } },
@@ -197,7 +201,8 @@ async function runtimeVectors() {
       try {
         const r = await runtime.decide(step.message, step.scope, classify, { signal: controller.signal, onFallback: () => { fallbacks += 1; }, ...(step.cost ? { cost: step.cost } : {}), ...(step.task ? { task: step.task } : {}), ...(step.timeoutMs ? { timeoutMs: step.timeoutMs } : {}) });
         const { decision: d, ...rest } = r;
-        steps.push({ ...step, result: { ...rest, decisionJson: JSON.stringify(d) }, json: JSON.stringify(r), fallbacks });
+        const divergence = script.name === "summary-type-followup" && steps.length === 0 ? { divergence: "P4D-200" } : {};
+        steps.push({ ...step, ...divergence, result: { ...rest, decisionJson: JSON.stringify(d) }, json: JSON.stringify(r), fallbacks });
       } catch (e) { steps.push({ ...step, aborted: (e as Error).name === "AbortError", fallbacks }); }
     }
     scenarios.push({ name: script.name, steps });

@@ -208,6 +208,12 @@ fn triage_vectors_replay() {
             active_task: case.get("activeTask").map(s),
         };
         let got = triage(s(&case["message"]), &options);
+        if case["divergence"] == "P4D-200" {
+            assert!(case.get("json").is_some(), "TypeScript accepted the number");
+            assert!(matches!(got, Err(TriageError::Segmentation)), "{what}");
+            refused += 1;
+            continue;
+        }
         if case["divergence"] == "K9a-D6" {
             assert!(matches!(got, Err(TriageError::Decision)), "{what}");
             refused += 1;
@@ -320,6 +326,17 @@ fn runtime_vectors_replay() {
                 }
             };
             match runtime.decide(s(&step["message"]), s(&step["scope"]), classify, &options) {
+                Ok(d) if step["divergence"] == "P4D-200" => {
+                    assert_eq!(step["result"]["fallback"], false, "{what}");
+                    assert!(d.fallback, "{what}");
+                    assert_eq!(fallbacks.get(), 1, "{what}");
+                    assert_eq!(
+                        d.decision.as_j(),
+                        rule_classifier(s(&step["message"]), CostPreference::Balanced).as_j()
+                    );
+                    decided += 1;
+                    continue;
+                }
                 Ok(d) => {
                     assert_eq!(decision_j(&d).stringify(), s(&step["json"]), "{what}");
                     decided += 1;
