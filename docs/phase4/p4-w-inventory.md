@@ -326,14 +326,9 @@ HTTP-Wechsel, Reconcile, Overrides und den Katalog-Lebenszyklus auf.
   Der Tool-Registry-/Dispatcher-Anteil von `tools.test.ts` folgt beim Flip.
 - **Ports.** Resolver, Egress, Verbindung an freigegebene Adressen, Provider-Credentials, Clock,
   Limits und Abbruch. Eine Host-Freigabe darf beim Verbindungsaufbau nicht neu aufgelöst werden.
-- **Lücken.** Explizite IP-Klassifikation und Robots-Präzedenz, Extraktionsgoldens,
-  Redirect-Entscheidungen pro Hop, Body-/Zeitgrenzen, Fehlerabbildung und Suchfallbacks.
-
-**W6 local partial delivery.** The pure robots parser replays TypeScript
-scope selection, priorities and crawl delay. [P4D-207](defects.md#p4d-207)
-records the byte ceiling. The fetch port supplies a complete decoded body and
-rejects overflow. IP classification already exists in the P4-K egress port.
-Crawl scheduling, extraction, redirects, HTTP and search are open.
+- **Robots-Grenze.** Die aus TypeScript aufgezeichneten Regeln decken Gruppenwahl,
+  Präzedenz und Crawl-Delay ab. [P4D-207](defects.md#p4d-207) dokumentiert das Byte-Limit.
+  Fetch prüft den Inhaltstyp und begrenzt den dekodierten Körper beim Lesen.
 
 Rust nutzt den gemeinsamen gepinnten HTTP/Rustls-Connector für Fetch und Suche.
 Der Host-Port führt vor jedem Hop die vorhandene plur1bus-core-Egress-Klassifikation
