@@ -153,7 +153,10 @@ Schreiben mit Fristen. Bei R-W-9 können blockierende Kanalaufrufe bis zur jewei
 laufen. HTTP begrenzt Einzelaufrufe auf 600 Sekunden, WebSocket-Phasen ebenfalls auf maximal
 600 Sekunden. SMTP/IMAP-Kommandos nutzen bis zu 600 Sekunden, IMAP IDLE hat separat das
 protokollbedingte Maximum von 25 Minuten. Egress- und TLS-Ports müssen ihre erhaltenen Fristen
-am Socket durchsetzen. Die HTTP- und WebSocket-Features deaktivieren TRACE beim Kompilieren,
+am Socket durchsetzen. Der IMAP-Client begrenzt die dekodierten Metadaten je Kommando
+auf 1 MiB. Die Nutzdaten behalten die 50-MiB-Literalgrenze und teilen die 64-MiB-Gesamtgrenze
+mit den Metadaten. Ein Literal wird vor der Pufferallokation angerechnet
+([P4D-241](defects.md#p4d-241)). Die HTTP- und WebSocket-Features deaktivieren TRACE beim Kompilieren,
 auch bei isoliertem Build des Kanal-Crates. Telegram transportiert Credentials im Pfad und
 Socket Mode Tickets in der URL. Der Kanalcode reicht von Close-Frames nur den Code weiter.
 Beim Flip muss der Host seinen `log`-Logger über
