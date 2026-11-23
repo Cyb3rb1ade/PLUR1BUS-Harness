@@ -436,6 +436,8 @@ fn mutation_normalize(value: &mut Value, root: &str, ids: &BTreeMap<String, Stri
                 v["targetPrincipalHash"] = json!("<principal-hash>");
                 mutation_normalize(&mut v, root, ids, "");
                 *s=format!("{{\"schemaVersion\":1,\"action\":{},\"targetScope\":{},\"targetPrincipalHash\":{},\"sourceMemoryId\":{},\"sourceAgentId\":{},\"sharedAt\":{}}}",v["action"],v["targetScope"],v["targetPrincipalHash"],v["sourceMemoryId"],v["sourceAgentId"],v["sharedAt"].as_f64().unwrap() as i64);
+            } else if key == "archivePath" {
+                *s = support::normalize_golden_path(s, root);
             } else {
                 let native = std::path::Path::new(root).join("workspace");
                 *s = s

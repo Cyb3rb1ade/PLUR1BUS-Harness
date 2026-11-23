@@ -61,6 +61,30 @@ pub fn normalize_workspace_fixture(value: &Value, root: &Path) -> Value {
     replace_fixture_text(&value, root.to_str().unwrap(), "<work>")
 }
 
+/// Normalize a path field inside the test root, preserving the relative path.
+pub fn normalize_golden_path(value: &str, root: &str) -> String {
+    match value.strip_prefix(root) {
+        Some("") => "<work>".into(),
+        Some(suffix) if suffix.starts_with(['/', '\\']) => {
+            format!("<work>{}", suffix.replace('\\', "/"))
+        }
+        _ => value.to_owned(),
+    }
+}
+
+#[test]
+fn golden_paths_keep_their_suffix_and_leave_unrelated_values_alone() {
+    let root = r"C:\Temp\fixture";
+    assert_eq!(
+        normalize_golden_path(r"C:\Temp\fixture\state\memory\card.json", root),
+        "<work>/state/memory/card.json"
+    );
+    assert_eq!(
+        normalize_golden_path(r"C:\Temp\fixture-other\card.json", root),
+        r"C:\Temp\fixture-other\card.json"
+    );
+}
+
 pub struct TestHost {
     state_dir: PathBuf,
     config: EngineConfig,
