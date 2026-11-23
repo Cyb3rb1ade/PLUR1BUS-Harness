@@ -55,7 +55,7 @@ export async function recordMediaVideoWire() {
     base = server.url;
     try {
       const progress: unknown[] = [];
-      const checkpoints: unknown[] = [];
+      const checkpoints: Array<{ id: string, model: string }> = [];
       const waits: number[] = [];
       const context: GenerationContext = { signal: AbortSignal.timeout(3000),
         onProgress: async (event) => { progress.push(event); },
@@ -66,11 +66,22 @@ export async function recordMediaVideoWire() {
       const result = await adapter.generate(request, context);
       const chunks: Buffer[] = [];
       for await (const chunk of result.files[0]!.stream!) chunks.push(Buffer.from(chunk));
+      const originalWaits = [...waits];
+      const resumeProgress: unknown[] = [];
+      const resumed = await adapter.resume(request, {
+        signal: context.signal, resume: checkpoints[0]!,
+        onProgress: async (event) => { resumeProgress.push(event); },
+        onCheckpoint: async () => { throw new Error("Resume unexpectedly created a new checkpoint"); },
+      });
+      const resumedChunks: Buffer[] = [];
+      for await (const chunk of resumed.files[0]!.stream!) resumedChunks.push(Buffer.from(chunk));
       const { durationMs: _duration, origin: _origin, ...metadata } = result.metadata;
       record["video-wire-" + id] = {
         schema: "plur1bus.parity-wire/1", transport: "http",
         input: { id, model, request, capabilities },
-        expected: { metadata, progress, checkpoints, waits, bytes: Buffer.concat(chunks).toString("base64") },
+        expected: { metadata, progress, checkpoints, waits: originalWaits, bytes: Buffer.concat(chunks).toString("base64"),
+          resume: { progress: resumeProgress, waits: waits.slice(originalWaits.length),
+            bytes: Buffer.concat(resumedChunks).toString("base64") } },
         exchanges: server.calls.map((call, index) => ({
           request: { method: call.method, path: call.path, bodyText: call.body,
             headers: { ...(call.headers["content-type"] ? { "content-type": call.headers["content-type"] } : {}) } },

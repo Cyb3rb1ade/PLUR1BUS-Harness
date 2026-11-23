@@ -22,5 +22,7 @@ ureq = { version = "=3.4.2", default-features = false, features = ["rustls", "pl
 url = "=2.5.9"
 
 [dev-dependencies]
+log = "=0.4.34"
 plur1bus-wire-fixtures = { path = "../plur1bus-wire-fixtures" }
+plur1bus-wire-log = { path = "../plur1bus-wire-log" }
 tempfile.workspace = true

@@ -249,8 +249,21 @@ JSON values.
   W für CDP und PDF-Goldens für `documents-golden`. RPC-/Composition-Tests sind T beim Flip.
 - **Ports.** Credential-, Egress-, Clock-, Zufalls- und Abbruchports, Job- und Ergebnisdatenpfade,
   atomare Dateien, Upload-Quelle und Fortschritt, Child-Process/ffmpeg/ffprobe, Chromium und Font-/Asset-Pfade.
-- **Lücken.** Bild-/Video-Uploads, Binär- und Statusantworten, Job-Resume/Cancel, Storage-Fehler,
-  CDP-Abfolge, unterschiedliche Font-/Plattformausgaben und die existierenden PDF-Goldens.
+- **Bibliothek.** Bild-HTTP für OpenAI, OpenRouter, Gemini, xAI, Together, Draw Things, Replicate
+  und fal. Video-HTTP für OpenRouter, Gemini, xAI, Replicate und fal mit Checkpoints,
+  Resume und getrennt geöffnetem Download. CoreML zeichnet den Legacy- und JSONL-Prozessdialog
+  einschließlich Abbruch auf. Der Medien-JobRunner verbindet persistierte Zustände,
+  Budget-Port und Veröffentlichung. Der OutputStore prüft Roh-Uploads und schreibt
+  generierte Bilder und Videos mit gemeinsamem Speicherbudget, Integritätsnachweis,
+  privatem Staging und Retention. Die Bildaufzeichnungen prüfen auch die Übertragung
+  von Bearbeitungsreferenzen und Maske nach Entfernung fremder Metadaten.
+- **Flip-Ports.** Der Host bleibt zuständig für Credentials, DNS-Pin, Warteplan, Takt, Zufall,
+  Abbruch, dauerhafte Job- und Store-Backends, Upload-Bindungen, die privaten ffmpeg-
+  und CoreML-Prozesse sowie Chromium- und Asset-Pfade. R-W-13 begrenzt die dekodierte
+  JSON-Antwort und die Diagnose in [P4D-223](defects.md#p4d-223--media-adapter-structured-response-and-diagnostics-limits).
+  Abbruch einer blockierten HTTP-Leseoperation wirkt spätestens nach ihrer absoluten Frist
+  (R-W-9). Das CoreML-JSONL-Cancel verwendet die explizite, separat begrenzte Grace-Zeit
+  des Ports, bevor der Kindprozess bei ausbleibender Bestätigung beendet wird.
 
 Das Rust-Dokumentmodul rendert Markdown in alle neun Vorlagen und bindet die drei ausgelieferten Fonts
 über einen Asset-Port ein. Der Chromium-Adapter öffnet eine private Profilinstanz und begrenzt den

@@ -1499,6 +1499,14 @@ describe("media image provider protocols (P4-W W4)", () => {
   });
 });
 
+describe("media multipart editing (P4-W W4)", () => {
+  it("matches the TypeScript request bytes after substituting its random boundary", async () => {
+    const { recordMediaMultipart } = await import("./export-media-multipart.ts");
+    assert.equal(readFileSync(fixturePath("media", "image-multipart"), "utf8"),
+      fixtureText((await recordMediaMultipart())["image-multipart"]));
+  });
+});
+
 describe("media model discovery (P4-W W4)", () => {
   it("matches the image catalog, refresh fallback and local app states", async () => {
     const { recordMediaDiscovery } = await import("./export-media-discovery.ts");

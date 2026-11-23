@@ -37,11 +37,15 @@ impl Ports for Loopback {
 
 #[derive(Default)]
 struct Events {
+    boundary: Option<String>,
     progress: Vec<Progress>,
     checkpoints: Vec<Checkpoint>,
 }
 
 impl Observer for Events {
+    fn multipart_boundary(&mut self) -> Result<String> {
+        Ok(self.boundary.clone().unwrap())
+    }
     fn progress(&mut self, progress: Progress) -> Result<()> {
         self.progress.push(progress);
         Ok(())
@@ -50,6 +54,65 @@ impl Observer for Events {
         self.checkpoints.push(checkpoint);
         Ok(())
     }
+}
+
+#[test]
+fn openai_edit_preserves_the_typescript_multipart_after_boundary_substitution() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/media/image-multipart.json"
+    ))
+    .unwrap();
+    let input = &fixture["input"];
+    let server = FakeServer::start(&fixture);
+    let host = Loopback(server.addr, RefCell::default());
+    let http = Client::new(
+        &host,
+        &format!("http://{}", server.addr),
+        Options {
+            cleartext: Some(Cleartext::Loopback),
+            ..Options::default()
+        },
+    )
+    .unwrap();
+    let adapter = ImageAdapter::new(
+        "openai".parse().unwrap(),
+        input["model"].as_str().unwrap(),
+        http,
+        Duration::from_millis(1),
+    )
+    .unwrap();
+    let source = STANDARD.decode(input["image"].as_str().unwrap()).unwrap();
+    let result = adapter
+        .edit(
+            &ImageRequest {
+                parameters: &input["parameters"],
+                references: &[&source],
+                mask: Some(&source),
+            },
+            &mut Events {
+                boundary: Some(input["boundary"].as_str().unwrap().into()),
+                ..Events::default()
+            },
+            Run {
+                deadline: Instant::now() + Duration::from_secs(5),
+                resume: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        STANDARD.encode(&result.files[0].bytes),
+        fixture["expected"]["bytes"]
+    );
+    let observed = server.received();
+    let request = &fixture["exchanges"][0]["request"];
+    assert_eq!(observed.len(), 1);
+    for field in ["method", "path", "bodyBase64"] {
+        assert_eq!(observed[0][field], request[field], "{field}");
+    }
+    assert_eq!(
+        observed[0]["headers"]["content-type"],
+        request["headers"]["content-type"]
+    );
 }
 
 #[test]
@@ -205,8 +268,35 @@ fn all_video_provider_requests_are_byte_identical_and_stream_the_recorded_media(
         let calls_before_body = server.received().len();
         let source = output.download.open().unwrap().read_bytes().unwrap();
         assert_eq!(STANDARD.encode(source), expected["bytes"], "{id}");
+        assert_eq!(calls_before_body + 1, server.received().len(), "{id}");
+        host.1.borrow_mut().clear();
+        let mut resumed = Events::default();
+        let output = adapter
+            .generate(
+                &VideoRequest {
+                    parameters: &input["request"],
+                    reference_image: None,
+                    reference_video: None,
+                },
+                &mut resumed,
+                Run {
+                    deadline: Instant::now() + Duration::from_secs(5),
+                    resume: Some(&events.checkpoints[0]),
+                },
+            )
+            .unwrap();
+        let source = output.download.open().unwrap().read_bytes().unwrap();
+        let resume = &expected["resume"];
+        assert_eq!(STANDARD.encode(source), resume["bytes"], "{id}");
+        assert!(resumed.checkpoints.is_empty(), "{id}");
+        assert_eq!(json!(&*host.1.borrow()), resume["waits"], "{id}");
+        let progress = resume["progress"].as_array().unwrap();
+        assert_eq!(resumed.progress.len(), progress.len(), "{id}");
+        for (actual, expected) in resumed.progress.iter().zip(progress) {
+            assert_eq!(Some(actual.fraction), expected["fraction"].as_f64(), "{id}");
+            assert_eq!(json!(actual.stage), expected["stage"], "{id}");
+        }
         let actual = server.received();
-        assert_eq!(calls_before_body + 1, actual.len(), "{id}");
         let expected = fixture["exchanges"].as_array().unwrap();
         assert_eq!(actual.len(), expected.len(), "{id}");
         for (observed, recorded) in actual.iter().zip(expected) {

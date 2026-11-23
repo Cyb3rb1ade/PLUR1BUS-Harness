@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use std::time::Instant;
 
 mod video_store;
-pub use video_store::{Video, VideoControl, VideoStage};
+pub use video_store::{sanitize_reference_video, Video, VideoControl, VideoStage};
 
 const MANIFEST: &str = "manifest.json";
 const SCHEMA: &str = "media.output/1";

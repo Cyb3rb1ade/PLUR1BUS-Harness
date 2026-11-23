@@ -65,6 +65,41 @@
         },
         "status": 200
       }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/videos/fixture-id"
+      },
+      "response": {
+        "body": {
+          "status": "done",
+          "video": {
+            "url": "<fixture-origin>/asset"
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/asset"
+      },
+      "response": {
+        "chunksBase64": [
+          "AAAAGGZ0eXBpcw==",
+          "b20AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        ],
+        "headers": {
+          "content-type": "video/mp4"
+        },
+        "status": 200
+      }
     }
   ],
   "expected": {
@@ -93,6 +128,22 @@
         "stage": "downloading"
       }
     ],
+    "resume": {
+      "bytes": "AAAAGGZ0eXBpc29tAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+      "progress": [
+        {
+          "fraction": 0.2,
+          "stage": "running"
+        },
+        {
+          "fraction": 0.9,
+          "stage": "downloading"
+        }
+      ],
+      "waits": [
+        7
+      ]
+    },
     "waits": [
       7,
       7

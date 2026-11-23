@@ -17,7 +17,7 @@ use std::{
     net::SocketAddr,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex,
     },
     thread,
     time::{Duration, Instant},
@@ -190,6 +190,55 @@ fn gzip_cap_counts_decoded_bytes_and_body_stall_respects_deadline() {
     assert_eq!(body.read_bytes().unwrap_err(), Error::Cancelled);
     assert!(started.elapsed() < Duration::from_millis(470));
     cancel.join().unwrap();
+}
+
+#[test]
+fn wire_logger_keeps_media_urls_and_error_bodies_private() {
+    const URL_MARKER: &str = "synthetic-media-output-url";
+    const BODY_MARKER: &str = "synthetic-media-provider-body";
+    struct Records(Arc<Mutex<Vec<String>>>);
+    impl log::Log for Records {
+        fn enabled(&self, _: &log::Metadata<'_>) -> bool {
+            true
+        }
+        fn log(&self, record: &log::Record<'_>) {
+            self.0.lock().unwrap().push(record.args().to_string());
+        }
+        fn flush(&self) {}
+    }
+    let records = Arc::new(Mutex::new(Vec::new()));
+    plur1bus_wire_log::install(Records(Arc::clone(&records))).unwrap();
+    log::set_max_level(log::LevelFilter::Trace);
+    log::debug!(target: "plur1bus_media", "media logger control");
+    let path = format!("/image?sample={URL_MARKER}");
+    let server = FakeServer::start(&json!({"transport":"http", "exchanges":[
+        {"request":{"method":"GET","path":path}, "response":{"status":403,"body":{"error":BODY_MARKER}}},
+    ]}));
+    let host = Host::local(server.addr);
+    let client = Client::new(
+        &host,
+        &format!("http://{}", server.addr),
+        Options {
+            cleartext: Some(Cleartext::Loopback),
+            ..Options::default()
+        },
+    )
+    .unwrap();
+    let outcome = client.image(
+        &format!("http://{}{path}", server.addr),
+        Instant::now() + Duration::from_secs(5),
+    );
+    let error = outcome.err().unwrap();
+    assert_eq!(error, Error::BackendUnavailable);
+    assert!(!format!("{error:?}").contains(BODY_MARKER));
+    assert_eq!(server.received()[0]["path"], path);
+    let records = records.lock().unwrap();
+    assert!(records
+        .iter()
+        .any(|record| record == "media logger control"));
+    assert!(records
+        .iter()
+        .all(|record| !record.contains(URL_MARKER) && !record.contains(BODY_MARKER)));
 }
 
 #[test]

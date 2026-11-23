@@ -3,8 +3,8 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use plur1bus_media::{
     jobs::{Error, Result},
     output::{
-        Backend, Destination, Image, ImageFormat, Images, Namespace, OutputStore, Settings, Stage,
-        Video, VideoControl, VideoStage, WriteGuard,
+        sanitize_reference_video, Backend, Destination, Image, ImageFormat, Images, Namespace,
+        OutputStore, Settings, Stage, Video, VideoControl, VideoStage, WriteGuard,
     },
     uploads::{Entry, Health, IndexRecord, Kind, Upload},
     video::{self, Codec, ProcessPort},
@@ -388,6 +388,41 @@ fn video_publication_matches_the_typescript_processor_and_store() {
         STANDARD.encode(&visible["on"]["0.mp4"]),
         expected["optInBytes"]
     );
+}
+
+#[test]
+fn video_reference_only_returns_the_clean_remux_from_private_staging() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/media/video-store.json"
+    ))
+    .unwrap();
+    let bytes = STANDARD
+        .decode(fixture["input"]["bytes"].as_str().unwrap())
+        .unwrap();
+    let memory = Memory::default();
+    let codec = ScriptedCodec {
+        prompts: std::cell::RefCell::new(vec![]),
+    };
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut guard = memory.lock(deadline).unwrap();
+    let mut stage = guard.stage(deadline).unwrap();
+    let cleaned = sanitize_reference_video(
+        &bytes,
+        &mut stage,
+        &codec,
+        &VideoControl {
+            now_ms: 0,
+            deadline,
+            cancelled: &|| false,
+        },
+    )
+    .unwrap();
+    assert_eq!(cleaned.format, video::Format::Mp4);
+    assert_eq!(cleaned.bytes, bytes);
+    assert_eq!(codec.prompts.take(), [None]);
+    drop(stage);
+    drop(guard);
+    assert!(memory.visible.lock().unwrap().is_empty());
 }
 
 #[test]

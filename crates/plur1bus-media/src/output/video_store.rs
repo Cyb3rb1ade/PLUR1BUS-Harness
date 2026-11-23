@@ -12,12 +12,14 @@ use super::{
     Destination, Namespace, OutputStore, Stage, WriteGuard, MANIFEST, SCHEMA,
 };
 use crate::{
+    adapters::SanitizedVideo,
     jobs::{Error, Result},
     units::{self, Units},
     video::{self, ProcessPort, VideoPaths, VideoRequest},
 };
 
 const VIDEO_LIMIT: u64 = 512 * 1024 * 1024;
+const REFERENCE_VIDEO_LIMIT: usize = 50 * 1024 * 1024;
 const PREFIX: usize = 4096;
 const BUFFER: usize = 32 * 1024;
 
@@ -30,6 +32,66 @@ pub trait VideoStage: Stage {
     /// Reopen a staged file privately, sync it and return a reader at offset zero.
     fn sync_payload(&self, path: &Path, deadline: Instant) -> Result<Self::Reader>;
     fn unlink_payload(&mut self, path: &Path, deadline: Instant) -> Result<()>;
+}
+
+/// Clean a reference in a temporary stage before passing it to a provider.
+/// The caller drops the stage after the operation.
+pub fn sanitize_reference_video(
+    bytes: &[u8],
+    stage: &mut impl VideoStage,
+    codec: &dyn ProcessPort,
+    control: &VideoControl<'_>,
+) -> Result<SanitizedVideo> {
+    control.check()?;
+    if bytes.len() > REFERENCE_VIDEO_LIMIT {
+        return Err(Error::TooLarge);
+    }
+    let format = video::detect_format(bytes).map_err(codec_error)?;
+    let deadline = control.deadline;
+    let (input, mut source) =
+        stage.create_payload(&format!("input.{}", format.extension()), deadline)?;
+    source
+        .write_all(bytes)
+        .and_then(|()| source.flush())
+        .map_err(|_| Error::Storage)?;
+    drop(source);
+    stage.sync_payload(&input, deadline)?;
+    let (output, cleaned) =
+        stage.create_payload(&format!("clean.{}", format.extension()), deadline)?;
+    let (poster, thumbnail) = stage.create_payload("poster.png", deadline)?;
+    drop((cleaned, thumbnail));
+    video::process(
+        codec,
+        &VideoRequest {
+            paths: VideoPaths {
+                input: &input,
+                output: &output,
+                poster: &poster,
+            },
+            format,
+            prompt: None,
+        },
+        deadline,
+        control.cancelled,
+    )
+    .map_err(codec_error)?;
+    let mut source = stage.sync_payload(&output, deadline)?;
+    let mut bytes = Vec::new();
+    let mut buffer = [0u8; BUFFER];
+    loop {
+        let amount = control.read(&mut source, &mut buffer)?;
+        if amount == 0 {
+            break;
+        }
+        if bytes.len().saturating_add(amount) > REFERENCE_VIDEO_LIMIT {
+            return Err(Error::TooLarge);
+        }
+        bytes.extend_from_slice(&buffer[..amount]);
+    }
+    if video::detect_format(&bytes).map_err(codec_error)? != format {
+        return Err(Error::InvalidResponse);
+    }
+    Ok(SanitizedVideo { bytes, format })
 }
 
 pub struct Video<'a> {
