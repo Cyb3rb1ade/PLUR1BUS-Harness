@@ -68,7 +68,14 @@ impl VideoControl<'_> {
                 Err(error) if error.kind() == io::ErrorKind::TimedOut => {
                     return Err(Error::Timeout)
                 }
-                Err(_) => return Err(Error::BackendUnavailable),
+                Err(error) => {
+                    self.check()?;
+                    return Err(match error.kind() {
+                        io::ErrorKind::FileTooLarge => Error::TooLarge,
+                        io::ErrorKind::ConnectionAborted => Error::Cancelled,
+                        _ => Error::BackendUnavailable,
+                    });
+                }
             }
         }
     }

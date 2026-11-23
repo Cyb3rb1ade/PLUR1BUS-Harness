@@ -6237,10 +6237,16 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "crc32fast",
+ "flate2",
+ "plur1bus-providers",
+ "plur1bus-wire-fixtures",
+ "regex",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
+ "ureq",
+ "url",
 ]
 
 [[package]]

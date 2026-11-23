@@ -10,11 +10,17 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+base64 = "=0.22.1"
 crc32fast = "=1.5.2"
+flate2 = "=1.1.10"
+plur1bus-providers = { path = "../plur1bus-providers" }
+regex = "=1.13.1"
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "=0.10.9"
+ureq = { version = "=3.4.2", default-features = false, features = ["rustls", "platform-verifier"] }
+url = "=2.5.9"
 
 [dev-dependencies]
-base64 = "=0.22.1"
+plur1bus-wire-fixtures = { path = "../plur1bus-wire-fixtures" }
 tempfile.workspace = true

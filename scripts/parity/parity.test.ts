@@ -1479,6 +1479,15 @@ describe("media upload publication (P4-W W4)", () => {
   });
 });
 
+describe("media HTTP transport (P4-W W4)", () => {
+  it("matches the production retry, status and binary exchanges", async () => {
+    const { recordMediaHttp } = await import("./export-media-http.ts");
+    const fixture = (await recordMediaHttp())["adapter-http"];
+    assert.equal(readFileSync(fixturePath("media", "adapter-http"), "utf8"),
+      fixtureText(fixture));
+  });
+});
+
 describe("media video publication (P4-W W4)", () => {
   it("matches the TypeScript video store, processor and byte accounting", async () => {
     const { recordMediaVideoStore } = await import("./export-media-video-store.ts");

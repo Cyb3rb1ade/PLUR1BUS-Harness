@@ -1413,3 +1413,13 @@ relative to the complete paragraph text. The TypeScript script applies
 those offsets to the first child alone. A paragraph with emphasis or a
 link can therefore abort the check. The Rust asset maps word offsets to
 the corresponding text nodes before comparing line positions.
+
+## P4D-223 — media adapter structured response and diagnostics limits
+
+The TypeScript media transport reads successful JSON and diagnostic responses
+under one 64 MiB limit. Under R-W-13 the Rust transport bounds decoded JSON
+at 1 MiB and diagnostic bodies at 64 KiB. Declared lengths can reject early.
+The reader counts the bytes it receives, including after gzip decoding.
+HTTP setup, retry waits and body reads share the absolute operation deadline.
+An in-flight blocking read can defer cancellation until that deadline (R-W-9).
+The adapters apply separate file limits to binary media.
