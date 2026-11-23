@@ -19,16 +19,9 @@
     "idempotencyKey": "fixture-corpus-window",
     "claimed": true,
     "trigger": "manual",
-    "scheduledFor": null,
     "startedAt": 1791244800000,
-    "finishedAt": null,
-    "durationMs": null,
     "outcome": null,
     "reason": null,
-    "counts": {},
-    "tokensIn": null,
-    "tokensOut": null,
-    "logPath": null,
-    "error": null
+    "counts": {}
   }
 }
