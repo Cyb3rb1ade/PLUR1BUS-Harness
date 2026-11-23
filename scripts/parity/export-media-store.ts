@@ -29,7 +29,7 @@ export async function recordMediaStore() {
     const request = { prompt: "A fixture tree 🌳", format: "png" as const, embedMetadata: false };
     const reference = { bytes: png, format: "png" as const };
     const withSources = { ...request, referenceImages: [reference], mask: reference };
-    const metadata = { adapter: "fixture", model: "fixture-model", durationMs: 7 };
+    const metadata = { adapter: "fixture", durationMs: 7, model: "fixture-model" };
     const output = { files: [reference], metadata, partial: true };
     const id = "fixture-a";
     const store = new OutputStore(storeRoot, { retentionMs: 1000 });
@@ -46,12 +46,16 @@ export async function recordMediaStore() {
     const visibleAfterRefusals = await readdir(storeRoot);
     const retained = await store.prune(now + 999);
     const expired = await store.prune(now + 1000);
+    const provenanceStore = new OutputStore(join(root, "provenance"), { embedMetadata: true });
+    const optIn = { embedMetadata: true, format: request.format, prompt: request.prompt };
+    const withProvenance = await provenanceStore.put("generated", optIn, output, false);
+    const withoutProvenance = await provenanceStore.put("raw", { ...optIn, embedMetadata: false }, output, true);
     return {
       "output-store": {
         source: "packages/media/src/store.ts",
         input: { now, id, request, metadata, bytes: published.toString("base64"), partial: true },
         expected: { manifest, get, charge, duplicate, quota, wrongFormat, visibleAfterRefusals, retained, expired,
-          afterExpiry: await store.get(id) },
+          afterExpiry: await store.get(id), withProvenance, withoutProvenance },
       },
     };
   } finally {

@@ -1479,6 +1479,14 @@ describe("media upload publication (P4-W W4)", () => {
   });
 });
 
+describe("media video publication (P4-W W4)", () => {
+  it("matches the TypeScript video store, processor and byte accounting", async () => {
+    const { recordMediaVideoStore } = await import("./export-media-video-store.ts");
+    const expected = fixtureText((await recordMediaVideoStore())["video-store"]);
+    assert.equal(readFileSync(fixturePath("media", "video-store"), "utf8"), expected);
+  });
+});
+
 describe("media job orchestration (P4-W W4)", () => {
   it("matches the production TypeScript job and budget port calls", async () => {
     const { recordMediaJobs } = await import("./export-media-jobs.ts");
@@ -1492,6 +1500,11 @@ describe("document template assembly (P4-W W4)", () => {
     const { recordDocumentTemplates } = await import("./export-document-templates.ts");
     const expected = fixtureText(recordDocumentTemplates().templates);
     assert.equal(readFileSync(fixturePath("documents", "templates"), "utf8"), expected);
+  });
+  it("matches the full HTML with all shipped font faces", async () => {
+    const { recordDocumentTemplates } = await import("./export-document-templates.ts");
+    const expected = fixtureText(recordDocumentTemplates()["render-html"]);
+    assert.equal(readFileSync(fixturePath("documents", "render-html"), "utf8"), expected);
   });
 });
 

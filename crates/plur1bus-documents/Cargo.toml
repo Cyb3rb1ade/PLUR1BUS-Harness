@@ -13,3 +13,6 @@ workspace = true
 base64 = "=0.22.1"
 regex = "=1.13.1"
 serde_json.workspace = true
+
+[dev-dependencies]
+sha2 = "=0.10.9"

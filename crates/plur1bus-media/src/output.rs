@@ -8,6 +8,9 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::time::Instant;
 
+mod video_store;
+pub use video_store::{Video, VideoControl, VideoStage};
+
 const MANIFEST: &str = "manifest.json";
 const SCHEMA: &str = "media.output/1";
 const MAX_MANIFEST_BYTES: usize = 1024 * 1024;
@@ -56,7 +59,7 @@ pub trait Backend {
 }
 
 pub trait WriteGuard {
-    type Stage<'a>: Stage
+    type Stage<'a>: VideoStage
     where
         Self: 'a;
 
@@ -98,14 +101,14 @@ pub struct Image<'a> {
     pub format: ImageFormat,
 }
 
-/// Request parameters without the binary sources. Images are prepared for
-/// publication, including any metadata the caller selected.
+/// Request parameters without the binary sources.
 #[derive(Clone, Copy)]
 pub struct Images<'a> {
     pub parameters: &'a Value,
     pub references: &'a [&'a [u8]],
     pub mask: Option<&'a [u8]>,
     pub metadata: &'a Value,
+    pub agent_metadata: Option<bool>,
     pub partial: bool,
     pub files: &'a [Image<'a>],
 }
@@ -114,6 +117,8 @@ pub struct Images<'a> {
 pub struct Settings {
     pub quota_bytes: Option<u64>,
     pub retention_ms: Option<u64>,
+    pub max_video_bytes: Option<u64>,
+    pub embed_metadata: Option<bool>,
 }
 
 pub struct OutputStore<'a, B> {
@@ -142,6 +147,7 @@ impl<'a, B: Backend> OutputStore<'a, B> {
         }
         let mut files = Vec::with_capacity(input.files.len());
         let mut staged = Vec::with_capacity(input.files.len());
+        let metadata = self.embed_payload(input.parameters, input.metadata, input.agent_metadata);
         for (index, image) in input.files.iter().enumerate() {
             check_deadline(deadline)?;
             if ImageFormat::sniff(image.bytes) != Some(image.format) {
@@ -149,41 +155,56 @@ impl<'a, B: Backend> OutputStore<'a, B> {
             }
             let format = image.format.extension();
             let name = format!("{index}.{format}");
+            let stored = if let Some(ref payload) = metadata {
+                std::borrow::Cow::Owned(crate::images::embed(image.bytes, image.format, payload)?)
+            } else {
+                std::borrow::Cow::Borrowed(image.bytes)
+            };
             files.push(json!({
-                "path":name, "format":format, "sha256":hash(image.bytes), "bytes":image.bytes.len(),
+                "path":name, "format":format, "sha256":hash(&stored), "bytes":stored.len(),
             }));
-            staged.push((name, image.bytes));
-        }
-        let mut metadata = input
-            .metadata
-            .as_object()
-            .cloned()
-            .ok_or(Error::InvalidResponse)?;
-        metadata.entry("seed").or_insert(Value::Null);
-        if metadata.get("origin").is_none_or(Value::is_null) {
-            metadata.insert("origin".to_owned(), json!("unknown"));
+            staged.push((name, stored));
         }
         let mut manifest = json!({
             "schema":SCHEMA, "id":id, "createdAt":now_ms, "prompt":input.parameters["prompt"],
             "parameters":input.parameters, "referenceHashes":input.references.iter().map(|bytes| hash(bytes)).collect::<Vec<_>>(),
-            "metadata":metadata, "partial":input.partial, "files":files,
+            "metadata":manifest_metadata(input.metadata)?, "partial":input.partial, "files":files,
         });
         if let Some(mask) = input.mask {
             manifest["maskHash"] = json!(hash(mask));
         }
-        let encoded = serde_json::to_vec(&manifest).map_err(|_| Error::InvalidResponse)?;
-        if encoded.len() > MAX_MANIFEST_BYTES {
-            return Err(Error::TooLarge);
-        }
-        staged.push((MANIFEST.into(), &encoded));
-        self.publish(Destination::Output(id), &staged, now_ms, deadline)?;
+        let encoded = encode_manifest(&manifest)?;
+        staged.push((MANIFEST.into(), std::borrow::Cow::Owned(encoded)));
+        let files = staged
+            .iter()
+            .map(|(name, data)| (name.as_str(), data.as_ref()))
+            .collect::<Vec<_>>();
+        self.publish(Destination::Output(id), &files, now_ms, deadline)?;
         Ok(manifest)
+    }
+
+    fn embed_payload<'m>(
+        &self,
+        parameters: &'m Value,
+        metadata: &'m Value,
+        agent_metadata: Option<bool>,
+    ) -> Option<crate::images::Metadata<'m>> {
+        let enabled = parameters["embedMetadata"]
+            .as_bool()
+            .or(agent_metadata)
+            .or(self.settings.embed_metadata)
+            .unwrap_or(false);
+        enabled.then(|| crate::images::Metadata {
+            prompt: parameters["prompt"].as_str().unwrap_or_default(),
+            parameters,
+            metadata,
+        })
     }
 
     fn publish(
         &self,
         destination: Destination<'_>,
-        files: &[(String, &[u8])],
+        files: &[(&str, &[u8])],
         now_ms: i64,
         deadline: Instant,
     ) -> Result<()> {
@@ -277,8 +298,8 @@ impl<'a, B: Backend> OutputStore<'a, B> {
         self.publish(
             Destination::Upload { id, index },
             &[
-                (manifest.file.path.clone(), upload.bytes),
-                (MANIFEST.into(), &encoded),
+                (manifest.file.path.as_str(), upload.bytes),
+                (MANIFEST, &encoded),
             ],
             now_ms,
             deadline,
@@ -330,6 +351,26 @@ impl<'a, B: Backend> OutputStore<'a, B> {
             .and_then(|mut guard| guard.delete_upload(id, true, deadline))
             .map_err(upload_error)
     }
+}
+
+fn manifest_metadata(metadata: &Value) -> Result<Value> {
+    let mut metadata = metadata
+        .as_object()
+        .cloned()
+        .ok_or(Error::InvalidResponse)?;
+    metadata.entry("seed").or_insert(Value::Null);
+    if metadata.get("origin").is_none_or(Value::is_null) {
+        metadata.insert("origin".to_owned(), json!("unknown"));
+    }
+    Ok(Value::Object(metadata))
+}
+
+fn encode_manifest(manifest: &Value) -> Result<Vec<u8>> {
+    let encoded = serde_json::to_vec(manifest).map_err(|_| Error::InvalidResponse)?;
+    if encoded.len() > MAX_MANIFEST_BYTES {
+        return Err(Error::TooLarge);
+    }
+    Ok(encoded)
 }
 
 /// Recover interrupted publications before sharing the store with other writers.

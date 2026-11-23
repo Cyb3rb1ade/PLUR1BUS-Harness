@@ -1,0 +1,55 @@
+{
+  "render": [
+    {
+      "bytes": 3035951,
+      "sha256": "a486af29fe8180a69bd8ed3f9dc33502dcb00c1ee9014237a359618e4d724e32",
+      "template": "report"
+    },
+    {
+      "bytes": 3035865,
+      "sha256": "fa0d3550d2655d09b258be6f2b76749ee56ec4415c3553a732e2f01ec3d78cb6",
+      "template": "essay"
+    },
+    {
+      "bytes": 3036067,
+      "sha256": "42aae98f1c32f8e4dd528ea08597cdad4cfb308a7bd60ffb4096eed93e826878",
+      "template": "white-paper"
+    },
+    {
+      "bytes": 3035993,
+      "sha256": "438dd5a7c6d2c62529c8b7fde60870aa152a60e2f4e3df157e2820828ca15660",
+      "template": "proposal"
+    },
+    {
+      "bytes": 3035654,
+      "sha256": "591cd873d4965389382532ccbea7c057f0cab6f8cc349991db081f6536b7a796",
+      "template": "one-pager"
+    },
+    {
+      "bytes": 3035939,
+      "sha256": "fa11e24df34e5513e3b7e44d7ee5ba0765c443e59c9d406d259f7145c5231556",
+      "template": "letter"
+    },
+    {
+      "bytes": 3036170,
+      "sha256": "d1210b3adc06ee4f8925babd3038ae7e87e04b740bf896dd74c4a83cd21af25b",
+      "template": "invoice"
+    },
+    {
+      "bytes": 3035756,
+      "sha256": "bd5674eb3e3a886f50a6c79e385f3ab9d192f630896cd32d89f9271b29bc32d8",
+      "template": "cv"
+    },
+    {
+      "bytes": 3035774,
+      "sha256": "54964355b1b3111458c06b66e414941fdbfe78c28448db7e7a8cb40b046ef10b",
+      "template": "slides"
+    },
+    {
+      "bytes": 3035530,
+      "sha256": "b0f6f7ed3fec0589ca386e707c758271130dbcbd3baed7e2e8901f49c6387bf4",
+      "template": "slides"
+    }
+  ],
+  "source": "packages/documents/src/render.ts"
+}

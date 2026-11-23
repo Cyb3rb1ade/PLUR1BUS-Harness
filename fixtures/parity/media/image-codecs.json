@@ -56,6 +56,12 @@
       "source": "iVBORw0KGgoAAAANSUhEUgAAgAEAAAABCAAAAABNn67KAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg=="
     },
     {
+      "code": "too_large",
+      "format": "png",
+      "mode": "verify",
+      "source": "iVBORw0KGgoAAAANSUhEUgAATiAAAE4gCAAAAADGGxnlAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg=="
+    },
+    {
       "code": "invalid_response",
       "format": "jpeg",
       "mode": "embed",

@@ -71,6 +71,62 @@
     "visibleAfterRefusals": [
       "fixture-a"
     ],
+    "withProvenance": {
+      "createdAt": 1700000000000,
+      "files": [
+        {
+          "bytes": 278,
+          "format": "png",
+          "path": "0.png",
+          "sha256": "eca314bca88ca0ba6c14ba1e280c25a07e8ba5ce8cb67d586a8c6d51dbc997b4"
+        }
+      ],
+      "id": "generated",
+      "metadata": {
+        "adapter": "fixture",
+        "durationMs": 7,
+        "model": "fixture-model",
+        "origin": "unknown",
+        "seed": null
+      },
+      "parameters": {
+        "embedMetadata": true,
+        "format": "png",
+        "prompt": "A fixture tree 🌳"
+      },
+      "partial": true,
+      "prompt": "A fixture tree 🌳",
+      "referenceHashes": [],
+      "schema": "media.output/1"
+    },
+    "withoutProvenance": {
+      "createdAt": 1700000000000,
+      "files": [
+        {
+          "bytes": 67,
+          "format": "png",
+          "path": "0.png",
+          "sha256": "a1abfd410973b0111c215baa879b9edcd739e601659ba44168269767cc2e9108"
+        }
+      ],
+      "id": "raw",
+      "metadata": {
+        "adapter": "fixture",
+        "durationMs": 7,
+        "model": "fixture-model",
+        "origin": "unknown",
+        "seed": null
+      },
+      "parameters": {
+        "embedMetadata": false,
+        "format": "png",
+        "prompt": "A fixture tree 🌳"
+      },
+      "partial": true,
+      "prompt": "A fixture tree 🌳",
+      "referenceHashes": [],
+      "schema": "media.output/1"
+    },
     "wrongFormat": "invalid_response"
   },
   "input": {

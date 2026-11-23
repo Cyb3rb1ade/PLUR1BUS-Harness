@@ -4,13 +4,18 @@ use plur1bus_media::{
     jobs::{Error, Result},
     output::{
         Backend, Destination, Image, ImageFormat, Images, Namespace, OutputStore, Settings, Stage,
-        WriteGuard,
+        Video, VideoControl, VideoStage, WriteGuard,
     },
     uploads::{Entry, Health, IndexRecord, Kind, Upload},
+    video::{self, Codec, ProcessPort},
 };
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
+    ffi::{OsStr, OsString},
+    fs::{self, File, OpenOptions},
+    io::{Cursor, Read},
+    path::{Path, PathBuf},
     sync::{Mutex, MutexGuard},
     time::{Duration, Instant},
 };
@@ -38,6 +43,7 @@ struct Staged<'a> {
     index: &'a mut BTreeMap<String, IndexRecord>,
     files: Files,
     fail_manifest: bool,
+    temp: Option<tempfile::TempDir>,
 }
 
 impl Backend for Memory {
@@ -106,6 +112,7 @@ impl WriteGuard for Guard<'_> {
             index: &mut self.index,
             files: Files::new(),
             fail_manifest: self.fail_manifest,
+            temp: None,
         })
     }
 
@@ -179,7 +186,7 @@ impl Stage for Staged<'_> {
         Ok(())
     }
 
-    fn publish(self, target: Destination<'_>, _: Instant) -> Result<()> {
+    fn publish(mut self, target: Destination<'_>, _: Instant) -> Result<()> {
         let (space, id) = match target {
             Destination::Output(id) => (Namespace::Output, id),
             Destination::Upload { id, index } => {
@@ -187,10 +194,200 @@ impl Stage for Staged<'_> {
                 (Namespace::Upload, id)
             }
         };
+        if let Some(temp) = &self.temp {
+            for entry in fs::read_dir(temp.path()).unwrap() {
+                let entry = entry.unwrap();
+                let name = entry.file_name().into_string().unwrap();
+                assert!(self
+                    .files
+                    .insert(name, fs::read(entry.path()).unwrap())
+                    .is_none());
+            }
+        }
         assert!(self.files.contains_key("manifest.json"));
         assert!(self.visible.insert(key(space, id), self.files).is_none());
         Ok(())
     }
+}
+
+impl VideoStage for Staged<'_> {
+    type Writer = File;
+    type Reader = File;
+
+    fn create_payload(&mut self, name: &str, _: Instant) -> Result<(PathBuf, File)> {
+        if self.temp.is_none() {
+            self.temp = Some(tempfile::tempdir().unwrap());
+        }
+        let path = self.temp.as_ref().unwrap().path().join(name);
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .unwrap();
+        Ok((path, file))
+    }
+
+    fn sync_payload(&self, path: &Path, _: Instant) -> Result<File> {
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)
+            .unwrap();
+        file.sync_all().unwrap();
+        Ok(file)
+    }
+
+    fn unlink_payload(&mut self, path: &Path, _: Instant) -> Result<()> {
+        fs::remove_file(path).unwrap();
+        Ok(())
+    }
+}
+
+struct ScriptedCodec {
+    prompts: std::cell::RefCell<Vec<Option<String>>>,
+}
+
+impl ProcessPort for ScriptedCodec {
+    fn run(
+        &self,
+        codec: Codec,
+        args: &[OsString],
+        _: usize,
+        _: Instant,
+        _: &dyn Fn() -> bool,
+    ) -> std::result::Result<Vec<u8>, video::Error> {
+        let output = Path::new(args.last().unwrap());
+        match codec {
+            Codec::Ffprobe => Ok(br#"{"streams":[{"codec_type":"video","width":1280,"height":720,"avg_frame_rate":"24/1"}],"format":{"duration":"4"}}"#.to_vec()),
+            Codec::Ffmpeg if output.extension() == Some(OsStr::new("png")) => {
+                fs::write(output, b"poster").unwrap();
+                Ok(vec![])
+            }
+            Codec::Ffmpeg => {
+                let source = args.iter().position(|arg| arg == "-i").unwrap();
+                let mut bytes = fs::read(Path::new(&args[source + 1])).unwrap();
+                let prompt = args.iter().find_map(|arg| arg.to_str()?.strip_prefix("comment="));
+                self.prompts.borrow_mut().push(prompt.map(str::to_owned));
+                if let Some(prompt) = prompt {
+                    bytes.extend_from_slice(prompt.as_bytes());
+                }
+                fs::write(output, bytes).unwrap();
+                Ok(vec![])
+            }
+        }
+    }
+}
+
+#[test]
+fn video_publication_matches_the_typescript_processor_and_store() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/media/video-store.json"
+    ))
+    .unwrap();
+    let input = &fixture["input"];
+    let expected = &fixture["expected"];
+    let now = input["now"].as_i64().unwrap();
+    let bytes = STANDARD.decode(input["bytes"].as_str().unwrap()).unwrap();
+    let codec = ScriptedCodec {
+        prompts: std::cell::RefCell::new(vec![]),
+    };
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let publish = |store: &OutputStore<'_, Memory>, id: &str, parameters: &Value, source: &[u8]| {
+        let mut stream = Cursor::new(&source[..10.min(source.len())])
+            .chain(Cursor::new(&source[10.min(source.len())..]));
+        store.put_video(
+            id,
+            &mut Video {
+                parameters,
+                references: &[],
+                metadata: &input["metadata"],
+                partial: false,
+                agent_metadata: None,
+                source: &mut stream,
+            },
+            &codec,
+            &VideoControl {
+                now_ms: now,
+                deadline,
+                cancelled: &|| false,
+            },
+        )
+    };
+    let memory = Memory::default();
+    let store = OutputStore::new(&memory, Settings::default());
+    let parameters = &input["request"];
+    assert_eq!(
+        publish(&store, "off", parameters, &bytes).unwrap(),
+        expected["plain"]
+    );
+    let mut opt_in = parameters.clone();
+    opt_in["embedMetadata"] = json!(true);
+    assert_eq!(
+        publish(&store, "on", &opt_in, &bytes).unwrap(),
+        expected["optIn"]
+    );
+    let limited = OutputStore::new(
+        &memory,
+        Settings {
+            max_video_bytes: Some(10),
+            ..Settings::default()
+        },
+    );
+    assert_eq!(
+        json!(publish(&limited, "large", parameters, &bytes)
+            .err()
+            .unwrap()),
+        expected["maxVideo"]
+    );
+    let quota = OutputStore::new(
+        &memory,
+        Settings {
+            quota_bytes: Some(1),
+            ..Settings::default()
+        },
+    );
+    assert_eq!(
+        json!(publish(&quota, "quota", parameters, &bytes).err().unwrap()),
+        expected["quota"]
+    );
+    let already_charged = memory
+        .lock(deadline)
+        .unwrap()
+        .generated_bytes(deadline)
+        .unwrap();
+    let late_quota = OutputStore::new(
+        &memory,
+        Settings {
+            quota_bytes: Some(already_charged + bytes.len() as u64),
+            ..Settings::default()
+        },
+    );
+    assert_eq!(
+        json!(publish(&late_quota, "late-quota", parameters, &bytes)
+            .err()
+            .unwrap()),
+        expected["lateQuota"]
+    );
+    assert_eq!(json!(&*codec.prompts.borrow()), expected["prompts"]);
+    assert_eq!(
+        json!(publish(&store, "invalid", parameters, b"bad")
+            .err()
+            .unwrap()),
+        expected["invalid"]
+    );
+    let visible = memory.visible.lock().unwrap();
+    assert_eq!(
+        json!(visible.keys().collect::<Vec<_>>()),
+        expected["entries"]
+    );
+    assert_eq!(
+        STANDARD.encode(&visible["off"]["0.mp4"]),
+        expected["plainBytes"]
+    );
+    assert_eq!(
+        STANDARD.encode(&visible["on"]["0.mp4"]),
+        expected["optInBytes"]
+    );
 }
 
 #[test]
@@ -331,6 +528,7 @@ fn generated_output_matches_the_typescript_manifest_charge_and_retention() {
         references: &[&bytes],
         mask: Some(&bytes),
         metadata: &input["metadata"],
+        agent_metadata: None,
         partial: input["partial"].as_bool().unwrap(),
         files: &files,
     };
@@ -405,6 +603,47 @@ fn generated_output_matches_the_typescript_manifest_charge_and_retention() {
         json!(store.get(id, deadline).unwrap()),
         expected["afterExpiry"]
     );
+
+    let provenance = OutputStore::new(
+        &memory,
+        Settings {
+            embed_metadata: Some(true),
+            ..Settings::default()
+        },
+    );
+    let mut request = input["request"].clone();
+    request["embedMetadata"] = json!(true);
+    let with_metadata = provenance
+        .put_images(
+            "generated",
+            &Images {
+                parameters: &request,
+                agent_metadata: Some(false),
+                references: &[],
+                mask: None,
+                ..generated
+            },
+            now,
+            deadline,
+        )
+        .unwrap();
+    assert_eq!(with_metadata, expected["withProvenance"]);
+    request["embedMetadata"] = json!(false);
+    let without_metadata = provenance
+        .put_images(
+            "raw",
+            &Images {
+                parameters: &request,
+                agent_metadata: Some(true),
+                references: &[],
+                mask: None,
+                ..generated
+            },
+            now,
+            deadline,
+        )
+        .unwrap();
+    assert_eq!(without_metadata, expected["withoutProvenance"]);
 
     let storage_failure = Memory {
         fail_manifest: true,

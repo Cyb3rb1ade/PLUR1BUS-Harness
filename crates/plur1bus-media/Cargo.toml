@@ -17,3 +17,4 @@ sha2 = "=0.10.9"
 
 [dev-dependencies]
 base64 = "=0.22.1"
+tempfile.workspace = true

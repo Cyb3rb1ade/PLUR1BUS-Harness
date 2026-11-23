@@ -25,13 +25,16 @@ export function recordMediaImages() {
       },
     };
   });
-  const large = makePng();
-  large.writeUInt32BE(32769, 16);
-  // Rebuild the modified IHDR as an ordinary valid header.
-  const oversize = Buffer.concat([large.subarray(0, 8), pngChunk("IHDR", large.subarray(16, 29)), large.subarray(33)]);
+  const withDimensions = (width: number, height: number) => {
+    const image = makePng();
+    image.writeUInt32BE(width, 16);
+    image.writeUInt32BE(height, 20);
+    return Buffer.concat([image.subarray(0, 8), pngChunk("IHDR", image.subarray(16, 29)), image.subarray(33)]);
+  };
   const refusals = [
     { format: "png" as const, source: makePng().subarray(0, 19), mode: "sanitize" },
-    { format: "png" as const, source: oversize, mode: "verify" },
+    { format: "png" as const, source: withDimensions(32769, 1), mode: "verify" },
+    { format: "png" as const, source: withDimensions(20000, 20000), mode: "verify" },
     { format: "jpeg" as const, source: makePng(), mode: "embed" },
   ].map(({ format, source, mode }) => {
     try {
