@@ -22,11 +22,11 @@ use tokio::task::spawn_blocking;
 use ureq::http::{header, HeaderMap, HeaderName, HeaderValue, Method, Request, Response};
 use url::{Host, Url};
 
-mod encode;
+pub(crate) mod encode;
 mod sse;
 
 pub const MAX_FRAME_BYTES: usize = 16 * 1024 * 1024;
-const MAX_DIAGNOSTIC_BYTES: usize = 64 * 1024;
+pub(crate) const MAX_DIAGNOSTIC_BYTES: usize = 64 * 1024;
 
 type SdkError = StreamableHttpError<Error>;
 type SdkResult<T> = Result<T, SdkError>;
@@ -72,6 +72,7 @@ pub struct HttpClient {
     endpoint: Url,
     admission: Arc<dyn Admission>,
     timeout: Duration,
+    frame_limit: usize,
 }
 
 impl fmt::Debug for HttpClient {
@@ -103,7 +104,14 @@ impl HttpClient {
             endpoint: checked_url(endpoint)?,
             admission,
             timeout,
+            frame_limit: MAX_FRAME_BYTES,
         })
+    }
+
+    /// A caller may apply a smaller frame limit, such as the legacy Core's 1 MiB.
+    pub fn with_frame_limit(mut self, limit: usize) -> Self {
+        self.frame_limit = limit.min(MAX_FRAME_BYTES);
+        self
     }
 
     fn open(&self, request: Outbound) -> Result<(Response<ureq::Body>, Instant), Error> {
@@ -114,50 +122,29 @@ impl HttpClient {
         let deadline = Instant::now()
             .checked_add(self.timeout)
             .ok_or(Error::Timeout)?;
-        let pin = self.admission.pin(&target, deadline)?;
-        if !pin_matches(&target, pin) {
-            return Err(Error::Denied);
-        }
-        let mut headers = self.headers(&request)?;
+        let headers = self.headers(&request)?;
         let mut builder = Request::builder()
             .method(request.method)
             .uri(target.as_str());
-        *builder.headers_mut().ok_or(Error::InvalidEndpoint)? = std::mem::take(&mut headers);
-        let agent = pinned_http_agent(
-            ureq::config::Config::builder()
-                .proxy(None)
-                .max_redirects(0)
-                .max_idle_connections(0)
-                .max_response_header_size(MAX_DIAGNOSTIC_BYTES)
-                .http_status_as_error(false)
-                .timeout_global(Some(remaining(deadline)?))
-                .tls_config(
-                    ureq::tls::TlsConfig::builder()
-                        .root_certs(ureq::tls::RootCerts::PlatformVerifier)
-                        .build(),
-                )
-                .build(),
-            pin,
-            deadline,
-        );
-        let result = if let Some(body) = request.body {
-            if body.len() > MAX_FRAME_BYTES {
+        *builder.headers_mut().ok_or(Error::InvalidEndpoint)? = headers;
+        let response = if let Some(body) = request.body {
+            if body.len() > self.frame_limit {
                 return Err(Error::FrameLimit);
             }
-            agent.run(builder.body(body).map_err(|_| Error::InvalidBody)?)
+            pinned_run(
+                &target,
+                self.admission.as_ref(),
+                deadline,
+                builder.body(body).map_err(|_| Error::InvalidBody)?,
+            )?
         } else {
-            agent.run(builder.body(()).map_err(|_| Error::InvalidBody)?)
+            pinned_run(
+                &target,
+                self.admission.as_ref(),
+                deadline,
+                builder.body(()).map_err(|_| Error::InvalidBody)?,
+            )?
         };
-        remaining(deadline)?;
-        let response = result.map_err(wire_error)?;
-        if response
-            .headers()
-            .get_all(header::CONTENT_ENCODING)
-            .iter()
-            .any(|coding| !coding.as_bytes().eq_ignore_ascii_case(b"identity"))
-        {
-            return Err(Error::BodyCoding);
-        }
         Ok((response, deadline))
     }
 
@@ -235,7 +222,7 @@ impl HttpClient {
                 .map(ToOwned::to_owned);
             return match mime {
                 Mime::Json => {
-                    let body = read_bounded(&mut response, deadline, MAX_FRAME_BYTES)?;
+                    let body = read_bounded(&mut response, deadline, self.frame_limit)?;
                     Ok(StreamableHttpPostResponse::Json(decode(&body)?, session))
                 }
                 Mime::Sse => Ok(StreamableHttpPostResponse::Sse(
@@ -339,7 +326,7 @@ impl StreamableHttpClient for HttpClient {
                     body: Some(body),
                 },
                 &message,
-                max_sse_event_size.min(MAX_FRAME_BYTES),
+                max_sse_event_size.min(client.frame_limit),
             )
         })
         .await
@@ -386,7 +373,7 @@ impl StreamableHttpClient for HttpClient {
                     headers: custom_headers,
                     body: None,
                 },
-                max_sse_event_size.min(MAX_FRAME_BYTES),
+                max_sse_event_size.min(client.frame_limit),
             )
         })
         .await
@@ -426,6 +413,43 @@ impl StreamableHttpClient for HttpClient {
     }
 }
 
+pub(crate) fn pinned_run(
+    target: &Url,
+    admission: &dyn Admission,
+    deadline: Instant,
+    request: Request<impl ureq::AsSendBody>,
+) -> Result<Response<ureq::Body>, Error> {
+    let pin = admission.pin(target, deadline)?;
+    if !pin_matches(target, pin) {
+        return Err(Error::Denied);
+    }
+    let config = ureq::config::Config::builder()
+        .proxy(None)
+        .max_redirects(0)
+        .max_idle_connections(0)
+        .max_response_header_size(MAX_DIAGNOSTIC_BYTES)
+        .http_status_as_error(false)
+        .timeout_global(Some(remaining(deadline)?))
+        .tls_config(
+            ureq::tls::TlsConfig::builder()
+                .root_certs(ureq::tls::RootCerts::PlatformVerifier)
+                .build(),
+        )
+        .build();
+    let result = pinned_http_agent(config, pin, deadline).run(request);
+    remaining(deadline)?;
+    let response = result.map_err(wire_error)?;
+    if response
+        .headers()
+        .get_all(header::CONTENT_ENCODING)
+        .iter()
+        .any(|coding| !coding.as_bytes().eq_ignore_ascii_case(b"identity"))
+    {
+        return Err(Error::BodyCoding);
+    }
+    Ok(response)
+}
+
 fn reserved(name: &HeaderName) -> bool {
     matches!(
         name.as_str(),
@@ -462,7 +486,7 @@ fn insert_header(
     Ok(())
 }
 
-fn checked_url(raw: &str) -> Result<Url, Error> {
+pub(crate) fn checked_url(raw: &str) -> Result<Url, Error> {
     let url = Url::parse(raw).map_err(|_| Error::InvalidEndpoint)?;
     if matches!(url.scheme(), "https" | "http")
         && url.host().is_some()
@@ -536,7 +560,7 @@ fn io_error(error: &io::Error) -> Error {
     }
 }
 
-fn read_bounded(
+pub(crate) fn read_bounded(
     response: &mut Response<ureq::Body>,
     deadline: Instant,
     limit: usize,

@@ -1632,3 +1632,10 @@ describe("MCP HTTP exchanges (P4-W W7)", () => {
     assert.equal(readFileSync(fixturePath("mcp", "http"), "utf8"), fixtureText((await recordMcpHttp()).http));
   });
 });
+
+describe("MCP OAuth exchanges (P4-W W7)", () => {
+  it("matches the TypeScript PKCE, refresh and device-grant exchanges", async () => {
+    const { recordMcpAuth } = await import("./export-mcp-auth.ts");
+    assert.equal(readFileSync(fixturePath("mcp", "auth"), "utf8"), fixtureText((await recordMcpAuth()).auth));
+  });
+});

@@ -4,3 +4,7 @@
 pub mod bridge_body;
 
 pub mod http;
+
+pub mod auth;
+
+pub mod stdio;

@@ -1,4 +1,3 @@
-use rmcp::model::ClientJsonRpcMessage;
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use serde_json::{Map, Value};
 
@@ -18,11 +17,11 @@ const PARAM_FIRST: [&str; 8] = [
     "taskId",
 ];
 
-pub(super) fn message(message: &ClientJsonRpcMessage) -> serde_json::Result<Vec<u8>> {
-    let ClientJsonRpcMessage::Request(_) = message else {
-        return serde_json::to_vec(message);
-    };
+pub(crate) fn message(message: &impl Serialize) -> serde_json::Result<Vec<u8>> {
     let value = serde_json::to_value(message)?;
+    if value.get("id").is_none() || value.get("method").is_none() {
+        return serde_json::to_vec(message);
+    }
     let Some(params) = value.get("params").and_then(Value::as_object) else {
         return serde_json::to_vec(message);
     };

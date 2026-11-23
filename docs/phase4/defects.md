@@ -1512,3 +1512,23 @@ deadline from the egress decision through the last read and counts raw SSE
 event bytes before parsing. The HTTP adapter asks for identity coding and
 rejects other encodings. Error diagnostics contain status and category. The
 adapter discards peer-provided error text and arbitrary error data.
+
+<a id="p4d-230"></a>
+
+## P4D-230 — bounds for MCP OAuth exchanges
+
+Rust applies a finite, shared deadline to discovery, the authorization
+interaction and token exchange. It accepts at most 1 MiB of structured
+metadata or token data and at most 64 KiB from unsuccessful replies. The
+credential-free discovery and token requests use the pinned HTTP transport.
+Errors retain a fixed category and omit response bodies.
+
+<a id="p4d-231"></a>
+
+## P4D-231 — deadline for incomplete MCP stdio frames
+
+Rust keeps the 1 MiB line boundary and sets one deadline when an incomplete
+line starts. The deadline survives read cancellation and applies to the
+remainder of that line. If a send stops after taking the writer, the stream
+closes so a partial write cannot prefix a new frame. Process-group termination
+and stderr ownership remain with the launcher port.
