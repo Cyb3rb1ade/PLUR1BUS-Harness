@@ -14,6 +14,9 @@
           },
           "type": "session.update"
         }
+      ],
+      "sendText": [
+        "{\"type\":\"session.update\",\"session\":{\"input_audio_format\":\"pcm16\",\"output_audio_format\":\"pcm16\"}}"
       ]
     },
     {
@@ -28,6 +31,9 @@
           "audio": "AQACAA==",
           "type": "input_audio_buffer.append"
         }
+      ],
+      "sendText": [
+        "{\"type\":\"input_audio_buffer.append\",\"audio\":\"AQACAA==\"}"
       ]
     }
   ],

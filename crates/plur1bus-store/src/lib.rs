@@ -219,6 +219,11 @@ pub struct Store {
     spec: StoreSpec,
 }
 
+/// Acquire SQLite's write reservation before reading state used to decide a write.
+pub fn begin_immediate(connection: &Connection) -> rusqlite::Result<Transaction<'_>> {
+    Transaction::new_unchecked(connection, TransactionBehavior::Immediate)
+}
+
 impl Store {
     /// Opens the existing store at `path`. The version is checked before anything is set, so a refused file is left exactly
     /// as it was (not even its journal mode changes); then WAL, the busy timeout, `foreign_keys`, `synchronous` and the
@@ -327,9 +332,7 @@ impl Store {
     where
         StoreError: From<E>,
     {
-        let tx = self
-            .conn
-            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let tx = begin_immediate(&self.conn)?;
         let out = f(&tx)?;
         tx.commit()?;
         Ok(out)
@@ -345,10 +348,7 @@ impl Store {
     where
         E: From<StoreError>,
     {
-        let tx = self
-            .conn
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(StoreError::from)?;
+        let tx = begin_immediate(&self.conn).map_err(StoreError::from)?;
         let out = f(&tx)?;
         tx.commit().map_err(StoreError::from)?;
         Ok(out)

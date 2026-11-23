@@ -1,0 +1,288 @@
+{
+  "cases": [
+    {
+      "expected": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Notes &amp; plans</title>\n<style>\n:root {\n  --doc-paper: #ffffff;\n  --doc-text: #1a1c20;\n  --doc-muted: #4b5563;\n  --doc-accent: #2563eb;\n  --doc-on-accent: #ffffff;\n  --doc-cover-light-text: #ffffff;\n  --doc-cover-light-ground: #2563eb;\n  --doc-cover-dark-text: #f5f7fa;\n  --doc-cover-dark-ground: #111827;\n  --font-sans: \"Inter\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif;\n  --font-serif: \"Source Serif 4\", Georgia, \"Times New Roman\", serif;\n  --font-mono: \"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace;\n  --base-size: 11pt;\n  --line: 1.5;\n  --gutter: 18mm;\n  --measure: 66ch; /* 60–75 characters per line (D100 §1) */\n}\n\n@page {\n  size: A4;\n  margin: 18mm 16mm 20mm;\n  @bottom-center { content: counter(page); font-family: var(--font-sans); font-size: 9pt; color: var(--doc-muted); }\n  @top-left { content: string(doctitle); font-family: var(--font-sans); font-size: 8pt; letter-spacing: 0.06em; text-transform: uppercase; color: var(--doc-muted); }\n  @top-right { content: string(docauthor); font-family: var(--font-sans); font-size: 8pt; color: var(--doc-muted); }\n}\n\nhtml { font-size: var(--base-size); }\nbody {\n  font-family: var(--font-serif);\n  color: var(--doc-text);\n  background: var(--doc-paper);\n  line-height: var(--line);\n  font-size: 1rem;\n  margin: 0;\n}\nbody.sans { font-family: var(--font-sans); }\n\nh1, h2, h3, h4, h5, h6 {\n  font-family: var(--font-sans);\n  color: var(--doc-text);\n  line-height: 1.15;\n  margin: 1.6em 0 0.5em;\n}\nh1 { font-size: 2.2rem; letter-spacing: -0.01em; string-set: doctitle content(); }\nh2 { font-size: 1.5rem; }\nh3 { font-size: 1.2rem; }\nh4 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--doc-muted); }\n\np { margin: 0 0 0.8em; max-width: var(--measure); }\na { color: var(--doc-accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--doc-accent) 40%, transparent); }\nstrong { font-weight: 600; }\ncode { font-family: var(--font-mono); font-size: 0.9em; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 3px; padding: 0 0.25em; }\npre { font-family: var(--font-mono); font-size: 0.85em; line-height: 1.4; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 4px; padding: 0.8em 1em; }\nblockquote {\n  margin: 1.2em 0; padding: 0.2em 0 0.2em 1em;\n  border-left: 3px solid var(--doc-accent);\n  font-style: italic; color: var(--doc-muted);\n}\nhr { border: none; border-top: 1px solid color-mix(in srgb, var(--doc-text) 15%, transparent); margin: 2em 0; }\nul, ol { padding-left: 1.4em; max-width: var(--measure); }\nli { margin-bottom: 0.35em; }\n\n.cover {\n  page: cover; break-after: page;\n  min-height: 90vh; box-sizing: border-box;\n  display: flex; flex-direction: column; justify-content: flex-end;\n  padding: 30mm 16mm;\n}\n@page cover { margin: 0; }\n.cover .kicker { font-family: var(--font-sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 1em; }\n.cover h1 { font-size: 3.2rem; margin: 0 0 0.3em; max-width: 22ch; color: inherit; }\n.cover .subtitle { font-size: 1.15rem; max-width: var(--measure); }\n.cover .byline { font-family: var(--font-sans); font-size: 0.85rem; margin-top: 2em; }\n\n.caption { font-family: var(--font-sans); font-size: 0.8rem; color: var(--doc-muted); margin-top: 0.4em; }\n.callout {\n  margin: 1.4em 0; padding: 0.9em 1.1em;\n  background: color-mix(in srgb, var(--doc-accent) 8%, transparent);\n  border-left: 3px solid var(--doc-accent);\n  border-radius: 0 4px 4px 0;\n}\n.callout p:last-child { margin-bottom: 0; }\n\n\n</style>\n</head>\n<body class=\"serif\">\n<div class=\"cover\" style=\"background:var(--doc-cover-dark-ground);color:var(--doc-cover-dark-text);--cover-sub:rgba(245,247,250,0.72)\">\n  <div class=\"kicker\">Report</div>\n  <h1>Notes &amp; plans</h1>\n  <div class=\"subtitle\" style=\"color:var(--cover-sub)\">Check &lt;draft&gt;</div>\n  <div class=\"byline\" style=\"color:var(--cover-sub)\">A &amp;amp; B</div>\n</div>\n<header><div class=\"subtitle\" style=\"font-size:1.1rem;color:var(--doc-muted)\">Check &lt;draft&gt;</div><h1>Notes &amp; plans</h1></header><p>Intro &amp; context</p>\n<h2>First</h2>\n<p><a href=\"#chapter\" rel=\"noopener noreferrer\">Chapter</a> and <a rel=\"noopener noreferrer\">Reference</a></p>\n<h2>Second</h2>\n<p>A <strong>strong</strong> conclusion.</p>\n</body>\n</html>",
+      "input": {
+        "colors": {},
+        "markdown": "Intro & context\n\n## First\n\n[Chapter](#chapter) and [Reference](https://example.invalid/docs)\n\n## Second\n\nA **strong** conclusion.",
+        "meta": {
+          "author": "A & B",
+          "closing": "Regards",
+          "date": "22 November",
+          "from": "Fixture sender",
+          "lineItems": [
+            {
+              "amount": "12.50",
+              "label": "Notes & plan"
+            }
+          ],
+          "role": "Writer",
+          "salutation": "Dear colleague",
+          "subject": "Review",
+          "title": "Fixture <title>",
+          "to": "Fixture recipient",
+          "total": "12.50"
+        },
+        "subtitle": "Check <draft>",
+        "template": "report",
+        "title": "Notes & plans"
+      }
+    },
+    {
+      "expected": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Notes &amp; plans</title>\n<style>\n:root {\n  --doc-paper: #ffffff;\n  --doc-text: #1a1c20;\n  --doc-muted: #4b5563;\n  --doc-accent: #2563eb;\n  --doc-on-accent: #ffffff;\n  --doc-cover-light-text: #ffffff;\n  --doc-cover-light-ground: #2563eb;\n  --doc-cover-dark-text: #f5f7fa;\n  --doc-cover-dark-ground: #111827;\n  --font-sans: \"Inter\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif;\n  --font-serif: \"Source Serif 4\", Georgia, \"Times New Roman\", serif;\n  --font-mono: \"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace;\n  --base-size: 11pt;\n  --line: 1.5;\n  --gutter: 18mm;\n  --measure: 66ch; /* 60–75 characters per line (D100 §1) */\n}\n\n@page {\n  size: A4;\n  margin: 18mm 16mm 20mm;\n  @bottom-center { content: counter(page); font-family: var(--font-sans); font-size: 9pt; color: var(--doc-muted); }\n  @top-left { content: string(doctitle); font-family: var(--font-sans); font-size: 8pt; letter-spacing: 0.06em; text-transform: uppercase; color: var(--doc-muted); }\n  @top-right { content: string(docauthor); font-family: var(--font-sans); font-size: 8pt; color: var(--doc-muted); }\n}\n\nhtml { font-size: var(--base-size); }\nbody {\n  font-family: var(--font-serif);\n  color: var(--doc-text);\n  background: var(--doc-paper);\n  line-height: var(--line);\n  font-size: 1rem;\n  margin: 0;\n}\nbody.sans { font-family: var(--font-sans); }\n\nh1, h2, h3, h4, h5, h6 {\n  font-family: var(--font-sans);\n  color: var(--doc-text);\n  line-height: 1.15;\n  margin: 1.6em 0 0.5em;\n}\nh1 { font-size: 2.2rem; letter-spacing: -0.01em; string-set: doctitle content(); }\nh2 { font-size: 1.5rem; }\nh3 { font-size: 1.2rem; }\nh4 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--doc-muted); }\n\np { margin: 0 0 0.8em; max-width: var(--measure); }\na { color: var(--doc-accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--doc-accent) 40%, transparent); }\nstrong { font-weight: 600; }\ncode { font-family: var(--font-mono); font-size: 0.9em; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 3px; padding: 0 0.25em; }\npre { font-family: var(--font-mono); font-size: 0.85em; line-height: 1.4; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 4px; padding: 0.8em 1em; }\nblockquote {\n  margin: 1.2em 0; padding: 0.2em 0 0.2em 1em;\n  border-left: 3px solid var(--doc-accent);\n  font-style: italic; color: var(--doc-muted);\n}\nhr { border: none; border-top: 1px solid color-mix(in srgb, var(--doc-text) 15%, transparent); margin: 2em 0; }\nul, ol { padding-left: 1.4em; max-width: var(--measure); }\nli { margin-bottom: 0.35em; }\n\n.cover {\n  page: cover; break-after: page;\n  min-height: 90vh; box-sizing: border-box;\n  display: flex; flex-direction: column; justify-content: flex-end;\n  padding: 30mm 16mm;\n}\n@page cover { margin: 0; }\n.cover .kicker { font-family: var(--font-sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 1em; }\n.cover h1 { font-size: 3.2rem; margin: 0 0 0.3em; max-width: 22ch; color: inherit; }\n.cover .subtitle { font-size: 1.15rem; max-width: var(--measure); }\n.cover .byline { font-family: var(--font-sans); font-size: 0.85rem; margin-top: 2em; }\n\n.caption { font-family: var(--font-sans); font-size: 0.8rem; color: var(--doc-muted); margin-top: 0.4em; }\n.callout {\n  margin: 1.4em 0; padding: 0.9em 1.1em;\n  background: color-mix(in srgb, var(--doc-accent) 8%, transparent);\n  border-left: 3px solid var(--doc-accent);\n  border-radius: 0 4px 4px 0;\n}\n.callout p:last-child { margin-bottom: 0; }\n\nbody { font-size: 1.05rem; } h1 { text-align: center; } p { text-align: justify; hyphens: auto; }\n</style>\n</head>\n<body class=\"serif\">\n<header style=\"margin-top:12mm;text-align:center\"><div class=\"kicker\" style=\"font-family:var(--font-sans);text-transform:uppercase;letter-spacing:.14em;font-size:.8rem;color:var(--doc-muted)\">Essay</div><h1>Notes &amp; plans</h1><div class=\"subtitle\" style=\"color:var(--doc-muted)\">Check &lt;draft&gt;</div></header><p>Intro &amp; context</p>\n<h2>First</h2>\n<p><a href=\"#chapter\" rel=\"noopener noreferrer\">Chapter</a> and <a rel=\"noopener noreferrer\">Reference</a></p>\n<h2>Second</h2>\n<p>A <strong>strong</strong> conclusion.</p>\n</body>\n</html>",
+      "input": {
+        "colors": {},
+        "markdown": "Intro & context\n\n## First\n\n[Chapter](#chapter) and [Reference](https://example.invalid/docs)\n\n## Second\n\nA **strong** conclusion.",
+        "meta": {
+          "author": "A & B",
+          "closing": "Regards",
+          "date": "22 November",
+          "from": "Fixture sender",
+          "lineItems": [
+            {
+              "amount": "12.50",
+              "label": "Notes & plan"
+            }
+          ],
+          "role": "Writer",
+          "salutation": "Dear colleague",
+          "subject": "Review",
+          "title": "Fixture <title>",
+          "to": "Fixture recipient",
+          "total": "12.50"
+        },
+        "subtitle": "Check <draft>",
+        "template": "essay",
+        "title": "Notes & plans"
+      }
+    },
+    {
+      "expected": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Notes &amp; plans</title>\n<style>\n:root {\n  --doc-paper: #ffffff;\n  --doc-text: #1a1c20;\n  --doc-muted: #4b5563;\n  --doc-accent: #2563eb;\n  --doc-on-accent: #ffffff;\n  --doc-cover-light-text: #ffffff;\n  --doc-cover-light-ground: #2563eb;\n  --doc-cover-dark-text: #f5f7fa;\n  --doc-cover-dark-ground: #111827;\n  --font-sans: \"Inter\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif;\n  --font-serif: \"Source Serif 4\", Georgia, \"Times New Roman\", serif;\n  --font-mono: \"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace;\n  --base-size: 11pt;\n  --line: 1.5;\n  --gutter: 18mm;\n  --measure: 66ch; /* 60–75 characters per line (D100 §1) */\n}\n\n@page {\n  size: A4;\n  margin: 18mm 16mm 20mm;\n  @bottom-center { content: counter(page); font-family: var(--font-sans); font-size: 9pt; color: var(--doc-muted); }\n  @top-left { content: string(doctitle); font-family: var(--font-sans); font-size: 8pt; letter-spacing: 0.06em; text-transform: uppercase; color: var(--doc-muted); }\n  @top-right { content: string(docauthor); font-family: var(--font-sans); font-size: 8pt; color: var(--doc-muted); }\n}\n\nhtml { font-size: var(--base-size); }\nbody {\n  font-family: var(--font-serif);\n  color: var(--doc-text);\n  background: var(--doc-paper);\n  line-height: var(--line);\n  font-size: 1rem;\n  margin: 0;\n}\nbody.sans { font-family: var(--font-sans); }\n\nh1, h2, h3, h4, h5, h6 {\n  font-family: var(--font-sans);\n  color: var(--doc-text);\n  line-height: 1.15;\n  margin: 1.6em 0 0.5em;\n}\nh1 { font-size: 2.2rem; letter-spacing: -0.01em; string-set: doctitle content(); }\nh2 { font-size: 1.5rem; }\nh3 { font-size: 1.2rem; }\nh4 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--doc-muted); }\n\np { margin: 0 0 0.8em; max-width: var(--measure); }\na { color: var(--doc-accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--doc-accent) 40%, transparent); }\nstrong { font-weight: 600; }\ncode { font-family: var(--font-mono); font-size: 0.9em; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 3px; padding: 0 0.25em; }\npre { font-family: var(--font-mono); font-size: 0.85em; line-height: 1.4; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 4px; padding: 0.8em 1em; }\nblockquote {\n  margin: 1.2em 0; padding: 0.2em 0 0.2em 1em;\n  border-left: 3px solid var(--doc-accent);\n  font-style: italic; color: var(--doc-muted);\n}\nhr { border: none; border-top: 1px solid color-mix(in srgb, var(--doc-text) 15%, transparent); margin: 2em 0; }\nul, ol { padding-left: 1.4em; max-width: var(--measure); }\nli { margin-bottom: 0.35em; }\n\n.cover {\n  page: cover; break-after: page;\n  min-height: 90vh; box-sizing: border-box;\n  display: flex; flex-direction: column; justify-content: flex-end;\n  padding: 30mm 16mm;\n}\n@page cover { margin: 0; }\n.cover .kicker { font-family: var(--font-sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 1em; }\n.cover h1 { font-size: 3.2rem; margin: 0 0 0.3em; max-width: 22ch; color: inherit; }\n.cover .subtitle { font-size: 1.15rem; max-width: var(--measure); }\n.cover .byline { font-family: var(--font-sans); font-size: 0.85rem; margin-top: 2em; }\n\n.caption { font-family: var(--font-sans); font-size: 0.8rem; color: var(--doc-muted); margin-top: 0.4em; }\n.callout {\n  margin: 1.4em 0; padding: 0.9em 1.1em;\n  background: color-mix(in srgb, var(--doc-accent) 8%, transparent);\n  border-left: 3px solid var(--doc-accent);\n  border-radius: 0 4px 4px 0;\n}\n.callout p:last-child { margin-bottom: 0; }\n\nh2 { border-bottom: 1px solid color-mix(in srgb, var(--doc-text) 15%, transparent); padding-bottom: 0.25em; }\n</style>\n</head>\n<body class=\"serif\">\n<div class=\"cover\" style=\"background:var(--doc-cover-light-ground);color:var(--doc-cover-light-text);--cover-sub:rgba(255,255,255,0.82)\">\n  <div class=\"kicker\">White paper</div>\n  <h1>Notes &amp; plans</h1>\n  <div class=\"subtitle\" style=\"color:var(--cover-sub)\">Check &lt;draft&gt;</div>\n  <div class=\"byline\" style=\"color:var(--cover-sub)\">A &amp;amp; B</div>\n</div>\n<header><div class=\"subtitle\" style=\"font-size:1.1rem;color:var(--doc-muted)\">Check &lt;draft&gt;</div><h1>Notes &amp; plans</h1></header><p>Intro &amp; context</p>\n<h2>First</h2>\n<p><a href=\"#chapter\" rel=\"noopener noreferrer\">Chapter</a> and <a rel=\"noopener noreferrer\">Reference</a></p>\n<h2>Second</h2>\n<p>A <strong>strong</strong> conclusion.</p>\n</body>\n</html>",
+      "input": {
+        "colors": {},
+        "markdown": "Intro & context\n\n## First\n\n[Chapter](#chapter) and [Reference](https://example.invalid/docs)\n\n## Second\n\nA **strong** conclusion.",
+        "meta": {
+          "author": "A & B",
+          "closing": "Regards",
+          "date": "22 November",
+          "from": "Fixture sender",
+          "lineItems": [
+            {
+              "amount": "12.50",
+              "label": "Notes & plan"
+            }
+          ],
+          "role": "Writer",
+          "salutation": "Dear colleague",
+          "subject": "Review",
+          "title": "Fixture <title>",
+          "to": "Fixture recipient",
+          "total": "12.50"
+        },
+        "subtitle": "Check <draft>",
+        "template": "white-paper",
+        "title": "Notes & plans"
+      }
+    },
+    {
+      "expected": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Notes &amp; plans</title>\n<style>\n:root {\n  --doc-paper: #ffffff;\n  --doc-text: #1a1c20;\n  --doc-muted: #4b5563;\n  --doc-accent: #2563eb;\n  --doc-on-accent: #ffffff;\n  --doc-cover-light-text: #ffffff;\n  --doc-cover-light-ground: #2563eb;\n  --doc-cover-dark-text: #f5f7fa;\n  --doc-cover-dark-ground: #111827;\n  --font-sans: \"Inter\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif;\n  --font-serif: \"Source Serif 4\", Georgia, \"Times New Roman\", serif;\n  --font-mono: \"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace;\n  --base-size: 11pt;\n  --line: 1.5;\n  --gutter: 18mm;\n  --measure: 66ch; /* 60–75 characters per line (D100 §1) */\n}\n\n@page {\n  size: A4;\n  margin: 18mm 16mm 20mm;\n  @bottom-center { content: counter(page); font-family: var(--font-sans); font-size: 9pt; color: var(--doc-muted); }\n  @top-left { content: string(doctitle); font-family: var(--font-sans); font-size: 8pt; letter-spacing: 0.06em; text-transform: uppercase; color: var(--doc-muted); }\n  @top-right { content: string(docauthor); font-family: var(--font-sans); font-size: 8pt; color: var(--doc-muted); }\n}\n\nhtml { font-size: var(--base-size); }\nbody {\n  font-family: var(--font-serif);\n  color: var(--doc-text);\n  background: var(--doc-paper);\n  line-height: var(--line);\n  font-size: 1rem;\n  margin: 0;\n}\nbody.sans { font-family: var(--font-sans); }\n\nh1, h2, h3, h4, h5, h6 {\n  font-family: var(--font-sans);\n  color: var(--doc-text);\n  line-height: 1.15;\n  margin: 1.6em 0 0.5em;\n}\nh1 { font-size: 2.2rem; letter-spacing: -0.01em; string-set: doctitle content(); }\nh2 { font-size: 1.5rem; }\nh3 { font-size: 1.2rem; }\nh4 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--doc-muted); }\n\np { margin: 0 0 0.8em; max-width: var(--measure); }\na { color: var(--doc-accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--doc-accent) 40%, transparent); }\nstrong { font-weight: 600; }\ncode { font-family: var(--font-mono); font-size: 0.9em; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 3px; padding: 0 0.25em; }\npre { font-family: var(--font-mono); font-size: 0.85em; line-height: 1.4; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 4px; padding: 0.8em 1em; }\nblockquote {\n  margin: 1.2em 0; padding: 0.2em 0 0.2em 1em;\n  border-left: 3px solid var(--doc-accent);\n  font-style: italic; color: var(--doc-muted);\n}\nhr { border: none; border-top: 1px solid color-mix(in srgb, var(--doc-text) 15%, transparent); margin: 2em 0; }\nul, ol { padding-left: 1.4em; max-width: var(--measure); }\nli { margin-bottom: 0.35em; }\n\n.cover {\n  page: cover; break-after: page;\n  min-height: 90vh; box-sizing: border-box;\n  display: flex; flex-direction: column; justify-content: flex-end;\n  padding: 30mm 16mm;\n}\n@page cover { margin: 0; }\n.cover .kicker { font-family: var(--font-sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 1em; }\n.cover h1 { font-size: 3.2rem; margin: 0 0 0.3em; max-width: 22ch; color: inherit; }\n.cover .subtitle { font-size: 1.15rem; max-width: var(--measure); }\n.cover .byline { font-family: var(--font-sans); font-size: 0.85rem; margin-top: 2em; }\n\n.caption { font-family: var(--font-sans); font-size: 0.8rem; color: var(--doc-muted); margin-top: 0.4em; }\n.callout {\n  margin: 1.4em 0; padding: 0.9em 1.1em;\n  background: color-mix(in srgb, var(--doc-accent) 8%, transparent);\n  border-left: 3px solid var(--doc-accent);\n  border-radius: 0 4px 4px 0;\n}\n.callout p:last-child { margin-bottom: 0; }\n\nbody { font-family: var(--font-sans); }\n</style>\n</head>\n<body class=\"sans\">\n<div class=\"cover\" style=\"background:var(--doc-cover-light-ground);color:var(--doc-cover-light-text);--cover-sub:rgba(255,255,255,0.82)\">\n  <div class=\"kicker\">Proposal</div>\n  <h1>Notes &amp; plans</h1>\n  <div class=\"subtitle\" style=\"color:var(--cover-sub)\">Check &lt;draft&gt;</div>\n  <div class=\"byline\" style=\"color:var(--cover-sub)\">A &amp;amp; B</div>\n</div>\n<header><div class=\"subtitle\" style=\"font-size:1.1rem;color:var(--doc-muted)\">Check &lt;draft&gt;</div><h1>Notes &amp; plans</h1></header><p>Intro &amp; context</p>\n<h2>First</h2>\n<p><a href=\"#chapter\" rel=\"noopener noreferrer\">Chapter</a> and <a rel=\"noopener noreferrer\">Reference</a></p>\n<h2>Second</h2>\n<p>A <strong>strong</strong> conclusion.</p>\n</body>\n</html>",
+      "input": {
+        "colors": {},
+        "markdown": "Intro & context\n\n## First\n\n[Chapter](#chapter) and [Reference](https://example.invalid/docs)\n\n## Second\n\nA **strong** conclusion.",
+        "meta": {
+          "author": "A & B",
+          "closing": "Regards",
+          "date": "22 November",
+          "from": "Fixture sender",
+          "lineItems": [
+            {
+              "amount": "12.50",
+              "label": "Notes & plan"
+            }
+          ],
+          "role": "Writer",
+          "salutation": "Dear colleague",
+          "subject": "Review",
+          "title": "Fixture <title>",
+          "to": "Fixture recipient",
+          "total": "12.50"
+        },
+        "subtitle": "Check <draft>",
+        "template": "proposal",
+        "title": "Notes & plans"
+      }
+    },
+    {
+      "expected": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Notes &amp; plans</title>\n<style>\n:root {\n  --doc-paper: #ffffff;\n  --doc-text: #1a1c20;\n  --doc-muted: #4b5563;\n  --doc-accent: #2563eb;\n  --doc-on-accent: #ffffff;\n  --doc-cover-light-text: #ffffff;\n  --doc-cover-light-ground: #2563eb;\n  --doc-cover-dark-text: #f5f7fa;\n  --doc-cover-dark-ground: #111827;\n  --font-sans: \"Inter\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif;\n  --font-serif: \"Source Serif 4\", Georgia, \"Times New Roman\", serif;\n  --font-mono: \"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace;\n  --base-size: 11pt;\n  --line: 1.5;\n  --gutter: 18mm;\n  --measure: 66ch; /* 60–75 characters per line (D100 §1) */\n}\n\n@page {\n  size: A4;\n  margin: 18mm 16mm 20mm;\n  @bottom-center { content: counter(page); font-family: var(--font-sans); font-size: 9pt; color: var(--doc-muted); }\n  @top-left { content: string(doctitle); font-family: var(--font-sans); font-size: 8pt; letter-spacing: 0.06em; text-transform: uppercase; color: var(--doc-muted); }\n  @top-right { content: string(docauthor); font-family: var(--font-sans); font-size: 8pt; color: var(--doc-muted); }\n}\n\nhtml { font-size: var(--base-size); }\nbody {\n  font-family: var(--font-serif);\n  color: var(--doc-text);\n  background: var(--doc-paper);\n  line-height: var(--line);\n  font-size: 1rem;\n  margin: 0;\n}\nbody.sans { font-family: var(--font-sans); }\n\nh1, h2, h3, h4, h5, h6 {\n  font-family: var(--font-sans);\n  color: var(--doc-text);\n  line-height: 1.15;\n  margin: 1.6em 0 0.5em;\n}\nh1 { font-size: 2.2rem; letter-spacing: -0.01em; string-set: doctitle content(); }\nh2 { font-size: 1.5rem; }\nh3 { font-size: 1.2rem; }\nh4 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--doc-muted); }\n\np { margin: 0 0 0.8em; max-width: var(--measure); }\na { color: var(--doc-accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--doc-accent) 40%, transparent); }\nstrong { font-weight: 600; }\ncode { font-family: var(--font-mono); font-size: 0.9em; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 3px; padding: 0 0.25em; }\npre { font-family: var(--font-mono); font-size: 0.85em; line-height: 1.4; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 4px; padding: 0.8em 1em; }\nblockquote {\n  margin: 1.2em 0; padding: 0.2em 0 0.2em 1em;\n  border-left: 3px solid var(--doc-accent);\n  font-style: italic; color: var(--doc-muted);\n}\nhr { border: none; border-top: 1px solid color-mix(in srgb, var(--doc-text) 15%, transparent); margin: 2em 0; }\nul, ol { padding-left: 1.4em; max-width: var(--measure); }\nli { margin-bottom: 0.35em; }\n\n.cover {\n  page: cover; break-after: page;\n  min-height: 90vh; box-sizing: border-box;\n  display: flex; flex-direction: column; justify-content: flex-end;\n  padding: 30mm 16mm;\n}\n@page cover { margin: 0; }\n.cover .kicker { font-family: var(--font-sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 1em; }\n.cover h1 { font-size: 3.2rem; margin: 0 0 0.3em; max-width: 22ch; color: inherit; }\n.cover .subtitle { font-size: 1.15rem; max-width: var(--measure); }\n.cover .byline { font-family: var(--font-sans); font-size: 0.85rem; margin-top: 2em; }\n\n.caption { font-family: var(--font-sans); font-size: 0.8rem; color: var(--doc-muted); margin-top: 0.4em; }\n.callout {\n  margin: 1.4em 0; padding: 0.9em 1.1em;\n  background: color-mix(in srgb, var(--doc-accent) 8%, transparent);\n  border-left: 3px solid var(--doc-accent);\n  border-radius: 0 4px 4px 0;\n}\n.callout p:last-child { margin-bottom: 0; }\n\nbody { font-family: var(--font-sans); } h1 { font-size: 1.8rem; }\n</style>\n</head>\n<body class=\"sans\">\n<header><div class=\"subtitle\" style=\"font-size:1.1rem;color:var(--doc-muted)\">Check &lt;draft&gt;</div><h1>Notes &amp; plans</h1></header><p>Intro &amp; context</p>\n<h2>First</h2>\n<p><a href=\"#chapter\" rel=\"noopener noreferrer\">Chapter</a> and <a rel=\"noopener noreferrer\">Reference</a></p>\n<h2>Second</h2>\n<p>A <strong>strong</strong> conclusion.</p>\n</body>\n</html>",
+      "input": {
+        "colors": {},
+        "markdown": "Intro & context\n\n## First\n\n[Chapter](#chapter) and [Reference](https://example.invalid/docs)\n\n## Second\n\nA **strong** conclusion.",
+        "meta": {
+          "author": "A & B",
+          "closing": "Regards",
+          "date": "22 November",
+          "from": "Fixture sender",
+          "lineItems": [
+            {
+              "amount": "12.50",
+              "label": "Notes & plan"
+            }
+          ],
+          "role": "Writer",
+          "salutation": "Dear colleague",
+          "subject": "Review",
+          "title": "Fixture <title>",
+          "to": "Fixture recipient",
+          "total": "12.50"
+        },
+        "subtitle": "Check <draft>",
+        "template": "one-pager",
+        "title": "Notes & plans"
+      }
+    },
+    {
+      "expected": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Notes &amp; plans</title>\n<style>\n:root {\n  --doc-paper: #ffffff;\n  --doc-text: #1a1c20;\n  --doc-muted: #4b5563;\n  --doc-accent: #2563eb;\n  --doc-on-accent: #ffffff;\n  --doc-cover-light-text: #ffffff;\n  --doc-cover-light-ground: #2563eb;\n  --doc-cover-dark-text: #f5f7fa;\n  --doc-cover-dark-ground: #111827;\n  --font-sans: \"Inter\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif;\n  --font-serif: \"Source Serif 4\", Georgia, \"Times New Roman\", serif;\n  --font-mono: \"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace;\n  --base-size: 11pt;\n  --line: 1.5;\n  --gutter: 18mm;\n  --measure: 66ch; /* 60–75 characters per line (D100 §1) */\n}\n\n@page {\n  size: A4;\n  margin: 18mm 16mm 20mm;\n  @bottom-center { content: counter(page); font-family: var(--font-sans); font-size: 9pt; color: var(--doc-muted); }\n  @top-left { content: string(doctitle); font-family: var(--font-sans); font-size: 8pt; letter-spacing: 0.06em; text-transform: uppercase; color: var(--doc-muted); }\n  @top-right { content: string(docauthor); font-family: var(--font-sans); font-size: 8pt; color: var(--doc-muted); }\n}\n\nhtml { font-size: var(--base-size); }\nbody {\n  font-family: var(--font-serif);\n  color: var(--doc-text);\n  background: var(--doc-paper);\n  line-height: var(--line);\n  font-size: 1rem;\n  margin: 0;\n}\nbody.sans { font-family: var(--font-sans); }\n\nh1, h2, h3, h4, h5, h6 {\n  font-family: var(--font-sans);\n  color: var(--doc-text);\n  line-height: 1.15;\n  margin: 1.6em 0 0.5em;\n}\nh1 { font-size: 2.2rem; letter-spacing: -0.01em; string-set: doctitle content(); }\nh2 { font-size: 1.5rem; }\nh3 { font-size: 1.2rem; }\nh4 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--doc-muted); }\n\np { margin: 0 0 0.8em; max-width: var(--measure); }\na { color: var(--doc-accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--doc-accent) 40%, transparent); }\nstrong { font-weight: 600; }\ncode { font-family: var(--font-mono); font-size: 0.9em; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 3px; padding: 0 0.25em; }\npre { font-family: var(--font-mono); font-size: 0.85em; line-height: 1.4; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 4px; padding: 0.8em 1em; }\nblockquote {\n  margin: 1.2em 0; padding: 0.2em 0 0.2em 1em;\n  border-left: 3px solid var(--doc-accent);\n  font-style: italic; color: var(--doc-muted);\n}\nhr { border: none; border-top: 1px solid color-mix(in srgb, var(--doc-text) 15%, transparent); margin: 2em 0; }\nul, ol { padding-left: 1.4em; max-width: var(--measure); }\nli { margin-bottom: 0.35em; }\n\n.cover {\n  page: cover; break-after: page;\n  min-height: 90vh; box-sizing: border-box;\n  display: flex; flex-direction: column; justify-content: flex-end;\n  padding: 30mm 16mm;\n}\n@page cover { margin: 0; }\n.cover .kicker { font-family: var(--font-sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 1em; }\n.cover h1 { font-size: 3.2rem; margin: 0 0 0.3em; max-width: 22ch; color: inherit; }\n.cover .subtitle { font-size: 1.15rem; max-width: var(--measure); }\n.cover .byline { font-family: var(--font-sans); font-size: 0.85rem; margin-top: 2em; }\n\n.caption { font-family: var(--font-sans); font-size: 0.8rem; color: var(--doc-muted); margin-top: 0.4em; }\n.callout {\n  margin: 1.4em 0; padding: 0.9em 1.1em;\n  background: color-mix(in srgb, var(--doc-accent) 8%, transparent);\n  border-left: 3px solid var(--doc-accent);\n  border-radius: 0 4px 4px 0;\n}\n.callout p:last-child { margin-bottom: 0; }\n\nbody { font-size: 1.02rem; } .letter-meta { font-family: var(--font-sans); font-size: 0.85rem; color: var(--doc-muted); margin-bottom: 1.4em; }\n</style>\n</head>\n<body class=\"serif\">\n<div class=\"letter-meta\">Fixture sender<br>22 November<br><br>Fixture recipient</div>\n<div style=\"font-family:var(--font-sans);font-size:.9rem;color:var(--doc-muted);text-transform:uppercase;letter-spacing:.08em\">Review</div>\n<h1 style=\"font-size:1.4rem\">Dear colleague</h1>\n<p>Intro &amp; context</p>\n<h2>First</h2>\n<p><a href=\"#chapter\" rel=\"noopener noreferrer\">Chapter</a> and <a rel=\"noopener noreferrer\">Reference</a></p>\n<h2>Second</h2>\n<p>A <strong>strong</strong> conclusion.</p>\n<p>Regards</p>\n<p style=\"font-family:var(--font-sans)\">A &amp; B</p>\n</body>\n</html>",
+      "input": {
+        "colors": {},
+        "markdown": "Intro & context\n\n## First\n\n[Chapter](#chapter) and [Reference](https://example.invalid/docs)\n\n## Second\n\nA **strong** conclusion.",
+        "meta": {
+          "author": "A & B",
+          "closing": "Regards",
+          "date": "22 November",
+          "from": "Fixture sender",
+          "lineItems": [
+            {
+              "amount": "12.50",
+              "label": "Notes & plan"
+            }
+          ],
+          "role": "Writer",
+          "salutation": "Dear colleague",
+          "subject": "Review",
+          "title": "Fixture <title>",
+          "to": "Fixture recipient",
+          "total": "12.50"
+        },
+        "subtitle": "Check <draft>",
+        "template": "letter",
+        "title": "Notes & plans"
+      }
+    },
+    {
+      "expected": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Notes &amp; plans</title>\n<style>\n:root {\n  --doc-paper: #ffffff;\n  --doc-text: #1a1c20;\n  --doc-muted: #4b5563;\n  --doc-accent: #2563eb;\n  --doc-on-accent: #ffffff;\n  --doc-cover-light-text: #ffffff;\n  --doc-cover-light-ground: #2563eb;\n  --doc-cover-dark-text: #f5f7fa;\n  --doc-cover-dark-ground: #111827;\n  --font-sans: \"Inter\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif;\n  --font-serif: \"Source Serif 4\", Georgia, \"Times New Roman\", serif;\n  --font-mono: \"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace;\n  --base-size: 11pt;\n  --line: 1.5;\n  --gutter: 18mm;\n  --measure: 66ch; /* 60–75 characters per line (D100 §1) */\n}\n\n@page {\n  size: A4;\n  margin: 18mm 16mm 20mm;\n  @bottom-center { content: counter(page); font-family: var(--font-sans); font-size: 9pt; color: var(--doc-muted); }\n  @top-left { content: string(doctitle); font-family: var(--font-sans); font-size: 8pt; letter-spacing: 0.06em; text-transform: uppercase; color: var(--doc-muted); }\n  @top-right { content: string(docauthor); font-family: var(--font-sans); font-size: 8pt; color: var(--doc-muted); }\n}\n\nhtml { font-size: var(--base-size); }\nbody {\n  font-family: var(--font-serif);\n  color: var(--doc-text);\n  background: var(--doc-paper);\n  line-height: var(--line);\n  font-size: 1rem;\n  margin: 0;\n}\nbody.sans { font-family: var(--font-sans); }\n\nh1, h2, h3, h4, h5, h6 {\n  font-family: var(--font-sans);\n  color: var(--doc-text);\n  line-height: 1.15;\n  margin: 1.6em 0 0.5em;\n}\nh1 { font-size: 2.2rem; letter-spacing: -0.01em; string-set: doctitle content(); }\nh2 { font-size: 1.5rem; }\nh3 { font-size: 1.2rem; }\nh4 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--doc-muted); }\n\np { margin: 0 0 0.8em; max-width: var(--measure); }\na { color: var(--doc-accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--doc-accent) 40%, transparent); }\nstrong { font-weight: 600; }\ncode { font-family: var(--font-mono); font-size: 0.9em; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 3px; padding: 0 0.25em; }\npre { font-family: var(--font-mono); font-size: 0.85em; line-height: 1.4; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 4px; padding: 0.8em 1em; }\nblockquote {\n  margin: 1.2em 0; padding: 0.2em 0 0.2em 1em;\n  border-left: 3px solid var(--doc-accent);\n  font-style: italic; color: var(--doc-muted);\n}\nhr { border: none; border-top: 1px solid color-mix(in srgb, var(--doc-text) 15%, transparent); margin: 2em 0; }\nul, ol { padding-left: 1.4em; max-width: var(--measure); }\nli { margin-bottom: 0.35em; }\n\n.cover {\n  page: cover; break-after: page;\n  min-height: 90vh; box-sizing: border-box;\n  display: flex; flex-direction: column; justify-content: flex-end;\n  padding: 30mm 16mm;\n}\n@page cover { margin: 0; }\n.cover .kicker { font-family: var(--font-sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 1em; }\n.cover h1 { font-size: 3.2rem; margin: 0 0 0.3em; max-width: 22ch; color: inherit; }\n.cover .subtitle { font-size: 1.15rem; max-width: var(--measure); }\n.cover .byline { font-family: var(--font-sans); font-size: 0.85rem; margin-top: 2em; }\n\n.caption { font-family: var(--font-sans); font-size: 0.8rem; color: var(--doc-muted); margin-top: 0.4em; }\n.callout {\n  margin: 1.4em 0; padding: 0.9em 1.1em;\n  background: color-mix(in srgb, var(--doc-accent) 8%, transparent);\n  border-left: 3px solid var(--doc-accent);\n  border-radius: 0 4px 4px 0;\n}\n.callout p:last-child { margin-bottom: 0; }\n\nbody { font-family: var(--font-sans); } table { width: 100%; border-collapse: collapse; margin: 1.4em 0; } th, td { text-align: left; padding: 0.5em 0.6em; border-bottom: 1px solid color-mix(in srgb, var(--doc-text) 12%, transparent); } .num { text-align: right; font-variant-numeric: tabular-nums; }\n</style>\n</head>\n<body class=\"sans\">\n<h1>Fixture &lt;title&gt;</h1>\n<div style=\"font-family:var(--font-sans);font-size:.85rem;color:var(--doc-muted)\">Fixture sender &rarr; Fixture recipient<br>22 November</div>\n<table><thead><tr><th>Item</th><th class=\"num\">Amount</th></tr></thead><tbody><tr><td>Notes &amp; plan</td><td class=\"num\">12.50</td></tr></tbody></table>\n<p style=\"font-family:var(--font-sans);font-weight:600;text-align:right\">Total: 12.50</p>\n<p>Intro &amp; context</p>\n<h2>First</h2>\n<p><a href=\"#chapter\" rel=\"noopener noreferrer\">Chapter</a> and <a rel=\"noopener noreferrer\">Reference</a></p>\n<h2>Second</h2>\n<p>A <strong>strong</strong> conclusion.</p>\n</body>\n</html>",
+      "input": {
+        "colors": {},
+        "markdown": "Intro & context\n\n## First\n\n[Chapter](#chapter) and [Reference](https://example.invalid/docs)\n\n## Second\n\nA **strong** conclusion.",
+        "meta": {
+          "author": "A & B",
+          "closing": "Regards",
+          "date": "22 November",
+          "from": "Fixture sender",
+          "lineItems": [
+            {
+              "amount": "12.50",
+              "label": "Notes & plan"
+            }
+          ],
+          "role": "Writer",
+          "salutation": "Dear colleague",
+          "subject": "Review",
+          "title": "Fixture <title>",
+          "to": "Fixture recipient",
+          "total": "12.50"
+        },
+        "subtitle": "Check <draft>",
+        "template": "invoice",
+        "title": "Notes & plans"
+      }
+    },
+    {
+      "expected": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Notes &amp; plans</title>\n<style>\n:root {\n  --doc-paper: #ffffff;\n  --doc-text: #1a1c20;\n  --doc-muted: #4b5563;\n  --doc-accent: #2563eb;\n  --doc-on-accent: #ffffff;\n  --doc-cover-light-text: #ffffff;\n  --doc-cover-light-ground: #2563eb;\n  --doc-cover-dark-text: #f5f7fa;\n  --doc-cover-dark-ground: #111827;\n  --font-sans: \"Inter\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif;\n  --font-serif: \"Source Serif 4\", Georgia, \"Times New Roman\", serif;\n  --font-mono: \"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace;\n  --base-size: 11pt;\n  --line: 1.5;\n  --gutter: 18mm;\n  --measure: 66ch; /* 60–75 characters per line (D100 §1) */\n}\n\n@page {\n  size: A4;\n  margin: 18mm 16mm 20mm;\n  @bottom-center { content: counter(page); font-family: var(--font-sans); font-size: 9pt; color: var(--doc-muted); }\n  @top-left { content: string(doctitle); font-family: var(--font-sans); font-size: 8pt; letter-spacing: 0.06em; text-transform: uppercase; color: var(--doc-muted); }\n  @top-right { content: string(docauthor); font-family: var(--font-sans); font-size: 8pt; color: var(--doc-muted); }\n}\n\nhtml { font-size: var(--base-size); }\nbody {\n  font-family: var(--font-serif);\n  color: var(--doc-text);\n  background: var(--doc-paper);\n  line-height: var(--line);\n  font-size: 1rem;\n  margin: 0;\n}\nbody.sans { font-family: var(--font-sans); }\n\nh1, h2, h3, h4, h5, h6 {\n  font-family: var(--font-sans);\n  color: var(--doc-text);\n  line-height: 1.15;\n  margin: 1.6em 0 0.5em;\n}\nh1 { font-size: 2.2rem; letter-spacing: -0.01em; string-set: doctitle content(); }\nh2 { font-size: 1.5rem; }\nh3 { font-size: 1.2rem; }\nh4 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--doc-muted); }\n\np { margin: 0 0 0.8em; max-width: var(--measure); }\na { color: var(--doc-accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--doc-accent) 40%, transparent); }\nstrong { font-weight: 600; }\ncode { font-family: var(--font-mono); font-size: 0.9em; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 3px; padding: 0 0.25em; }\npre { font-family: var(--font-mono); font-size: 0.85em; line-height: 1.4; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 4px; padding: 0.8em 1em; }\nblockquote {\n  margin: 1.2em 0; padding: 0.2em 0 0.2em 1em;\n  border-left: 3px solid var(--doc-accent);\n  font-style: italic; color: var(--doc-muted);\n}\nhr { border: none; border-top: 1px solid color-mix(in srgb, var(--doc-text) 15%, transparent); margin: 2em 0; }\nul, ol { padding-left: 1.4em; max-width: var(--measure); }\nli { margin-bottom: 0.35em; }\n\n.cover {\n  page: cover; break-after: page;\n  min-height: 90vh; box-sizing: border-box;\n  display: flex; flex-direction: column; justify-content: flex-end;\n  padding: 30mm 16mm;\n}\n@page cover { margin: 0; }\n.cover .kicker { font-family: var(--font-sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 1em; }\n.cover h1 { font-size: 3.2rem; margin: 0 0 0.3em; max-width: 22ch; color: inherit; }\n.cover .subtitle { font-size: 1.15rem; max-width: var(--measure); }\n.cover .byline { font-family: var(--font-sans); font-size: 0.85rem; margin-top: 2em; }\n\n.caption { font-family: var(--font-sans); font-size: 0.8rem; color: var(--doc-muted); margin-top: 0.4em; }\n.callout {\n  margin: 1.4em 0; padding: 0.9em 1.1em;\n  background: color-mix(in srgb, var(--doc-accent) 8%, transparent);\n  border-left: 3px solid var(--doc-accent);\n  border-radius: 0 4px 4px 0;\n}\n.callout p:last-child { margin-bottom: 0; }\n\nbody { font-family: var(--font-sans); } h3 { margin-bottom: 0.2em; } .role-meta { font-size: 0.8rem; color: var(--doc-muted); text-transform: uppercase; letter-spacing: .06em; }\n</style>\n</head>\n<body class=\"sans\">\n<h1>Fixture &lt;title&gt;</h1>\n<div style=\"font-family:var(--font-sans);color:var(--doc-muted)\">Writer &middot; A &amp; B</div>\n<p>Intro &amp; context</p>\n<h2>First</h2>\n<p><a href=\"#chapter\" rel=\"noopener noreferrer\">Chapter</a> and <a rel=\"noopener noreferrer\">Reference</a></p>\n<h2>Second</h2>\n<p>A <strong>strong</strong> conclusion.</p>\n</body>\n</html>",
+      "input": {
+        "colors": {},
+        "markdown": "Intro & context\n\n## First\n\n[Chapter](#chapter) and [Reference](https://example.invalid/docs)\n\n## Second\n\nA **strong** conclusion.",
+        "meta": {
+          "author": "A & B",
+          "closing": "Regards",
+          "date": "22 November",
+          "from": "Fixture sender",
+          "lineItems": [
+            {
+              "amount": "12.50",
+              "label": "Notes & plan"
+            }
+          ],
+          "role": "Writer",
+          "salutation": "Dear colleague",
+          "subject": "Review",
+          "title": "Fixture <title>",
+          "to": "Fixture recipient",
+          "total": "12.50"
+        },
+        "subtitle": "Check <draft>",
+        "template": "cv",
+        "title": "Notes & plans"
+      }
+    },
+    {
+      "expected": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Notes &amp; plans</title>\n<style>\n:root {\n  --doc-paper: #ffffff;\n  --doc-text: #1a1c20;\n  --doc-muted: #4b5563;\n  --doc-accent: #2563eb;\n  --doc-on-accent: #ffffff;\n  --doc-cover-light-text: #ffffff;\n  --doc-cover-light-ground: #2563eb;\n  --doc-cover-dark-text: #f5f7fa;\n  --doc-cover-dark-ground: #111827;\n  --font-sans: \"Inter\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif;\n  --font-serif: \"Source Serif 4\", Georgia, \"Times New Roman\", serif;\n  --font-mono: \"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace;\n  --base-size: 11pt;\n  --line: 1.5;\n  --gutter: 18mm;\n  --measure: 66ch; /* 60–75 characters per line (D100 §1) */\n}\n\n@page {\n  size: A4;\n  margin: 18mm 16mm 20mm;\n  @bottom-center { content: counter(page); font-family: var(--font-sans); font-size: 9pt; color: var(--doc-muted); }\n  @top-left { content: string(doctitle); font-family: var(--font-sans); font-size: 8pt; letter-spacing: 0.06em; text-transform: uppercase; color: var(--doc-muted); }\n  @top-right { content: string(docauthor); font-family: var(--font-sans); font-size: 8pt; color: var(--doc-muted); }\n}\n\nhtml { font-size: var(--base-size); }\nbody {\n  font-family: var(--font-serif);\n  color: var(--doc-text);\n  background: var(--doc-paper);\n  line-height: var(--line);\n  font-size: 1rem;\n  margin: 0;\n}\nbody.sans { font-family: var(--font-sans); }\n\nh1, h2, h3, h4, h5, h6 {\n  font-family: var(--font-sans);\n  color: var(--doc-text);\n  line-height: 1.15;\n  margin: 1.6em 0 0.5em;\n}\nh1 { font-size: 2.2rem; letter-spacing: -0.01em; string-set: doctitle content(); }\nh2 { font-size: 1.5rem; }\nh3 { font-size: 1.2rem; }\nh4 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--doc-muted); }\n\np { margin: 0 0 0.8em; max-width: var(--measure); }\na { color: var(--doc-accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--doc-accent) 40%, transparent); }\nstrong { font-weight: 600; }\ncode { font-family: var(--font-mono); font-size: 0.9em; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 3px; padding: 0 0.25em; }\npre { font-family: var(--font-mono); font-size: 0.85em; line-height: 1.4; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 4px; padding: 0.8em 1em; }\nblockquote {\n  margin: 1.2em 0; padding: 0.2em 0 0.2em 1em;\n  border-left: 3px solid var(--doc-accent);\n  font-style: italic; color: var(--doc-muted);\n}\nhr { border: none; border-top: 1px solid color-mix(in srgb, var(--doc-text) 15%, transparent); margin: 2em 0; }\nul, ol { padding-left: 1.4em; max-width: var(--measure); }\nli { margin-bottom: 0.35em; }\n\n.cover {\n  page: cover; break-after: page;\n  min-height: 90vh; box-sizing: border-box;\n  display: flex; flex-direction: column; justify-content: flex-end;\n  padding: 30mm 16mm;\n}\n@page cover { margin: 0; }\n.cover .kicker { font-family: var(--font-sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 1em; }\n.cover h1 { font-size: 3.2rem; margin: 0 0 0.3em; max-width: 22ch; color: inherit; }\n.cover .subtitle { font-size: 1.15rem; max-width: var(--measure); }\n.cover .byline { font-family: var(--font-sans); font-size: 0.85rem; margin-top: 2em; }\n\n.caption { font-family: var(--font-sans); font-size: 0.8rem; color: var(--doc-muted); margin-top: 0.4em; }\n.callout {\n  margin: 1.4em 0; padding: 0.9em 1.1em;\n  background: color-mix(in srgb, var(--doc-accent) 8%, transparent);\n  border-left: 3px solid var(--doc-accent);\n  border-radius: 0 4px 4px 0;\n}\n.callout p:last-child { margin-bottom: 0; }\n\nbody { font-family: var(--font-sans); } section.slide { break-after: page; min-height: 80vh; display: flex; flex-direction: column; justify-content: center; } @page { size: 254mm 190.5mm; } .slide h2 { font-size: 1.8rem; }\n</style>\n</head>\n<body class=\"sans\">\n<section class=\"slide\"><p>Intro &amp; context</p>\n</section>\n<section class=\"slide\"><h2>First</h2>\n<p><a href=\"#chapter\" rel=\"noopener noreferrer\">Chapter</a> and <a rel=\"noopener noreferrer\">Reference</a></p>\n</section>\n<section class=\"slide\"><h2>Second</h2>\n<p>A <strong>strong</strong> conclusion.</p></section>\n</body>\n</html>",
+      "input": {
+        "colors": {},
+        "markdown": "Intro & context\n\n## First\n\n[Chapter](#chapter) and [Reference](https://example.invalid/docs)\n\n## Second\n\nA **strong** conclusion.",
+        "meta": {
+          "author": "A & B",
+          "closing": "Regards",
+          "date": "22 November",
+          "from": "Fixture sender",
+          "lineItems": [
+            {
+              "amount": "12.50",
+              "label": "Notes & plan"
+            }
+          ],
+          "role": "Writer",
+          "salutation": "Dear colleague",
+          "subject": "Review",
+          "title": "Fixture <title>",
+          "to": "Fixture recipient",
+          "total": "12.50"
+        },
+        "subtitle": "Check <draft>",
+        "template": "slides",
+        "title": "Notes & plans"
+      }
+    },
+    {
+      "expected": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Notes &amp; plans</title>\n<style>\n:root {\n  --doc-paper: #fafafa;\n  --doc-text: #1a1c20;\n  --doc-muted: #4b5563;\n  --doc-accent: #134280;\n  --doc-on-accent: #ffffff;\n  --doc-cover-light-text: #ffffff;\n  --doc-cover-light-ground: #2563eb;\n  --doc-cover-dark-text: #f5f7fa;\n  --doc-cover-dark-ground: #111827;\n  --font-sans: \"Inter\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif;\n  --font-serif: \"Source Serif 4\", Georgia, \"Times New Roman\", serif;\n  --font-mono: \"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace;\n  --base-size: 11pt;\n  --line: 1.5;\n  --gutter: 18mm;\n  --measure: 66ch; /* 60–75 characters per line (D100 §1) */\n}\n\n@page {\n  size: A4;\n  margin: 18mm 16mm 20mm;\n  @bottom-center { content: counter(page); font-family: var(--font-sans); font-size: 9pt; color: var(--doc-muted); }\n  @top-left { content: string(doctitle); font-family: var(--font-sans); font-size: 8pt; letter-spacing: 0.06em; text-transform: uppercase; color: var(--doc-muted); }\n  @top-right { content: string(docauthor); font-family: var(--font-sans); font-size: 8pt; color: var(--doc-muted); }\n}\n\nhtml { font-size: var(--base-size); }\nbody {\n  font-family: var(--font-serif);\n  color: var(--doc-text);\n  background: var(--doc-paper);\n  line-height: var(--line);\n  font-size: 1rem;\n  margin: 0;\n}\nbody.sans { font-family: var(--font-sans); }\n\nh1, h2, h3, h4, h5, h6 {\n  font-family: var(--font-sans);\n  color: var(--doc-text);\n  line-height: 1.15;\n  margin: 1.6em 0 0.5em;\n}\nh1 { font-size: 2.2rem; letter-spacing: -0.01em; string-set: doctitle content(); }\nh2 { font-size: 1.5rem; }\nh3 { font-size: 1.2rem; }\nh4 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--doc-muted); }\n\np { margin: 0 0 0.8em; max-width: var(--measure); }\na { color: var(--doc-accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--doc-accent) 40%, transparent); }\nstrong { font-weight: 600; }\ncode { font-family: var(--font-mono); font-size: 0.9em; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 3px; padding: 0 0.25em; }\npre { font-family: var(--font-mono); font-size: 0.85em; line-height: 1.4; background: color-mix(in srgb, var(--doc-text) 6%, transparent); border-radius: 4px; padding: 0.8em 1em; }\nblockquote {\n  margin: 1.2em 0; padding: 0.2em 0 0.2em 1em;\n  border-left: 3px solid var(--doc-accent);\n  font-style: italic; color: var(--doc-muted);\n}\nhr { border: none; border-top: 1px solid color-mix(in srgb, var(--doc-text) 15%, transparent); margin: 2em 0; }\nul, ol { padding-left: 1.4em; max-width: var(--measure); }\nli { margin-bottom: 0.35em; }\n\n.cover {\n  page: cover; break-after: page;\n  min-height: 90vh; box-sizing: border-box;\n  display: flex; flex-direction: column; justify-content: flex-end;\n  padding: 30mm 16mm;\n}\n@page cover { margin: 0; }\n.cover .kicker { font-family: var(--font-sans); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 1em; }\n.cover h1 { font-size: 3.2rem; margin: 0 0 0.3em; max-width: 22ch; color: inherit; }\n.cover .subtitle { font-size: 1.15rem; max-width: var(--measure); }\n.cover .byline { font-family: var(--font-sans); font-size: 0.85rem; margin-top: 2em; }\n\n.caption { font-family: var(--font-sans); font-size: 0.8rem; color: var(--doc-muted); margin-top: 0.4em; }\n.callout {\n  margin: 1.4em 0; padding: 0.9em 1.1em;\n  background: color-mix(in srgb, var(--doc-accent) 8%, transparent);\n  border-left: 3px solid var(--doc-accent);\n  border-radius: 0 4px 4px 0;\n}\n.callout p:last-child { margin-bottom: 0; }\n\nbody { font-family: var(--font-sans); } section.slide { break-after: page; min-height: 80vh; display: flex; flex-direction: column; justify-content: center; } @page { size: 254mm 190.5mm; } .slide h2 { font-size: 1.8rem; }\n</style>\n</head>\n<body class=\"sans\">\n<section class=\"slide\"><h2>Slides</h2><p>Only one slide.</p></section>\n</body>\n</html>",
+      "input": {
+        "colors": {
+          "accent": "#134280",
+          "paper": "#fafafa"
+        },
+        "markdown": "Only one slide.",
+        "meta": {
+          "author": "A & B",
+          "closing": "Regards",
+          "date": "22 November",
+          "from": "Fixture sender",
+          "lineItems": [
+            {
+              "amount": "12.50",
+              "label": "Notes & plan"
+            }
+          ],
+          "role": "Writer",
+          "salutation": "Dear colleague",
+          "subject": "Review",
+          "title": "Fixture <title>",
+          "to": "Fixture recipient",
+          "total": "12.50"
+        },
+        "subtitle": "",
+        "template": "slides",
+        "title": "Notes & plans"
+      }
+    }
+  ],
+  "source": "packages/documents/src/render.ts"
+}

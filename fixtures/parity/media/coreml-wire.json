@@ -1,0 +1,121 @@
+{
+  "input": {
+    "model": "sample-split",
+    "parameters": {
+      "guidance": 6,
+      "n": 1,
+      "negativePrompt": "fog",
+      "prompt": "A paper tree 🌳",
+      "seed": 7,
+      "steps": 12
+    },
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+    "reference": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAAI3RFWHRwYXJhbWV0ZXJzAHNlY3JldC1wYXJhbWV0ZXJzLXByb21wdIl6ul0AAAAZZVhJZk1NACpHUFMtNTIuNTIwME4tMTMuNDA1MEWkJKyzAAAABGdBTUEAAYagMeiWXwAAAApJREFUeJxjaAAAAIIAgXfNcrYAAAAASUVORK5CYII="
+  },
+  "scenarios": {
+    "hold": {
+      "events": [
+        {
+          "receive": "{\"protocol\":\"jsonl/1\",\"ops\":[\"generate\",\"img2img\",\"list-models\",\"cancel\"]}"
+        },
+        {
+          "send": "{\"id\":\"1\",\"op\":\"generate\",\"model\":\"sample-split\",\"modelsDir\":\"/fixture/models\",\"outputDir\":\"/fixture/output\",\"computeUnits\":\"cpuAndGPU\",\"request\":{\"prompt\":\"A paper tree 🌳\",\"negativePrompt\":\"fog\",\"n\":1,\"seed\":7,\"steps\":12,\"guidance\":6,\"scheduler\":\"dpmpp\"}}"
+        },
+        {
+          "receive": "{\"id\":\"1\",\"type\":\"progress\",\"fraction\":0.25}"
+        },
+        {
+          "send": "{\"op\":\"cancel\",\"target\":\"1\"}"
+        },
+        {
+          "receive": "{\"id\":\"1\",\"type\":\"error\",\"code\":\"cancelled\"}"
+        }
+      ],
+      "outcome": "cancelled",
+      "progress": [
+        0.25
+      ]
+    },
+    "legacy": {
+      "events": [
+        {
+          "send": "{\"operation\":\"generate\",\"model\":\"sample-split\",\"modelDir\":\"/fixture/models\",\"outputDir\":\"/fixture/output\",\"request\":{\"prompt\":\"A paper tree 🌳\",\"negativePrompt\":\"fog\",\"n\":1,\"seed\":7,\"steps\":12,\"guidance\":6}}"
+        },
+        {
+          "receive": "{\"type\":\"progress\",\"fraction\":0.5}"
+        },
+        {
+          "receive": "{\"type\":\"result\",\"files\":[\"0.png\"],\"seed\":42}"
+        },
+        {
+          "send": "{\"operation\":\"list\",\"model\":\"sample-split\",\"modelDir\":\"/fixture/models\",\"outputDir\":\"\"}"
+        },
+        {
+          "receive": "{\"type\":\"models\",\"models\":[\"sample-split\",\"sample-gpu\"]}"
+        }
+      ],
+      "outcome": {
+        "generated": [
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg=="
+        ],
+        "models": [
+          "sample-split",
+          "sample-gpu"
+        ],
+        "partial": false,
+        "seed": 42
+      },
+      "progress": [
+        0.5
+      ]
+    },
+    "normal": {
+      "events": [
+        {
+          "receive": "{\"protocol\":\"jsonl/1\",\"ops\":[\"generate\",\"img2img\",\"list-models\",\"cancel\"]}"
+        },
+        {
+          "send": "{\"id\":\"1\",\"op\":\"generate\",\"model\":\"sample-split\",\"modelsDir\":\"/fixture/models\",\"outputDir\":\"/fixture/output\",\"computeUnits\":\"cpuAndGPU\",\"request\":{\"prompt\":\"A paper tree 🌳\",\"negativePrompt\":\"fog\",\"n\":1,\"seed\":7,\"steps\":12,\"guidance\":6,\"scheduler\":\"dpmpp\"}}"
+        },
+        {
+          "receive": "{\"id\":\"1\",\"type\":\"progress\",\"fraction\":0.5}"
+        },
+        {
+          "receive": "{\"id\":\"1\",\"type\":\"result\",\"files\":[\"0.png\"],\"seed\":42}"
+        },
+        {
+          "send": "{\"id\":\"2\",\"op\":\"img2img\",\"model\":\"sample-split\",\"modelsDir\":\"/fixture/models\",\"outputDir\":\"/fixture/output\",\"computeUnits\":\"cpuAndGPU\",\"inputPath\":\"/fixture/output/input.png\",\"request\":{\"prompt\":\"Snow\",\"scheduler\":\"dpmpp\",\"strength\":0.5}}"
+        },
+        {
+          "receive": "{\"id\":\"2\",\"type\":\"progress\",\"fraction\":0.5}"
+        },
+        {
+          "receive": "{\"id\":\"2\",\"type\":\"result\",\"files\":[\"0.png\"],\"seed\":42}"
+        },
+        {
+          "send": "{\"id\":\"3\",\"op\":\"list-models\",\"modelsDir\":\"/fixture/models\"}"
+        },
+        {
+          "receive": "{\"id\":\"3\",\"type\":\"models\",\"models\":[\"sample-split\",\"sample-gpu\"]}"
+        }
+      ],
+      "outcome": {
+        "edited": [
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg=="
+        ],
+        "generated": [
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg=="
+        ],
+        "models": [
+          "sample-split",
+          "sample-gpu"
+        ],
+        "partial": false,
+        "seed": 42
+      },
+      "progress": [
+        0.5
+      ]
+    }
+  }
+}

@@ -215,6 +215,12 @@ pub trait RestoreApproval {
 /// `project(sessionId, personId)`: the trusted binding, `None` when there is none, an error when the lookup itself failed.
 pub type ProjectLookup = Rc<dyn Fn(&str, &str) -> Result<Option<ProjectBinding>, String>>;
 
+/// The guard owns the host's exclusive writer lease until dropped. Its check reports loss of ownership.
+/// A successful check must fence other writers through the Git effect under this same guard.
+pub type WriterLease = Box<dyn Fn() -> bool>;
+/// Acquire exclusive writer authority for this specific canonical project worktree.
+pub type AcquireWriter = Rc<dyn Fn(&ProjectBinding) -> Option<WriterLease>>;
+
 /// The dependencies of [`RewindCheckpoints`] (`CheckpointDeps` without the store, which every call takes).
 pub struct CheckpointDeps<F: PathFs = RealFs> {
     /// The audit sink.
@@ -233,6 +239,8 @@ pub struct CheckpointDeps<F: PathFs = RealFs> {
     pub null_device: &'static str,
     /// The trusted D115 binding of a session and person.
     pub project: ProjectLookup,
+    /// Exclusive writer ownership required for a file restore.
+    pub writer_lease: Option<AcquireWriter>,
     /// The approval port.
     pub approval: Box<dyn RestoreApproval>,
     /// `fileProjects()`: the live per-project opt-in; empty or absent disables checkpoints.
@@ -1223,6 +1231,24 @@ impl<F: PathFs> RewindCheckpoints<F> {
         }
         self.protect_untracked(&bound.root, &checkpoint, cancel)?;
         validate(store)?;
+        let lease_error = || {
+            conflict(
+                "exclusive writer unavailable for file restore",
+                "rewind-writer-lease",
+            )
+        };
+        let binding = ProjectBinding {
+            root: bound.root.clone(),
+            card_id: bound.card_id.clone(),
+            project_id: bound.project_id.clone(),
+        };
+        let lease = self
+            .d
+            .writer_lease
+            .as_ref()
+            .and_then(|acquire| acquire(&binding))
+            .filter(|guard| guard())
+            .ok_or_else(lease_error)?;
         if !self.d.approval.begin(&answer, &ask) {
             return Err(SessionError::new(
                 ErrorCode::Immutable,
@@ -1262,6 +1288,9 @@ impl<F: PathFs> RewindCheckpoints<F> {
                     "worktree changed before approved restore",
                     "rewind-files-changed",
                 ));
+            }
+            if !lease() {
+                return Err(lease_error());
             }
             let source = format!("--source={checkpoint}");
             self.git(

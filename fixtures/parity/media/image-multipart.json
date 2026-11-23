@@ -1,0 +1,42 @@
+{
+  "exchanges": [
+    {
+      "request": {
+        "bodyBase64": "LS1maXh0dXJlLW11bHRpcGFydC1ib3VuZGFyeQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJtb2RlbCINCg0KZml4dHVyZS1tb2RlbA0KLS1maXh0dXJlLW11bHRpcGFydC1ib3VuZGFyeQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJwcm9tcHQiDQoNClR3byBsaW5lcw0KQsOkdW1lIPCfjLMNCi0tZml4dHVyZS1tdWx0aXBhcnQtYm91bmRhcnkNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0ibiINCg0KMQ0KLS1maXh0dXJlLW11bHRpcGFydC1ib3VuZGFyeQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJvdXRwdXRfZm9ybWF0Ig0KDQpwbmcNCi0tZml4dHVyZS1tdWx0aXBhcnQtYm91bmRhcnkNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0ic2l6ZSINCg0KMTI4eDI1Ng0KLS1maXh0dXJlLW11bHRpcGFydC1ib3VuZGFyeQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJpbWFnZVtdIjsgZmlsZW5hbWU9ImltYWdlLnBuZyINCkNvbnRlbnQtVHlwZTogaW1hZ2UvcG5nDQoNColQTkcNChoKAAAADUlIRFIAAAABAAAAAQgAAAAAOn6bVQAAAARnQU1BAAGGoDHoll8AAAAKSURBVHicY2gAAACCAIF3zXK2AAAAAElFTkSuQmCCDQotLWZpeHR1cmUtbXVsdGlwYXJ0LWJvdW5kYXJ5DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9Im1hc2siOyBmaWxlbmFtZT0ibWFzay5wbmciDQpDb250ZW50LVR5cGU6IGltYWdlL3BuZw0KDQqJUE5HDQoaCgAAAA1JSERSAAAAAQAAAAEIAAAAADp+m1UAAAAEZ0FNQQABhqAx6JZfAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg0KLS1maXh0dXJlLW11bHRpcGFydC1ib3VuZGFyeS0tDQo=",
+        "headers": {
+          "content-type": "multipart/form-data; boundary=fixture-multipart-boundary"
+        },
+        "method": "POST",
+        "path": "/images/edits"
+      },
+      "response": {
+        "body": {
+          "data": [
+            {
+              "b64_json": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg=="
+            }
+          ]
+        },
+        "status": 200
+      }
+    }
+  ],
+  "expected": {
+    "bytes": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg=="
+  },
+  "input": {
+    "boundary": "fixture-multipart-boundary",
+    "image": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAAI3RFWHRwYXJhbWV0ZXJzAHNlY3JldC1wYXJhbWV0ZXJzLXByb21wdIl6ul0AAAAZZVhJZk1NACpHUFMtNTIuNTIwME4tMTMuNDA1MEWkJKyzAAAABGdBTUEAAYagMeiWXwAAAApJREFUeJxjaAAAAIIAgXfNcrYAAAAASUVORK5CYII=",
+    "model": "fixture-model",
+    "parameters": {
+      "format": "png",
+      "prompt": "Two lines\nBäume 🌳",
+      "size": {
+        "height": 256,
+        "width": 128
+      }
+    }
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "http"
+}

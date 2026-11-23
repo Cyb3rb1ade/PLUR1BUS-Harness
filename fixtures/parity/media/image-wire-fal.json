@@ -1,0 +1,114 @@
+{
+  "exchanges": [
+    {
+      "request": {
+        "bodyText": "{\"prompt\":\"A paper tree 🌳\",\"seed\":7,\"output_format\":\"png\",\"num_images\":1,\"enable_safety_checker\":true,\"image_size\":{\"width\":256,\"height\":256}}",
+        "headers": {
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "path": "/owner/fixture"
+      },
+      "response": {
+        "body": {
+          "request_id": "fixture-id"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/owner/fixture/requests/fixture-id/status"
+      },
+      "response": {
+        "body": {
+          "status": "IN_QUEUE"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/owner/fixture/requests/fixture-id/status"
+      },
+      "response": {
+        "body": {
+          "status": "COMPLETED"
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "bodyText": "",
+        "headers": {},
+        "method": "GET",
+        "path": "/owner/fixture/requests/fixture-id"
+      },
+      "response": {
+        "body": {
+          "images": [
+            {
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg=="
+            }
+          ]
+        },
+        "status": 200
+      }
+    }
+  ],
+  "expected": {
+    "checkpoints": [
+      {
+        "id": "fixture-id",
+        "model": "owner/fixture"
+      }
+    ],
+    "files": [
+      {
+        "bytes": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+        "format": "png"
+      }
+    ],
+    "metadata": {
+      "adapter": "fal",
+      "model": "owner/fixture",
+      "seed": 7
+    },
+    "partial": false,
+    "progress": [
+      {
+        "fraction": 0,
+        "stage": "running"
+      },
+      {
+        "fraction": 0.1,
+        "stage": "queued"
+      },
+      {
+        "fraction": 0.9,
+        "stage": "downloading"
+      }
+    ]
+  },
+  "input": {
+    "id": "fal",
+    "model": "owner/fixture",
+    "request": {
+      "prompt": "A paper tree 🌳",
+      "seed": 7,
+      "size": {
+        "height": 256,
+        "width": 256
+      }
+    }
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "http"
+}

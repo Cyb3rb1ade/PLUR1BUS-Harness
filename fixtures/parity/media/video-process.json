@@ -1,0 +1,441 @@
+{
+  "cases": [
+    {
+      "commands": [
+        {
+          "args": [
+            "-v",
+            "error",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-show_streams",
+            "-show_format",
+            "-of",
+            "json",
+            "/fixture/input.mp4"
+          ],
+          "program": "ffprobe"
+        },
+        {
+          "args": [
+            "-v",
+            "error",
+            "-nostdin",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-i",
+            "/fixture/input.mp4",
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a?",
+            "-map_metadata",
+            "-1",
+            "-map_metadata:s",
+            "-1",
+            "-map_chapters",
+            "-1",
+            "-c",
+            "copy",
+            "-metadata",
+            "comment=blue sky",
+            "-f",
+            "mp4",
+            "-y",
+            "/fixture/clean.mp4"
+          ],
+          "program": "ffmpeg"
+        },
+        {
+          "args": [
+            "-v",
+            "error",
+            "-nostdin",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-i",
+            "/fixture/clean.mp4",
+            "-map",
+            "0:v:0",
+            "-frames:v",
+            "1",
+            "-vf",
+            "scale=320:-2",
+            "-map_metadata",
+            "-1",
+            "-y",
+            "/fixture/poster.png"
+          ],
+          "program": "ffmpeg"
+        }
+      ],
+      "expected": {
+        "audio": true,
+        "durationSeconds": 2.5,
+        "fps": 29.97002997002997,
+        "height": 1080,
+        "width": 1920
+      },
+      "format": "mp4",
+      "input": "/fixture/input.mp4",
+      "name": "mp4-with-prompt",
+      "output": "/fixture/clean.mp4",
+      "poster": "/fixture/poster.png",
+      "probe": {
+        "format": {
+          "duration": "2.5"
+        },
+        "streams": [
+          {
+            "avg_frame_rate": "30000/1001",
+            "codec_type": "video",
+            "height": 1080,
+            "width": 1920
+          },
+          {
+            "codec_type": "audio"
+          }
+        ]
+      },
+      "prompt": "blue sky"
+    },
+    {
+      "commands": [
+        {
+          "args": [
+            "-v",
+            "error",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-show_streams",
+            "-show_format",
+            "-of",
+            "json",
+            "/fixture/input.mov"
+          ],
+          "program": "ffprobe"
+        },
+        {
+          "args": [
+            "-v",
+            "error",
+            "-nostdin",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-i",
+            "/fixture/input.mov",
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a?",
+            "-map_metadata",
+            "-1",
+            "-map_metadata:s",
+            "-1",
+            "-map_chapters",
+            "-1",
+            "-c",
+            "copy",
+            "-f",
+            "mov",
+            "-y",
+            "/fixture/clean.mov"
+          ],
+          "program": "ffmpeg"
+        },
+        {
+          "args": [
+            "-v",
+            "error",
+            "-nostdin",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-i",
+            "/fixture/clean.mov",
+            "-map",
+            "0:v:0",
+            "-frames:v",
+            "1",
+            "-vf",
+            "scale=320:-2",
+            "-map_metadata",
+            "-1",
+            "-y",
+            "/fixture/poster.png"
+          ],
+          "program": "ffmpeg"
+        }
+      ],
+      "expected": {
+        "audio": false,
+        "durationSeconds": 2.5,
+        "fps": 29.97002997002997,
+        "height": 1080,
+        "width": 1920
+      },
+      "format": "mov",
+      "input": "/fixture/input.mov",
+      "name": "mov-silent",
+      "output": "/fixture/clean.mov",
+      "poster": "/fixture/poster.png",
+      "probe": {
+        "format": {
+          "duration": "2.5"
+        },
+        "streams": [
+          {
+            "avg_frame_rate": "30000/1001",
+            "codec_type": "video",
+            "height": 1080,
+            "width": 1920
+          }
+        ]
+      }
+    },
+    {
+      "commands": [
+        {
+          "args": [
+            "-v",
+            "error",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-show_streams",
+            "-show_format",
+            "-of",
+            "json",
+            "/fixture/input.webm"
+          ],
+          "program": "ffprobe"
+        },
+        {
+          "args": [
+            "-v",
+            "error",
+            "-nostdin",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-i",
+            "/fixture/input.webm",
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a?",
+            "-map_metadata",
+            "-1",
+            "-map_metadata:s",
+            "-1",
+            "-map_chapters",
+            "-1",
+            "-c",
+            "copy",
+            "-f",
+            "webm",
+            "-y",
+            "/fixture/clean.webm"
+          ],
+          "program": "ffmpeg"
+        }
+      ],
+      "expected": {
+        "error": "invalid_response"
+      },
+      "failStep": 2,
+      "format": "webm",
+      "input": "/fixture/input.webm",
+      "name": "webm-remux-failed",
+      "output": "/fixture/clean.webm",
+      "poster": "/fixture/poster.png",
+      "probe": {
+        "format": {
+          "duration": "2.5"
+        },
+        "streams": [
+          {
+            "avg_frame_rate": "30000/1001",
+            "codec_type": "video",
+            "height": 1080,
+            "width": 1920
+          },
+          {
+            "codec_type": "audio"
+          }
+        ]
+      }
+    },
+    {
+      "commands": [
+        {
+          "args": [
+            "-v",
+            "error",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-show_streams",
+            "-show_format",
+            "-of",
+            "json",
+            "/fixture/input.mp4"
+          ],
+          "program": "ffprobe"
+        }
+      ],
+      "expected": {
+        "error": "invalid_response"
+      },
+      "format": "mp4",
+      "input": "/fixture/input.mp4",
+      "name": "invalid-frame-rate",
+      "output": "/fixture/clean.mp4",
+      "poster": "/fixture/poster.png",
+      "probe": {
+        "format": {
+          "duration": "2.5"
+        },
+        "streams": [
+          {
+            "avg_frame_rate": "0/0",
+            "codec_type": "video",
+            "height": 1080,
+            "width": 1920
+          }
+        ]
+      }
+    },
+    {
+      "commands": [
+        {
+          "args": [
+            "-v",
+            "error",
+            "-protocol_whitelist",
+            "file,pipe",
+            "-show_streams",
+            "-show_format",
+            "-of",
+            "json",
+            "/fixture/input.mp4"
+          ],
+          "program": "ffprobe"
+        }
+      ],
+      "expected": {
+        "error": "invalid_response"
+      },
+      "format": "mp4",
+      "input": "/fixture/input.mp4",
+      "name": "probe-stdout-over-limit",
+      "output": "/fixture/clean.mp4",
+      "poster": "/fixture/poster.png",
+      "probe": {
+        "format": {
+          "duration": "2.5"
+        },
+        "streams": [
+          {
+            "avg_frame_rate": "30000/1001",
+            "codec_type": "video",
+            "height": 1080,
+            "width": 1920
+          },
+          {
+            "codec_type": "audio"
+          }
+        ]
+      },
+      "probeBytes": 1048577
+    },
+    {
+      "cancelled": true,
+      "commands": [],
+      "expected": {
+        "error": "cancelled"
+      },
+      "format": "mp4",
+      "input": "/fixture/input.mp4",
+      "name": "pre-cancelled",
+      "output": "/fixture/clean.mp4",
+      "poster": "/fixture/poster.png",
+      "probe": {
+        "format": {
+          "duration": "2.5"
+        },
+        "streams": [
+          {
+            "avg_frame_rate": "30000/1001",
+            "codec_type": "video",
+            "height": 1080,
+            "width": 1920
+          },
+          {
+            "codec_type": "audio"
+          }
+        ]
+      }
+    }
+  ],
+  "containers": [
+    {
+      "bytes": [
+        0,
+        0,
+        0,
+        0,
+        102,
+        116,
+        121,
+        112,
+        105,
+        115,
+        111,
+        109
+      ],
+      "expected": "mp4"
+    },
+    {
+      "bytes": [
+        0,
+        0,
+        0,
+        0,
+        102,
+        116,
+        121,
+        112,
+        113,
+        116,
+        32,
+        32
+      ],
+      "expected": "mov"
+    },
+    {
+      "bytes": [
+        26,
+        69,
+        223,
+        163,
+        119,
+        101,
+        98,
+        109
+      ],
+      "expected": "webm"
+    },
+    {
+      "bytes": [
+        110,
+        111,
+        116,
+        45,
+        118,
+        105,
+        100,
+        101,
+        111
+      ],
+      "expected": "invalid_response"
+    }
+  ],
+  "source": "packages/media/src/video.ts"
+}
