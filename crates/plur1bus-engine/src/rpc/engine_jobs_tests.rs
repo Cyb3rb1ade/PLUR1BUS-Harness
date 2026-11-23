@@ -2912,7 +2912,7 @@ fn a_run_whose_body_ran_is_reported_as_started_never_as_busy() {
     let (_host, engine) = engine(temp.path(), false);
     engine
         .jobs
-        .set_fixture_body(body.clone(), Duration::from_millis(200));
+        .set_fixture_body(body.clone(), Some(Duration::from_millis(200)));
     // The body runs, then its settle cannot take the writer lease within its budget.
     let first = gc(&engine);
     assert_eq!(body.runs.load(Ordering::SeqCst), 1);
@@ -2935,9 +2935,7 @@ fn a_run_whose_body_ran_is_reported_as_started_never_as_busy() {
     engine.close(None).unwrap();
     // The next session start records the started run in the ledger as failed/crash.
     let (_host, again) = self::engine(temp.path(), false);
-    again
-        .jobs
-        .set_fixture_body(body.clone(), Duration::from_millis(200));
+    again.jobs.set_fixture_body(body.clone(), None);
     gc(&again).unwrap();
     let rows = again
         .jobs()

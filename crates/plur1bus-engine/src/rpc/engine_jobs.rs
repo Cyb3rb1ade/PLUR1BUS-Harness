@@ -208,9 +208,9 @@ pub(super) struct ProcessJobs {
     closed: AtomicBool,
     #[cfg(test)]
     prepare_fault: Mutex<Option<Fault>>,
-    /// A fixture body and settle budget, installed when the registry is bound (test only).
+    /// A fixture body and optional first-settle budget, installed when the registry is bound (test only).
     #[cfg(test)]
-    fixture: Mutex<Option<(Arc<dyn JobBody>, Duration)>>,
+    fixture: Mutex<Option<(Arc<dyn JobBody>, Option<Duration>)>>,
 }
 
 pub(in crate::rpc) struct PersonJobSlot<'a> {
@@ -293,14 +293,14 @@ impl ProcessJobs {
         self
     }
 
-    /// Install a fixture body and a settle budget before the first run (test only).
+    /// Install a fixture body and an optional first-settle budget before the first run (test only).
     #[cfg(test)]
-    pub(super) fn set_fixture_body(&self, body: Arc<dyn JobBody>, settle: Duration) {
+    pub(super) fn set_fixture_body(&self, body: Arc<dyn JobBody>, settle: Option<Duration>) {
         *self.fixture.lock().unwrap_or_else(PoisonError::into_inner) = Some((body, settle));
     }
 
     #[cfg(test)]
-    fn fixture(&self) -> Option<(Arc<dyn JobBody>, Duration)> {
+    fn fixture(&self) -> Option<(Arc<dyn JobBody>, Option<Duration>)> {
         self.fixture
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -421,8 +421,8 @@ impl ProcessJobs {
         })();
         #[cfg(test)]
         let bound = bound.map(|registry| match self.fixture() {
-            Some((_, settle)) => registry.with_settle_budget(settle),
-            None => registry,
+            Some((_, Some(settle))) => registry.with_first_settle_budget(settle),
+            _ => registry,
         });
         let registry = match bound {
             Ok(registry) => Arc::new(registry),
