@@ -2,6 +2,7 @@
 use crate::{
     jobs::{Error, Result},
     units::{self, Units},
+    uploads::{self, Entry, Health, IndexRecord, Upload},
 };
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -11,6 +12,26 @@ const MANIFEST: &str = "manifest.json";
 const SCHEMA: &str = "media.output/1";
 const MAX_MANIFEST_BYTES: usize = 1024 * 1024;
 
+#[derive(Clone, Copy)]
+pub enum Namespace {
+    Output,
+    Upload,
+}
+
+pub enum Destination<'a> {
+    Output(&'a str),
+    Upload { id: &'a str, index: IndexRecord },
+}
+
+impl Destination<'_> {
+    fn location(&self) -> (Namespace, &str) {
+        match self {
+            Self::Output(id) => (Namespace::Output, id),
+            Self::Upload { id, .. } => (Namespace::Upload, id),
+        }
+    }
+}
+
 /// The host provides confinement to the media store's private directory.
 pub trait Backend {
     type Guard<'a>: WriteGuard
@@ -19,8 +40,19 @@ pub trait Backend {
 
     /// Serialize generated and uploaded writes, accounting and pruning.
     fn lock(&self, deadline: Instant) -> Result<Self::Guard<'_>>;
-    /// Read a published manifest, bounding the bytes while reading.
-    fn read_manifest(&self, id: &str, limit: usize, deadline: Instant) -> Result<Option<Vec<u8>>>;
+    /// Under exclusive startup ownership, remove stale staging and lock
+    /// entries from the previous process and return the new store lock.
+    fn recover_staging(&mut self, deadline: Instant) -> Result<Self::Guard<'_>>;
+    /// Open and read a confined regular file, bounding the bytes while reading.
+    /// In the upload namespace a missing manifest for a present entry is an error.
+    fn read(
+        &self,
+        space: Namespace,
+        id: &str,
+        name: &str,
+        limit: usize,
+        deadline: Instant,
+    ) -> Result<Option<Vec<u8>>>;
 }
 
 pub trait WriteGuard {
@@ -28,21 +60,34 @@ pub trait WriteGuard {
     where
         Self: 'a;
 
-    fn contains(&self, id: &str, deadline: Instant) -> Result<bool>;
-    /// All bytes already charged under the same lock, including uploads.
-    fn charged_bytes(&self, deadline: Instant) -> Result<u64>;
+    fn contains(&self, space: Namespace, id: &str, deadline: Instant) -> Result<bool>;
+    fn generated_bytes(&self, deadline: Instant) -> Result<u64>;
     fn stage(&mut self, deadline: Instant) -> Result<Self::Stage<'_>>;
     /// Generated outputs only. Each tuple names a published output and its creation time.
     fn entries(&self, deadline: Instant) -> Result<Vec<(String, i64)>>;
     fn delete(&mut self, id: &str, deadline: Instant) -> Result<()>;
+    /// Inspect bounded upload manifests and file metadata without reading payloads.
+    fn uploads(&mut self, deadline: Instant) -> Result<Vec<Entry>>;
+    fn write_upload_index(
+        &mut self,
+        id: &str,
+        record: IndexRecord,
+        deadline: Instant,
+    ) -> Result<()>;
+    fn upload_index_ids(&self, deadline: Instant) -> Result<Vec<String>>;
+    fn remove_upload_index(&mut self, id: &str, deadline: Instant) -> Result<()>;
+    /// Await idempotent host owner cleanup before unlinking. For a malformed entry
+    /// the input is only a directory entry and must never be used for owner lookup.
+    fn delete_upload(&mut self, id: &str, verified_id: bool, deadline: Instant) -> Result<()>;
 }
 
 /// A private staging directory whose uncommitted contents are removed on drop.
 pub trait Stage {
     /// Exclusively create and sync a file in the staging directory.
     fn write_private(&mut self, name: &str, bytes: &[u8], deadline: Instant) -> Result<()>;
-    /// Atomically publish the entire directory without overwriting an existing output.
-    fn publish(self, id: &str, deadline: Instant) -> Result<()>;
+    /// Publish the directory without replacing old data. For an upload, persist
+    /// the charge first and remove it on failed rename while holding the lock.
+    fn publish(self, target: Destination<'_>, deadline: Instant) -> Result<()>;
 }
 
 pub use crate::images::Format as ImageFormat;
@@ -131,25 +176,29 @@ impl<'a, B: Backend> OutputStore<'a, B> {
             return Err(Error::TooLarge);
         }
         staged.push((MANIFEST.into(), &encoded));
-        self.publish(id, &staged, deadline)?;
+        self.publish(Destination::Output(id), &staged, now_ms, deadline)?;
         Ok(manifest)
     }
 
-    fn publish(&self, id: &str, files: &[(String, &[u8])], deadline: Instant) -> Result<()> {
+    fn publish(
+        &self,
+        destination: Destination<'_>,
+        files: &[(String, &[u8])],
+        now_ms: i64,
+        deadline: Instant,
+    ) -> Result<()> {
         check_deadline(deadline)?;
         let mut guard = self.backend.lock(deadline)?;
-        if guard.contains(id, deadline)? {
+        let (space, id) = destination.location();
+        if guard.contains(space, id, deadline)? {
             return Err(Error::UnsupportedParameter);
         }
-        if let Some(quota) = self.settings.quota_bytes {
-            let total = files
-                .iter()
-                .try_fold(guard.charged_bytes(deadline)?, |total, (_, bytes)| {
-                    total.checked_add(bytes.len() as u64).ok_or(Error::Quota)
-                })?;
-            if total > quota {
-                return Err(Error::Quota);
-            }
+        let total = files.iter().try_fold(
+            charged_bytes(&mut guard, now_ms, deadline)?,
+            |total, (_, bytes)| total.checked_add(bytes.len() as u64).ok_or(Error::Quota),
+        )?;
+        if self.settings.quota_bytes.is_some_and(|quota| total > quota) {
+            return Err(Error::Quota);
         }
         let mut stage = guard.stage(deadline)?;
         for (name, bytes) in files {
@@ -157,15 +206,19 @@ impl<'a, B: Backend> OutputStore<'a, B> {
             stage.write_private(name, bytes, deadline)?;
         }
         check_deadline(deadline)?;
-        stage.publish(id, deadline)
+        stage.publish(destination, deadline)
     }
 
     pub fn get(&self, id: &str, deadline: Instant) -> Result<Option<Value>> {
         verify_id(id)?;
         check_deadline(deadline)?;
-        let Some(bytes) = self
-            .backend
-            .read_manifest(id, MAX_MANIFEST_BYTES, deadline)?
+        let Some(bytes) = self.backend.read(
+            Namespace::Output,
+            id,
+            MANIFEST,
+            MAX_MANIFEST_BYTES,
+            deadline,
+        )?
         else {
             return Ok(None);
         };
@@ -187,27 +240,162 @@ impl<'a, B: Backend> OutputStore<'a, B> {
     }
 
     pub fn prune(&self, now_ms: i64, deadline: Instant) -> Result<usize> {
-        let Some(retention) = self.settings.retention_ms else {
-            return Ok(0);
-        };
         check_deadline(deadline)?;
         let mut guard = self.backend.lock(deadline)?;
-        let entries = guard.entries(deadline)?;
         let mut count = 0;
-        for (id, created) in entries {
-            verify_id(&id)?;
-            if i128::from(now_ms) - i128::from(created) < i128::from(retention) {
-                continue;
+        if let Some(retention) = self.settings.retention_ms {
+            for (id, created) in guard.entries(deadline)? {
+                verify_id(&id)?;
+                if i128::from(now_ms) - i128::from(created) < i128::from(retention) {
+                    continue;
+                }
+                check_deadline(deadline)?;
+                guard.delete(&id, deadline)?;
+                count += 1;
             }
-            check_deadline(deadline)?;
-            guard.delete(&id, deadline)?;
-            count += 1;
         }
-        Ok(count)
+        Ok(count
+            + prune_uploads(&mut guard, now_ms, self.settings.retention_ms, deadline)
+                .map_err(upload_error)?)
+    }
+
+    pub fn put_uploaded(
+        &self,
+        id: &str,
+        upload: &Upload<'_>,
+        now_ms: i64,
+        deadline: Instant,
+    ) -> Result<uploads::Manifest> {
+        verify_id(id)?;
+        check_deadline(deadline)?;
+        let manifest = uploads::Manifest::admit(id, now_ms, upload)?;
+        let encoded = serde_json::to_vec(&manifest).map_err(|_| Error::Storage)?;
+        if encoded.len() > uploads::MAX_MANIFEST_BYTES {
+            return Err(Error::TooLarge);
+        }
+        let index = IndexRecord::new(now_ms, (encoded.len() + upload.bytes.len()) as u64, false);
+        self.publish(
+            Destination::Upload { id, index },
+            &[
+                (manifest.file.path.clone(), upload.bytes),
+                (MANIFEST.into(), &encoded),
+            ],
+            now_ms,
+            deadline,
+        )
+        .map_err(upload_error)?;
+        Ok(manifest)
+    }
+
+    pub fn get_uploaded(&self, id: &str, deadline: Instant) -> Result<Option<uploads::Stored>> {
+        verify_id(id)?;
+        check_deadline(deadline)?;
+        let Some(raw) = self
+            .backend
+            .read(
+                Namespace::Upload,
+                id,
+                MANIFEST,
+                uploads::MAX_MANIFEST_BYTES,
+                deadline,
+            )
+            .map_err(upload_error)?
+        else {
+            return Ok(None);
+        };
+        let manifest = uploads::Manifest::decode(id, &raw).map_err(upload_error)?;
+        let bytes = self
+            .backend
+            .read(
+                Namespace::Upload,
+                id,
+                &manifest.file.path,
+                manifest.file.bytes,
+                deadline,
+            )
+            .map_err(upload_error)?
+            .ok_or(Error::BackendUnavailable)?;
+        check_deadline(deadline)?;
+        if bytes.len() != manifest.file.bytes || hash(&bytes) != manifest.file.sha256 {
+            return Err(Error::BackendUnavailable);
+        }
+        Ok(Some(uploads::Stored { manifest, bytes }))
+    }
+
+    pub fn delete_uploaded(&self, id: &str, deadline: Instant) -> Result<()> {
+        verify_id(id)?;
+        check_deadline(deadline)?;
+        self.backend
+            .lock(deadline)
+            .and_then(|mut guard| guard.delete_upload(id, true, deadline))
+            .map_err(upload_error)
     }
 }
 
-fn hash(bytes: &[u8]) -> String {
+/// Recover interrupted publications before sharing the store with other writers.
+pub fn recover_staging(backend: &mut impl Backend, now_ms: i64, deadline: Instant) -> Result<()> {
+    check_deadline(deadline)?;
+    let mut guard = backend.recover_staging(deadline).map_err(upload_error)?;
+    prune_uploads(&mut guard, now_ms, None, deadline).map_err(upload_error)?;
+    Ok(())
+}
+
+fn upload_error(error: Error) -> Error {
+    match error {
+        Error::Storage => Error::BackendUnavailable,
+        other => other,
+    }
+}
+
+fn charged_bytes(guard: &mut impl WriteGuard, now: i64, deadline: Instant) -> Result<u64> {
+    let mut total = guard.generated_bytes(deadline)?;
+    for entry in guard.uploads(deadline)? {
+        check_deadline(deadline)?;
+        let mut account = entry.account(now);
+        // A metadata-only quota scan cannot clear an earlier read error.
+        if entry.saved.is_some_and(|record| record.unavailable) {
+            account.unavailable = true;
+        }
+        if verify_id(&entry.id).is_ok() && Some(account) != entry.saved {
+            guard.write_upload_index(&entry.id, account, deadline)?;
+        }
+        total = total.checked_add(account.bytes).ok_or(Error::Quota)?;
+    }
+    Ok(total)
+}
+
+fn prune_uploads(
+    guard: &mut impl WriteGuard,
+    now: i64,
+    retention: Option<u64>,
+    deadline: Instant,
+) -> Result<usize> {
+    let mut removed = 0;
+    for mut entry in guard.uploads(deadline)? {
+        check_deadline(deadline)?;
+        let valid_id = verify_id(&entry.id).is_ok();
+        if !valid_id && !matches!(entry.health, Health::Unavailable) {
+            entry.health = Health::Corrupt;
+        }
+        let account = entry.account(now);
+        if valid_id && Some(account) != entry.saved {
+            guard.write_upload_index(&entry.id, account, deadline)?;
+        }
+        if entry.expired(now, retention, account) {
+            guard.delete_upload(&entry.id, valid_id, deadline)?;
+            removed += 1;
+        }
+    }
+    for id in guard.upload_index_ids(deadline)? {
+        check_deadline(deadline)?;
+        if verify_id(&id).is_ok() && !guard.contains(Namespace::Upload, &id, deadline)? {
+            guard.remove_upload_index(&id, deadline)?;
+        }
+    }
+    Ok(removed)
+}
+
+pub(crate) fn hash(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 

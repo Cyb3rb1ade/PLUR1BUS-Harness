@@ -1471,6 +1471,14 @@ describe("media output publication (P4-W W4)", () => {
   });
 });
 
+describe("media upload publication (P4-W W4)", () => {
+  it("matches the TypeScript upload, charge, raw bytes and deletion recording", async () => {
+    const { recordMediaUpload } = await import("./export-media-upload.ts");
+    const expected = fixtureText((await recordMediaUpload())["upload-store"]);
+    assert.equal(readFileSync(fixturePath("media", "upload-store"), "utf8"), expected);
+  });
+});
+
 describe("media job orchestration (P4-W W4)", () => {
   it("matches the production TypeScript job and budget port calls", async () => {
     const { recordMediaJobs } = await import("./export-media-jobs.ts");

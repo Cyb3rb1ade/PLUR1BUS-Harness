@@ -2,7 +2,11 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use plur1bus_media::{
     jobs::{Error, Result},
-    output::{Backend, Image, ImageFormat, Images, OutputStore, Settings, Stage, WriteGuard},
+    output::{
+        Backend, Destination, Image, ImageFormat, Images, Namespace, OutputStore, Settings, Stage,
+        WriteGuard,
+    },
+    uploads::{Entry, Health, IndexRecord, Kind, Upload},
 };
 use serde_json::{json, Value};
 use std::{
@@ -17,16 +21,21 @@ type Published = BTreeMap<String, Files>;
 #[derive(Default)]
 struct Memory {
     visible: Mutex<Published>,
+    index: Mutex<BTreeMap<String, IndexRecord>>,
+    refuse_binding_cleanup: std::cell::Cell<bool>,
     fail_manifest: bool,
 }
 
 struct Guard<'a> {
     visible: MutexGuard<'a, Published>,
+    index: MutexGuard<'a, BTreeMap<String, IndexRecord>>,
+    refuse_binding_cleanup: &'a std::cell::Cell<bool>,
     fail_manifest: bool,
 }
 
 struct Staged<'a> {
     visible: &'a mut Published,
+    index: &'a mut BTreeMap<String, IndexRecord>,
     files: Files,
     fail_manifest: bool,
 }
@@ -37,17 +46,37 @@ impl Backend for Memory {
     fn lock(&self, _: Instant) -> Result<Self::Guard<'_>> {
         Ok(Guard {
             visible: self.visible.lock().unwrap(),
+            index: self.index.lock().unwrap(),
+            refuse_binding_cleanup: &self.refuse_binding_cleanup,
             fail_manifest: self.fail_manifest,
         })
     }
 
-    fn read_manifest(&self, id: &str, limit: usize, _: Instant) -> Result<Option<Vec<u8>>> {
+    fn recover_staging(&mut self, deadline: Instant) -> Result<Self::Guard<'_>> {
+        self.lock(deadline)
+    }
+
+    fn read(
+        &self,
+        space: Namespace,
+        id: &str,
+        name: &str,
+        limit: usize,
+        _: Instant,
+    ) -> Result<Option<Vec<u8>>> {
         let dir = self.visible.lock().unwrap();
-        let data = dir.get(id).and_then(|files| files.get("manifest.json"));
+        let data = dir.get(&key(space, id)).and_then(|files| files.get(name));
         if data.is_some_and(|data| data.len() > limit) {
             return Err(Error::Storage);
         }
         Ok(data.cloned())
+    }
+}
+
+fn key(space: Namespace, id: &str) -> String {
+    match space {
+        Namespace::Output => id.into(),
+        Namespace::Upload => format!(".uploads/{id}"),
     }
 }
 
@@ -57,15 +86,16 @@ impl WriteGuard for Guard<'_> {
     where
         Self: 'a;
 
-    fn contains(&self, id: &str, _: Instant) -> Result<bool> {
-        Ok(self.visible.contains_key(id))
+    fn contains(&self, space: Namespace, id: &str, _: Instant) -> Result<bool> {
+        Ok(self.visible.contains_key(&key(space, id)))
     }
 
-    fn charged_bytes(&self, _: Instant) -> Result<u64> {
+    fn generated_bytes(&self, _: Instant) -> Result<u64> {
         Ok(self
             .visible
-            .values()
-            .flatten()
+            .iter()
+            .filter(|(id, _)| !id.starts_with(".uploads/"))
+            .flat_map(|(_, files)| files)
             .map(|(_, data)| data.len() as u64)
             .sum())
     }
@@ -73,6 +103,7 @@ impl WriteGuard for Guard<'_> {
     fn stage(&mut self, _: Instant) -> Result<Self::Stage<'_>> {
         Ok(Staged {
             visible: &mut self.visible,
+            index: &mut self.index,
             files: Files::new(),
             fail_manifest: self.fail_manifest,
         })
@@ -82,6 +113,7 @@ impl WriteGuard for Guard<'_> {
         Ok(self
             .visible
             .iter()
+            .filter(|(id, _)| !id.starts_with(".uploads/"))
             .map(|(id, files)| {
                 let manifest: Value = serde_json::from_slice(&files["manifest.json"]).unwrap();
                 (id.clone(), manifest["createdAt"].as_i64().unwrap())
@@ -91,6 +123,49 @@ impl WriteGuard for Guard<'_> {
 
     fn delete(&mut self, id: &str, _: Instant) -> Result<()> {
         self.visible.remove(id);
+        Ok(())
+    }
+
+    fn uploads(&mut self, _: Instant) -> Result<Vec<Entry>> {
+        Ok(self
+            .visible
+            .iter()
+            .filter_map(|(key, files)| {
+                let id = key.strip_prefix(".uploads/")?;
+                let manifest: Value = serde_json::from_slice(&files["manifest.json"]).unwrap();
+                let created_at = manifest["createdAt"].as_i64().unwrap();
+                Some(Entry {
+                    id: id.into(),
+                    modified_at: created_at,
+                    bytes: files.values().map(|b| b.len() as u64).sum(),
+                    health: Health::Present { created_at },
+                    saved: self.index.get(id).copied(),
+                })
+            })
+            .collect())
+    }
+
+    fn write_upload_index(&mut self, id: &str, record: IndexRecord, _: Instant) -> Result<()> {
+        self.index.insert(id.into(), record);
+        Ok(())
+    }
+
+    fn upload_index_ids(&self, _: Instant) -> Result<Vec<String>> {
+        Ok(self.index.keys().cloned().collect())
+    }
+
+    fn remove_upload_index(&mut self, id: &str, _: Instant) -> Result<()> {
+        self.index.remove(id);
+        Ok(())
+    }
+
+    fn delete_upload(&mut self, id: &str, verified_id: bool, _: Instant) -> Result<()> {
+        assert!(verified_id);
+        if self.refuse_binding_cleanup.get() {
+            return Err(Error::Storage);
+        }
+        self.visible.remove(&key(Namespace::Upload, id));
+        self.index.remove(id);
         Ok(())
     }
 }
@@ -104,11 +179,135 @@ impl Stage for Staged<'_> {
         Ok(())
     }
 
-    fn publish(self, id: &str, _: Instant) -> Result<()> {
+    fn publish(self, target: Destination<'_>, _: Instant) -> Result<()> {
+        let (space, id) = match target {
+            Destination::Output(id) => (Namespace::Output, id),
+            Destination::Upload { id, index } => {
+                self.index.insert(id.into(), index);
+                (Namespace::Upload, id)
+            }
+        };
         assert!(self.files.contains_key("manifest.json"));
-        assert!(self.visible.insert(id.into(), self.files).is_none());
+        assert!(self.visible.insert(key(space, id), self.files).is_none());
         Ok(())
     }
+}
+
+#[test]
+fn upload_publication_and_owner_cleanup_match_the_typescript_store() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/media/upload-store.json"
+    ))
+    .unwrap();
+    let input = &fixture["input"];
+    let expected = &fixture["expected"];
+    let id = input["id"].as_str().unwrap();
+    let now = input["now"].as_i64().unwrap();
+    let data = STANDARD.decode(input["data"].as_str().unwrap()).unwrap();
+    let upload = Upload {
+        kind: Kind::Image,
+        mime_type: input["mimeType"].as_str().unwrap(),
+        filename: input["filename"].as_str(),
+        bytes: &data,
+    };
+    let memory = Memory::default();
+    let store = OutputStore::new(
+        &memory,
+        Settings {
+            retention_ms: Some(1000),
+            ..Settings::default()
+        },
+    );
+    let deadline = Instant::now() + Duration::from_secs(5);
+    assert_eq!(
+        json!(store.put_uploaded(id, &upload, now, deadline).unwrap()),
+        expected["manifest"]
+    );
+    let read = store.get_uploaded(id, deadline).unwrap().unwrap();
+    assert_eq!(json!(read.manifest), expected["manifest"]);
+    assert_eq!(json!(STANDARD.encode(read.bytes)), expected["raw"]);
+    assert_eq!(
+        json!(memory.index.lock().unwrap().get(id).unwrap()),
+        expected["index"]
+    );
+    assert_eq!(
+        json!(store.get(id, deadline).unwrap()),
+        expected["generatedLookup"]
+    );
+    let quota = expected["index"]["bytes"].as_u64().unwrap() * 2 - 1;
+    let restricted = OutputStore::new(
+        &memory,
+        Settings {
+            quota_bytes: Some(quota),
+            ..Settings::default()
+        },
+    );
+    assert_eq!(
+        json!(restricted
+            .put_uploaded(
+                "00000000-0000-4000-8000-000000000001",
+                &upload,
+                now,
+                deadline
+            )
+            .err()
+            .unwrap()),
+        expected["quota"]
+    );
+    assert_eq!(
+        json!(store
+            .put_uploaded(
+                "wrong",
+                &Upload {
+                    mime_type: "image/jpeg",
+                    ..upload
+                },
+                now,
+                deadline
+            )
+            .err()
+            .unwrap()),
+        expected["wrongType"]
+    );
+    let path = key(Namespace::Upload, id);
+    memory
+        .visible
+        .lock()
+        .unwrap()
+        .get_mut(&path)
+        .unwrap()
+        .insert("0.png".into(), vec![0; data.len()]);
+    assert_eq!(
+        json!(store.get_uploaded(id, deadline).err().unwrap()),
+        expected["changedHash"]
+    );
+    memory
+        .visible
+        .lock()
+        .unwrap()
+        .get_mut(&path)
+        .unwrap()
+        .insert("0.png".into(), data);
+    assert_eq!(
+        json!(store.prune(now + 999, deadline).unwrap()),
+        expected["retained"]
+    );
+    memory.refuse_binding_cleanup.set(true);
+    assert_eq!(
+        json!(store.prune(now + 1000, deadline).err().unwrap()),
+        expected["cleanupFailure"]
+    );
+    assert_eq!(
+        json!(store.get_uploaded(id, deadline).unwrap().is_some()),
+        expected["presentAfterFailure"]
+    );
+    memory.refuse_binding_cleanup.set(false);
+    assert_eq!(
+        json!(store.prune(now + 1000, deadline).unwrap()),
+        expected["expired"]
+    );
+    assert!(store.get_uploaded(id, deadline).unwrap().is_none());
+    assert!(memory.index.lock().unwrap().is_empty());
 }
 
 #[test]
@@ -152,7 +351,7 @@ fn generated_output_matches_the_typescript_manifest_charge_and_retention() {
         memory
             .lock(deadline)
             .unwrap()
-            .charged_bytes(deadline)
+            .generated_bytes(deadline)
             .unwrap(),
         expected["charge"].as_u64().unwrap()
     );
