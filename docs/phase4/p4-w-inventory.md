@@ -251,6 +251,18 @@ JSON values.
   atomare Dateien, Upload-Quelle und Fortschritt, Child-Process/ffmpeg/ffprobe, Chromium und Font-/Asset-Pfade.
 - **Lücken.** Bild-/Video-Uploads, Binär- und Statusantworten, Job-Resume/Cancel, Storage-Fehler,
   CDP-Abfolge, unterschiedliche Font-/Plattformausgaben und die existierenden PDF-Goldens.
+
+Das Rust-Dokumentmodul rendert Markdown in alle neun Vorlagen und bindet die drei ausgelieferten Fonts
+über einen Asset-Port ein. Der Chromium-Adapter öffnet eine private Profilinstanz und begrenzt den
+DevTools-Transport auf deren Loopback-Endpunkt. Mit konfiguriertem Asset verwendet er das unveränderte
+Paged.js aus dem Workspace. R-W-9 erlaubt den blockierenden CDP-Aufruf bis zu der vom Host gesetzten
+absoluten Frist. Die statische und die Chromium-Layout-Prüfung führen die Abweichungen
+[P4D-221](defects.md#p4d-221--document-review-font-family-matching) und
+[P4D-222](defects.md#p4d-222--document-widow-check-with-inline-markup).
+Der Golden-Treiber liest dieselben neun Eingaben wie `documents-golden`, vergleicht die gerenderten
+Bilder mit dessen Schwellenwerten und prüft PDF-Seitenzahlen und eingebettete Schrift. Der lokale Lauf
+mit Chrome 158 verglich Rust und TypeScript auf demselben macOS-Host. Die reproduzierbare Abnahme
+gegen die eingecheckten PNGs verwendet die in `golden/manifest.json` genannte Chrome-Version.
   Die Downloads und Prozesse im Rust-Test durch Fixtures oder mitgelieferte Testassets steuern.
 
 Der generierte Bildspeicher übernimmt Manifest, Hashes, Kontingent und

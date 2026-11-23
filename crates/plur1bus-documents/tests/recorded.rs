@@ -32,6 +32,27 @@ fn markdown_and_contrast_replay_the_real_document_helpers() {
 }
 
 #[test]
+fn review_findings_match_the_typescript_checks() {
+    use plur1bus_documents::checks::{static_checks, summarize};
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/documents/checks.json"
+    ))
+    .unwrap();
+    let input = &fixture["input"];
+    let findings = static_checks(input["html"].as_str().unwrap());
+    let report = summarize(
+        findings,
+        input["vision"].as_bool().unwrap(),
+        input["fixed"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|fix| fix.as_str().unwrap()),
+    );
+    assert_eq!(serde_json::to_value(report).unwrap(), fixture["result"]);
+}
+
+#[test]
 fn authored_templates_replay_complete_typescript_markup() {
     use plur1bus_documents::render::{assemble_html, FontDirectory};
     use plur1bus_documents::templates::{self, Document, Kit, LineItem, Meta};
@@ -91,6 +112,12 @@ fn authored_templates_replay_complete_typescript_markup() {
         let actual = templates::assemble(template, &document);
         assert_eq!(actual, vector["expected"], "{kind}");
         let html = assemble_html(template, &document, &fonts).unwrap();
+        assert!(
+            plur1bus_documents::checks::static_checks(&html)
+                .iter()
+                .all(|finding| finding.check != "fonts"),
+            "{kind}"
+        );
         assert_eq!(html.len() as u64, rendered["bytes"], "{kind}");
         assert_eq!(
             format!("{:x}", Sha256::digest(html.as_bytes())),

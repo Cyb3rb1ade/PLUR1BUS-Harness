@@ -1508,6 +1508,14 @@ describe("document template assembly (P4-W W4)", () => {
   });
 });
 
+describe("document checks (P4-W W4)", () => {
+  it("matches the generated findings and authored Chromium check script", async () => {
+    const { recordDocumentChecks } = await import("./export-document-checks.ts");
+    assert.equal(readFileSync(fixturePath("documents", "checks"), "utf8"),
+      fixtureText(recordDocumentChecks().checks));
+  });
+});
+
 describe("Chromium rendering commands (P4-W W4)", () => {
   it("matches the TypeScript PDF and screenshot command parameters", async () => {
     const { recordDocumentCdp } = await import("./export-document-cdp.ts");

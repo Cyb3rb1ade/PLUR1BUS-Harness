@@ -6136,9 +6136,15 @@ name = "plur1bus-documents"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "plur1bus-channels",
+ "plur1bus-providers",
  "regex",
+ "serde",
  "serde_json",
  "sha2 0.10.9",
+ "tempfile",
+ "ureq",
+ "url",
 ]
 
 [[package]]

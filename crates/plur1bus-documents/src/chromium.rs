@@ -33,13 +33,14 @@ pub trait Transport {
     fn wait(&mut self, delay: Duration, deadline: Instant) -> Result<()>;
 }
 
+#[derive(Clone, Copy)]
 pub struct Control<'a> {
     pub deadline: Instant,
     pub cancelled: &'a dyn Fn() -> bool,
 }
 
 impl Control<'_> {
-    fn check(&self) -> Result<()> {
+    pub(crate) fn check(&self) -> Result<()> {
         if (self.cancelled)() {
             Err(Error::Cancelled)
         } else if Instant::now() >= self.deadline {
@@ -134,6 +135,25 @@ impl<'a, T: Transport> Client<'a, T> {
             }),
         )?;
         decode(&response, b"%PDF-")
+    }
+
+    pub(crate) fn evaluate(&mut self, expression: &str, await_promise: bool) -> Result<Value> {
+        let response = self.request(
+            "Runtime.evaluate",
+            &json!({
+                "expression": expression,
+                "awaitPromise": await_promise,
+                "returnByValue": true,
+            }),
+        )?;
+        if response.get("exceptionDetails").is_some() {
+            return Err(Error::Protocol);
+        }
+        response
+            .get("result")
+            .and_then(|result| result.get("value"))
+            .cloned()
+            .ok_or(Error::Protocol)
     }
 
     pub fn screenshot(&mut self) -> Result<Vec<u8>> {

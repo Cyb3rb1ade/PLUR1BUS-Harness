@@ -1396,3 +1396,20 @@ The Rust output store bounds a generated manifest to 1 MiB when reading it.
 The storage port applies the size limit during the read. The library checks
 the returned size, schema and output identity before handing the manifest to
 its caller, and applies the same bound before publishing new manifests.
+
+## P4D-221 — document review font family matching
+
+The TypeScript font check in the document library compares lowercased
+font references against the original case of the embedded families. This
+reports an error for embedded Inter. Rust normalizes both names and still
+flags families absent from the document and the system fallback list. The
+fixture records the TypeScript finding. The Rust check also resolves the
+template's three CSS font variables against their declared family lists.
+
+## P4D-222 — document widow check with inline markup
+
+The Chromium layout check addresses the last words of each paragraph
+relative to the complete paragraph text. The TypeScript script applies
+those offsets to the first child alone. A paragraph with emphasis or a
+link can therefore abort the check. The Rust asset maps word offsets to
+the corresponding text nodes before comparing line positions.
