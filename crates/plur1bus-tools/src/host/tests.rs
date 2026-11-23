@@ -114,7 +114,10 @@ fn process_admission_validates_the_program_and_configured_shell_launcher() {
     }
     for (shell, pattern) in [
         ("bash", "BASH -C"),
+        ("bash", "--norc --noprofile"),
+        ("zsh", "ZSH -C"),
         ("zsh", "-C fixture"),
+        ("zsh", "-f -c"),
         ("pwsh", "-NonInteractive -Command"),
     ] {
         let settings = Config::from_json(
@@ -128,6 +131,41 @@ fn process_admission_validates_the_program_and_configured_shell_launcher() {
         );
     }
     assert!(check(Operation::Shell, json!({"command":"fixture"}), &config).is_ok());
+}
+
+#[test]
+fn shell_profiles_and_builtin_positional_admission() {
+    for (shell, expected) in [
+        ("bash", vec!["--norc", "--noprofile", "-c", "echo fixture"]),
+        ("zsh", vec!["-f", "-c", "echo fixture"]),
+        ("sh", vec!["-c", "echo fixture"]),
+        (
+            "pwsh",
+            vec!["-NoProfile", "-NonInteractive", "-Command", "echo fixture"],
+        ),
+    ] {
+        assert_eq!(processes::shell_args(shell, "echo fixture"), expected);
+    }
+    let caller = Caller {
+        session_id: Some("fixture-session".into()),
+        ..Caller::default()
+    };
+    let config = Config::from_json(&json!({"shell":{"allowed":true,"default":"bash"}}));
+    let admission = |command| {
+        eligibility::validate_runtime(
+            catalog::Operation::Shell,
+            json!({"command":command}).as_object().unwrap(),
+            &config,
+            &caller,
+            ProcessIdentity::default(),
+        )
+    };
+    for builtin in ["compgen", "complete", "mapfile", "readarray"] {
+        assert_eq!(admission(builtin).unwrap_err().code, "DENIED");
+    }
+    assert!(admission("echo compgen").is_ok());
+    assert!(args::forbidden_env("ZDOTDIR"));
+    assert!(args::forbidden_env("zdotdir"));
 }
 
 macro_rules! refuses {
@@ -1380,6 +1418,144 @@ fn both_audit_lines_identify_the_approved_target_without_its_raw_name() {
 }
 
 #[test]
+fn receipt_failures_guard_dispatch_and_end_audit() {
+    struct FailedReceipt {
+        refuse_reservation: bool,
+        finished: Vec<Receipt>,
+    }
+
+    impl Receipts for FailedReceipt {
+        fn reserve(&mut self, _: ReceiptOwner, _: Receipt, _: f64) -> bool {
+            !self.refuse_reservation
+        }
+
+        fn finish(&mut self, _: ReceiptOwner, receipt: Receipt, _: f64) -> bool {
+            self.finished.push(receipt);
+            self.finished.len() > 1
+        }
+
+        fn get(&self, _: ReceiptOwner, _: Uuid, _: f64) -> Option<Receipt> {
+            None
+        }
+    }
+
+    struct Native {
+        refuse_start: bool,
+        invoked: Option<(Uuid, Uuid)>,
+        stopped: Vec<Uuid>,
+    }
+
+    impl Effects for Native {
+        fn process_identity(&self) -> ProcessIdentity {
+            EffectsFixture::default().process_identity()
+        }
+
+        fn apply(&mut self, call: Invocation<'_>) -> Result<Value, Failure> {
+            self.invoked = Some((call.operation_id(), call.process_id().unwrap()));
+            if self.refuse_start {
+                return Err(Failure::new("IO_ERROR", "Native start failed."));
+            }
+            Ok(json!({"running":true}))
+        }
+
+        fn stop_after_failure(&mut self, id: Uuid) -> bool {
+            self.stopped.push(id);
+            true
+        }
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let roots = [fixture_root(dir.path())];
+    let fixture = HostReviewFixture::new(&roots);
+    for (refuse_reservation, refuse_start) in [(true, false), (false, true), (false, false)] {
+        let mut receipts = FailedReceipt {
+            refuse_reservation,
+            finished: Vec::new(),
+        };
+        let mut effects = Native {
+            refuse_start,
+            invoked: None,
+            stopped: Vec::new(),
+        };
+        let mut audit = MemoryAudit::default();
+        let mut processes = ProcessSessions::default();
+        let action = fixture.approval(
+            "hostctl.proc.start",
+            json!({"program":"fixture","cwd":"."}),
+            &mut Permits::approving(),
+            None,
+        );
+
+        let error = Hostctl {
+            config: &fixture.config,
+            policy: &fixture.policy,
+            clock: &fixture.clock,
+            random: &plur1bus_core::approvals::OsRandom,
+            audit: &mut audit,
+            receipts: &mut receipts,
+            processes: &mut processes,
+            effects: &mut effects,
+            aborted: &|| false,
+        }
+        .execute(action, &fixture.who)
+        .unwrap_err();
+
+        assert_eq!(error.code, "IO_ERROR");
+        assert_eq!(audit.of("hostctl.end")[0]["code"], "IO_ERROR");
+        assert!(processes
+            .revoke_session(fixture.who.session_id.as_deref().unwrap())
+            .is_empty());
+        if refuse_reservation {
+            assert_eq!(error.operation_id, None);
+            assert_eq!(effects.invoked, None);
+            assert!(effects.stopped.is_empty());
+            assert!(receipts.finished.is_empty());
+            assert!(audit.of("hostctl.compensate").is_empty());
+        } else if refuse_start {
+            let (operation, process) = effects.invoked.unwrap();
+            assert_eq!(error.operation_id, Some(operation));
+            assert!(effects.stopped.is_empty());
+            assert_eq!(
+                receipts.finished,
+                [Receipt {
+                    id: operation,
+                    process: Some(process),
+                    confirmed: false,
+                    stopped: false
+                }]
+            );
+            assert!(audit.of("hostctl.compensate").is_empty());
+        } else {
+            let (operation, process) = effects.invoked.unwrap();
+            assert_eq!(error.operation_id, Some(operation));
+            assert_eq!(effects.stopped, [process]);
+            assert_eq!(
+                receipts.finished,
+                [
+                    Receipt {
+                        id: operation,
+                        process: Some(process),
+                        confirmed: true,
+                        stopped: false
+                    },
+                    Receipt {
+                        id: operation,
+                        process: Some(process),
+                        confirmed: true,
+                        stopped: true
+                    },
+                ]
+            );
+            let compensation = audit.of("hostctl.compensate");
+            assert_eq!(compensation.len(), 1);
+            assert_eq!(compensation[0]["code"], "STOPPED");
+            assert_eq!(compensation[0]["operationId"], operation.to_string());
+            assert_eq!(compensation[0]["processId"], process.to_string());
+        }
+    }
+}
+
+#[test]
 fn recovery_survives_failed_delivery_and_preserves_unconfirmed_processes() {
     struct Native {
         confirmed_stop: bool,
@@ -1446,7 +1622,9 @@ fn recovery_survives_failed_delivery_and_preserves_unconfirmed_processes() {
         assert_eq!(err.code, if oversized { "TOO_LARGE" } else { "IO_ERROR" });
         assert_eq!(audit.of("hostctl.begin")[0]["operationId"], op.to_string());
         assert_eq!(err.to_result()["error"]["operationId"], op.to_string());
-        let receipt = receipts.get(ReceiptOwner::of(&fixture.who), op).unwrap();
+        let receipt = receipts
+            .get(ReceiptOwner::of(&fixture.who), op, fixture.clock.now())
+            .unwrap();
         assert_eq!(
             receipt,
             Receipt {
@@ -1457,6 +1635,12 @@ fn recovery_survives_failed_delivery_and_preserves_unconfirmed_processes() {
             }
         );
         assert_eq!(native.stopped, Some(process));
+        let compensation = audit.of("hostctl.compensate");
+        assert_eq!(compensation.len(), 1);
+        assert_eq!(
+            compensation[0]["code"],
+            if stopped { "STOPPED" } else { "UNCONFIRMED" }
+        );
         assert!(!format!("{receipt:?} {err:?}").contains("private-marker"));
         for other in [
             Caller {
@@ -1472,7 +1656,9 @@ fn recovery_survives_failed_delivery_and_preserves_unconfirmed_processes() {
                 ..fixture.who.clone()
             },
         ] {
-            assert!(receipts.get(ReceiptOwner::of(&other), op).is_none());
+            assert!(receipts
+                .get(ReceiptOwner::of(&other), op, fixture.clock.now())
+                .is_none());
         }
         let running = processes.revoke_session(fixture.who.session_id.as_deref().unwrap());
         assert_eq!(running, if stopped { vec![] } else { vec![process] });

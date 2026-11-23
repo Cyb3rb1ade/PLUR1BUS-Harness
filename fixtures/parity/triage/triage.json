@@ -1531,6 +1531,95 @@
       "name": "summary-number"
     },
     {
+      "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":{\"title\":\"fix the bug\"},\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "divergence": "P4D-200",
+      "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":{\"title\":\"fix the bug\"},\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "message": "fix the bug 😀 and then write the report",
+      "name": "summary-object"
+    },
+    {
+      "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":{\"title\":\"fix the bug\"},\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "cost": "economy",
+      "divergence": "P4D-200",
+      "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":{\"title\":\"fix the bug\"},\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "message": "fix the bug 😀 and then write the report",
+      "name": "summary-object"
+    },
+    {
+      "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":{\"title\":\"fix the bug\"},\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "cost": "quality",
+      "divergence": "P4D-200",
+      "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":{\"title\":\"fix the bug\"},\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"large\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "message": "fix the bug 😀 and then write the report",
+      "name": "summary-object"
+    },
+    {
+      "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":[\"fix the bug\"],\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "divergence": "P4D-200",
+      "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":[\"fix the bug\"],\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "message": "fix the bug 😀 and then write the report",
+      "name": "summary-array"
+    },
+    {
+      "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":[\"fix the bug\"],\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "cost": "economy",
+      "divergence": "P4D-200",
+      "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":[\"fix the bug\"],\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "message": "fix the bug 😀 and then write the report",
+      "name": "summary-array"
+    },
+    {
+      "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":[\"fix the bug\"],\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "cost": "quality",
+      "divergence": "P4D-200",
+      "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":[\"fix the bug\"],\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"large\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "message": "fix the bug 😀 and then write the report",
+      "name": "summary-array"
+    },
+    {
+      "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":true,\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "divergence": "P4D-200",
+      "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":true,\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "message": "fix the bug 😀 and then write the report",
+      "name": "summary-true"
+    },
+    {
+      "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":true,\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "cost": "economy",
+      "divergence": "P4D-200",
+      "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":true,\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "message": "fix the bug 😀 and then write the report",
+      "name": "summary-true"
+    },
+    {
+      "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":true,\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "cost": "quality",
+      "divergence": "P4D-200",
+      "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":true,\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"large\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "message": "fix the bug 😀 and then write the report",
+      "name": "summary-true"
+    },
+    {
+      "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\" \",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\" \",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "message": "fix the bug 😀 and then write the report",
+      "name": "summary-whitespace"
+    },
+    {
+      "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\" \",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "cost": "economy",
+      "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\" \",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "message": "fix the bug 😀 and then write the report",
+      "name": "summary-whitespace"
+    },
+    {
+      "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\" \",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "cost": "quality",
+      "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":\" \",\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"large\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "message": "fix the bug 😀 and then write the report",
+      "name": "summary-whitespace"
+    },
+    {
       "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":0,\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
       "error": {
         "message": "invalid task segmentation or dependency",

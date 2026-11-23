@@ -4,8 +4,16 @@ use crate::gate::Caller;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+#[cfg(test)]
+use std::collections::{HashMap, VecDeque};
+
+/// Maximum lifetime of a receipt from its first reservation (seven days).
+pub const RECEIPT_TTL_MS: u64 = 7 * 24 * 60 * 60 * 1000;
+/// Maximum number of retained receipts for one authenticated identity.
+pub const RECEIPTS_PER_IDENTITY: usize = 10_000;
+
 /// Fixed-size binding to the authenticated principal, agent and optional session.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ReceiptOwner([u8; 32]);
 
 impl ReceiptOwner {
@@ -48,45 +56,125 @@ pub struct Receipt {
     pub stopped: bool,
 }
 
-/// Durable at the flip. All access, including updates, is scoped to the owner.
+/// Durable at the flip. All access and eviction are scoped to the owner.
+/// A receipt expires at seven days from reservation or when more than 10,000
+/// reservations for that owner would be retained, whichever comes first.
+/// Evict the oldest reservations first. Completion does not extend retention.
+/// Timestamps use the trusted Hostctl clock in milliseconds since the epoch.
 pub trait Receipts {
     /// Reserve a unique ID with an uncertain outcome before invoking the effect.
-    /// Fail closed on collision, unavailable storage or exhausted retention.
-    fn reserve(&mut self, owner: ReceiptOwner, receipt: Receipt) -> bool;
-    /// Replace only a matching existing reservation. On failure keep the prior record.
-    fn finish(&mut self, owner: ReceiptOwner, receipt: Receipt) -> bool;
-    /// Return only a record belonging to this exact authenticated owner.
-    fn get(&self, owner: ReceiptOwner, id: Uuid) -> Option<Receipt>;
+    /// Apply retention and reserve atomically. Fail closed on collision or unavailable storage.
+    fn reserve(&mut self, owner: ReceiptOwner, receipt: Receipt, now_ms: f64) -> bool;
+    /// Replace only a matching, unexpired reservation. On failure keep the prior record.
+    fn finish(&mut self, owner: ReceiptOwner, receipt: Receipt, now_ms: f64) -> bool;
+    /// Return only an unexpired record belonging to this exact authenticated owner.
+    fn get(&self, owner: ReceiptOwner, id: Uuid, now_ms: f64) -> Option<Receipt>;
+}
+
+#[cfg(test)]
+struct TimedReceipt {
+    receipt: Receipt,
+    reserved_at: f64,
+}
+
+#[cfg(test)]
+impl TimedReceipt {
+    fn live_at(&self, now_ms: f64) -> bool {
+        now_ms.is_finite() && now_ms - self.reserved_at < RECEIPT_TTL_MS as f64
+    }
 }
 
 #[cfg(test)]
 #[derive(Default)]
-pub(super) struct MemoryReceipts(Vec<(ReceiptOwner, Receipt)>);
+pub(super) struct MemoryReceipts(HashMap<ReceiptOwner, VecDeque<TimedReceipt>>);
 
 #[cfg(test)]
 impl Receipts for MemoryReceipts {
-    fn reserve(&mut self, owner: ReceiptOwner, receipt: Receipt) -> bool {
-        if self.0.len() >= 128 || self.0.iter().any(|(_, r)| r.id == receipt.id) {
+    fn reserve(&mut self, owner: ReceiptOwner, receipt: Receipt, now_ms: f64) -> bool {
+        if !now_ms.is_finite() {
             return false;
         }
-        self.0.push((owner, receipt));
+        let entries = self.0.entry(owner).or_default();
+        entries.retain(|entry| entry.live_at(now_ms));
+        if entries.iter().any(|entry| entry.receipt.id == receipt.id) {
+            return false;
+        }
+        if entries.len() == RECEIPTS_PER_IDENTITY {
+            entries.pop_front();
+        }
+        entries.push_back(TimedReceipt {
+            receipt,
+            reserved_at: now_ms,
+        });
         true
     }
-    fn finish(&mut self, owner: ReceiptOwner, receipt: Receipt) -> bool {
-        if let Some(entry) = self
-            .0
-            .iter_mut()
-            .find(|(key, r)| *key == owner && r.id == receipt.id)
-        {
-            entry.1 = receipt;
+
+    fn finish(&mut self, owner: ReceiptOwner, receipt: Receipt, now_ms: f64) -> bool {
+        let entry = self.0.get_mut(&owner).and_then(|entries| {
+            entries
+                .iter_mut()
+                .find(|entry| entry.receipt.id == receipt.id && entry.live_at(now_ms))
+        });
+        if let Some(entry) = entry {
+            entry.receipt = receipt;
             return true;
         }
         false
     }
-    fn get(&self, owner: ReceiptOwner, id: Uuid) -> Option<Receipt> {
+
+    fn get(&self, owner: ReceiptOwner, id: Uuid, now_ms: f64) -> Option<Receipt> {
         self.0
+            .get(&owner)?
             .iter()
-            .find(|(key, r)| *key == owner && r.id == id)
-            .map(|(_, r)| *r)
+            .find(|entry| entry.receipt.id == id && entry.live_at(now_ms))
+            .map(|entry| entry.receipt)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn receipt(n: u128) -> Receipt {
+        Receipt {
+            id: Uuid::from_u128(n),
+            confirmed: false,
+            process: None,
+            stopped: false,
+        }
+    }
+
+    #[test]
+    fn completion_keeps_the_original_expiration_time() {
+        let mut store = MemoryReceipts::default();
+        let owner = ReceiptOwner([1; 32]);
+        let expires = RECEIPT_TTL_MS as f64;
+        let mut pending = receipt(1);
+        assert!(store.reserve(owner, pending, 10.0));
+        pending.confirmed = true;
+        assert!(store.finish(owner, pending, 100.0));
+        assert_eq!(store.get(owner, pending.id, 9.0 + expires), Some(pending));
+        assert_eq!(store.get(owner, pending.id, 10.0 + expires), None);
+        assert!(!store.finish(owner, pending, 10.0 + expires));
+        assert!(store.reserve(owner, pending, 11.0 + expires));
+    }
+
+    #[test]
+    fn oldest_reservation_is_evicted_only_for_its_owner() {
+        let mut store = MemoryReceipts::default();
+        let owner = ReceiptOwner([1; 32]);
+        let other = ReceiptOwner([2; 32]);
+        let first = receipt(1);
+        assert!(store.reserve(other, first, 0.0));
+        for i in 1..=RECEIPTS_PER_IDENTITY {
+            assert!(store.reserve(owner, receipt(i as u128), i as f64));
+        }
+        assert_eq!(store.get(owner, first.id, 10_001.0), Some(first));
+        assert!(!store.reserve(owner, first, 10_001.0));
+        assert_eq!(store.get(owner, first.id, 10_001.0), Some(first));
+        assert!(store.reserve(owner, receipt(RECEIPTS_PER_IDENTITY as u128 + 1), 10_001.0));
+        assert_eq!(store.get(owner, first.id, 10_001.0), None);
+        assert_eq!(store.get(owner, receipt(2).id, 10_001.0), Some(receipt(2)));
+        assert_eq!(store.get(other, first.id, 10_001.0), Some(first));
     }
 }
