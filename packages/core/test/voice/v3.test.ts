@@ -12,13 +12,13 @@ import type { VoiceClient, VoiceChannel } from '../../src/voice/v2.ts';
 function fixture(options: Partial<VoiceV3Deps> = {}) {
   let config: HarnessConfig = defaults(); config.agents.main = {}; config.agents.other = {};
   let principal: Principal | null = {userId:'alice',kind:'person',role:'owner'};
-  const controller = new AbortController(); let downloads = 0, writes = 0, closes = 0;
+  const controller = new AbortController(); let downloads = 0, writes = 0, closes = 0; const actors: unknown[] = [];
   const installed = new Set<string>(); const events: {name:string;params:any;options:NotifyOptions}[] = [];
   let client: VoiceClient | undefined;
   const channel: VoiceChannel = { send() {}, speech() {}, async idle() {}, async close() { closes++; }, async setLanguage() {}, route:{kind:'local'}, engineFeatures:{reranker:'engine-fixed',postTurnRefine:'engine-fixed'} };
   const service = createVoiceV3({ config:()=>config, resolve:()=>principal, hasAgent:id=>Object.hasOwn(config.agents,id), signal:controller.signal, clock:()=>0, modelsDir:'/unused-models',
     notify:(name,params,options)=>events.push({name,params,options}),
-    set:async changes=> { const next=structuredClone(config); for (const change of changes) { const keys=change.key.split('.'); let node=next as any; for (const key of keys.slice(0,-1)) node=node[key]??=( {} ); node[keys.at(-1)!]=change.value; } const result=validate(next); if (!result.ok) throw new Error(result.errors.join(';')); config=result.config; writes++; },
+    set:async (changes,actor)=> { actors.push(actor); const next=structuredClone(config); for (const change of changes) { const keys=change.key.split('.'); let node=next as any; for (const key of keys.slice(0,-1)) node=node[key]??=( {} ); node[keys.at(-1)!]=change.value; } const result=validate(next); if (!result.ok) throw new Error(result.errors.join(';')); config=result.config; writes++; },
     installed:async (_dir,m)=>installed.has(m.id), install:async m=>{downloads++;installed.add(m.id);return '/unused-models/'+m.id;},
     metrics:()=>({speechEndToFirstAudio:{medianMs:0,p95Ms:0,samples:0},featureCost:{},windowSec:300}),
     session:id=>id==='chat-main'?{agentId:'main',owner:'alice',archivedAt:null}:undefined,
@@ -28,7 +28,7 @@ function fixture(options: Partial<VoiceV3Deps> = {}) {
     const params=validateParams(name,p); assert.equal(params.ok,true,JSON.stringify(params));
     const result=await service.methods[name]!(p,context); const valid=validateResult(name,result);assert.equal(valid.ok,true,JSON.stringify(valid));return result as any;
   };
-  return {service,call,ctx,events,installed,config:()=>config,principal:(p:Principal|null)=>{principal=p;},get downloads(){return downloads;},get writes(){return writes;},get closes(){return closes;},get client(){return client;}};
+  return {service,call,ctx,events,installed,actors,config:()=>config,principal:(p:Principal|null)=>{principal=p;},get downloads(){return downloads;},get writes(){return writes;},get closes(){return closes;},get client(){return client;}};
 }
 it('matches UI language/profile shapes and all defaults are free of research TTS selection', async () => {
   const f=fixture();try {
@@ -46,6 +46,8 @@ it('rejects overflow atomically, identifies the first switch, and validates inhe
     rt.features.autoRecall={mode:'on',maxMs:600};rt.features.promptEnrichment={mode:'on',maxMs:500};
     await assert.rejects(f.call('voice.realtime.profile.set',rt),(e:any)=>e.error==='E_VOICE_BUDGET'&&e.detail==='promptEnrichment');assert.equal(f.writes,0);
     rt.features.promptEnrichment.maxMs=400;await f.call('voice.realtime.profile.set',rt);
+    // P4D-39: a write names the person it is made for; the supervisor judges it by their role.
+    assert.deepEqual(f.actors,[{kind:'person',userId:'alice',role:'owner'}]);
     await assert.rejects(f.call('voice.agent.override.set',{agentId:'main',override:{features:{reranker:{mode:'on',maxMs:1}}}}),(e:any)=>e.error==='E_VOICE_BUDGET'&&e.detail==='reranker');
     await f.call('voice.agent.override.set',{agentId:'main',override:{features:{autoRecall:{mode:'off',maxMs:0},reranker:{mode:'on',maxMs:500}}}});
     const next={...rt,features:structuredClone(rt.features)};next.features.promptEnrichment.maxMs=600;

@@ -38,6 +38,7 @@ async function rig(readError?: RemoteFsError) {
   let failAudit: ((event: AuditEvent) => boolean) | undefined;
   const calls: unknown[] = [], privateKeys: Buffer[] = [];
   let closed = 0;
+  const actors: unknown[] = [];
   let egress: EgressConfig = { allowHosts: ["source.example", "changed.example", "changed-again.example"],
     allowPorts: [22], allowLoopback: false };
   let dns = 0;
@@ -48,7 +49,7 @@ async function rig(readError?: RemoteFsError) {
     } },
     config: () => configs,
     egress: () => egress,
-    setConnections: async next => { configs = structuredClone(next); }, clock: () => now,
+    setConnections: async (next, actor) => { actors.push(actor); configs = structuredClone(next); }, clock: () => now,
     worker: () => ({ path: "/trusted/fixture", sha256: "a".repeat(64), mode: "harness" }),
     resolver: async () => { dns++; return [{ address: "93.184.216.34", family: 4 }]; },
     probe: async options => { calls.push(options); return { hostKeySha256: fingerprint, hostKeyAlgorithm: "ssh-ed25519" }; },
@@ -62,7 +63,7 @@ async function rig(readError?: RemoteFsError) {
         async close() { closed++; } };
     },
   });
-  return { service, store, audit, lifecycleAudit,
+  return { service, store, audit, lifecycleAudit, actors,
     auditFailure: (fail?: (event: AuditEvent) => boolean) => { failAudit = fail; },
     calls, privateKeys, get closed() { return closed; },
     get dns() { return dns; }, egress: (next: EgressConfig) => { egress = next; service.configChanged(); },
@@ -73,6 +74,8 @@ it("checks central host and TCP port policy before DNS and revokes reads when th
   const r = await rig();
   try {
     await r.service.setConnection(owner, { id: "source", host: "source.example", user: "reader", roots: ["/source"], allowPrivate: true });
+    // P4D-39: the write names the person it is made for.
+    assert.deepEqual(r.actors, [{ kind: "person", userId: "owner", role: "owner" }]);
     r.egress({ allowHosts: ["source.example"], allowPorts: [443], allowLoopback: false });
     await assert.rejects(r.service.probeHostKey(owner, "source"), { error: "E_DENIED", reason: "ssh-egress-denied" });
     assert.equal(r.dns, 0);

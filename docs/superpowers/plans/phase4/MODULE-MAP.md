@@ -52,7 +52,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | P4-02 Parity harness (this package) | 1 | 0 | 0 | 0 | 0 | 1 | 0 |
 | P4-10 Front door, relay, legacy demotion | 32 | 24 | 2 | 0 | 0 | 6 | 0 |
 | P4-11 Configuration, logs, doctor, metrics | 42 | 29 | 3 | 0 | 0 | 10 | 0 |
-| P4-12 Identity, RBAC, principals, memory exposure | 47 | 47 | 0 | 0 | 0 | 0 | 0 |
+| P4-12 Identity, RBAC, principals, memory exposure | 48 | 48 | 0 | 0 | 0 | 0 | 0 |
 | P4-20 Secrets and the redactor | 19 | 19 | 0 | 0 | 0 | 0 | 0 |
 | P4-21 D109 policy, egress, audit append, attestation | 23 | 23 | 0 | 0 | 0 | 0 | 0 |
 | P4-22 Approvals, grants, inbox, delivery, channel hand-off | 29 | 29 | 0 | 0 | 0 | 0 | 0 |
@@ -90,7 +90,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | P4-93 Local ML on ONNX Runtime (after 0.1) | 5 | 5 | 0 | 0 | 0 | 0 | 0 |
 | RE-11 Node engine retired (RE programme) | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | — no package: stays as it is | 26 | 0 | 0 | 0 | 0 | 26 | 0 |
-| **all** | **1207** | **882** | **5** | **30** | **2** | **288** | **0** |
+| **all** | **1208** | **883** | **5** | **30** | **2** | **288** | **0** |
 
 ## Files by TypeScript package
 
@@ -105,7 +105,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | `packages/channels-slack` | 15 | 17 | 0 | 15 | 0 | 0 | 0 | 0 | 0 |
 | `packages/channels-telegram` | 10 | 12 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
 | `packages/config-schema` | 10 | 42 | 0 | 0 | 0 | 0 | 0 | 10 | 0 |
-| `packages/core` | 801 | 1081 | 1 | 662 | 2 | 3 | 2 | 132 | 0 |
+| `packages/core` | 802 | 1082 | 1 | 663 | 2 | 3 | 2 | 132 | 0 |
 | `packages/documents` | 14 | 9 | 2 | 14 | 0 | 0 | 0 | 0 | 0 |
 | `packages/embedding-adapters` | 27 | 25 | 0 | 0 | 0 | 27 | 0 | 0 | 0 |
 | `packages/hostctl` | 10 | 21 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
@@ -124,14 +124,14 @@ A test file with no mode carries a reason instead (test support, a package that 
 
 | Mode | Test files |
 |---|---:|
-| `V` | 555 |
-| `T` | 903 |
+| `V` | 556 |
+| `T` | 904 |
 | `S` | 0 |
 | `W` | 414 |
 | `B` | 167 |
 | no mode, with a reason | 129 |
 | unassigned owner | 0 |
-| **all** | **1644** |
+| **all** | **1645** |
 
 Test files for mode S are the suites of `tests/system/` (29, table at the end): they run on both legs of `PLUR1BUS_CORE_IMPL`.
 
@@ -320,6 +320,7 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/rbac/audit.ts` | port | plan §1.2 |
 | `packages/core/src/rbac/authorize.ts` | port | plan §1.2 |
 | `packages/core/src/rbac/break-glass.ts` | port | plan §1.2 |
+| `packages/core/src/rbac/config-actor.ts` | port | plan §1.2 |
 | `packages/core/src/rbac/connection-surface.ts` | port | plan §1.2 |
 | `packages/core/src/rbac/guard.ts` | port | plan §1.2 |
 | `packages/core/src/rbac/index.ts` | port | plan §1.2 |
@@ -1929,6 +1930,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/rbac/authorize.test.ts` | V,T | decision table (V), guarded methods (T) |
 | `packages/core/test/rbac/break-glass-principal-kind.test.ts` | V,T | decision table (V), guarded methods (T) |
 | `packages/core/test/rbac/break-glass.test.ts` | V,T | decision table (V), guarded methods (T) |
+| `packages/core/test/rbac/config-actor.test.ts` | V,T | decision table (V), guarded methods (T) |
 | `packages/core/test/rbac/connection-surface.test.ts` | V,T | decision table (V), guarded methods (T) |
 | `packages/core/test/rbac/core-integration.test.ts` | V,T | decision table (V), guarded methods (T) |
 | `packages/core/test/rbac/extensions.test.ts` | V,T | decision table (V), guarded methods (T) |

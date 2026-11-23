@@ -14,6 +14,18 @@ export interface ConfigChanged {
 }
 
 /** A `config.watch` subscription on the supervisor (spec §6.1, B7), shared by the core and by module processes. */
+/**
+ * For whom a local caller writes the configuration, when that is not the local owner (P4D-39, `config.set`'s `actor`):
+ * the person whose request the core carries out (with the role the core resolved), the engine, or the core for a
+ * cause of its own. The supervisor judges the blocks that hold a credential by it; an actor never widens a write. A
+ * person changes such a block as the owner only; the engine does not, and the core does for the one cause the
+ * supervisor knows to need it (`embedding-switch`). The audit line names the person.
+ */
+export type ConfigActor =
+  | { kind: "person"; userId: string; role: "owner" | "admin" | "operator" | "member" | "viewer" }
+  | { kind: "engine" }
+  | { kind: "core"; cause: string };
+
 export interface ConfigWatch {
   /** The latest configuration: the `config.watch` snapshot, then each `config.changed` (also those that arrived
    *  before a listener was registered). */
@@ -23,8 +35,9 @@ export interface ConfigWatch {
   onChange(fn: (c: ConfigChanged) => void): () => void;
   /** Called once when the subscription's connection ends (the supervisor died, dropped it, or close() was called). */
   onClose(fn: () => void): () => void;
-  /** `config.set { changes }` on the same connection; resolves with its result. */
-  set(changes: { key: string; value: unknown }[]): Promise<ConfigSetResult>;
+  /** `config.set { changes, actor? }` on the same connection; resolves with its result. Without an actor the write is
+   *  the local owner's. */
+  set(changes: { key: string; value: unknown }[], actor?: ConfigActor): Promise<ConfigSetResult>;
   /** Current-Core-PID-only maintenance write on this connection; native validates the exact active run. Never falls back. */
   setDuringImport?(run: ImportRunControl, changes: readonly { key: string; value: unknown }[]): Promise<unknown>;
   close(): Promise<void>;
@@ -105,7 +118,7 @@ function subscription(client: CoreClient, first: WatchResult, buffered: ConfigCh
     get revision() { return revision; },
     onChange(fn) { listeners.add(fn); return () => { listeners.delete(fn); }; },
     onClose: (fn) => client.onClose(fn),
-    set: (changes) => client.call<ConfigSetResult>("config.set", { changes }),
+    set: (changes, actor) => client.call<ConfigSetResult>("config.set", actor ? { changes, actor } : { changes }),
     setDuringImport: (run, changes) => {
       const params = { runId: run.runId, planId: run.planId, planSha256: run.planSha256, changes: [...changes] };
       if (!validateParams("admin.import.runtime.config.set", params).ok)

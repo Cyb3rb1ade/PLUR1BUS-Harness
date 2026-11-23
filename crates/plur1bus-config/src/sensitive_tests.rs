@@ -812,3 +812,222 @@ fn ordinary_url_usernames_stay_public_when_the_password_is_registered() {
     )
     .is_empty());
 }
+
+/// P4D-39: a credential block is every object whose schema declares a secret reference among its own members,
+/// whether or not the value names one.
+#[test]
+fn credential_blocks_are_found_by_what_the_schema_declares() {
+    let schema = json!({
+        "$defs": {"name": {"type": "string", "x-secret-reference": true}},
+        "properties": {
+            "plain": {"type": "object", "properties": {"url": {"type": "string"}}},
+            "direct": {"type": "object", "properties": {
+                "keyRef": {"type": "string", "x-secret-reference": true},
+                "url": {"type": "string"},
+                "inner": {"type": "object", "properties": {"tokenSecret": {"$ref": "#/$defs/name"}}}
+            }},
+            "list": {"type": "array", "items": {"type": "object", "properties": {"tokenSecret": {"$ref": "#/$defs/name"}}}},
+            "map": {"type": "object", "additionalProperties": {"type": "object", "properties": {"apiKeyRef": {"$ref": "#/$defs/name"}}}},
+            "overlay": {"type": "object", "additionalProperties": true, "x-value-schema": {"properties": {
+                "block": {"type": "object", "properties": {"apiKeyRef": {"$ref": "#/$defs/name"}, "baseUrl": {"type": "string"}}}
+            }}},
+            "off": {"type": "object", "properties": {"notOne": {"type": "string", "x-secret-reference": false}}},
+            "own": {"type": "object", "additionalProperties": true, "x-value-schema": {"properties": {
+                "apiKeyRef": {"$ref": "#/$defs/name"}
+            }}},
+            "names": {"type": "object", "properties": {
+                "byProvider": {"type": "object", "additionalProperties": {"$ref": "#/$defs/name"}},
+                "inOrder": {"type": "array", "items": {"type": "string", "x-secret-reference": true}},
+                "plain": {"type": "array", "items": {"type": "string"}}
+            }}
+        }
+    });
+    let value = json!({
+        "plain": {"url": "https://a.example"},
+        "direct": {"url": "https://b.example", "inner": {}},
+        "list": [{"tokenSecret": "one"}, {}, "text"],
+        "map": {"first": {}, "a/b~c": {"apiKeyRef": "two"}},
+        "overlay": {"block": {"baseUrl": "https://c.example"}, "other": {"apiKeyRef": "unknown-member"}},
+        "off": {"notOne": "x"},
+        "own": {"baseUrl": "https://d.example"},
+        "names": {"byProvider": {}, "inOrder": [], "plain": ["x"]}
+    });
+    let mut found = cfg::credential_block_paths_with_schema(&value, &schema);
+    found.sort();
+    assert_eq!(
+        found,
+        [
+            "/direct",
+            "/direct/inner",
+            "/list/0",
+            "/list/1",
+            "/map/a~1b~0c",
+            "/map/first",
+            "/names/byProvider",
+            "/names/inOrder",
+            "/overlay/block",
+            "/own"
+        ]
+    );
+    // Nothing of a value that has none, and a scalar where a block would be is not one.
+    assert!(
+        cfg::credential_block_paths_with_schema(&json!({"plain": {}, "direct": 7}), &schema)
+            .is_empty()
+    );
+}
+
+/// P4D-39: the blocks of the shipped schema, each from a value that names no reference at all.
+#[test]
+fn the_shipped_schema_knows_its_credential_blocks() {
+    let schema: Value = serde_json::from_str(cfg::SCHEMA_JSON).unwrap();
+    let value = json!({
+        "channels": {"telegram": {}, "discord": {}, "slack": {}, "matrix": {}, "buzz": {}, "email": {"imap": {}, "smtp": {}}},
+        "engine": {
+            "embedding": {"fallback": {}, "routes": [{"provider": {"fallback": {}}}]},
+            "reranker": {}, "merging": {}, "skillMiner": {}, "criticalPush": {}, "schicht15": {},
+            "emotion": {"t3": {}}, "captureChunkingJev": {}, "dreaming": {}
+        },
+        "media": {"adapters": {"fal": {}, "google": {}, "openai": {}, "openrouter": {}, "replicate": {}, "together": {}, "xai": {}}},
+        "voice": {"providers": {"elevenlabs": {}, "gemini": {}, "xai": {}}},
+        "providers": {"some": {"entries": [{}], "profile": {}}, "mcp": {"servers": [{}]}, "media": {"adapters": [{}]}},
+        "a2aServer": {"signingKey": {}},
+        "decision": {"systemOne": {"jev": {}}},
+        "auth": {"openai": {"federated": {}}},
+        "agents": {"main": {}}
+    });
+    let found: std::collections::BTreeSet<String> =
+        cfg::credential_block_paths_with_schema(&value, &schema)
+            .into_iter()
+            .collect();
+    for block in [
+        "/channels/telegram",
+        "/channels/discord",
+        "/channels/slack",
+        "/channels/matrix",
+        "/channels/buzz",
+        "/channels/email/imap",
+        "/channels/email/smtp",
+        "/engine/embedding",
+        "/engine/embedding/fallback",
+        "/engine/embedding/routes/0/provider",
+        "/engine/embedding/routes/0/provider/fallback",
+        "/engine/reranker",
+        "/engine/merging",
+        "/engine/skillMiner",
+        "/engine/criticalPush",
+        "/engine/schicht15",
+        "/engine/emotion/t3",
+        "/engine/captureChunkingJev",
+        "/media/adapters/fal",
+        "/media/adapters/google",
+        "/media/adapters/openai",
+        "/media/adapters/openrouter",
+        "/media/adapters/replicate",
+        "/media/adapters/together",
+        "/media/adapters/xai",
+        "/voice/providers/elevenlabs",
+        "/voice/providers/gemini",
+        "/voice/providers/xai",
+        "/providers/some",
+        "/providers/some/entries/0",
+        "/providers/some/profile",
+        "/providers/mcp/servers/0",
+        "/providers/media/adapters/0",
+        "/a2aServer/signingKey",
+        "/decision/systemOne/jev",
+        "/auth/openai/federated",
+    ] {
+        assert!(
+            found.contains(block),
+            "{block} is a credential block; found {found:?}"
+        );
+    }
+    // What holds no credential is no block.
+    for other in [
+        "",
+        "/engine",
+        "/engine/dreaming",
+        "/channels",
+        "/agents/main",
+        "/providers",
+    ] {
+        assert!(!found.contains(other), "{other} is no credential block");
+    }
+}
+
+/// P4D-39: no secret reference of the shipped schema lies outside a block. Every mark in the schema is walked to, a
+/// value with an empty object (a map, a list) where its holder would be is built, and the derivation must name that
+/// holder. A reference declared in a form the derivation does not read fails here, not in a running installation.
+#[test]
+fn every_secret_reference_of_the_shipped_schema_lies_in_a_credential_block() {
+    /// The value paths of the holders: one step for each schema step from the root to the member that is marked.
+    fn holders(node: &Value, path: &[String], out: &mut Vec<Vec<String>>) {
+        let Some(map) = node.as_object() else { return };
+        let members = |key: &str| {
+            let own = map.get(key).and_then(Value::as_object);
+            let overlaid = map
+                .get("x-value-schema")
+                .and_then(|overlay| overlay.get(key))
+                .and_then(Value::as_object);
+            own.into_iter().chain(overlaid).flatten()
+        };
+        let marked = |member: &Value| {
+            member
+                .get("x-secret-reference")
+                .is_some_and(|mark| mark != false)
+        };
+        for (name, member) in members("properties") {
+            if marked(member) {
+                out.push(path.to_vec());
+            }
+            let mut next = path.to_vec();
+            next.push(name.clone());
+            holders(member, &next, out);
+        }
+        for (step, key) in [("*", "additionalProperties"), ("0", "items")] {
+            let entries = map.get(key).into_iter().chain(
+                map.get("x-value-schema")
+                    .and_then(|overlay| overlay.get(key)),
+            );
+            for entry in entries.filter(|entry| entry.is_object()) {
+                if marked(entry) {
+                    out.push(path.to_vec());
+                }
+                let mut next = path.to_vec();
+                next.push(step.to_owned());
+                holders(entry, &next, out);
+            }
+        }
+    }
+    /// A value in which the holder at `path` is there, as an empty object.
+    fn value_with(path: &[String]) -> Value {
+        path.iter()
+            .rev()
+            .fold(json!({}), |inner, step| match step.as_str() {
+                "0" => json!([inner]),
+                "*" => json!({"some": inner}),
+                name => json!({ name: inner }),
+            })
+    }
+    let schema: Value = serde_json::from_str(cfg::SCHEMA_JSON).unwrap();
+    let mut found = Vec::new();
+    holders(&schema, &[], &mut found);
+    found.sort();
+    found.dedup();
+    assert_eq!(
+        found.len(),
+        36,
+        "the holders of the shipped schema: {found:?}"
+    );
+    for path in &found {
+        let pointer: String = path
+            .iter()
+            .map(|step| format!("/{}", if step == "*" { "some" } else { step }))
+            .collect();
+        let blocks = cfg::credential_block_paths_with_schema(&value_with(path), &schema);
+        assert!(
+            blocks.contains(&pointer),
+            "{pointer} holds a secret reference and is no block: {blocks:?}"
+        );
+    }
+}

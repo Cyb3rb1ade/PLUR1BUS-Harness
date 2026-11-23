@@ -25,6 +25,19 @@ pub fn changes(
     after: &Value,
     role: &str,
 ) -> Result<Vec<AuditChange>, &'static str> {
+    changes_for(schema, before, after, role, role)
+}
+
+/// [`changes`] for a write whose caller is trusted with `role` but carries out somebody else's request: the blocks
+/// that hold a credential are judged with `credential_role`, the role of the one for whom the write is made
+/// (P4D-39, `config.set`'s `actor`). Everything else is judged with `role`, as before there was an actor.
+pub fn changes_for(
+    schema: &Value,
+    before: &Value,
+    after: &Value,
+    role: &str,
+    credential_role: &str,
+) -> Result<Vec<AuditChange>, &'static str> {
     #[derive(Clone, Copy)]
     struct Snapshot<'a> {
         raw: &'a Value,
@@ -183,7 +196,53 @@ pub fn changes(
         role,
         &mut out,
     )?;
+    credential_blocks(schema, before, after, credential_role)?;
     Ok(out)
+}
+
+/// P4D-39: a block that holds a credential is the owner's to change, whatever in it changes.
+///
+/// Who may not read a secret may not decide where it goes either. Where a credential goes is not one field: the
+/// reference, the address, the provider, a host, a port and every endpoint decide it together, so the rule is the
+/// block (`credential_block_paths_with_schema`: every object whose schema declares a secret reference), not a list of
+/// fields that could miss one. A block that is new, gone or different in the resulting tree is a change of it, however
+/// the write was put (one member, the block, or a parent that is replaced). The schema says which objects these are;
+/// no annotation has to be remembered when a block is added to it.
+/// Blocks that hold secret references the schema cannot declare, because their section is open in it. Each one names
+/// its reader. `modules.web-search.keys` maps a search provider to the name of the secret the core's web-search router
+/// reads for it (`packages/core/src/sidecars/web-search-router.ts`); `modules.<name>` is whatever a module defines, so
+/// the schema has no member to mark. A list beside the schema is what the derivation exists to avoid: an entry here is
+/// a debt until the section is modelled.
+const UNDECLARED_CREDENTIAL_BLOCKS: &[&str] = &["/modules/web-search/keys"];
+
+fn credential_blocks(
+    schema: &Value,
+    before: &Value,
+    after: &Value,
+    role: &str,
+) -> Result<(), &'static str> {
+    if role == "owner" || before == after {
+        return Ok(());
+    }
+    let blocks: BTreeSet<String> =
+        plur1bus_config::credential_block_paths_with_schema(before, schema)
+            .into_iter()
+            .chain(plur1bus_config::credential_block_paths_with_schema(
+                after, schema,
+            ))
+            .chain(
+                UNDECLARED_CREDENTIAL_BLOCKS
+                    .iter()
+                    .map(|&path| path.to_owned()),
+            )
+            .collect();
+    if blocks
+        .iter()
+        .any(|block| before.pointer(block) != after.pointer(block))
+    {
+        return Err("config-write-role");
+    }
+    Ok(())
 }
 
 fn put(root: &mut Value, key: &str, value: Value, remove_null: bool) -> Result<(), &'static str> {
@@ -900,5 +959,157 @@ mod tests {
         )
         .unwrap();
         assert_eq!(prepared[0].1["caption"]["privacyAck"]["by"], "real-person");
+    }
+
+    /// P4D-39: who may not read a secret may not decide where it goes. A block that holds a credential is the owner's
+    /// to change, whatever in it changes and however the write is put.
+    #[test]
+    fn a_credential_block_is_the_owners_to_change_whatever_in_it_changes() {
+        let base = json!({
+            "engine": {"embedding": {"provider": "openai-compatible", "baseUrl": "https://embed.example", "model": "m1",
+                "routes": [{"provider": {"baseUrl": "https://route.example"}}]}, "dreaming": {"enabled": true}},
+            "channels": {"matrix": {"homeserverUrl": "https://matrix.example", "accessTokenSecret": "matrix.token"}},
+            "providers": {"acme": {"apiKeyRef": "acme.key"}},
+            "core": {"webHandoffBaseUrl": "https://hand.example"}
+        });
+        let with = |pointer: &str, value: Value| {
+            let mut next = base.clone();
+            *next.pointer_mut(pointer).unwrap() = value;
+            next
+        };
+        let mut removed = base.clone();
+        removed["channels"]
+            .as_object_mut()
+            .unwrap()
+            .remove("matrix");
+        let mut added = base.clone();
+        added["channels"]["telegram"] = json!({"tokenSecret": "telegram.token"});
+        let mut replaced = base.clone();
+        replaced["engine"] = json!({"embedding": {"provider": "openai-compatible", "baseUrl": "https://other.example",
+            "model": "m1", "routes": [{"provider": {"baseUrl": "https://route.example"}}]}, "dreaming": {"enabled": true}});
+        let protected = [
+            (
+                "the reference",
+                with(
+                    "/channels/matrix/accessTokenSecret",
+                    json!("someone.elses.secret"),
+                ),
+            ),
+            (
+                "the address beside a reference",
+                with(
+                    "/channels/matrix/homeserverUrl",
+                    json!("https://mine.example"),
+                ),
+            ),
+            (
+                "the address of a block that names no reference",
+                with("/engine/embedding/baseUrl", json!("https://mine.example")),
+            ),
+            (
+                "the provider",
+                with("/engine/embedding/provider", json!("openai")),
+            ),
+            (
+                "a member that decides nothing",
+                with("/engine/embedding/model", json!("m2")),
+            ),
+            (
+                "a block inside a list",
+                with(
+                    "/engine/embedding/routes/0/provider/baseUrl",
+                    json!("https://mine.example"),
+                ),
+            ),
+            (
+                "a reference under a name of the installation's own",
+                with("/providers/acme/apiKeyRef", json!("other.key")),
+            ),
+            ("a block that is taken out", removed),
+            ("a block that is new", added),
+            (
+                "a parent that is replaced with another block in it",
+                replaced,
+            ),
+        ];
+        for (what, after) in &protected {
+            for role in ["admin", "operator", "member", "viewer", "engine", ""] {
+                assert_eq!(
+                    changes(schema(), &base, after, role).map(|_| ()),
+                    Err("config-write-role"),
+                    "{what}: {role:?}"
+                );
+            }
+            assert!(
+                changes(schema(), &base, after, "owner").is_ok(),
+                "{what}: owner"
+            );
+            // The other way round is a change of the block as well.
+            assert_eq!(
+                changes(schema(), after, &base, "admin").map(|_| ()),
+                Err("config-write-role"),
+                "{what}, undone"
+            );
+        }
+        // Outside the blocks an admin writes what an admin may write, beside blocks that stay as they are.
+        for after in [
+            with("/core/webHandoffBaseUrl", json!("https://new.example")),
+            with("/engine/dreaming/enabled", json!(false)),
+        ] {
+            assert!(changes(schema(), &base, &after, "admin").is_ok(), "{after}");
+        }
+        // A parent written again with the same block in it changes no block.
+        let mut same = base.clone();
+        same["engine"] = base["engine"].clone();
+        same["engine"]["dreaming"]["enabled"] = json!(false);
+        assert!(changes(schema(), &base, &same, "admin").is_ok());
+        assert!(
+            changes(schema(), &base, &base, "viewer").is_ok(),
+            "nothing changed"
+        );
+    }
+
+    /// P4D-39: the web-search router reads the secret a provider's key names from an open section of the schema. The
+    /// names are the owner's to set; which providers are asked, and in what order, is not a credential.
+    #[test]
+    fn the_secret_names_of_the_web_search_router_are_the_owners_to_change() {
+        let none = json!({"modules": {}});
+        let base = json!({"modules": {"web-search": {"providers": ["tavily"], "keys": {"tavily": "web-search.tavily"}}}});
+        let renamed = json!({"modules": {"web-search": {"providers": ["tavily"], "keys": {"tavily": "someone.elses.secret"}}}});
+        let dropped = json!({"modules": {"web-search": {"providers": ["tavily"]}}});
+        let section_gone = json!({"modules": {}});
+        let providers = json!({"modules": {"web-search": {"providers": ["brave", "tavily"], "keys": {"tavily": "web-search.tavily"}}}});
+        let other_module = json!({"modules": {"web-search": {"providers": ["tavily"], "keys": {"tavily": "web-search.tavily"}},
+            "other": {"keys": {"tavily": "anything"}}}});
+        for role in ["admin", "operator", "member", "viewer", ""] {
+            for (what, before, after) in [
+                ("a name is changed", &base, &renamed),
+                ("the names are taken out", &base, &dropped),
+                ("the section goes", &base, &section_gone),
+                ("the names are set where none were", &dropped, &base),
+                ("the section comes with names", &none, &renamed),
+            ] {
+                assert_eq!(
+                    credential_blocks(schema(), before, after, role),
+                    Err("config-write-role"),
+                    "{role:?}: {what}"
+                );
+            }
+            // The providers and their order, a section without names, and another module's section of the same shape.
+            for (what, before, after) in [
+                ("the providers", &base, &providers),
+                ("a section without names", &none, &dropped),
+                ("another module", &base, &other_module),
+            ] {
+                assert_eq!(
+                    credential_blocks(schema(), before, after, role),
+                    Ok(()),
+                    "{role:?}: {what}"
+                );
+            }
+        }
+        for (before, after) in [(&base, &renamed), (&base, &dropped), (&none, &renamed)] {
+            assert_eq!(credential_blocks(schema(), before, after, "owner"), Ok(()));
+        }
     }
 }

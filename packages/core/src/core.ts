@@ -699,7 +699,7 @@ export function createCore(o: CoreOptions): Core {
         onPortFailure: engineTestDiagnostics.observe,
         layout: l, logger, config, currentConfig: cfg, engineConfig, agents: executionRegistry, events, clock, egress, secrets: secretStore,
         // Offered only while a supervisor watch is live (M7: also after a later re-watch).
-        mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch)) ?? Promise.reject(new Error("no supervisor to change the configuration")),
+        mutateConfig: (patch: Record<string, unknown>) => cs.set(flattenPatch("engine", patch), { kind: "engine" }) ?? Promise.reject(new Error("no supervisor to change the configuration")),
         canMutateConfig: () => cs.source === "supervisor",
       });
       o.inspectHost?.(host);
@@ -1008,7 +1008,7 @@ export function createCore(o: CoreOptions): Core {
       });
       try { turnComposition = await openTurnComposition({ learningMetrics: metrics, securePath: platform.securePath, home: l.home, appleFm, systemJobs, mediaHostFetchReady: typeof host.fetch === "function", supervised: o.supervisorConfig !== undefined, config: cfg, configChanges: listener => cs.onChange(() => listener()), engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         maintenance: { held: () => importHold.held, onRelease: callback => importHold.onRelease(callback) },
-        voiceConfigSource: changes => cs.set(changes), importConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal,
+        voiceConfigSource: (changes, actor) => cs.set(changes, actor), importConfigSource: (changes, actor) => cs.set(changes, actor), inbox: inboxPort, resolvePrincipal,
         surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
         resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, memorySensitivity: () => memorySensitivity, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
@@ -1037,7 +1037,7 @@ export function createCore(o: CoreOptions): Core {
       const reembedEnginePort = createEnginePort(eng, selectedEngine instanceof EngineClient);
       const migration = createMigrationDriver({
         engine: reembedEnginePort, store: createStateStore(l.state), logger: log,
-        switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(), set: (c) => cs.set(c) } }),
+        switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(), set: (c) => cs.set(c, { kind: "core", cause: "embedding-switch" }) } }),
         // A cloud target: the turn call budget pauses the run at a hard token limit.
         budget: () => { const b = turnComposition?.budget; return b ? reembedBatchBudget(b) : null; },
         // Before a run continues: the rules may have changed since the plan (privacy.localOnly, acknowledgment, egress).
