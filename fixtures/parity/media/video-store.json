@@ -1,0 +1,113 @@
+{
+  "expected": {
+    "entries": [
+      "off",
+      "on"
+    ],
+    "invalid": "invalid_response",
+    "lateQuota": "quota",
+    "maxVideo": "too_large",
+    "optIn": {
+      "createdAt": 1700000000000,
+      "files": [
+        {
+          "audio": false,
+          "bytes": 246,
+          "durationSeconds": 4,
+          "format": "mp4",
+          "fps": 24,
+          "height": 720,
+          "path": "0.mp4",
+          "poster": {
+            "bytes": 6,
+            "path": "0.poster.png",
+            "sha256": "293b9207228b7854bc3ccb2959ebea1583e066d41983124a5b381d6fdf6575f8"
+          },
+          "sha256": "32adc8b28a4d129fa3a5211b1d7074633ef127a87ba1e025528edade3583bcd7",
+          "width": 1280
+        }
+      ],
+      "id": "on",
+      "kind": "video",
+      "metadata": {
+        "adapter": "fixture",
+        "durationMs": 1,
+        "model": "fixture-model",
+        "origin": "unknown",
+        "seed": null
+      },
+      "parameters": {
+        "durationSeconds": 4,
+        "embedMetadata": true,
+        "kind": "video",
+        "prompt": "Private scene"
+      },
+      "partial": false,
+      "prompt": "Private scene",
+      "referenceHashes": [],
+      "schema": "media.output/1"
+    },
+    "optInBytes": "AAAAGGZ0eXBpc29tAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHsicHJvbXB0IjoiUHJpdmF0ZSBzY2VuZSIsInBhcmFtZXRlcnMiOnsiZHVyYXRpb25TZWNvbmRzIjo0LCJlbWJlZE1ldGFkYXRhIjp0cnVlLCJraW5kIjoidmlkZW8iLCJwcm9tcHQiOiJQcml2YXRlIHNjZW5lIn0sIm1ldGFkYXRhIjp7ImFkYXB0ZXIiOiJmaXh0dXJlIiwiZHVyYXRpb25NcyI6MSwibW9kZWwiOiJmaXh0dXJlLW1vZGVsIn19",
+    "plain": {
+      "createdAt": 1700000000000,
+      "files": [
+        {
+          "audio": false,
+          "bytes": 52,
+          "durationSeconds": 4,
+          "format": "mp4",
+          "fps": 24,
+          "height": 720,
+          "path": "0.mp4",
+          "poster": {
+            "bytes": 6,
+            "path": "0.poster.png",
+            "sha256": "293b9207228b7854bc3ccb2959ebea1583e066d41983124a5b381d6fdf6575f8"
+          },
+          "sha256": "71d7cb20da9a8bb78d60c24f91eec9167120542269d99d4bac4f2a23fbb9277d",
+          "width": 1280
+        }
+      ],
+      "id": "off",
+      "kind": "video",
+      "metadata": {
+        "adapter": "fixture",
+        "durationMs": 1,
+        "model": "fixture-model",
+        "origin": "unknown",
+        "seed": null
+      },
+      "parameters": {
+        "durationSeconds": 4,
+        "kind": "video",
+        "prompt": "Private scene"
+      },
+      "partial": false,
+      "prompt": "Private scene",
+      "referenceHashes": [],
+      "schema": "media.output/1"
+    },
+    "plainBytes": "AAAAGGZ0eXBpc29tAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+    "prompts": [
+      null,
+      "{\"prompt\":\"Private scene\",\"parameters\":{\"durationSeconds\":4,\"embedMetadata\":true,\"kind\":\"video\",\"prompt\":\"Private scene\"},\"metadata\":{\"adapter\":\"fixture\",\"durationMs\":1,\"model\":\"fixture-model\"}}",
+      null
+    ],
+    "quota": "quota"
+  },
+  "input": {
+    "bytes": "AAAAGGZ0eXBpc29tAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+    "metadata": {
+      "adapter": "fixture",
+      "durationMs": 1,
+      "model": "fixture-model"
+    },
+    "now": 1700000000000,
+    "request": {
+      "durationSeconds": 4,
+      "kind": "video",
+      "prompt": "Private scene"
+    }
+  },
+  "source": "packages/media/src/store.ts"
+}

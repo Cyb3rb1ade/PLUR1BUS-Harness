@@ -1,0 +1,383 @@
+{
+  "cases": [
+    {
+      "name": "discover",
+      "request": {
+        "headers": {
+          "content-type": "application/json",
+          "mcp-method": "server/discover",
+          "mcp-protocol-version": "2026-07-28"
+        },
+        "message": {
+          "id": 1,
+          "jsonrpc": "2.0",
+          "method": "server/discover",
+          "params": {
+            "_meta": {
+              "io.modelcontextprotocol/protocolVersion": "2026-07-28"
+            }
+          }
+        }
+      },
+      "response": {
+        "message": {
+          "id": 1,
+          "jsonrpc": "2.0",
+          "result": {
+            "_meta": {
+              "io.modelcontextprotocol/serverInfo": {
+                "name": "plur1bus-harness",
+                "version": "0.1.0"
+              }
+            },
+            "cacheScope": "private",
+            "capabilities": {
+              "tools": {}
+            },
+            "resultType": "complete",
+            "supportedVersions": [
+              "2026-07-28",
+              "2025-11-25"
+            ],
+            "ttlMs": 30000
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "name": "list",
+      "request": {
+        "headers": {
+          "content-type": "application/json",
+          "mcp-method": "tools/list",
+          "mcp-protocol-version": "2026-07-28"
+        },
+        "message": {
+          "id": 2,
+          "jsonrpc": "2.0",
+          "method": "tools/list",
+          "params": {
+            "_meta": {
+              "io.modelcontextprotocol/protocolVersion": "2026-07-28"
+            }
+          }
+        }
+      },
+      "response": {
+        "message": {
+          "id": 2,
+          "jsonrpc": "2.0",
+          "result": {
+            "cacheScope": "private",
+            "resultType": "complete",
+            "tools": [
+              {
+                "description": "Echoes a fixture message",
+                "inputSchema": {
+                  "properties": {
+                    "msg": {
+                      "type": "string",
+                      "x-mcp-header": "Text"
+                    }
+                  },
+                  "type": "object"
+                },
+                "name": "alpha.echo"
+              }
+            ],
+            "ttlMs": 30000
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "name": "call",
+      "request": {
+        "headers": {
+          "content-type": "application/json",
+          "mcp-method": "tools/call",
+          "mcp-name": "alpha.echo",
+          "mcp-param-text": "=?base64?Y2Fmw6k=?=",
+          "mcp-protocol-version": "2026-07-28"
+        },
+        "message": {
+          "id": 3,
+          "jsonrpc": "2.0",
+          "method": "tools/call",
+          "params": {
+            "_meta": {
+              "io.modelcontextprotocol/protocolVersion": "2026-07-28"
+            },
+            "arguments": {
+              "msg": "café"
+            },
+            "name": "alpha.echo"
+          }
+        }
+      },
+      "response": {
+        "message": {
+          "id": 3,
+          "jsonrpc": "2.0",
+          "result": {
+            "content": [
+              {
+                "text": "{\"echoed\":\"café\"}",
+                "type": "text"
+              }
+            ],
+            "isError": false,
+            "resultType": "complete"
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "name": "method-header",
+      "request": {
+        "headers": {
+          "content-type": "application/json",
+          "mcp-method": "ping",
+          "mcp-protocol-version": "2026-07-28"
+        },
+        "message": {
+          "id": 4,
+          "jsonrpc": "2.0",
+          "method": "tools/list",
+          "params": {
+            "_meta": {
+              "io.modelcontextprotocol/protocolVersion": "2026-07-28"
+            }
+          }
+        }
+      },
+      "response": {
+        "message": {
+          "error": {
+            "code": -32020,
+            "message": "Mcp-Method header missing or mismatched"
+          },
+          "id": 4,
+          "jsonrpc": "2.0"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected-divergence": "P4D-233",
+      "name": "param-header",
+      "request": {
+        "headers": {
+          "content-type": "application/json",
+          "mcp-method": "tools/call",
+          "mcp-name": "alpha.echo",
+          "mcp-protocol-version": "2026-07-28"
+        },
+        "message": {
+          "id": 5,
+          "jsonrpc": "2.0",
+          "method": "tools/call",
+          "params": {
+            "_meta": {
+              "io.modelcontextprotocol/protocolVersion": "2026-07-28"
+            },
+            "arguments": {
+              "msg": "café"
+            },
+            "name": "alpha.echo"
+          }
+        }
+      },
+      "response": {
+        "message": {
+          "error": {
+            "code": -32020,
+            "message": "Mismatched mcp-param-text header"
+          },
+          "id": 5,
+          "jsonrpc": "2.0"
+        },
+        "status": 200
+      }
+    },
+    {
+      "name": "version",
+      "request": {
+        "headers": {
+          "content-type": "application/json",
+          "mcp-method": "tools/list",
+          "mcp-protocol-version": "2001-01-01"
+        },
+        "message": {
+          "id": 6,
+          "jsonrpc": "2.0",
+          "method": "tools/list",
+          "params": {
+            "_meta": {
+              "io.modelcontextprotocol/protocolVersion": "2026-07-28"
+            }
+          }
+        }
+      },
+      "response": {
+        "message": {
+          "error": {
+            "code": -32022,
+            "data": {
+              "supported": [
+                "2026-07-28",
+                "2025-11-25",
+                "2025-06-18",
+                "2025-03-26",
+                "2024-11-05",
+                "2024-10-07"
+              ]
+            },
+            "message": "Unsupported MCP protocol version"
+          },
+          "id": 6,
+          "jsonrpc": "2.0"
+        },
+        "status": 200
+      }
+    },
+    {
+      "name": "legacy-initialize",
+      "request": {
+        "headers": {
+          "accept": "application/json, text/event-stream",
+          "content-type": "application/json"
+        },
+        "message": {
+          "id": 20,
+          "jsonrpc": "2.0",
+          "method": "initialize",
+          "params": {
+            "capabilities": {},
+            "clientInfo": {
+              "name": "fixture",
+              "version": "1"
+            },
+            "protocolVersion": "2025-11-25"
+          }
+        }
+      },
+      "response": {
+        "message": {
+          "id": 20,
+          "jsonrpc": "2.0",
+          "result": {
+            "capabilities": {
+              "tools": {}
+            },
+            "protocolVersion": "2025-11-25",
+            "serverInfo": {
+              "name": "plur1bus-harness",
+              "version": "0.1.0"
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "name": "legacy-initialized",
+      "request": {
+        "headers": {
+          "accept": "application/json, text/event-stream",
+          "content-type": "application/json",
+          "mcp-protocol-version": "2025-11-25"
+        },
+        "message": {
+          "jsonrpc": "2.0",
+          "method": "notifications/initialized"
+        }
+      },
+      "response": {
+        "message": null,
+        "status": 202
+      }
+    },
+    {
+      "name": "legacy-list",
+      "request": {
+        "headers": {
+          "accept": "application/json, text/event-stream",
+          "content-type": "application/json",
+          "mcp-protocol-version": "2025-11-25"
+        },
+        "message": {
+          "id": 21,
+          "jsonrpc": "2.0",
+          "method": "tools/list",
+          "params": {}
+        }
+      },
+      "response": {
+        "message": {
+          "id": 21,
+          "jsonrpc": "2.0",
+          "result": {
+            "tools": [
+              {
+                "description": "Echoes a fixture message",
+                "inputSchema": {
+                  "properties": {
+                    "msg": {
+                      "type": "string",
+                      "x-mcp-header": "Text"
+                    }
+                  },
+                  "type": "object"
+                },
+                "name": "alpha.echo"
+              }
+            ]
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "name": "legacy-call",
+      "request": {
+        "headers": {
+          "accept": "application/json, text/event-stream",
+          "content-type": "application/json",
+          "mcp-protocol-version": "2025-11-25"
+        },
+        "message": {
+          "id": 22,
+          "jsonrpc": "2.0",
+          "method": "tools/call",
+          "params": {
+            "arguments": {
+              "msg": "café"
+            },
+            "name": "alpha.echo"
+          }
+        }
+      },
+      "response": {
+        "message": {
+          "id": 22,
+          "jsonrpc": "2.0",
+          "result": {
+            "content": [
+              {
+                "text": "{\"echoed\":\"café\"}",
+                "type": "text"
+              }
+            ],
+            "isError": false
+          }
+        },
+        "status": 200
+      }
+    }
+  ],
+  "source": "packages/api/src/mcp/server.ts"
+}

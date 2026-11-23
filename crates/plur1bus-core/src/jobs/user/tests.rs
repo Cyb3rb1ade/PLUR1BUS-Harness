@@ -226,3 +226,94 @@ fn two_connections_dispatch_one_scheduled_slot() {
         1
     );
 }
+
+fn scheduled_owner(cx: &Ctx) -> crate::rbac::types::Principal {
+    let person = json!({"userId":"human", "role":"owner", "kind":"person"});
+    cx.w.lock()
+        .unwrap()
+        .principals
+        .push(("human".into(), person.clone()));
+    super::testing::caller_of(&person)
+}
+
+#[test]
+fn scheduled_tick_child() {
+    let Some(path) = std::env::var_os("PLUR1BUS_K7A_TEST_JOB") else {
+        return;
+    };
+    let cx = ctx(path.into());
+    scheduled_owner(&cx);
+    cx.w.lock().unwrap().now = std::env::var("PLUR1BUS_K7A_TEST_NOW")
+        .unwrap()
+        .parse()
+        .unwrap();
+    open_at(&cx).unwrap().tick().unwrap();
+    assert_eq!(
+        cx.w.lock()
+            .unwrap()
+            .events
+            .iter()
+            .filter(|event| event.get("turn").is_some())
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn two_processes_dispatch_one_scheduled_slot() {
+    use crate::approvals::js_json::J;
+    use crate::private_store::tests::Worker;
+
+    let temp = tempfile::tempdir().unwrap();
+    let cx = ctx(temp.path().join("jobs.sqlite"));
+    let owner = scheduled_owner(&cx);
+    let me = Rc::new(RefCell::new(Weak::new()));
+    let ids = Arc::new(ScriptedIds::default());
+    let mut options = super::testing::options(&cx, &me, &ids);
+    let child_cx = cx.clone();
+    options.display_name = Some(Box::new(move |_| {
+        let child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "jobs::user::tests::scheduled_tick_child",
+                "--nocapture",
+            ])
+            .env("PLUR1BUS_K7A_TEST_JOB", &child_cx.path)
+            .env(
+                "PLUR1BUS_K7A_TEST_NOW",
+                child_cx.w.lock().unwrap().now.to_string(),
+            )
+            .spawn()
+            .unwrap();
+        Worker(child).check();
+        Ok(None)
+    }));
+    let parent = UserJobs::open(options).unwrap();
+    let job = parent
+        .create(
+            &J::from_value(&json!({
+                "agentId":"main","name":"Scheduled fixture","prompt":"Summarize",
+                "enabled":true,"schedule":{"cron":"* * * * *","timezone":"UTC"}
+            })),
+            &owner,
+        )
+        .unwrap();
+    cx.w.lock().unwrap().now = job.get("nextRunAt").unwrap().as_f64().unwrap() as i64;
+    parent.tick().unwrap();
+    assert_eq!(
+        cx.w.lock()
+            .unwrap()
+            .events
+            .iter()
+            .filter(|event| event.get("turn").is_some())
+            .count(),
+        0
+    );
+    assert_eq!(
+        parent
+            .history(job.get("id").unwrap().as_str(), &owner, None)
+            .unwrap()
+            .len(),
+        1
+    );
+}

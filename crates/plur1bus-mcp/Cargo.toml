@@ -10,4 +10,19 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+base64 = "=0.22.1"
+futures = "=0.3.34"
+jsonschema = { version = "=0.26.2", default-features = false }
+plur1bus-providers = { path = "../plur1bus-providers" }
+rmcp = { version = "=3.9.0", default-features = false, features = ["client", "server", "transport-streamable-http-client"] }
+serde.workspace = true
 serde_json.workspace = true
+sha2 = "=0.10.9"
+sse-stream = "=0.2.6"
+tokio = { version = "=1.53.3", features = ["macros", "rt", "sync", "time"] }
+tracing = "=0.1.44"
+ureq = { version = "=3.4.2", default-features = false, features = ["rustls", "platform-verifier"] }
+url = "=2.5.9"
+
+[dev-dependencies]
+plur1bus-wire-fixtures = { path = "../plur1bus-wire-fixtures" }

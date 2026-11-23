@@ -1,11 +1,18 @@
-//! Polly request parameters. The signed AWS transport and credential chain belong to the host.
+//! Polly requests. The host provides AWS signing and credentials.
 use crate::elevenlabs::AudioFormat;
-use crate::http::{deadline, read_bounded, Error, Ports, MAX_BUFFERED_AUDIO_BYTES, MAX_JSON_BYTES};
+use crate::http::{
+    check_encoding, deadline, decoded_reader, read_bounded, Client, Error, Ports,
+    MAX_BUFFERED_AUDIO_BYTES, MAX_JSON_BYTES,
+};
+use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
     io::Read,
+    net::SocketAddr,
     time::{Duration, Instant},
 };
+use url::Url;
 
 pub struct Request<'a> {
     pub text: &'a str,
@@ -30,6 +37,193 @@ pub trait SignedRequests: Ports {
     ) -> Result<Box<dyn Read>, Error>;
 }
 
+pub trait Signer: Ports {
+    /// After endpoint authorization, add signature and lease headers for these
+    /// exact request bytes. Return only additional headers.
+    fn sign(
+        &self,
+        endpoint: &Url,
+        method: &str,
+        headers: &[(&str, &str)],
+        body: &[u8],
+        deadline: Instant,
+    ) -> Result<Vec<(String, String)>, Error>;
+}
+
+/// The Polly REST-JSON dialogue over the common pinned HTTP client.
+pub struct Http<'a> {
+    base: Url,
+    signer: &'a dyn Signer,
+    client: Client<'a>,
+}
+
+impl<'a> Http<'a> {
+    pub fn new(base: Url, signer: &'a dyn Signer) -> Result<Self, Error> {
+        if base.cannot_be_a_base() || base.query().is_some() || base.fragment().is_some() {
+            return Err(Error::InvalidRequest);
+        }
+        Ok(Self {
+            base,
+            signer,
+            client: Client::new(signer),
+        })
+    }
+
+    pub fn with_loopback_http(mut self) -> Self {
+        self.client = self.client.with_loopback_http();
+        self
+    }
+
+    fn endpoint(&self, path: &str) -> Url {
+        let mut endpoint = self.base.clone();
+        endpoint.set_path(&format!("{}{path}", self.base.path().trim_end_matches('/')));
+        endpoint
+    }
+}
+
+impl Ports for Http<'_> {
+    fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr> {
+        self.signer.pin(endpoint, deadline)
+    }
+
+    fn cancelled(&self) -> bool {
+        self.signer.cancelled()
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+struct Speech<'a> {
+    engine: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    language_code: Option<&'a str>,
+    output_format: &'a str,
+    sample_rate: &'a str,
+    text: &'a str,
+    voice_id: &'a str,
+}
+
+impl SignedRequests for Http<'_> {
+    fn synthesize(&self, input: &Request<'_>, deadline: Instant) -> Result<Box<dyn Read>, Error> {
+        let body = serde_json::to_vec(&Speech {
+            engine: input.engine,
+            language_code: input.language,
+            output_format: input.output_format,
+            sample_rate: &input.sample_rate,
+            text: input.text,
+            voice_id: input.voice,
+        })
+        .map_err(|_| Error::InvalidRequest)?;
+        self.client.signed_reader_until(
+            &self.endpoint("/v1/speech"),
+            "POST",
+            &[("content-type", "application/json")],
+            &body,
+            deadline,
+            self.signer,
+        )
+    }
+
+    fn describe_voices(
+        &self,
+        next_token: Option<&str>,
+        deadline: Instant,
+    ) -> Result<Box<dyn Read>, Error> {
+        const AWS_COMPONENT: &percent_encoding::AsciiSet = &NON_ALPHANUMERIC
+            .remove(b'-')
+            .remove(b'.')
+            .remove(b'_')
+            .remove(b'~');
+        let mut endpoint = self.endpoint("/v1/voices");
+        if let Some(token) = next_token {
+            endpoint.set_query(Some(&format!(
+                "NextToken={}",
+                utf8_percent_encode(token, AWS_COMPONENT)
+            )));
+        }
+        self.client
+            .signed_reader_until(&endpoint, "GET", &[], b"", deadline, self.signer)
+    }
+}
+
+const MAX_ERROR_BYTES: usize = 64 * 1024;
+
+pub(crate) fn response_error(
+    response: ureq::http::Response<ureq::Body>,
+    ports: &dyn Ports,
+    deadline: Instant,
+) -> Error {
+    let status = response.status().as_u16();
+    if let Some(code) = response
+        .headers()
+        .get("x-amzn-errortype")
+        .and_then(|value| value.to_str().ok())
+    {
+        return aws_error(code, status);
+    }
+    if let Err(error) = check_encoding(response.headers()) {
+        return error;
+    }
+    let bytes = match read_bounded(
+        &mut decoded_reader(response),
+        ports,
+        deadline,
+        MAX_ERROR_BYTES,
+    ) {
+        Ok(bytes) => bytes,
+        Err(error) => return error,
+    };
+    let data: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    let code = ["code", "Code", "__type"]
+        .iter()
+        .find_map(|key| data[*key].as_str());
+    aws_error(code.unwrap_or_default(), status)
+}
+
+fn aws_error(code: &str, status: u16) -> Error {
+    let code = code.split(':').next().unwrap_or_default();
+    let code = code.rsplit('#').next().unwrap_or_default();
+    let has = |patterns: &[&str]| patterns.iter().any(|pattern| code.contains(pattern));
+    if code.contains("AbortError") {
+        Error::Aborted
+    } else if matches!(status, 401 | 403)
+        || has(&[
+            "CredentialsProviderError",
+            "ExpiredToken",
+            "UnrecognizedClient",
+            "InvalidSignature",
+            "AccessDenied",
+            "SignatureDoesNotMatch",
+            "UnauthorizedException",
+            "NotAuthorized",
+        ])
+    {
+        Error::Auth
+    } else if status == 429 || has(&["Throttl", "TooManyRequests", "LimitExceeded"]) {
+        Error::RateLimited
+    } else if status >= 500 || has(&["ServiceFailure", "ServiceUnavailable", "InternalFailure"]) {
+        Error::Overloaded
+    } else if matches!(status, 400 | 404 | 413 | 422)
+        || has(&[
+            "Validation",
+            "InvalidSsml",
+            "InvalidSampleRate",
+            "TextLengthExceeded",
+            "VoiceNotFound",
+            "LanguageNotSupported",
+            "EngineNotSupported",
+            "SsmlMarksNotSupported",
+            "InvalidParameter",
+        ])
+    {
+        Error::InvalidRequest
+    } else if code.contains("Timeout") {
+        Error::Timeout
+    } else {
+        Error::Network
+    }
+}
+
 #[derive(Default)]
 pub struct Options<'a> {
     pub voice: &'a str,
@@ -45,7 +239,15 @@ pub fn synthesize(
     options: &Options<'_>,
     budget: Duration,
 ) -> Result<super::elevenlabs::Audio, Error> {
-    let deadline = deadline(budget);
+    synthesize_until(host, text, options, deadline(budget))
+}
+
+fn synthesize_until(
+    host: &dyn SignedRequests,
+    text: &str,
+    options: &Options<'_>,
+    deadline: Instant,
+) -> Result<super::elevenlabs::Audio, Error> {
     let chars = text.encode_utf16().take(3001).count();
     if chars > 3000 || options.voice.is_empty() {
         return Err(Error::InvalidRequest);
@@ -77,6 +279,29 @@ pub fn synthesize(
         model: model.into(),
         input_utf16_units: chars,
     })
+}
+
+/// Convert a series of text deltas into complete signed requests in order.
+pub fn synthesize_stream<'a>(
+    host: &dyn SignedRequests,
+    chunks: impl IntoIterator<Item = &'a str>,
+    options: &Options<'_>,
+    max_words: Option<usize>,
+    budget: Duration,
+    mut on_audio: impl FnMut(super::elevenlabs::Audio) -> Result<(), Error>,
+) -> Result<(), Error> {
+    let deadline = deadline(budget);
+    let mut sentences = crate::sentences::SentenceWindows::new(max_words);
+    for delta in chunks {
+        super::http::check(host, deadline)?;
+        for sentence in sentences.push(delta)? {
+            on_audio(synthesize_until(host, &sentence, options, deadline)?)?;
+        }
+    }
+    for sentence in sentences.finish() {
+        on_audio(synthesize_until(host, &sentence, options, deadline)?)?;
+    }
+    Ok(())
 }
 
 pub fn list_voices(host: &dyn SignedRequests, budget: Duration) -> Result<Vec<Value>, Error> {

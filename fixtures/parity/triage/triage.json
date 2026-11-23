@@ -1509,6 +1509,7 @@
     },
     {
       "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":7,\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
+      "divergence": "P4D-200",
       "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":7,\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
       "message": "fix the bug 😀 and then write the report",
       "name": "summary-number"
@@ -1516,6 +1517,7 @@
     {
       "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":7,\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
       "cost": "economy",
+      "divergence": "P4D-200",
       "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":7,\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"medium\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
       "message": "fix the bug 😀 and then write the report",
       "name": "summary-number"
@@ -1523,6 +1525,7 @@
     {
       "classifiedJson": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":7,\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"small\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
       "cost": "quality",
+      "divergence": "P4D-200",
       "json": "{\"schema\":\"plur1bus.triage/1\",\"shape\":\"single\",\"tasks\":[{\"id\":\"k1\",\"summary\":7,\"start\":0,\"end\":11,\"categories\":{\"code.edit\":1},\"modelClass\":{\"small\":0.1,\"medium\":0.75,\"large\":0.12,\"frontier\":0.03},\"chosenClass\":\"large\",\"effort\":\"low\",\"dependsOn\":[],\"confidence\":0.9,\"reason\":\"test\"}]}",
       "message": "fix the bug 😀 and then write the report",
       "name": "summary-number"

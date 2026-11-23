@@ -1,0 +1,185 @@
+{
+  "exchanges": [
+    {
+      "receive": [
+        {
+          "type": "session.created"
+        }
+      ],
+      "send": [
+        {
+          "session": {
+            "input_audio_format": "pcm16",
+            "instructions": "Respond in German.",
+            "output_audio_format": "pcm16",
+            "tools": [
+              {
+                "description": "Read a fixture",
+                "name": "lookup",
+                "parameters": {
+                  "properties": {},
+                  "type": "object"
+                },
+                "type": "function"
+              }
+            ],
+            "voice": "fixture-voice"
+          },
+          "type": "session.update"
+        }
+      ],
+      "sendText": [
+        "{\"type\":\"session.update\",\"session\":{\"instructions\":\"Respond in German.\",\"voice\":\"fixture-voice\",\"input_audio_format\":\"pcm16\",\"output_audio_format\":\"pcm16\",\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"description\":\"Read a fixture\",\"parameters\":{\"type\":\"object\",\"properties\":{}}}]}}"
+      ]
+    },
+    {
+      "receive": [
+        {
+          "delta": "Hallo ",
+          "type": "response.audio_transcript.delta"
+        },
+        {
+          "delta": "Welt",
+          "type": "response.audio_transcript.delta"
+        },
+        {
+          "type": "response.audio_transcript.done"
+        },
+        {
+          "arguments": "{\"term\":\"example\"}",
+          "call_id": "call-1",
+          "name": "lookup",
+          "type": "response.function_call_arguments.done"
+        }
+      ],
+      "send": [
+        {
+          "item": {
+            "content": [
+              {
+                "text": "A fixture turn",
+                "type": "input_text"
+              }
+            ],
+            "role": "user",
+            "type": "message"
+          },
+          "type": "conversation.item.create"
+        },
+        {
+          "type": "response.create"
+        }
+      ],
+      "sendText": [
+        "{\"type\":\"conversation.item.create\",\"item\":{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"A fixture turn\"}]}}",
+        "{\"type\":\"response.create\"}"
+      ]
+    },
+    {
+      "receive": [
+        {
+          "response": {
+            "id": "turn-1",
+            "usage": {
+              "input_tokens": 7,
+              "output_tokens": 4
+            }
+          },
+          "type": "response.done"
+        }
+      ],
+      "send": [
+        {
+          "item": {
+            "call_id": "call-1",
+            "output": "{\"found\":true}",
+            "type": "function_call_output"
+          },
+          "type": "conversation.item.create"
+        },
+        {
+          "type": "response.create"
+        }
+      ],
+      "sendText": [
+        "{\"type\":\"conversation.item.create\",\"item\":{\"type\":\"function_call_output\",\"call_id\":\"call-1\",\"output\":\"{\\\"found\\\":true}\"}}",
+        "{\"type\":\"response.create\"}"
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "type": "ready"
+    },
+    {
+      "final": false,
+      "role": "assistant",
+      "text": "Hallo ",
+      "type": "transcript"
+    },
+    {
+      "final": false,
+      "role": "assistant",
+      "text": "Hallo Welt",
+      "type": "transcript"
+    },
+    {
+      "final": true,
+      "role": "assistant",
+      "text": "Hallo Welt",
+      "type": "transcript"
+    },
+    {
+      "arguments": {
+        "term": "example"
+      },
+      "callId": "call-1",
+      "name": "lookup",
+      "type": "tool.call"
+    },
+    {
+      "report": {
+        "eventId": "xai:turn-1",
+        "inputTokens": 7,
+        "model": "fixture-live",
+        "operation": "realtime",
+        "outputTokens": 4,
+        "provider": "xai"
+      },
+      "type": "usage"
+    },
+    {
+      "type": "turn.done"
+    }
+  ],
+  "exporter": "scripts/parity/export-voice.ts",
+  "input": {
+    "callId": "call-1",
+    "description": "Read a fixture",
+    "instructions": "Respond in German.",
+    "language": "de",
+    "model": "fixture-live",
+    "pcm": [
+      1,
+      0,
+      2,
+      0
+    ],
+    "result": {
+      "found": true
+    },
+    "sampleRate": 16000,
+    "text": "A fixture turn",
+    "tool": "lookup",
+    "vendor": "grok",
+    "voice": "fixture-voice"
+  },
+  "request": {
+    "headers": {
+      "authorization": "Bearer <credential>"
+    },
+    "path": "/v1/realtime?model=fixture-live"
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "websocket"
+}

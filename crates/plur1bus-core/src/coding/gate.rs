@@ -167,9 +167,26 @@ pub struct CodingGate {
     db: Store,
 }
 
-pub(super) fn open_store(path: &Path, name: &'static str, ddl: &str) -> R<Store> {
+struct OpenError(CollabError);
+impl From<StoreError> for OpenError {
+    fn from(e: StoreError) -> Self {
+        Self(match e {
+            newer @ StoreError::NewerSchema { .. } => {
+                CollabError::with_reason(C::Storage, newer.to_string(), "schema-too-new")
+            }
+            other => other.into(),
+        })
+    }
+}
+
+pub(super) fn open_store(
+    path: &Path,
+    name: &'static str,
+    ddl: &str,
+    secure: Option<&dyn Fn(&Path) -> bool>,
+) -> R<Store> {
     if path != Path::new(":memory:") {
-        crate::private_store::prepare(path)
+        crate::private_store::prepare_versioned(path, secure)
             .map_err(|_| CollabError::new(C::Storage, "could not prepare coding store"))?;
     }
     let owner = OwnerSpec {
@@ -181,20 +198,16 @@ pub(super) fn open_store(path: &Path, name: &'static str, ddl: &str) -> R<Store>
         schema: Schema::Steps(&[]),
         create: true,
     };
-    let db = Store::open_owner(path, &owner).map_err(|error| match error {
-        newer @ StoreError::NewerSchema { .. } => {
-            CollabError::with_reason(C::Storage, newer.to_string(), "schema-too-new")
+    let db = crate::private_store::open_versioned(path, &owner, || -> Result<(), OpenError> {
+        if !crate::private_store::protect_compatible(path, secure) {
+            return Err(OpenError(CollabError::new(
+                C::Storage,
+                "could not protect coding store",
+            )));
         }
-        other => other.into(),
-    })?;
-    // A newer schema is refused before changing the existing file's permissions.
-    #[cfg(unix)]
-    if path != Path::new(":memory:") && !crate::private_store::default_secure(path) {
-        return Err(CollabError::new(
-            C::Storage,
-            "could not protect coding store",
-        ));
-    }
+        Ok(())
+    })
+    .map_err(|error| error.0)?;
     write(db.conn(), |cx| {
         cx.execute_batch(ddl)?;
         Ok(())
@@ -356,8 +369,13 @@ fn abort_check(abort: &AbortSignal) -> R<()> {
 impl CodingGate {
     /// Open the unversioned coding-gate store.
     pub fn open(path: &Path) -> R<Self> {
+        Self::open_with_permissions(path, None)
+    }
+
+    /// Open with the host's owner-only attestation for disk-backed stores.
+    pub fn open_with_permissions(path: &Path, secure: Option<&dyn Fn(&Path) -> bool>) -> R<Self> {
         Ok(Self {
-            db: open_store(path, "coding-gate", DDL)?,
+            db: open_store(path, "coding-gate", DDL, secure)?,
         })
     }
 

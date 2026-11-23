@@ -8,6 +8,7 @@
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde_json::{json, Value};
+use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
@@ -47,6 +48,7 @@ pub fn ws_accept(key: &str) -> String {
 
 struct WsExchange {
     send: Vec<Value>,
+    send_text: Option<Vec<String>>,
     receive: Vec<Value>,
     raw_frames: Vec<Vec<u8>>,
 }
@@ -61,6 +63,7 @@ struct Script {
     ws: Vec<WsExchange>,
     lines: Option<Vec<LineExchange>>,
     received: Vec<Value>,
+    upgrades: Vec<Value>,
 }
 
 /// A running fake server; dropping it stops it.
@@ -73,10 +76,21 @@ pub struct FakeServer {
 impl FakeServer {
     /// Serves a fixture on an ephemeral loopback port.
     pub fn start(fixture: &Value) -> Self {
+        Self::bind(|_| Cow::Borrowed(fixture))
+    }
+
+    /// Materialize fixture URLs for this server after binding its loopback port.
+    pub fn start_with(fixture: impl FnOnce(SocketAddr) -> Value) -> Self {
+        Self::bind(|address| Cow::Owned(fixture(address)))
+    }
+
+    fn bind<'a>(fixture: impl FnOnce(SocketAddr) -> Cow<'a, Value>) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let addr = listener.local_addr().unwrap();
-        let worker = Worker::spawn(fixture, move || listener.accept().map(|(stream, _)| stream));
+        let worker = Worker::spawn(&fixture(addr), move || {
+            listener.accept().map(|(stream, _)| stream)
+        });
         Self { addr, worker }
     }
 
@@ -84,6 +98,11 @@ impl FakeServer {
     /// or the JSON messages received from a WebSocket client.
     pub fn received(&self) -> Vec<Value> {
         self.worker.received()
+    }
+
+    /// The HTTP request line and headers for each WebSocket upgrade.
+    pub fn websocket_upgrades(&self) -> Vec<Value> {
+        self.worker.script.lock().unwrap().upgrades.clone()
     }
 }
 
@@ -123,6 +142,7 @@ impl Worker {
             ws: Vec::new(),
             lines: None,
             received: Vec::new(),
+            upgrades: Vec::new(),
         };
         match fixture["transport"].as_str() {
             Some("http") => {
@@ -149,8 +169,17 @@ impl Worker {
                         .flatten()
                         .map(decode_bytes)
                         .collect();
+                    let send = frames("send");
+                    let send_text = exchange["sendText"].as_array().map(|frames| {
+                        assert_eq!(frames.len(), send.len(), "one text frame per JSON frame");
+                        frames
+                            .iter()
+                            .map(|text| text.as_str().unwrap().to_owned())
+                            .collect()
+                    });
                     script.ws.push(WsExchange {
-                        send: frames("send"),
+                        send,
+                        send_text,
                         receive: frames("receive"),
                         raw_frames,
                     });
@@ -306,6 +335,11 @@ fn connection(stream: &mut (impl Read + Write), script: &Mutex<Script>) -> io::R
         let Some(key) = header("sec-websocket-key") else {
             return Ok(());
         };
+        script
+            .lock()
+            .unwrap()
+            .upgrades
+            .push(json!({ "method": method, "path": path, "headers": headers }));
         write!(
             stream,
             "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {}\r\n\r\n",
@@ -567,9 +601,14 @@ fn websocket(
         match opcode {
             0x1 => {
                 let value: Value = serde_json::from_slice(&payload).map_err(io::Error::other)?;
-                let matches = current
-                    .as_ref()
-                    .is_some_and(|exchange| exchange.send.get(sent) == Some(&value));
+                let matches = current.as_ref().is_some_and(|exchange| {
+                    exchange.send.get(sent) == Some(&value)
+                        && exchange.send_text.as_ref().is_none_or(|expected| {
+                            expected
+                                .get(sent)
+                                .is_some_and(|text| text.as_bytes() == payload)
+                        })
+                });
                 script.lock().unwrap().received.push(value);
                 if !matches {
                     stream.write_all(&frame(0x8, &1008u16.to_be_bytes(), None))?;

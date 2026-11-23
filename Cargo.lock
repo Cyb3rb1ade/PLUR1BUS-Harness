@@ -2903,9 +2903,9 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "form_urlencoded"
-version = "1.2.2"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
+checksum = "afa489199eaffb1211795df1c6236ce1ad0d41a6fa45250add73e3b02420f06e"
 dependencies = [
  "percent-encoding",
 ]
@@ -6144,16 +6144,41 @@ dependencies = [
 name = "plur1bus-discovery"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "brotli",
+ "chrono",
+ "flate2",
+ "icu_collator",
+ "icu_locale_core",
+ "icu_normalizer",
+ "log",
+ "plur1bus-providers",
+ "plur1bus-wire-fixtures",
+ "plur1bus-wire-log",
+ "regex",
+ "regex-syntax",
+ "ring",
  "serde",
  "serde_json",
+ "tempfile",
+ "ureq",
+ "url",
 ]
 
 [[package]]
 name = "plur1bus-documents"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "plur1bus-channels",
+ "plur1bus-providers",
  "regex",
+ "serde",
  "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "ureq",
+ "url",
 ]
 
 [[package]]
@@ -6244,14 +6269,40 @@ dependencies = [
 name = "plur1bus-mcp"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "futures",
+ "jsonschema",
+ "plur1bus-providers",
+ "plur1bus-wire-fixtures",
+ "rmcp",
+ "serde",
  "serde_json",
+ "sha2 0.10.9",
+ "sse-stream",
+ "tokio",
+ "tracing",
+ "ureq",
+ "url",
 ]
 
 [[package]]
 name = "plur1bus-media"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "crc32fast",
+ "flate2",
+ "log",
+ "plur1bus-providers",
+ "plur1bus-wire-fixtures",
+ "plur1bus-wire-log",
+ "regex",
+ "serde",
  "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "ureq",
+ "url",
 ]
 
 [[package]]
@@ -6365,6 +6416,7 @@ dependencies = [
  "plur1bus-channels",
  "plur1bus-providers",
  "plur1bus-wire-fixtures",
+ "plur1bus-wire-log",
  "serde",
  "serde_json",
  "ureq",
@@ -6375,7 +6427,22 @@ dependencies = [
 name = "plur1bus-webtools"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "brotli",
+ "chrono",
+ "encoding_rs",
+ "flate2",
+ "log",
+ "plur1bus-canon",
+ "plur1bus-log-schema",
+ "plur1bus-providers",
+ "plur1bus-wire-fixtures",
+ "plur1bus-wire-log",
+ "regex",
+ "serde",
  "serde_json",
+ "ureq",
+ "url",
 ]
 
 [[package]]
@@ -7234,6 +7301,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "rmcp"
+version = "3.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d24a7e92f4bcaa36b97fa93c4fa7ca8f3e669eced949345b3462dba333c7f909"
+dependencies = [
+ "base64 0.23.1",
+ "bytes",
+ "chrono",
+ "futures",
+ "http",
+ "indexmap 2.14.2",
+ "libc",
+ "pastey",
+ "pin-project-lite",
+ "schemars 1.2.3",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "sse-stream",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "roaring"
 version = "0.10.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7671,7 +7766,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fbf2ae1b8bc8e02df939598064d22402220cd5bbcca1c76f7d6a310974d5615"
 dependencies = [
  "dyn-clone",
- "schemars_derive",
+ "schemars_derive 0.8.22",
  "serde",
  "serde_json",
 ]
@@ -7694,8 +7789,10 @@ version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab508826f74a77ca9d5aba6ff19b522583ee3eaf28a19384ff3d0e5835fadf6e"
 dependencies = [
+ "chrono",
  "dyn-clone",
  "ref-cast",
+ "schemars_derive 1.2.3",
  "serde",
  "serde_json",
 ]
@@ -7708,8 +7805,20 @@ checksum = "32e265784ad618884abaea0600a9adf15393368d840e0222d101a072f3f7534d"
 dependencies = [
  "proc-macro2",
  "quote",
- "serde_derive_internals",
+ "serde_derive_internals 0.29.1",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "schemars_derive"
+version = "1.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1c3a92094fa7d61aa124645844facb6b554dfc797136d0f5fd1f890e2bffc69"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_derive_internals 0.30.0",
+ "syn 3.0.6",
 ]
 
 [[package]]
@@ -7884,6 +7993,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "serde_derive_internals"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f852137cce035d6a4df67ccce505ff6b3e9fd3a10e3e52b24dc71e650bb1a9bd"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.6",
 ]
 
 [[package]]
@@ -8248,6 +8368,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "sse-stream"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c25ac7aff0abd1dbc474536e40416e1102c7dd9bfba0b9861c6d357f835dcfb4"
+dependencies = [
+ "bytes",
+ "futures-util",
+ "http-body",
+ "http-body-util",
+ "pin-project-lite",
 ]
 
 [[package]]
@@ -9210,9 +9343,9 @@ dependencies = [
 
 [[package]]
 name = "url"
-version = "2.5.8"
+version = "2.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff67a8a4397373c3ef660812acab3268222035010ab8680ec4215f38ba3d0eed"
+checksum = "f00cd2407bb42c0ef17be88d4cf020f5cceffd121665bac9b8b9493a369b3b1a"
 dependencies = [
  "form_urlencoded",
  "idna",

@@ -193,8 +193,8 @@ folgt in W10.
 - **Lücken.** W0 hat JSON-Frames des Voice-Fakes. W3 braucht aufzunehmende Provider-Header,
   Audio-Bytes, Fehler/Abbruch, Credential-Abweisung, Pipeline-Timeouts und ggf. binäre WS-Nachrichten.
 
-**W3 Rust partial delivery.** The cloud library covers the JSON HTTP boundary,
-ElevenLabs catalogs and buffered TTS/ASR, Gemini/XAI catalog discovery, Polly
+**W3 cloud library.** The Rust crate covers the JSON HTTP boundary,
+ElevenLabs catalogs, buffered TTS/ASR and streaming TTS, Gemini/XAI catalog discovery, Polly
 buffered synthesis and list projection through a signed-request port, and
 blocking Grok, Gemini and ElevenLabs ASR readiness and audio exchange. The
 exporter records actual TypeScript calls and frames for HTTP and WebSocket.
@@ -205,12 +205,37 @@ The flip must supply authorized pins, TLS for WebSocket, resolved credentials,
 Polly signing, request deadlines and the ASR multipart boundary. R-W-12/R-W-13
 are recorded in [P4D-202](defects.md#p4d-202), [P4D-204](defects.md#p4d-204),
 [P4D-205](defects.md#p4d-205) and [P4D-206](defects.md#p4d-206). Audio and JSON
-have separate ceilings. Host registration uses the R-W-11 logger. A socket
-operation already blocked at cancellation can remain blocked until its deadline.
+have separate ceilings. Host registration uses the R-W-11 logger. Under R-W-9
+an in-flight blocking read may observe cancellation as late as its current
+deadline. For realtime reads this is the shortest of the caller's remaining
+read budget, the socket's configured timeout and 600 seconds. The session
+releases the stream when the interrupted read returns.
 
-Open W3 parity includes retry timing and the retry-after contract, ElevenLabs
-stream-input TTS, end-to-end verification of caller text and tool frames,
-and complete realtime event projection and usage. The cloud library has no production caller.
+The HTTP and WebSocket synthesis streams, Polly sentence windows, retry
+schedule, and Grok/Gemini/ElevenLabs dialogues are recorded from the TypeScript
+providers. The host supplies the duplex scheduling and usage sink. Retry
+waits are bounded by the same request deadline. See
+[P4D-210](defects.md#p4d-210) and [P4D-211](defects.md#p4d-211). The cloud
+library has no production caller. Polly's SynthesizeSpeech and DescribeVoices
+use the shared pinned Rust HTTP transport. The host supplies a signer for the
+exact request bytes after the destination is authorized. The SDK recording
+also covers pagination and an AWS error type. P4D-219 describes the diagnostic
+body bound. For a reproducible recording, run
+`node --experimental-strip-types --conditions=source scripts/parity/export-polly-http.ts <external-sdk-directory> --check`
+with the test-only AWS SDK version pinned in the exporter.
+
+The cloud registry replays configured statuses, capability lookup, independent
+catalog jobs and unified error codes in TypeScript order. A failed catalog
+operation leaves the results from the other operations available. The host
+supplies the credential lease and the signed Polly port. The catalog-to-socket
+recordings cover a configured model, selection from xAI and Gemini catalogs,
+and Gemini's fallback model. A test through the host logger checks a synthetic
+credential and a provider close reason against the R-W-11 boundary.
+The transport replay compares recorded outgoing text frames and upgrade
+targets and credential headers, together with the parsed dialogue events.
+The ElevenLabs settings port takes the ordered fields of the input object.
+Arbitrary tool arguments and results keep the serialization of the host's
+JSON values.
 
 ### W4 · Medien und Dokumente (P4-53)
 
@@ -224,16 +249,42 @@ and complete realtime event projection and usage. The cloud library has no produ
   W für CDP und PDF-Goldens für `documents-golden`. RPC-/Composition-Tests sind T beim Flip.
 - **Ports.** Credential-, Egress-, Clock-, Zufalls- und Abbruchports, Job- und Ergebnisdatenpfade,
   atomare Dateien, Upload-Quelle und Fortschritt, Child-Process/ffmpeg/ffprobe, Chromium und Font-/Asset-Pfade.
-- **Lücken.** Bild-/Video-Uploads, Binär- und Statusantworten, Job-Resume/Cancel, Storage-Fehler,
-  CDP-Abfolge, unterschiedliche Font-/Plattformausgaben und die existierenden PDF-Goldens.
-  Die Downloads und Prozesse im Rust-Test durch Fixtures oder mitgelieferte Testassets steuern.
+- **Bibliothek.** Bild-HTTP für OpenAI, OpenRouter, Gemini, xAI, Together, Draw Things, Replicate
+  und fal. Video-HTTP für OpenRouter, Gemini, xAI, Replicate und fal mit Checkpoints,
+  Resume und getrennt geöffnetem Download. CoreML zeichnet den Legacy- und JSONL-Prozessdialog
+  einschließlich Abbruch auf. Der Medien-JobRunner verbindet persistierte Zustände,
+  Budget-Port und Veröffentlichung. Der OutputStore prüft Roh-Uploads und schreibt
+  generierte Bilder und Videos mit gemeinsamem Speicherbudget, Integritätsnachweis,
+  privatem Staging und Retention. Die Bildaufzeichnungen prüfen auch die Übertragung
+  von Bearbeitungsreferenzen und Maske nach Entfernung fremder Metadaten.
+- **Flip-Ports.** Der Host bleibt zuständig für Credentials, DNS-Pin, Warteplan, Takt, Zufall,
+  Abbruch, dauerhafte Job- und Store-Backends, Upload-Bindungen, die privaten ffmpeg-
+  und CoreML-Prozesse sowie Chromium- und Asset-Pfade. R-W-13 begrenzt die dekodierte
+  JSON-Antwort und die Diagnose in [P4D-223](defects.md#p4d-223).
+  Abbruch einer blockierten HTTP-Leseoperation wirkt spätestens nach ihrer absoluten Frist
+  (R-W-9). Das CoreML-JSONL-Cancel verwendet die explizite, separat begrenzte Grace-Zeit
+  des Ports, bevor der Kindprozess bei ausbleibender Bestätigung beendet wird.
 
-**W4 local partial delivery.** The Markdown fragment renderer and contrast
-arithmetic replay the document package's original TypeScript outputs. Media
-request validation and accounting cover metadata-only requests. Binary inputs
-remain outside that entry point until the owner supplies typed image and video
-ports. The browser/CDP, PDF goldens, assembled template and output-store
-acceptance remain open. Neither crate is installed by the Core.
+Das Rust-Dokumentmodul rendert Markdown in alle neun Vorlagen und bindet die drei ausgelieferten Fonts
+über einen Asset-Port ein. Der Chromium-Adapter öffnet eine private Profilinstanz und begrenzt den
+DevTools-Transport auf deren Loopback-Endpunkt. Mit konfiguriertem Asset verwendet er das unveränderte
+Paged.js aus dem Workspace. R-W-9 erlaubt den blockierenden CDP-Aufruf bis zu der vom Host gesetzten
+absoluten Frist. Die statische und die Chromium-Layout-Prüfung führen die Abweichungen
+[P4D-221](defects.md#p4d-221) und [P4D-222](defects.md#p4d-222).
+Der Golden-Treiber liest dieselben neun Eingaben wie `documents-golden`, vergleicht die gerenderten
+Bilder mit dessen Schwellenwerten und prüft PDF-Seitenzahlen und eingebettete Schrift. Der lokale Lauf
+mit Chrome 158 verglich Rust und TypeScript auf demselben macOS-Host. Die reproduzierbare Abnahme
+gegen die eingecheckten PNGs verwendet die in `golden/manifest.json` genannte Chrome-Version.
+
+Der JobRunner lädt bestehende TypeScript-Jobdatensätze mit Buffer- und
+Uint8Array-Referenzen. Die Adapter und die Veröffentlichung erhalten
+Bildreferenzen, Masken und Videos getrennt von den Anfrageparametern.
+Der Video-Prozessport verwendet absolute, private Staging-Pfade und begrenzt
+stdout beim Lesen. Bei Abbruch oder Fristüberschreitung beendet der Host den
+Prozess. Der Renderer schließt Chromium und überprüft, ob das private Profil
+entfernt wurde. Wenn das Betriebssystem das Löschen beim Schließen der letzten
+Dateihandles vorübergehend verweigert, wiederholt der Renderer es bis zu einer
+Sekunde auf dem eigenen temporären Verzeichnis.
 
 ### W5 · Erkennung und Katalog (P4-44)
 
@@ -251,10 +302,19 @@ acceptance remain open. Neither crate is installed by the Core.
 - **Lücken.** Alle Provider-Seiten und 429/Retry-After, unvollständige und leere Aufzählungen,
   Entfernung/Übernahme von Metadaten, Rollen-Fallback und Katalog-Rollback/-Ablauf.
 
-**W5 local partial delivery.** Model role and alias resolution replays the
-production TypeScript implementation, including qualified provider prefixes,
-availability ordering and provider-scoped warnings. Scanner HTTP, reconciliation
-and overrides remain future slices. The role library has no network or store port.
+Rust übernimmt Reconcile, Metadaten, Rollen, Alias-Priorität, Overrides und
+manuelle Einträge. Die Scanner spielen Aufzeichnungen für OpenAI, Anthropic,
+Google und Ollama ab. Der HTTP-Port nutzt den gemeinsamen ureq-Connector,
+prüft den Origin pro Redirect und bindet Header-Leases vor dem Erstaufruf an
+ihren Origin ([P4D-226](defects.md#p4d-226)). Komprimierte und dekodierte Bytes
+werden innerhalb derselben Frist begrenzt. Der Apple-FM-Scanner nutzt den privaten,
+layoutgebundenen Unix-Socket ohne TCP oder Credential-Lookup.
+Der signierte Extension-Katalog prüft Rohbytes, Rootrotation, Ablauf,
+Versionsstände, dauerhaften Schlüssel- und Paketwiderruf und Download-Integrität.
+Der Host stellt einen exklusiven Checkpoint-/Snapshot-Port und die
+Egress-Freigabe für jedes produktive HTTPS-Ziel bereit. Die TS-Replays zeichnen Scanner,
+HTTP-Wechsel, Reconcile, Overrides und den Katalog-Lebenszyklus auf.
+
 
 ### W6 · Web (Bibliothek von P4-30)
 
@@ -266,14 +326,20 @@ and overrides remain future slices. The role library has no network or store por
   Der Tool-Registry-/Dispatcher-Anteil von `tools.test.ts` folgt beim Flip.
 - **Ports.** Resolver, Egress, Verbindung an freigegebene Adressen, Provider-Credentials, Clock,
   Limits und Abbruch. Eine Host-Freigabe darf beim Verbindungsaufbau nicht neu aufgelöst werden.
-- **Lücken.** Explizite IP-Klassifikation und Robots-Präzedenz, Extraktionsgoldens,
-  Redirect-Entscheidungen pro Hop, Body-/Zeitgrenzen, Fehlerabbildung und Suchfallbacks.
+- **Robots-Grenze.** Die aus TypeScript aufgezeichneten Regeln decken Gruppenwahl,
+  Präzedenz und Crawl-Delay ab. [P4D-207](defects.md#p4d-207) dokumentiert das Byte-Limit.
+  Fetch prüft den Inhaltstyp und begrenzt den dekodierten Körper beim Lesen.
 
-**W6 local partial delivery.** The pure robots parser replays TypeScript
-scope selection, priorities and crawl delay. [P4D-207](defects.md#p4d-207)
-records the byte ceiling. The fetch port supplies a complete decoded body and
-rejects overflow. IP classification already exists in the P4-K egress port.
-Crawl scheduling, extraction, redirects, HTTP and search are open.
+Rust nutzt den gemeinsamen gepinnten HTTP/Rustls-Connector für Fetch und Suche.
+Der Host-Port führt vor jedem Hop die vorhandene plur1bus-core-Egress-Klassifikation
+und URL-Freigabe aus und liefert einen Socket-Pin. Regeln für Robots werden pro Origin
+über einen injizierten Cache gelesen, ein Redirect braucht seine eigene Crawl-Station.
+Fetch extrahiert Markdown und Seitensignale, führt Source-Koordinaten für agentengebundene
+Cursor und prüft neue bekannte Geheimnisse beim Lesen. Die Suche spielt Brave, Tavily,
+Exa und SearXNG mit Fallthrough, Statusklassifikation, Retry-After und Cooldown ab.
+Die gesetzten Transport- und Tabellenlimits stehen in [P4D-227](defects.md#p4d-227)
+und [P4D-228](defects.md#p4d-228). Der Flip muss den Host-Port, den privaten Cursor- und
+Robots-Cache sowie die Freigabe für Provider-Credentials anbinden.
 
 ### W7 · MCP (P4-70)
 
@@ -286,13 +352,24 @@ Crawl scheduling, extraction, redirects, HTTP and search are open.
   eignen sich auch für V. OS-Job-Prozessbindung und Extension-Aktivierung bleiben S am Laufzeitpfad.
 - **Ports.** Egress und Auth-Eingaben, OAuth-Interaktion und State, Uhr/Zufall, stdio-Streams,
   Prozess- und Env-Launcher, Tool-Registry und Tool-Aufruf.
-- **Lücken.** stdio-Fake, Transport-Fallback, Session-/SSE-Fehler, Auth-Antworten, Wiederverbindung,
-  Umgebungs- und Redaction-Verträge. Response-Bounds stehen unter den Abhängigkeitsauflagen.
+Die Rust-Registry isoliert Namen nach Agent und Installation, hält Start und
+Leases am Eintrag und fährt bei Leerlauf über den Host-Timer herunter. Eine
+frische Tool-Liste bleibt im privaten Cache. Der Client spielt moderne
+Request-Streams und Legacy-Sitzungen mit GET-Wiederaufnahme und DELETE ab.
+Das MCP-Serverprotokoll deckt die moderne und Legacy-HTTP-Projektion sowie
+Initialisierung und Aufrufe über stdio-Pipes ab. Der Host bindet die geprüfte
+Identität, Tool-Freigaben, tatsächlichen Prozess-/Umgebungslaunch und sichere
+Ergebnisredaktion an. Browser, Secret-Store und Core-Komposition folgen beim Flip. Roots,
+Sampling und Elicitation werden nur durch explizite Host-Ports angeboten.
 
-**W7 local partial delivery.** The stdio bridge's JSON reply reader records
-normal replies and notifications from the TypeScript forwarder. It applies
-[P4D-208](defects.md#p4d-208) on its decoded body port. The rmcp client/server,
-SSE and stdio process transports, auth and registration remain open.
+OAuth verwendet die gepinnte HTTP-Strecke für credential-freie Discovery,
+PKCE, Refresh und Gerätecode. Ein privater Interaktionsport erhält Hinweise
+aus der Challenge. Die Attempt-Tabelle bindet eine explizit gestartete
+Interaktion an Person, Server und Frist. Der SDK-Thread unterdrückt fremde
+Tracing-Inhalte einschließlich WARN und INFO. Der Host verwendet für HTTP
+den gemeinsamen Wire-Logfilter nach R-W-11. Die begrenzten Portverträge und
+Abweichungen stehen in [P4D-208](defects.md#p4d-208) und
+[P4D-229–234](defects.md#p4d-229).
 
 ### W8 · A2A (P4-72)
 
@@ -309,12 +386,6 @@ SSE and stdio process transports, auth and registration remain open.
 - **Lücken.** Card-Refresh/Trust-Input, SSE-Events und frühe Ablehnung, Task-Abbruch, Push-Fehler,
   Größenlimits und Zugriffsgrenzen über eine geskriptete Policy. Für eingehende Handler kommt
   der HTTP-Listener aus dem Core-Port.
-
-**W8 local partial delivery.** Agent Card projection replays the TypeScript
-builder's public fields and requires a validated advertised endpoint and
-agent opt-in. [P4D-209](defects.md#p4d-209) records the input restrictions
-and the Unicode boundary. Peer discovery, inbound parsing, SSE, push,
-policy and SDK fixture-peer tests are open.
 
 ### W9 · Matrix (P4-65, Owner-Entscheidung)
 

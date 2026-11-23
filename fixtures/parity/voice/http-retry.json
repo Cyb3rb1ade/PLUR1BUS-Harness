@@ -1,0 +1,132 @@
+{
+  "exporter": "scripts/parity/export-voice.ts",
+  "nowMs": 1795348800000,
+  "scenarios": [
+    {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
+              "xi-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v1/models"
+          },
+          "response": {
+            "body": {
+              "error": "fixture refused"
+            },
+            "headers": {
+              "retry-after": "0.250"
+            },
+            "status": 429
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "xi-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v1/models"
+          },
+          "response": {
+            "body": {
+              "error": "fixture refused"
+            },
+            "headers": {
+              "retry-after": "Sun, 22 Nov 2026 12:00:02 GMT"
+            },
+            "status": 503
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "xi-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v1/models"
+          },
+          "response": {
+            "body": [],
+            "headers": {},
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "models": []
+      },
+      "waits": [
+        250,
+        2000
+      ]
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
+              "xi-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v1/models"
+          },
+          "response": {
+            "body": {
+              "error": "fixture refused"
+            },
+            "headers": {
+              "retry-after": "90"
+            },
+            "status": 503
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "xi-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v1/models"
+          },
+          "response": {
+            "body": {
+              "error": "fixture refused"
+            },
+            "headers": {},
+            "status": 503
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "xi-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v1/models"
+          },
+          "response": {
+            "body": {
+              "error": "fixture refused"
+            },
+            "headers": {
+              "retry-after": "99999"
+            },
+            "status": 429
+          }
+        }
+      ],
+      "expected": {
+        "code": "rate_limited",
+        "retryAfterMs": 3600000
+      },
+      "waits": [
+        30000,
+        1000
+      ]
+    }
+  ],
+  "schema": "plur1bus.parity-wire/1"
+}

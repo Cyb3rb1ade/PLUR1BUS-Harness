@@ -128,6 +128,80 @@
         {
           "request": {
             "headers": {
+              "xi-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v1/models"
+          },
+          "response": {
+            "body": [
+              {
+                "languages": [
+                  {
+                    "language_id": "de"
+                  }
+                ],
+                "model_id": "scribe-synthetic"
+              },
+              {
+                "can_do_text_to_speech": true,
+                "model_id": "voice-synthetic"
+              }
+            ],
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": [
+          {
+            "capabilities": [
+              "asr"
+            ],
+            "id": "scribe-synthetic",
+            "languages": [
+              "de"
+            ],
+            "name": "scribe-synthetic"
+          }
+        ]
+      },
+      "operation": "eleven-asr-models"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
+              "xi-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/v1/models"
+          },
+          "response": {
+            "body": [],
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": [
+          {
+            "capabilities": [
+              "asr"
+            ],
+            "id": "scribe_v2",
+            "name": "scribe_v2"
+          }
+        ]
+      },
+      "operation": "eleven-asr-models"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
               "x-goog-api-key": "<credential>"
             },
             "method": "GET",

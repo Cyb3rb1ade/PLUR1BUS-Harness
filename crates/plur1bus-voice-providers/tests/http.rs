@@ -5,7 +5,7 @@ use plur1bus_voice_providers::{
     http::{Client, Error, Ports},
 };
 use plur1bus_wire_fixtures::{load_fixture, FakeServer};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::{
     net::SocketAddr,
     time::{Duration, Instant},
@@ -33,7 +33,7 @@ fn provider_catalogs_match_recorded_typescript_requests_and_results() {
         let base = Url::parse(&format!("http://{}/v1", server.addr)).unwrap();
         let operation = scenario["operation"].as_str().unwrap();
         let vendor = match operation {
-            "eleven-voices" | "eleven-models" => Vendor::ElevenLabs,
+            "eleven-voices" | "eleven-models" | "eleven-asr-models" => Vendor::ElevenLabs,
             "gemini-models" => Vendor::Gemini,
             "xai-models" => Vendor::Xai,
             _ => panic!("unrecognized voice fixture"),
@@ -42,6 +42,8 @@ fn provider_catalogs_match_recorded_typescript_requests_and_results() {
         let budget = Duration::from_secs(5);
         let result = if operation == "eleven-voices" {
             catalog.list_elevenlabs_voices(CREDENTIAL, budget)
+        } else if operation == "eleven-asr-models" {
+            catalog.list_elevenlabs_asr_models(CREDENTIAL, None, budget)
         } else {
             catalog.list_models(CREDENTIAL, budget)
         };
@@ -88,13 +90,17 @@ fn response_deadline_covers_the_body_after_headers() {
 
 #[test]
 fn buffered_synthesis_matches_the_typescript_request_and_audio() {
-    use plur1bus_voice_providers::elevenlabs::{synthesize, AudioFormat, SynthesisOptions};
+    use plur1bus_voice_providers::elevenlabs::{
+        synthesize, AudioFormat, SynthesisOptions, VoiceSettings,
+    };
     let fixture = load_fixture("voice", "synthesis");
     let server = FakeServer::start(&fixture);
     let pin = Pin(server.addr);
     let client = Client::new(&pin).with_loopback_http();
     let base = Url::parse(&format!("http://{}/v1", server.addr)).unwrap();
     let input = &fixture["input"];
+    let settings: Vec<(String, Value)> =
+        serde_json::from_value(input["voiceSettingsEntries"].clone()).unwrap();
     let audio = synthesize(
         &client,
         &base,
@@ -104,6 +110,7 @@ fn buffered_synthesis_matches_the_typescript_request_and_audio() {
             voice: input["voice"].as_str().unwrap(),
             language: input["language"].as_str(),
             zero_retention: true,
+            voice_settings: Some(VoiceSettings(&settings)),
             ..SynthesisOptions::default()
         },
         Duration::from_secs(5),

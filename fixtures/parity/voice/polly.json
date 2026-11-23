@@ -24,6 +24,48 @@
       }
     ],
     "sampleRate": 16000,
+    "streamAudio": [
+      {
+        "bytes": [
+          1,
+          4,
+          6,
+          9
+        ],
+        "format": "pcm16",
+        "sampleRate": 16000
+      },
+      {
+        "bytes": [
+          1,
+          4,
+          6,
+          9
+        ],
+        "format": "pcm16",
+        "sampleRate": 16000
+      },
+      {
+        "bytes": [
+          1,
+          4,
+          6,
+          9
+        ],
+        "format": "pcm16",
+        "sampleRate": 16000
+      },
+      {
+        "bytes": [
+          1,
+          4,
+          6,
+          9
+        ],
+        "format": "pcm16",
+        "sampleRate": 16000
+      }
+    ],
     "usage": {
       "chars": 18,
       "model": "neural",
@@ -99,6 +141,46 @@
           ]
         }
       ]
+    }
+  ],
+  "stream": {
+    "chunks": [
+      "Dr. Ve",
+      "ga met Alice. ",
+      "A note at 3.",
+      "14 follows. ",
+      "Then one, two, three, four and five"
+    ],
+    "maxWords": 5
+  },
+  "streamRequests": [
+    {
+      "Engine": "neural",
+      "OutputFormat": "pcm",
+      "SampleRate": "16000",
+      "Text": "Dr. Vega met Alice.",
+      "VoiceId": "FixtureVoice"
+    },
+    {
+      "Engine": "neural",
+      "OutputFormat": "pcm",
+      "SampleRate": "16000",
+      "Text": "A note at 3.14 follows.",
+      "VoiceId": "FixtureVoice"
+    },
+    {
+      "Engine": "neural",
+      "OutputFormat": "pcm",
+      "SampleRate": "16000",
+      "Text": "Then one, two, three,",
+      "VoiceId": "FixtureVoice"
+    },
+    {
+      "Engine": "neural",
+      "OutputFormat": "pcm",
+      "SampleRate": "16000",
+      "Text": "four and five",
+      "VoiceId": "FixtureVoice"
     }
   ],
   "synthesisRequests": [

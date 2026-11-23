@@ -108,6 +108,9 @@ pub(super) fn forbidden_env(name: &str) -> bool {
             || matches!(
                 upper.as_str(),
                 "BASH_ENV"
+                    | "BASHOPTS"
+                    | "SHELLOPTS"
+                    | "PS4"
                     | "ENV"
                     | "PYTHONPATH"
                     | "PYTHONHOME"
@@ -131,5 +134,23 @@ pub(super) fn forbidden_env(name: &str) -> bool {
                     | "SSH_ASKPASS"
                     | "NODE_OPTIONS"
             )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn shell_control_environment_names_are_excluded_from_tool_environments() {
+        for name in [
+            "BASHOPTS",
+            "SHELLOPTS",
+            "PS4",
+            "bashopts",
+            "shellopts",
+            "ps4",
+        ] {
+            assert!(super::forbidden_env(name));
+        }
+        assert!(!super::forbidden_env("FIXTURE_COLOR"));
     }
 }

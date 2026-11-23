@@ -838,40 +838,76 @@ impl Adapter {
 
     /// Probe the fixed AF1 endpoints over the same private socket.
     pub fn probe_managed(&self, ports: &dyn Ports, health: bool) -> Result<Value> {
+        let limit = if health { 64 * 1024 } else { 1024 * 1024 };
+        let (status, bytes) = self.managed_probe_bytes(
+            ports,
+            health,
+            Instant::now() + Duration::from_secs(2),
+            limit,
+        )?;
+        if !(200..300).contains(&status) {
+            return Err(local::unavailable("unavailable"));
+        }
+        serde_json::from_slice(&bytes)
+            .map_err(|_| ProviderError::protocol("response body is not valid JSON"))
+    }
+
+    /// Fixed AF1 request, with the caller's absolute deadline and decoded byte cap.
+    /// Error statuses are returned without reading their bodies.
+    pub fn managed_probe_bytes(
+        &self,
+        ports: &dyn Ports,
+        health: bool,
+        deadline: Instant,
+        limit: usize,
+    ) -> Result<(u16, Vec<u8>)> {
         if self.managed.is_none() {
             return Err(ProviderError::invalid(
                 "probe requires a managed Unix provider",
             ));
         }
         abort(ports)?;
-        let path = if health { "/health" } else { "/v1/models" };
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.as_millis() == 0 {
+            return Err(timeout(TimeoutPhase::Total));
+        }
         let mut uri = self.base.clone();
-        uri.set_path(path);
-        let timeouts = Timeouts {
-            headers: Some(Duration::from_secs(2)),
-            idle: Some(Duration::from_secs(2)),
-            total: Some(Duration::from_secs(2)),
-        };
-        let response = self.probe_get(&uri, ports, timeouts)?;
-        if !response.status().is_success() {
-            return Err(local::unavailable("unavailable"));
+        uri.set_path(if health { "/health" } else { "/v1/models" });
+        let response = self.probe_get(
+            &uri,
+            ports,
+            Timeouts {
+                headers: Some(remaining.min(Duration::from_secs(5))),
+                idle: Some(remaining),
+                total: Some(remaining),
+            },
+        )?;
+        let status = response.status().as_u16();
+        if !(200..300).contains(&status) {
+            return Ok((status, Vec::new()));
         }
         let mut reader = CallReader {
             input: response.into_body().into_reader(),
             ports,
         };
-        let limit = if health { 64 * 1024 } else { 1024 * 1024 };
+        let limit = limit.min(1024 * 1024);
         let mut bytes = Vec::new();
-        let read = reader.by_ref().take(limit + 1).read_to_end(&mut bytes);
+        let read = reader
+            .by_ref()
+            .take(limit as u64 + 1)
+            .read_to_end(&mut bytes);
         abort(ports)?;
-        read.map_err(|_| local::unavailable("unavailable"))?;
-        if bytes.len() as u64 > limit {
-            return Err(ProviderError::protocol(
-                "managed Unix response body exceeds its byte limit",
-            ));
+        if Instant::now() >= deadline {
+            return Err(timeout(TimeoutPhase::Total));
         }
-        serde_json::from_slice(&bytes)
-            .map_err(|_| ProviderError::protocol("response body is not valid JSON"))
+        read.map_err(|_| local::unavailable("unavailable"))?;
+        if bytes.len() > limit {
+            let mut error =
+                ProviderError::protocol("managed Unix response body exceeds its byte limit");
+            error.code = Some("response_too_large".into());
+            return Err(error);
+        }
+        Ok((status, bytes))
     }
 
     pub(crate) fn probe_get(

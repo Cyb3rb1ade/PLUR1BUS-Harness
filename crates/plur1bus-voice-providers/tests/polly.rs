@@ -94,3 +94,85 @@ fn signed_request_arguments_and_projection_match_recorded_typescript() {
     );
     assert_eq!(json!(*port.lists.borrow()), recording["listRequests"]);
 }
+
+#[test]
+fn text_input_is_sent_in_recorded_sentence_and_word_windows() {
+    use plur1bus_voice_providers::polly::synthesize_stream;
+
+    let recording: Value =
+        serde_json::from_str(include_str!("../../../fixtures/parity/voice/polly.json")).unwrap();
+    let expected = &recording["expected"];
+    let port = Fixture {
+        pages: Vec::new(),
+        audio: serde_json::from_value(expected["data"].clone()).unwrap(),
+        synthesis: RefCell::new(Vec::new()),
+        lists: RefCell::new(Vec::new()),
+    };
+    let input = &recording["input"];
+    let chunks = recording["stream"]["chunks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry.as_str().unwrap());
+    let mut observed = Vec::new();
+    synthesize_stream(
+        &port,
+        chunks,
+        &Options {
+            voice: input["voice"].as_str().unwrap(),
+            ..Options::default()
+        },
+        recording["stream"]["maxWords"]
+            .as_u64()
+            .map(|value| value as usize),
+        Duration::from_secs(5),
+        |audio| {
+            assert_eq!(
+                audio.format,
+                plur1bus_voice_providers::elevenlabs::AudioFormat::Pcm16
+            );
+            observed
+                .push(json!({"bytes":audio.bytes,"format":"pcm16","sampleRate":audio.sample_rate}));
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(json!(observed), expected["streamAudio"]);
+    assert_eq!(json!(*port.synthesis.borrow()), recording["streamRequests"]);
+}
+
+#[test]
+fn unfinished_input_and_single_delta_have_independent_byte_ceilings() {
+    use plur1bus_voice_providers::polly::synthesize_stream;
+    let port = Fixture {
+        pages: Vec::new(),
+        audio: Vec::new(),
+        synthesis: RefCell::new(Vec::new()),
+        lists: RefCell::new(Vec::new()),
+    };
+    let options = Options {
+        voice: "FixtureVoice",
+        ..Options::default()
+    };
+    let budget = Duration::from_secs(5);
+    let limit = 1024 * 1024;
+    let half = " ".repeat(limit / 2);
+    let over = format!("A sentence. {}", " ".repeat(limit - 11));
+    assert_eq!(over.len(), limit + 1);
+    assert_eq!(
+        synthesize_stream(&port, [over.as_str()], &options, None, budget, |_| Ok(())),
+        Err(Error::InvalidRequest)
+    );
+    assert_eq!(
+        synthesize_stream(
+            &port,
+            [half.as_str(), half.as_str(), " "],
+            &options,
+            None,
+            budget,
+            |_| Ok(())
+        ),
+        Err(Error::InvalidRequest)
+    );
+    assert!(port.synthesis.borrow().is_empty());
+}
