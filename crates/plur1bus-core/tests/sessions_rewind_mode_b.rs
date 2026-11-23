@@ -164,6 +164,8 @@ fn open_world(dir: &Path, name: &str) -> World {
                     root: bound.clone(),
                 }))
             }),
+            // This parity driver serializes the Rust and TypeScript owners of its private repository.
+            writer_lease: Some(Rc::new(|_| Some(Box::new(|| true)))),
             approval: Box::new(Yes),
             file_projects: Some(Rc::new(|| vec!["p".to_owned()])),
             retention_turns: Some(Rc::new(|| 50.0)),

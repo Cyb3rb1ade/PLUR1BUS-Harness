@@ -676,3 +676,14 @@ mod tests {
         assert!(matches!(&v, V::Obj(m) if m.len() == 50_001));
     }
 }
+
+#[cfg(test)]
+mod key_comparison_tests {
+    #[test]
+    fn object_keys_are_part_of_the_structural_value() {
+        assert_ne!(
+            super::parse(r#"{"name":"value"}"#),
+            super::parse(r#"{"label":"value"}"#)
+        );
+    }
+}

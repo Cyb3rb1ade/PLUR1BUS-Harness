@@ -143,7 +143,7 @@ fn writer_process() {
     }
 }
 
-struct Worker(Child);
+pub(crate) struct Worker(pub(crate) Child);
 
 impl Worker {
     fn spawn(dir: &Path, name: &str, role: &str) -> Self {
@@ -162,7 +162,7 @@ impl Worker {
         )
     }
 
-    fn check(&mut self) {
+    pub(crate) fn check(&mut self) {
         let deadline = Instant::now() + Duration::from_secs(15);
         loop {
             if let Some(status) = self.0.try_wait().unwrap() {
@@ -187,9 +187,7 @@ impl Drop for Worker {
 fn assert_two_writers(name: &str) {
     let temp = tempfile::tempdir().unwrap();
     let dir = temp.path();
-    if name != "jobs" || cfg!(windows) {
-        // Unix user jobs retain the legacy best-effort mode hook. Every strict
-        // opener must refuse an explicit denial before SQLite initializes the file.
+    {
         let refused = dir.join("refused.sqlite");
         assert!(
             open(name, &refused, Some(false)).is_err(),
@@ -260,3 +258,47 @@ owners!(
     dreams => "dreams",
     skill_mining => "skill-mining",
 );
+
+#[cfg(unix)]
+#[test]
+fn incompatible_databases_keep_their_bytes_and_mode() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    for name in ["receipts", "dreams", "skill-mining", "jobs"] {
+        let path = dir.path().join(name);
+        let db = rusqlite::Connection::open(&path).unwrap();
+        db.pragma_update(None, "user_version", 99).unwrap();
+        drop(db);
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+        let before = fs::read(&path).unwrap();
+        let error = open(name, &path, None).err().unwrap();
+        assert!(error.contains("newer"), "{name}: {error}");
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o644,
+            "{name}"
+        );
+        assert_eq!(fs::read(&path).unwrap(), before, "{name}");
+    }
+}
+
+#[test]
+fn coding_and_learning_refuse_a_denied_file_before_initialization() {
+    use crate::coding::{gate::CodingGate, promotion::ChatPromotion};
+    use crate::dreams::learn::store::LearnStore;
+    let dir = tempfile::tempdir().unwrap();
+    for name in ["gate", "promotion", "learn"] {
+        let file = dir.path().join(name);
+        let denied = match name {
+            "gate" => CodingGate::open_with_permissions(&file, Some(&|_| false)).is_err(),
+            "promotion" => ChatPromotion::open_with_permissions(&file, Some(&|_| false)).is_err(),
+            _ => LearnStore::open_with_permissions(&file, &|_, _| false).is_err(),
+        };
+        assert!(denied);
+        if cfg!(windows) {
+            assert!(!file.exists());
+        } else if file.exists() {
+            assert_eq!(file.metadata().unwrap().len(), 0);
+        }
+    }
+}

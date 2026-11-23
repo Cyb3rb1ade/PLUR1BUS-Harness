@@ -8,8 +8,7 @@ use crate::collab::{CollabError, CollabErrorCode as C};
 use crate::private_store;
 use plur1bus_store::rusqlite::types::Value as SqlValue;
 use plur1bus_store::rusqlite::{
-    self, params, params_from_iter, Connection, OptionalExtension, Row, Transaction,
-    TransactionBehavior,
+    self, params, params_from_iter, Connection, OptionalExtension, Row,
 };
 use plur1bus_store::{Journal, OwnerSpec, Schema, Store, StoreSpec};
 use serde::{de::DeserializeOwned, Serialize};
@@ -166,7 +165,7 @@ impl DreamStore {
 
     fn open_file(path: &Path, secure: Option<&dyn Fn(&Path) -> bool>) -> R<Self> {
         if path != Path::new(":memory:") {
-            private_store::prepare_owner_only(path, secure).map_err(|err| {
+            private_store::prepare_versioned(path, secure).map_err(|err| {
                 let message = match err {
                     private_store::PrepareError::Io(_) => "cannot prepare dreaming store",
                     private_store::PrepareError::Permissions => "cannot protect dreaming store",
@@ -185,7 +184,15 @@ impl DreamStore {
             create: true,
         };
         Ok(Self {
-            db: Store::open_owner(path, &spec)?,
+            db: private_store::open_versioned(path, &spec, || -> R<()> {
+                if !private_store::protect_compatible(path, secure) {
+                    return Err(CollabError::new(
+                        C::Storage,
+                        "cannot protect dreaming store",
+                    ));
+                }
+                Ok(())
+            })?,
         })
     }
 
@@ -357,8 +364,7 @@ impl DreamStore {
     }
 
     pub(super) fn begin_phase(&self, run: &NewRun) -> R<bool> {
-        let transaction =
-            Transaction::new_unchecked(self.db.conn(), TransactionBehavior::Immediate)?;
+        let transaction = plur1bus_store::begin_immediate(self.db.conn())?;
         let busy = transaction.query_row(
             "SELECT EXISTS(SELECT 1 FROM dream_run WHERE agent_id = ? AND phase = ? AND outcome IS NULL)
              OR (SELECT count(*) FROM dream_run WHERE outcome IS NULL) >= 3",
@@ -420,8 +426,7 @@ impl DreamStore {
                 "missing dreaming run disposition",
             ));
         };
-        let transaction =
-            Transaction::new_unchecked(self.db.conn(), TransactionBehavior::Immediate)?;
+        let transaction = plur1bus_store::begin_immediate(self.db.conn())?;
         let current = transaction
             .query_row(
                 "SELECT idempotency_key, outcome, coalesce(CAST(json_extract(counts_json,'$.llmSessions') AS INTEGER),0)
@@ -539,8 +544,7 @@ impl DreamStore {
 
     /// Retires closed ledger records and detaches expired log references in one transaction.
     pub fn prune(&self, ledger_before: i64, logs_before: i64) -> R<Retention> {
-        let transaction =
-            Transaction::new_unchecked(self.db.conn(), TransactionBehavior::Immediate)?;
+        let transaction = plur1bus_store::begin_immediate(self.db.conn())?;
         let logs = rows(&transaction,
             "SELECT log_path FROM dream_run WHERE outcome IS NOT NULL AND log_path IS NOT NULL AND started_at < ?",
             [logs_before],
@@ -566,8 +570,7 @@ impl DreamStore {
         cap: i64,
     ) -> R<bool> {
         let next_day = day.saturating_add(86_400_000);
-        let transaction =
-            Transaction::new_unchecked(self.db.conn(), TransactionBehavior::Immediate)?;
+        let transaction = plur1bus_store::begin_immediate(self.db.conn())?;
         let used: i64 = transaction.query_row(
             "SELECT coalesce(sum(max(0,coalesce(CAST(json_extract(counts_json,'$.llmSessions') AS INTEGER),0))),0)
              FROM dream_run WHERE agent_id = ?1 AND phase IN ('rem','deep')
@@ -609,8 +612,7 @@ impl DreamStore {
     }
 
     pub(super) fn update_candidates<T>(&self, change: impl FnOnce() -> R<T>) -> R<T> {
-        let transaction =
-            Transaction::new_unchecked(self.db.conn(), TransactionBehavior::Immediate)?;
+        let transaction = plur1bus_store::begin_immediate(self.db.conn())?;
         let value = change()?;
         transaction.commit()?;
         Ok(value)
