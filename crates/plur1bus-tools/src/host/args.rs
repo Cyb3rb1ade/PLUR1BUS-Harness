@@ -111,6 +111,7 @@ pub(super) fn forbidden_env(name: &str) -> bool {
                     | "BASHOPTS"
                     | "SHELLOPTS"
                     | "PS4"
+                    | "ZDOTDIR"
                     | "ENV"
                     | "PYTHONPATH"
                     | "PYTHONHOME"
