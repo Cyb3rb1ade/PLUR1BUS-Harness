@@ -1,0 +1,7 @@
+[
+  {
+    "sha": "0e79cff1c483f9d46c2381a48d1d9c55a62df963",
+    "trailer": "running-work RY",
+    "reason": "RE-10/T3 on codex/ry-b2-phase2-rest was pushed on 17.11.2026 with `Phase4: running-work` and no package letters. The change is RY work (re-embedding checkpoint in the Rust engine and its TypeScript caller)."
+  }
+]
