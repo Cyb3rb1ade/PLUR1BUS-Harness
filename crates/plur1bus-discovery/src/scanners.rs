@@ -118,6 +118,14 @@ fn serialize_query<S: serde::Serializer>(
 /// origin. Both socket work and decoding share Page::deadline.
 pub trait Port {
     fn get(&mut self, page: Page<'_>) -> Result<Vec<u8>>;
+
+    /// A transport may observe the scan's cancellation between reads.
+    fn get_with_cancel(&mut self, page: Page<'_>, cancelled: &dyn Fn() -> bool) -> Result<Vec<u8>> {
+        if cancelled() {
+            return Err(Error::network("aborted"));
+        }
+        self.get(page)
+    }
 }
 
 #[derive(Serialize)]
@@ -379,7 +387,7 @@ pub fn scan(
             max_bytes,
             deadline.min(Instant::now() + PAGE_BUDGET),
         );
-        let bytes = port.get(page)?;
+        let bytes = port.get_with_cancel(page, cancelled)?;
         running(deadline, cancelled)?;
         if bytes.len() > max_bytes {
             return Err(Error::invalid("body_too_large"));

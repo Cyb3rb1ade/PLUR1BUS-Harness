@@ -153,8 +153,19 @@ fn deadline_remaining(deadline: Instant) -> Result<Duration> {
     Ok(remaining)
 }
 
+fn active(deadline: Instant, cancelled: &dyn Fn() -> bool) -> Result<Duration> {
+    if cancelled() {
+        return Err(Error::network("aborted"));
+    }
+    deadline_remaining(deadline)
+}
+
 impl Port for Http<'_> {
     fn get(&mut self, page: Page<'_>) -> Result<Vec<u8>> {
+        self.get_with_cancel(page, &|| false)
+    }
+
+    fn get_with_cancel(&mut self, page: Page<'_>, cancelled: &dyn Fn() -> bool) -> Result<Vec<u8>> {
         let mut url = self.base.clone();
         url.set_path(&format!(
             "{}{}",
@@ -177,10 +188,10 @@ impl Port for Http<'_> {
                 .parse()
                 .map_err(|_| Error::invalid("invalid_request"))?;
             let (_, host, port) = origin(&uri)?;
-            deadline_remaining(page.deadline)?;
+            active(page.deadline, cancelled)?;
             let pin = self.host.pin(&uri, page.deadline)?;
             check_pin(pin, host, port, self.loopback)?;
-            let remaining = deadline_remaining(page.deadline)?;
+            let remaining = active(page.deadline, cancelled)?;
             let config = ureq::Agent::config_builder()
                 .proxy(None)
                 .max_redirects(0)
@@ -212,7 +223,9 @@ impl Port for Http<'_> {
             let request = request
                 .body(())
                 .map_err(|_| Error::invalid("invalid_request"))?;
-            let mut response = agent.run(request).map_err(|err| match err {
+            let response = agent.run(request);
+            active(page.deadline, cancelled)?;
+            let mut response = response.map_err(|err| match err {
                 ureq::Error::Timeout(_) => Error::network("request_timeout"),
                 ureq::Error::Io(error) => match error.kind() {
                     io::ErrorKind::ConnectionRefused => Error::network("connection_refused"),
@@ -239,7 +252,12 @@ impl Port for Http<'_> {
                 }
                 let encoding = response_encoding(response.headers())?;
                 let maximum = page.max_bytes.min(MAX_JSON_BYTES);
-                let body = read_bounded(response.body_mut().as_reader(), maximum, page.deadline)?;
+                let body = read_bounded(
+                    response.body_mut().as_reader(),
+                    maximum,
+                    page.deadline,
+                    cancelled,
+                )?;
                 return match encoding.as_str() {
                     "" | "identity" => Ok(body),
                     "gzip" => decode(
@@ -247,18 +265,21 @@ impl Port for Http<'_> {
                         maximum,
                         page.deadline,
                         "bad_gzip",
+                        cancelled,
                     ),
                     "deflate" => decode(
                         ZlibDecoder::new(body.as_slice()),
                         maximum,
                         page.deadline,
                         "bad_deflate",
+                        cancelled,
                     ),
                     "br" => decode(
                         brotli::Decompressor::new(body.as_slice(), 8192),
                         maximum,
                         page.deadline,
                         "bad_brotli",
+                        cancelled,
                     ),
                     _ => Err(Error::invalid("content_encoding")),
                 };
@@ -340,8 +361,9 @@ fn decode(
     limit: usize,
     deadline: Instant,
     invalid: &'static str,
+    cancelled: &dyn Fn() -> bool,
 ) -> Result<Vec<u8>> {
-    read_bounded(input, limit, deadline).map_err(|error| {
+    read_bounded(input, limit, deadline, cancelled).map_err(|error| {
         if error.reason == "response_body" {
             Error::invalid(invalid)
         } else {
@@ -350,14 +372,19 @@ fn decode(
     })
 }
 
-fn read_bounded(mut input: impl Read, limit: usize, deadline: Instant) -> Result<Vec<u8>> {
+fn read_bounded(
+    mut input: impl Read,
+    limit: usize,
+    deadline: Instant,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<Vec<u8>> {
     let mut bytes = Vec::with_capacity(limit.min(8192));
     let mut buffer = [0; 8192];
     loop {
-        deadline_remaining(deadline)?;
+        active(deadline, cancelled)?;
         let count = buffer.len().min(limit - bytes.len() + 1);
         let received = input.read(&mut buffer[..count]);
-        deadline_remaining(deadline)?;
+        active(deadline, cancelled)?;
         let n = received.map_err(|error| {
             if matches!(
                 error.kind(),
@@ -402,11 +429,11 @@ mod tests {
     fn the_reader_accepts_the_exact_decoded_limit_and_refuses_one_more_byte() {
         let deadline = Instant::now() + Duration::from_secs(5);
         assert_eq!(
-            read_bounded(b"abcd".as_slice(), 4, deadline),
+            read_bounded(b"abcd".as_slice(), 4, deadline, &|| false),
             Ok(b"abcd".to_vec())
         );
         assert_eq!(
-            read_bounded(b"abcde".as_slice(), 4, deadline),
+            read_bounded(b"abcde".as_slice(), 4, deadline, &|| false),
             Err(Error::invalid("response_too_large"))
         );
     }
@@ -414,7 +441,7 @@ mod tests {
     #[test]
     fn an_expired_reader_does_not_start() {
         assert_eq!(
-            read_bounded(b"abcd".as_slice(), 4, Instant::now()),
+            read_bounded(b"abcd".as_slice(), 4, Instant::now(), &|| false),
             Err(Error::network("request_timeout"))
         );
     }
@@ -425,6 +452,32 @@ mod tests {
 mod additional_tests {
     use super::*;
     use ureq::http::HeaderMap;
+
+    #[test]
+    fn cancellation_after_the_first_read_prevents_a_second_read() {
+        use std::cell::Cell;
+        struct Chunks<'a>(&'a Cell<usize>);
+        impl Read for Chunks<'_> {
+            fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+                let count = self.0.get();
+                self.0.set(count + 1);
+                if count == 2 {
+                    return Ok(0);
+                }
+                bytes[0] = b'a';
+                Ok(1)
+            }
+        }
+        let calls = Cell::new(0);
+        let result = read_bounded(
+            Chunks(&calls),
+            12,
+            Instant::now() + Duration::from_secs(1),
+            &|| calls.get() != 0,
+        );
+        assert_eq!(result, Err(Error::network("aborted")));
+        assert_eq!(calls.get(), 1);
+    }
 
     #[test]
     fn pin_matches_port_address_and_loopback() {
