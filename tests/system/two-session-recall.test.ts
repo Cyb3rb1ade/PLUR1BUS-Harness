@@ -149,6 +149,8 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
           recallSamples.push(wallMs);
           if (CI_RECALL_HARD_MS !== null && result.degraded?.capability === "recall"
             && result.degraded.reason === "timeout" && result.degraded.detail === `core hard budget ${CI_RECALL_HARD_MS} ms`) {
+            const partial = result.joined?.text;
+            if (partial?.trim()) assert.match(partial, /roadmap review/i);
             t.diagnostic(`supplemental recall ${index + 1}: wall ${wallMs.toFixed(0)} ms, ${result.degraded.detail}`);
             continue;
           }
