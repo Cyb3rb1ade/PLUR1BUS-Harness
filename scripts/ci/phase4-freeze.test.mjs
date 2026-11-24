@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ACTIVATION, GENERATED, checkCommits, collectCommits, frozenPackages, isFrozen, isGenerated, parseTrailers, validateTrailer } from './phase4-freeze.mjs';
+import { ACTIVATION, GENERATED, checkCommits, collectCommits, frozenPackages, isFrozen, isGenerated, parseCorrections, parseTrailers, validateTrailer } from './phase4-freeze.mjs';
 
 const PACKAGES = ['api', 'core', 'module-api', 'providers', 'rpc-schema', 'web'];
 const AFTER = '2026-11-09T10:00:00+01:00';
@@ -204,6 +204,43 @@ test('parseTrailers and validateTrailer', () => {
   assert.equal(validateTrailer('seam P4-10 '), false);
 });
 
+const MISTYPED = 'feat: x\n\nPhase4: running-work\n';
+const correction = (over = {}) => ({ sha: 'a'.repeat(40), trailer: 'running-work RY', reason: 'the package letters were left out', ...over });
+
+test('a recorded correction stands in for the Phase4 lines of exactly that commit', () => {
+  const mistyped = commit({ message: MISTYPED });
+  assert.match(check([mistyped])[0].reason, /malformed/, 'without a correction the commit fails');
+  const corrections = parseCorrections([correction()]);
+  assert.deepEqual(check([mistyped], { corrections }), []);
+  assert.deepEqual(check([commit({ message: 'feat: no trailer at all\n' })], { corrections }), [], 'a missing line is corrected the same way');
+  const other = commit({ sha: 'b'.repeat(40), message: MISTYPED });
+  assert.deepEqual(check([mistyped, other], { corrections }).map(f => f.sha), ['b'.repeat(40)], 'another commit with the same message still fails');
+});
+
+test('a corrected commit is judged like any other: generated still has to match the files', () => {
+  const corrections = parseCorrections([correction({ trailer: 'generated' })]);
+  const findings = check([commit({ message: MISTYPED })], { corrections });
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].reason, /not generator outputs/);
+  assert.deepEqual(check([commit({ message: MISTYPED, files: ['packages/core/src/gen.ts'] })], { corrections, generated: ['packages/core/src/gen.ts'] }), []);
+});
+
+test('the correction list accepts only full commit ids, plain work trailers and a reason', () => {
+  assert.deepEqual([...parseCorrections([correction(), correction({ sha: 'b'.repeat(40), trailer: 'seam RE-10/T3' })])],
+    [['a'.repeat(40), 'running-work RY'], ['b'.repeat(40), 'seam RE-10/T3']]);
+  assert.equal(parseCorrections([]).size, 0);
+  const bad = [{}, null, 'x', [correction({ sha: 'a'.repeat(39) })], [correction({ sha: 'A'.repeat(40) })], [correction({ sha: `${'a'.repeat(40)} ` })],
+    [correction({ sha: undefined })], [correction({ trailer: 'running-work' })], [correction({ trailer: 'defect P4D-43' })],
+    [correction({ trailer: 'Phase4: running-work RY' })], [correction({ trailer: undefined })], [correction({ reason: ' ' })],
+    [correction({ reason: undefined })], [correction(), correction()], [null], ['x']];
+  for (const entries of bad) assert.throws(() => parseCorrections(entries), /phase4-trailer-corrections\.json/, JSON.stringify(entries));
+});
+
+test('the shipped correction list parses', () => {
+  const shipped = JSON.parse(readFileSync(new URL('./phase4-trailer-corrections.json', import.meta.url), 'utf8'));
+  assert.deepEqual([...parseCorrections(shipped)], [['0e79cff1c483f9d46c2381a48d1d9c55a62df963', 'running-work RY']]);
+});
+
 // A real repository: the range is base..head, merge commits are skipped, renames count on both sides.
 function repo() {
   const dir = mkdtempSync(join(tmpdir(), 'phase4-freeze-'));
@@ -340,5 +377,69 @@ test('the command line accepts a defect approved on the base branch', () => {
 
     const result = runGuard(r.dir, [], { BASE_SHA: base, HEAD_SHA: head });
     assert.equal(result.code, 0, result.out);
+  } finally { rmSync(r.dir, { recursive: true, force: true }); }
+});
+
+const CORRECTION_FILE = 'scripts/ci/phase4-trailer-corrections.json';
+
+// The pull request carries a pushed commit with a mistyped line. Only the base may say what the line should have been.
+function mistypedBranch() {
+  const r = repo();
+  r.put('packages/core/src/core.ts', 'a');
+  const base = r.save('base', BEFORE);
+  r.git(['checkout', '-q', '-b', 'pr']);
+  r.put('packages/core/src/core.ts', 'b');
+  const mistyped = r.save(MISTYPED, AFTER);
+  return { ...r, base, mistyped };
+}
+
+test('the command line rejects a correction recorded only on the PR branch', () => {
+  const r = mistypedBranch();
+  try {
+    r.put(CORRECTION_FILE, JSON.stringify([correction({ sha: r.mistyped })]));
+    const head = r.save('PR corrects its own commit', AFTER);
+    const result = runGuard(r.dir, ['--base', r.base, '--head', head]);
+    assert.equal(result.code, 1, result.out);
+    assert.match(result.out, /malformed Phase4 trailer: "running-work"/);
+    assert(result.out.includes(r.mistyped), 'names the commit');
+  } finally { rmSync(r.dir, { recursive: true, force: true }); }
+});
+
+test('the command line accepts a correction recorded on the base branch, for that commit only', () => {
+  const r = mistypedBranch();
+  try {
+    r.put('packages/core/src/core.ts', 'c');
+    const second = r.save(MISTYPED, AFTER);
+    r.git(['checkout', '-q', 'main']);
+    r.put(CORRECTION_FILE, JSON.stringify([correction({ sha: r.mistyped })]));
+    const corrected = r.save('record the correction on the base', AFTER);
+
+    const result = runGuard(r.dir, [], { BASE_SHA: corrected, HEAD_SHA: r.mistyped });
+    assert.equal(result.code, 0, result.out);
+    const next = runGuard(r.dir, [], { BASE_SHA: corrected, HEAD_SHA: second });
+    assert.equal(next.code, 1, next.out);
+    assert(next.out.includes(second) && !next.out.includes(r.mistyped), 'only the commit without a correction is reported');
+  } finally { rmSync(r.dir, { recursive: true, force: true }); }
+});
+
+test('the command line fails closed on a correction list it cannot accept', () => {
+  // The head commit is fine on its own, so only the list can fail the run.
+  const r = repo();
+  try {
+    r.put('packages/core/src/core.ts', 'a');
+    const start = r.save('base', BEFORE);
+    r.git(['checkout', '-q', '-b', 'pr']);
+    r.put('packages/core/src/core.ts', 'b');
+    const head = r.save('feat: x\n\nPhase4: running-work RY\n', AFTER);
+    assert.equal(runGuard(r.dir, ['--base', start, '--head', head]).code, 0);
+    r.git(['checkout', '-q', 'main']);
+    for (const text of ['{', JSON.stringify([correction({ trailer: 'defect P4D-43' })]), JSON.stringify({ ['a'.repeat(40)]: 'running-work RY' })]) {
+      r.put(CORRECTION_FILE, text);
+      const base = r.save('a broken correction list', AFTER);
+      const result = runGuard(r.dir, ['--base', base, '--head', head]);
+      assert.equal(result.code, 1, `${text}\n${result.out}`);
+      assert.match(result.out, /^phase4-freeze: /m);
+      assert.doesNotMatch(result.out, /violate/);
+    }
   } finally { rmSync(r.dir, { recursive: true, force: true }); }
 });
