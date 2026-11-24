@@ -977,6 +977,7 @@ fn recall_ab_corpus(cache_dir: Option<&Path>) -> Value {
 }
 
 #[test]
+#[allow(clippy::print_stdout, reason = "frozen corpus recorder output")]
 fn flat_recall_ab_keeps_the_frozen_control_corpus() {
     let result = recall_ab_corpus(None);
     let scales = result["scales"].as_array().unwrap();
@@ -1001,6 +1002,7 @@ fn flat_recall_ab_keeps_the_frozen_control_corpus() {
 #[cfg(feature = "real-models")]
 #[test]
 #[ignore = "explicit corpus recording with the fixed E5 model and verified ONNX Runtime"]
+#[allow(clippy::print_stdout, reason = "frozen corpus recorder output")]
 fn e5_recall_ab_records_frozen_queries() {
     let cache = std::path::PathBuf::from(std::env::var_os("PLUR1BUS_MODELS_CACHE").unwrap());
     let runtime = std::path::PathBuf::from(std::env::var_os("ORT_DYLIB_PATH").unwrap());

@@ -11,6 +11,8 @@ The [corpus](../../tests/engine-parity/corpus/recall-ab/corpus.json) has 16 synt
 
 The native E5 legacy rank matched Node for all 15 queries. Its cosine rank is the same E5 order with entries below 0.82 removed in these unboosted cases. The weakest labeled pair scored about 0.834 in the Node reference converted from squared-L2 and the negative query peaked at about 0.736. The 0.82 floor leaves room for numeric variation. In `bench-arrival`, the unrelated maintenance card still precedes the delivery card. The flat embedder ties every vector; both native scales preserve membership and the flat order has no semantic significance.
 
+An unpublished integration of the read-only recall comparison ran both profiles and score scales at candidate widths 40, 50 and 100. The diagnostic path reproduced the foreground E5 order in all 15 queries on each scale and kept the same flat-backend membership in every query. Each diagnostic run used a corpus with only 16 rows, so this corroborates the score comparison and leaves pool-width differences to the larger diagnostic fixtures.
+
 | Query | Labeled IDs | E5 cosine order |
 |---|---|---|
 | meeting-time | roadmap-review | roadmap-review, roadmap-draft |
