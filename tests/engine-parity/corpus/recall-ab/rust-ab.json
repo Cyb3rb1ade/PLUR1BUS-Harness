@@ -1,0 +1,1264 @@
+{
+  "schema": "recall-ab.rust-evidence/1",
+  "profiles": {
+    "e5": {
+      "profile": "e5",
+      "scales": [
+        {
+          "queries": [
+            {
+              "expectedIds": [
+                "roadmap-review"
+              ],
+              "orderedIds": [
+                "roadmap-review",
+                "roadmap-draft",
+                "roadmap-budget",
+                "autor",
+                "lieferung",
+                "wartung",
+                "printer",
+                "scanner",
+                "boiler",
+                "paula-diet",
+                "schnitt",
+                "picnic",
+                "tool-box",
+                "schluessel",
+                "ersatzakku",
+                "archiv"
+              ],
+              "query": "meeting-time"
+            },
+            {
+              "expectedIds": [
+                "roadmap-draft"
+              ],
+              "orderedIds": [
+                "roadmap-draft",
+                "roadmap-review",
+                "roadmap-budget",
+                "wartung",
+                "lieferung",
+                "printer",
+                "autor",
+                "paula-diet",
+                "boiler",
+                "scanner",
+                "ersatzakku",
+                "schnitt",
+                "schluessel",
+                "tool-box",
+                "archiv",
+                "picnic"
+              ],
+              "query": "draft-deadline"
+            },
+            {
+              "expectedIds": [
+                "roadmap-budget"
+              ],
+              "orderedIds": [
+                "roadmap-budget",
+                "roadmap-review",
+                "roadmap-draft",
+                "lieferung",
+                "wartung",
+                "printer",
+                "scanner",
+                "schluessel",
+                "tool-box",
+                "paula-diet",
+                "boiler",
+                "schnitt",
+                "autor",
+                "archiv",
+                "ersatzakku",
+                "picnic"
+              ],
+              "query": "study-time"
+            },
+            {
+              "expectedIds": [
+                "roadmap-draft",
+                "roadmap-review"
+              ],
+              "orderedIds": [
+                "roadmap-review",
+                "roadmap-draft",
+                "roadmap-budget",
+                "lieferung",
+                "wartung",
+                "autor",
+                "schnitt",
+                "boiler",
+                "printer",
+                "paula-diet",
+                "scanner",
+                "tool-box",
+                "ersatzakku",
+                "archiv",
+                "schluessel",
+                "picnic"
+              ],
+              "query": "two-dates"
+            },
+            {
+              "expectedIds": [
+                "boiler"
+              ],
+              "orderedIds": [
+                "boiler",
+                "lieferung",
+                "wartung",
+                "scanner",
+                "printer",
+                "roadmap-review",
+                "ersatzakku",
+                "roadmap-draft",
+                "schluessel",
+                "roadmap-budget",
+                "schnitt",
+                "paula-diet",
+                "autor",
+                "tool-box",
+                "archiv",
+                "picnic"
+              ],
+              "query": "heating"
+            },
+            {
+              "expectedIds": [
+                "tool-box"
+              ],
+              "orderedIds": [
+                "tool-box",
+                "schluessel",
+                "ersatzakku",
+                "printer",
+                "scanner",
+                "roadmap-draft",
+                "roadmap-budget",
+                "autor",
+                "wartung",
+                "roadmap-review",
+                "lieferung",
+                "schnitt",
+                "boiler",
+                "paula-diet",
+                "picnic",
+                "archiv"
+              ],
+              "query": "bike-security"
+            },
+            {
+              "expectedIds": [
+                "picnic"
+              ],
+              "orderedIds": [
+                "picnic",
+                "paula-diet",
+                "printer",
+                "autor",
+                "wartung",
+                "roadmap-draft",
+                "boiler",
+                "schnitt",
+                "roadmap-review",
+                "scanner",
+                "tool-box",
+                "schluessel",
+                "ersatzakku",
+                "lieferung",
+                "roadmap-budget",
+                "archiv"
+              ],
+              "query": "picnic-food"
+            },
+            {
+              "expectedIds": [
+                "paula-diet"
+              ],
+              "orderedIds": [
+                "paula-diet",
+                "picnic",
+                "wartung",
+                "printer",
+                "roadmap-budget",
+                "autor",
+                "scanner",
+                "roadmap-draft",
+                "boiler",
+                "lieferung",
+                "ersatzakku",
+                "roadmap-review",
+                "schluessel",
+                "schnitt",
+                "tool-box",
+                "archiv"
+              ],
+              "query": "paula-allergy"
+            },
+            {
+              "expectedIds": [
+                "scanner"
+              ],
+              "orderedIds": [
+                "scanner",
+                "printer",
+                "roadmap-draft",
+                "lieferung",
+                "paula-diet",
+                "autor",
+                "ersatzakku",
+                "wartung",
+                "roadmap-review",
+                "roadmap-budget",
+                "boiler",
+                "schluessel",
+                "schnitt",
+                "tool-box",
+                "archiv",
+                "picnic"
+              ],
+              "query": "case-exact"
+            },
+            {
+              "expectedIds": [
+                "schluessel"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "ersatzakku",
+                "autor",
+                "wartung",
+                "lieferung",
+                "schnitt",
+                "scanner",
+                "printer",
+                "tool-box",
+                "archiv",
+                "roadmap-draft",
+                "boiler",
+                "roadmap-budget",
+                "roadmap-review",
+                "paula-diet",
+                "picnic"
+              ],
+              "query": "key-paraphrase"
+            },
+            {
+              "expectedIds": [
+                "ersatzakku"
+              ],
+              "orderedIds": [
+                "ersatzakku",
+                "schluessel",
+                "wartung",
+                "autor",
+                "lieferung",
+                "schnitt",
+                "boiler",
+                "archiv",
+                "scanner",
+                "printer",
+                "roadmap-draft",
+                "tool-box",
+                "roadmap-budget",
+                "roadmap-review",
+                "paula-diet",
+                "picnic"
+              ],
+              "query": "drill-power"
+            },
+            {
+              "expectedIds": [
+                "lieferung"
+              ],
+              "orderedIds": [
+                "wartung",
+                "lieferung",
+                "schluessel",
+                "autor",
+                "ersatzakku",
+                "roadmap-draft",
+                "archiv",
+                "schnitt",
+                "roadmap-review",
+                "boiler",
+                "printer",
+                "roadmap-budget",
+                "scanner",
+                "tool-box",
+                "picnic",
+                "paula-diet"
+              ],
+              "query": "bench-arrival"
+            },
+            {
+              "expectedIds": [
+                "archiv",
+                "schnitt"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "archiv",
+                "autor",
+                "wartung",
+                "ersatzakku",
+                "schluessel",
+                "lieferung",
+                "printer",
+                "roadmap-draft",
+                "scanner",
+                "roadmap-review",
+                "roadmap-budget",
+                "boiler",
+                "tool-box",
+                "paula-diet",
+                "picnic"
+              ],
+              "query": "file-formats"
+            },
+            {
+              "expectedIds": [
+                "autor"
+              ],
+              "orderedIds": [
+                "autor",
+                "wartung",
+                "schluessel",
+                "ersatzakku",
+                "lieferung",
+                "schnitt",
+                "archiv",
+                "roadmap-draft",
+                "roadmap-budget",
+                "scanner",
+                "roadmap-review",
+                "boiler",
+                "printer",
+                "tool-box",
+                "paula-diet",
+                "picnic"
+              ],
+              "query": "umlaut"
+            },
+            {
+              "expectedIds": [],
+              "orderedIds": [
+                "roadmap-draft",
+                "scanner",
+                "roadmap-review",
+                "printer",
+                "boiler",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "wartung",
+                "schluessel",
+                "archiv",
+                "roadmap-budget",
+                "schnitt",
+                "paula-diet",
+                "tool-box",
+                "picnic"
+              ],
+              "query": "unknown"
+            }
+          ],
+          "scale": "legacy",
+          "threshold": 0.3
+        },
+        {
+          "queries": [
+            {
+              "expectedIds": [
+                "roadmap-review"
+              ],
+              "orderedIds": [
+                "roadmap-review",
+                "roadmap-draft"
+              ],
+              "query": "meeting-time"
+            },
+            {
+              "expectedIds": [
+                "roadmap-draft"
+              ],
+              "orderedIds": [
+                "roadmap-draft",
+                "roadmap-review"
+              ],
+              "query": "draft-deadline"
+            },
+            {
+              "expectedIds": [
+                "roadmap-budget"
+              ],
+              "orderedIds": [
+                "roadmap-budget",
+                "roadmap-review"
+              ],
+              "query": "study-time"
+            },
+            {
+              "expectedIds": [
+                "roadmap-draft",
+                "roadmap-review"
+              ],
+              "orderedIds": [
+                "roadmap-review",
+                "roadmap-draft",
+                "roadmap-budget"
+              ],
+              "query": "two-dates"
+            },
+            {
+              "expectedIds": [
+                "boiler"
+              ],
+              "orderedIds": [
+                "boiler"
+              ],
+              "query": "heating"
+            },
+            {
+              "expectedIds": [
+                "tool-box"
+              ],
+              "orderedIds": [
+                "tool-box"
+              ],
+              "query": "bike-security"
+            },
+            {
+              "expectedIds": [
+                "picnic"
+              ],
+              "orderedIds": [
+                "picnic"
+              ],
+              "query": "picnic-food"
+            },
+            {
+              "expectedIds": [
+                "paula-diet"
+              ],
+              "orderedIds": [
+                "paula-diet"
+              ],
+              "query": "paula-allergy"
+            },
+            {
+              "expectedIds": [
+                "scanner"
+              ],
+              "orderedIds": [
+                "scanner",
+                "printer"
+              ],
+              "query": "case-exact"
+            },
+            {
+              "expectedIds": [
+                "schluessel"
+              ],
+              "orderedIds": [
+                "schluessel"
+              ],
+              "query": "key-paraphrase"
+            },
+            {
+              "expectedIds": [
+                "ersatzakku"
+              ],
+              "orderedIds": [
+                "ersatzakku"
+              ],
+              "query": "drill-power"
+            },
+            {
+              "expectedIds": [
+                "lieferung"
+              ],
+              "orderedIds": [
+                "wartung",
+                "lieferung"
+              ],
+              "query": "bench-arrival"
+            },
+            {
+              "expectedIds": [
+                "archiv",
+                "schnitt"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "archiv"
+              ],
+              "query": "file-formats"
+            },
+            {
+              "expectedIds": [
+                "autor"
+              ],
+              "orderedIds": [
+                "autor",
+                "wartung",
+                "schluessel"
+              ],
+              "query": "umlaut"
+            },
+            {
+              "expectedIds": [],
+              "orderedIds": [],
+              "query": "unknown"
+            }
+          ],
+          "scale": "cosine",
+          "threshold": 0.82
+        }
+      ],
+      "schema": "recall-ab.rust/1"
+    },
+    "flat": {
+      "profile": "flat",
+      "scales": [
+        {
+          "queries": [
+            {
+              "expectedIds": [
+                "roadmap-review"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "meeting-time"
+            },
+            {
+              "expectedIds": [
+                "roadmap-draft"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "draft-deadline"
+            },
+            {
+              "expectedIds": [
+                "roadmap-budget"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "study-time"
+            },
+            {
+              "expectedIds": [
+                "roadmap-draft",
+                "roadmap-review"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "two-dates"
+            },
+            {
+              "expectedIds": [
+                "boiler"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "heating"
+            },
+            {
+              "expectedIds": [
+                "tool-box"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "bike-security"
+            },
+            {
+              "expectedIds": [
+                "picnic"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "picnic-food"
+            },
+            {
+              "expectedIds": [
+                "paula-diet"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "paula-allergy"
+            },
+            {
+              "expectedIds": [
+                "scanner"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "case-exact"
+            },
+            {
+              "expectedIds": [
+                "schluessel"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "key-paraphrase"
+            },
+            {
+              "expectedIds": [
+                "ersatzakku"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "drill-power"
+            },
+            {
+              "expectedIds": [
+                "lieferung"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "bench-arrival"
+            },
+            {
+              "expectedIds": [
+                "archiv",
+                "schnitt"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "file-formats"
+            },
+            {
+              "expectedIds": [
+                "autor"
+              ],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "umlaut"
+            },
+            {
+              "expectedIds": [],
+              "orderedIds": [
+                "schluessel",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "autor",
+                "boiler",
+                "tool-box",
+                "wartung",
+                "printer",
+                "scanner",
+                "paula-diet",
+                "schnitt",
+                "roadmap-budget",
+                "archiv",
+                "picnic",
+                "roadmap-review"
+              ],
+              "query": "unknown"
+            }
+          ],
+          "scale": "legacy",
+          "threshold": 0.3
+        },
+        {
+          "queries": [
+            {
+              "expectedIds": [
+                "roadmap-review"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "meeting-time"
+            },
+            {
+              "expectedIds": [
+                "roadmap-draft"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "draft-deadline"
+            },
+            {
+              "expectedIds": [
+                "roadmap-budget"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "study-time"
+            },
+            {
+              "expectedIds": [
+                "roadmap-draft",
+                "roadmap-review"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "two-dates"
+            },
+            {
+              "expectedIds": [
+                "boiler"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "heating"
+            },
+            {
+              "expectedIds": [
+                "tool-box"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "bike-security"
+            },
+            {
+              "expectedIds": [
+                "picnic"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "picnic-food"
+            },
+            {
+              "expectedIds": [
+                "paula-diet"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "paula-allergy"
+            },
+            {
+              "expectedIds": [
+                "scanner"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "case-exact"
+            },
+            {
+              "expectedIds": [
+                "schluessel"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "key-paraphrase"
+            },
+            {
+              "expectedIds": [
+                "ersatzakku"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "drill-power"
+            },
+            {
+              "expectedIds": [
+                "lieferung"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "bench-arrival"
+            },
+            {
+              "expectedIds": [
+                "archiv",
+                "schnitt"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "file-formats"
+            },
+            {
+              "expectedIds": [
+                "autor"
+              ],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "umlaut"
+            },
+            {
+              "expectedIds": [],
+              "orderedIds": [
+                "schnitt",
+                "roadmap-review",
+                "printer",
+                "roadmap-draft",
+                "ersatzakku",
+                "lieferung",
+                "tool-box",
+                "wartung",
+                "picnic",
+                "paula-diet",
+                "roadmap-budget",
+                "archiv",
+                "autor",
+                "schluessel",
+                "scanner",
+                "boiler"
+              ],
+              "query": "unknown"
+            }
+          ],
+          "scale": "cosine",
+          "threshold": 1.0
+        }
+      ],
+      "schema": "recall-ab.rust/1"
+    }
+  }
+}

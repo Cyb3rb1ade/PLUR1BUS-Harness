@@ -90,6 +90,12 @@ fn schema() -> &'static Value {
             "properties": {"enabled":{"type":"boolean","default":true},"prefixes":{"type":"array","items":{"type":"string","minLength":1}}}
         });
         native_neo::install_validation_fields(&mut schema);
+        let recall: Value = serde_json::from_str(include_str!(
+            "../../schema/native-recall-score.schema.json"
+        )).embedded("native recall score schema");
+        for (name, field) in recall["properties"].as_object().embedded("native recall properties") {
+            schema["properties"]["recall"]["properties"][name] = field.clone();
+        }
         schema
     })
 }

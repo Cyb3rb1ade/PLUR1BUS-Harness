@@ -1,0 +1,1042 @@
+{
+  "schema": "recall-ab.node-baseline/1",
+  "pin": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "profile": "intfloat/multilingual-e5-small",
+  "queries": [
+    {
+      "id": "meeting-time",
+      "hits": [
+        {
+          "id": "roadmap-review",
+          "score": 0.792503
+        },
+        {
+          "id": "roadmap-draft",
+          "score": 0.750589
+        },
+        {
+          "id": "roadmap-budget",
+          "score": 0.720334
+        },
+        {
+          "id": "autor",
+          "score": 0.673299
+        },
+        {
+          "id": "lieferung",
+          "score": 0.67264
+        },
+        {
+          "id": "wartung",
+          "score": 0.670883
+        },
+        {
+          "id": "printer",
+          "score": 0.659159
+        },
+        {
+          "id": "scanner",
+          "score": 0.652499
+        },
+        {
+          "id": "boiler",
+          "score": 0.647877
+        },
+        {
+          "id": "paula-diet",
+          "score": 0.646598
+        },
+        {
+          "id": "schnitt",
+          "score": 0.638942
+        },
+        {
+          "id": "picnic",
+          "score": 0.638731
+        },
+        {
+          "id": "tool-box",
+          "score": 0.637281
+        },
+        {
+          "id": "schluessel",
+          "score": 0.635798
+        },
+        {
+          "id": "ersatzakku",
+          "score": 0.632569
+        },
+        {
+          "id": "archiv",
+          "score": 0.627961
+        }
+      ]
+    },
+    {
+      "id": "draft-deadline",
+      "hits": [
+        {
+          "id": "roadmap-draft",
+          "score": 0.832412
+        },
+        {
+          "id": "roadmap-review",
+          "score": 0.778695
+        },
+        {
+          "id": "roadmap-budget",
+          "score": 0.72814
+        },
+        {
+          "id": "wartung",
+          "score": 0.684292
+        },
+        {
+          "id": "lieferung",
+          "score": 0.677146
+        },
+        {
+          "id": "printer",
+          "score": 0.666284
+        },
+        {
+          "id": "autor",
+          "score": 0.662957
+        },
+        {
+          "id": "paula-diet",
+          "score": 0.660868
+        },
+        {
+          "id": "boiler",
+          "score": 0.658782
+        },
+        {
+          "id": "scanner",
+          "score": 0.65116
+        },
+        {
+          "id": "ersatzakku",
+          "score": 0.645068
+        },
+        {
+          "id": "schnitt",
+          "score": 0.643952
+        },
+        {
+          "id": "schluessel",
+          "score": 0.639389
+        },
+        {
+          "id": "tool-box",
+          "score": 0.635165
+        },
+        {
+          "id": "archiv",
+          "score": 0.630891
+        },
+        {
+          "id": "picnic",
+          "score": 0.618446
+        }
+      ]
+    },
+    {
+      "id": "study-time",
+      "hits": [
+        {
+          "id": "roadmap-budget",
+          "score": 0.788099
+        },
+        {
+          "id": "roadmap-review",
+          "score": 0.736836
+        },
+        {
+          "id": "roadmap-draft",
+          "score": 0.732092
+        },
+        {
+          "id": "lieferung",
+          "score": 0.658545
+        },
+        {
+          "id": "wartung",
+          "score": 0.658038
+        },
+        {
+          "id": "printer",
+          "score": 0.6562
+        },
+        {
+          "id": "scanner",
+          "score": 0.64587
+        },
+        {
+          "id": "schluessel",
+          "score": 0.639647
+        },
+        {
+          "id": "tool-box",
+          "score": 0.638821
+        },
+        {
+          "id": "paula-diet",
+          "score": 0.637527
+        },
+        {
+          "id": "boiler",
+          "score": 0.634522
+        },
+        {
+          "id": "schnitt",
+          "score": 0.632424
+        },
+        {
+          "id": "autor",
+          "score": 0.630215
+        },
+        {
+          "id": "archiv",
+          "score": 0.625412
+        },
+        {
+          "id": "ersatzakku",
+          "score": 0.620765
+        },
+        {
+          "id": "picnic",
+          "score": 0.60929
+        }
+      ]
+    },
+    {
+      "id": "two-dates",
+      "hits": [
+        {
+          "id": "roadmap-review",
+          "score": 0.83212
+        },
+        {
+          "id": "roadmap-draft",
+          "score": 0.793621
+        },
+        {
+          "id": "roadmap-budget",
+          "score": 0.750125
+        },
+        {
+          "id": "lieferung",
+          "score": 0.66733
+        },
+        {
+          "id": "wartung",
+          "score": 0.662207
+        },
+        {
+          "id": "autor",
+          "score": 0.658963
+        },
+        {
+          "id": "schnitt",
+          "score": 0.64392
+        },
+        {
+          "id": "boiler",
+          "score": 0.643258
+        },
+        {
+          "id": "printer",
+          "score": 0.64171
+        },
+        {
+          "id": "paula-diet",
+          "score": 0.632468
+        },
+        {
+          "id": "scanner",
+          "score": 0.632282
+        },
+        {
+          "id": "tool-box",
+          "score": 0.629746
+        },
+        {
+          "id": "ersatzakku",
+          "score": 0.627245
+        },
+        {
+          "id": "archiv",
+          "score": 0.627221
+        },
+        {
+          "id": "schluessel",
+          "score": 0.624327
+        },
+        {
+          "id": "picnic",
+          "score": 0.603869
+        }
+      ]
+    },
+    {
+      "id": "heating",
+      "hits": [
+        {
+          "id": "boiler",
+          "score": 0.783372
+        },
+        {
+          "id": "lieferung",
+          "score": 0.668302
+        },
+        {
+          "id": "wartung",
+          "score": 0.665792
+        },
+        {
+          "id": "scanner",
+          "score": 0.662852
+        },
+        {
+          "id": "printer",
+          "score": 0.662217
+        },
+        {
+          "id": "roadmap-review",
+          "score": 0.658868
+        },
+        {
+          "id": "ersatzakku",
+          "score": 0.652139
+        },
+        {
+          "id": "roadmap-draft",
+          "score": 0.651751
+        },
+        {
+          "id": "schluessel",
+          "score": 0.646977
+        },
+        {
+          "id": "roadmap-budget",
+          "score": 0.643879
+        },
+        {
+          "id": "schnitt",
+          "score": 0.638161
+        },
+        {
+          "id": "paula-diet",
+          "score": 0.63446
+        },
+        {
+          "id": "autor",
+          "score": 0.631598
+        },
+        {
+          "id": "tool-box",
+          "score": 0.628925
+        },
+        {
+          "id": "archiv",
+          "score": 0.627683
+        },
+        {
+          "id": "picnic",
+          "score": 0.617388
+        }
+      ]
+    },
+    {
+      "id": "bike-security",
+      "hits": [
+        {
+          "id": "tool-box",
+          "score": 0.764517
+        },
+        {
+          "id": "schluessel",
+          "score": 0.693313
+        },
+        {
+          "id": "ersatzakku",
+          "score": 0.688056
+        },
+        {
+          "id": "printer",
+          "score": 0.670141
+        },
+        {
+          "id": "scanner",
+          "score": 0.668752
+        },
+        {
+          "id": "roadmap-draft",
+          "score": 0.665312
+        },
+        {
+          "id": "roadmap-budget",
+          "score": 0.661528
+        },
+        {
+          "id": "autor",
+          "score": 0.661105
+        },
+        {
+          "id": "wartung",
+          "score": 0.660795
+        },
+        {
+          "id": "roadmap-review",
+          "score": 0.652338
+        },
+        {
+          "id": "lieferung",
+          "score": 0.646907
+        },
+        {
+          "id": "schnitt",
+          "score": 0.642747
+        },
+        {
+          "id": "boiler",
+          "score": 0.641043
+        },
+        {
+          "id": "paula-diet",
+          "score": 0.638379
+        },
+        {
+          "id": "picnic",
+          "score": 0.636463
+        },
+        {
+          "id": "archiv",
+          "score": 0.632223
+        }
+      ]
+    },
+    {
+      "id": "picnic-food",
+      "hits": [
+        {
+          "id": "picnic",
+          "score": 0.785349
+        },
+        {
+          "id": "paula-diet",
+          "score": 0.729079
+        },
+        {
+          "id": "printer",
+          "score": 0.631372
+        },
+        {
+          "id": "autor",
+          "score": 0.629546
+        },
+        {
+          "id": "wartung",
+          "score": 0.628168
+        },
+        {
+          "id": "roadmap-draft",
+          "score": 0.626586
+        },
+        {
+          "id": "boiler",
+          "score": 0.626116
+        },
+        {
+          "id": "schnitt",
+          "score": 0.622615
+        },
+        {
+          "id": "roadmap-review",
+          "score": 0.618708
+        },
+        {
+          "id": "scanner",
+          "score": 0.616222
+        },
+        {
+          "id": "tool-box",
+          "score": 0.613321
+        },
+        {
+          "id": "schluessel",
+          "score": 0.613127
+        },
+        {
+          "id": "ersatzakku",
+          "score": 0.613057
+        },
+        {
+          "id": "lieferung",
+          "score": 0.609707
+        },
+        {
+          "id": "roadmap-budget",
+          "score": 0.608621
+        },
+        {
+          "id": "archiv",
+          "score": 0.602043
+        }
+      ]
+    },
+    {
+      "id": "paula-allergy",
+      "hits": [
+        {
+          "id": "paula-diet",
+          "score": 0.786024
+        },
+        {
+          "id": "picnic",
+          "score": 0.714405
+        },
+        {
+          "id": "wartung",
+          "score": 0.660046
+        },
+        {
+          "id": "printer",
+          "score": 0.659351
+        },
+        {
+          "id": "roadmap-budget",
+          "score": 0.656599
+        },
+        {
+          "id": "autor",
+          "score": 0.654987
+        },
+        {
+          "id": "scanner",
+          "score": 0.654622
+        },
+        {
+          "id": "roadmap-draft",
+          "score": 0.650336
+        },
+        {
+          "id": "boiler",
+          "score": 0.643587
+        },
+        {
+          "id": "lieferung",
+          "score": 0.640423
+        },
+        {
+          "id": "ersatzakku",
+          "score": 0.636189
+        },
+        {
+          "id": "roadmap-review",
+          "score": 0.635684
+        },
+        {
+          "id": "schluessel",
+          "score": 0.63557
+        },
+        {
+          "id": "schnitt",
+          "score": 0.632114
+        },
+        {
+          "id": "tool-box",
+          "score": 0.630245
+        },
+        {
+          "id": "archiv",
+          "score": 0.61914
+        }
+      ]
+    },
+    {
+      "id": "case-exact",
+      "hits": [
+        {
+          "id": "scanner",
+          "score": 0.757459
+        },
+        {
+          "id": "printer",
+          "score": 0.73787
+        },
+        {
+          "id": "roadmap-draft",
+          "score": 0.683523
+        },
+        {
+          "id": "lieferung",
+          "score": 0.678776
+        },
+        {
+          "id": "paula-diet",
+          "score": 0.672486
+        },
+        {
+          "id": "autor",
+          "score": 0.671719
+        },
+        {
+          "id": "ersatzakku",
+          "score": 0.668009
+        },
+        {
+          "id": "wartung",
+          "score": 0.667004
+        },
+        {
+          "id": "roadmap-review",
+          "score": 0.665089
+        },
+        {
+          "id": "roadmap-budget",
+          "score": 0.663788
+        },
+        {
+          "id": "boiler",
+          "score": 0.660956
+        },
+        {
+          "id": "schluessel",
+          "score": 0.657581
+        },
+        {
+          "id": "schnitt",
+          "score": 0.657059
+        },
+        {
+          "id": "tool-box",
+          "score": 0.639139
+        },
+        {
+          "id": "archiv",
+          "score": 0.638603
+        },
+        {
+          "id": "picnic",
+          "score": 0.620133
+        }
+      ]
+    },
+    {
+      "id": "key-paraphrase",
+      "hits": [
+        {
+          "id": "schluessel",
+          "score": 0.804033
+        },
+        {
+          "id": "ersatzakku",
+          "score": 0.733304
+        },
+        {
+          "id": "autor",
+          "score": 0.715457
+        },
+        {
+          "id": "wartung",
+          "score": 0.712109
+        },
+        {
+          "id": "lieferung",
+          "score": 0.686004
+        },
+        {
+          "id": "schnitt",
+          "score": 0.668993
+        },
+        {
+          "id": "scanner",
+          "score": 0.667557
+        },
+        {
+          "id": "printer",
+          "score": 0.663735
+        },
+        {
+          "id": "tool-box",
+          "score": 0.660115
+        },
+        {
+          "id": "archiv",
+          "score": 0.659931
+        },
+        {
+          "id": "roadmap-draft",
+          "score": 0.652907
+        },
+        {
+          "id": "boiler",
+          "score": 0.647645
+        },
+        {
+          "id": "roadmap-budget",
+          "score": 0.647349
+        },
+        {
+          "id": "roadmap-review",
+          "score": 0.634044
+        },
+        {
+          "id": "paula-diet",
+          "score": 0.618157
+        },
+        {
+          "id": "picnic",
+          "score": 0.583562
+        }
+      ]
+    },
+    {
+      "id": "drill-power",
+      "hits": [
+        {
+          "id": "ersatzakku",
+          "score": 0.769171
+        },
+        {
+          "id": "schluessel",
+          "score": 0.70724
+        },
+        {
+          "id": "wartung",
+          "score": 0.692032
+        },
+        {
+          "id": "autor",
+          "score": 0.675293
+        },
+        {
+          "id": "lieferung",
+          "score": 0.668502
+        },
+        {
+          "id": "schnitt",
+          "score": 0.644752
+        },
+        {
+          "id": "boiler",
+          "score": 0.643452
+        },
+        {
+          "id": "archiv",
+          "score": 0.642867
+        },
+        {
+          "id": "scanner",
+          "score": 0.632557
+        },
+        {
+          "id": "printer",
+          "score": 0.632304
+        },
+        {
+          "id": "roadmap-draft",
+          "score": 0.627802
+        },
+        {
+          "id": "tool-box",
+          "score": 0.623136
+        },
+        {
+          "id": "roadmap-budget",
+          "score": 0.621277
+        },
+        {
+          "id": "roadmap-review",
+          "score": 0.609247
+        },
+        {
+          "id": "paula-diet",
+          "score": 0.602686
+        },
+        {
+          "id": "picnic",
+          "score": 0.584516
+        }
+      ]
+    },
+    {
+      "id": "bench-arrival",
+      "hits": [
+        {
+          "id": "wartung",
+          "score": 0.764113
+        },
+        {
+          "id": "lieferung",
+          "score": 0.750401
+        },
+        {
+          "id": "schluessel",
+          "score": 0.722304
+        },
+        {
+          "id": "autor",
+          "score": 0.706967
+        },
+        {
+          "id": "ersatzakku",
+          "score": 0.700583
+        },
+        {
+          "id": "roadmap-draft",
+          "score": 0.684074
+        },
+        {
+          "id": "archiv",
+          "score": 0.682523
+        },
+        {
+          "id": "schnitt",
+          "score": 0.680656
+        },
+        {
+          "id": "roadmap-review",
+          "score": 0.676071
+        },
+        {
+          "id": "boiler",
+          "score": 0.672591
+        },
+        {
+          "id": "printer",
+          "score": 0.672477
+        },
+        {
+          "id": "roadmap-budget",
+          "score": 0.664747
+        },
+        {
+          "id": "scanner",
+          "score": 0.651643
+        },
+        {
+          "id": "tool-box",
+          "score": 0.633306
+        },
+        {
+          "id": "picnic",
+          "score": 0.621822
+        },
+        {
+          "id": "paula-diet",
+          "score": 0.616947
+        }
+      ]
+    },
+    {
+      "id": "file-formats",
+      "hits": [
+        {
+          "id": "schnitt",
+          "score": 0.762982
+        },
+        {
+          "id": "archiv",
+          "score": 0.756032
+        },
+        {
+          "id": "autor",
+          "score": 0.677695
+        },
+        {
+          "id": "wartung",
+          "score": 0.669814
+        },
+        {
+          "id": "ersatzakku",
+          "score": 0.668748
+        },
+        {
+          "id": "schluessel",
+          "score": 0.665181
+        },
+        {
+          "id": "lieferung",
+          "score": 0.651837
+        },
+        {
+          "id": "printer",
+          "score": 0.642799
+        },
+        {
+          "id": "roadmap-draft",
+          "score": 0.640289
+        },
+        {
+          "id": "scanner",
+          "score": 0.63579
+        },
+        {
+          "id": "roadmap-review",
+          "score": 0.627574
+        },
+        {
+          "id": "roadmap-budget",
+          "score": 0.613534
+        },
+        {
+          "id": "boiler",
+          "score": 0.609635
+        },
+        {
+          "id": "tool-box",
+          "score": 0.601945
+        },
+        {
+          "id": "paula-diet",
+          "score": 0.594615
+        },
+        {
+          "id": "picnic",
+          "score": 0.588282
+        }
+      ]
+    },
+    {
+      "id": "umlaut",
+      "hits": [
+        {
+          "id": "autor",
+          "score": 0.805776
+        },
+        {
+          "id": "wartung",
+          "score": 0.755098
+        },
+        {
+          "id": "schluessel",
+          "score": 0.751041
+        },
+        {
+          "id": "ersatzakku",
+          "score": 0.729828
+        },
+        {
+          "id": "lieferung",
+          "score": 0.728221
+        },
+        {
+          "id": "schnitt",
+          "score": 0.706881
+        },
+        {
+          "id": "archiv",
+          "score": 0.706071
+        },
+        {
+          "id": "roadmap-draft",
+          "score": 0.681795
+        },
+        {
+          "id": "roadmap-budget",
+          "score": 0.673988
+        },
+        {
+          "id": "scanner",
+          "score": 0.66937
+        },
+        {
+          "id": "roadmap-review",
+          "score": 0.666611
+        },
+        {
+          "id": "boiler",
+          "score": 0.663874
+        },
+        {
+          "id": "printer",
+          "score": 0.662686
+        },
+        {
+          "id": "tool-box",
+          "score": 0.643395
+        },
+        {
+          "id": "paula-diet",
+          "score": 0.638671
+        },
+        {
+          "id": "picnic",
+          "score": 0.610338
+        }
+      ]
+    },
+    {
+      "id": "unknown",
+      "hits": [
+        {
+          "id": "roadmap-draft",
+          "score": 0.654865
+        },
+        {
+          "id": "scanner",
+          "score": 0.653561
+        },
+        {
+          "id": "roadmap-review",
+          "score": 0.653181
+        },
+        {
+          "id": "printer",
+          "score": 0.649876
+        },
+        {
+          "id": "boiler",
+          "score": 0.645446
+        },
+        {
+          "id": "ersatzakku",
+          "score": 0.641342
+        },
+        {
+          "id": "lieferung",
+          "score": 0.63449
+        },
+        {
+          "id": "autor",
+          "score": 0.631687
+        },
+        {
+          "id": "wartung",
+          "score": 0.628854
+        },
+        {
+          "id": "schluessel",
+          "score": 0.627638
+        },
+        {
+          "id": "archiv",
+          "score": 0.627631
+        },
+        {
+          "id": "roadmap-budget",
+          "score": 0.627173
+        },
+        {
+          "id": "schnitt",
+          "score": 0.625808
+        },
+        {
+          "id": "paula-diet",
+          "score": 0.62411
+        },
+        {
+          "id": "tool-box",
+          "score": 0.61034
+        },
+        {
+          "id": "picnic",
+          "score": 0.607675
+        }
+      ]
+    }
+  ]
+}

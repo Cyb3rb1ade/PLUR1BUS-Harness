@@ -1,0 +1,39 @@
+{
+  "schema": "recall-ab.corpus/1",
+  "now": "2026-01-13T12:00:00.000Z",
+  "cards": [
+    {"id": "roadmap-review", "text": "The Atlas roadmap review starts Thursday at 10:00 in the blue meeting room."},
+    {"id": "roadmap-draft", "text": "Send the first draft of the Atlas roadmap on Tuesday by 15:00."},
+    {"id": "roadmap-budget", "text": "The Atlas roadmap has a separate accessibility budget of twelve staff days."},
+    {"id": "boiler", "text": "The boiler inspection at the Linden office is due on Tuesday morning."},
+    {"id": "tool-box", "text": "The spare bicycle lock is in the green toolbox under the stairs."},
+    {"id": "picnic", "text": "Paula is bringing lentil soup to the picnic. Tomas is bringing spoons."},
+    {"id": "scanner", "text": "Ticket QX-9147 covers the broken scanner on the third floor."},
+    {"id": "printer", "text": "Ticket QX-9148 covers the jammed label printer on the third floor."},
+    {"id": "paula-diet", "text": "Paula avoids shellfish. Lentils and chickpeas are fine."},
+    {"id": "schluessel", "text": "Der Ersatzschlüssel für die Werkstatt liegt in der blauen Schublade."},
+    {"id": "ersatzakku", "text": "Der Ersatzakku für den Bohrer liegt in der roten Schublade."},
+    {"id": "lieferung", "text": "Die Lieferung der Werkbank kommt am Freitag um halb elf."},
+    {"id": "wartung", "text": "Die Werkbank braucht bis Ende März eine neue Arbeitsplatte."},
+    {"id": "archiv", "text": "Die Tonaufnahmen vom Stadtteilfest werden als WAV im Monatsarchiv abgelegt."},
+    {"id": "schnitt", "text": "Für die Vorschau des Stadtteilfilms reicht eine MP4-Datei in 720p."},
+    {"id": "autor", "text": "Müller zeichnet die endgültige Fassung des Werkstattplans ab."}
+  ],
+  "queries": [
+    {"id": "meeting-time", "text": "When are we meeting to discuss the Atlas plan?", "expectedIds": ["roadmap-review"]},
+    {"id": "draft-deadline", "text": "When do I need to send the first Atlas roadmap draft?", "expectedIds": ["roadmap-draft"]},
+    {"id": "study-time", "text": "How many days are reserved for accessibility work on Atlas?", "expectedIds": ["roadmap-budget"]},
+    {"id": "two-dates", "text": "What are the deadline and review time for the Atlas roadmap?", "expectedIds": ["roadmap-draft", "roadmap-review"]},
+    {"id": "heating", "text": "When is the heating inspection at the Linden office?", "expectedIds": ["boiler"]},
+    {"id": "bike-security", "text": "Where did we put the extra lock for the bicycle?", "expectedIds": ["tool-box"]},
+    {"id": "picnic-food", "text": "What food is Paula bringing to the picnic?", "expectedIds": ["picnic"]},
+    {"id": "paula-allergy", "text": "Can we serve Paula a shrimp dish?", "expectedIds": ["paula-diet"]},
+    {"id": "case-exact", "text": "QX-9147", "expectedIds": ["scanner"]},
+    {"id": "key-paraphrase", "text": "Wo finde ich den zweiten Schlüssel zur Werkstatt?", "expectedIds": ["schluessel"]},
+    {"id": "drill-power", "text": "In welcher Lade ist die zweite Batterie für die Bohrmaschine?", "expectedIds": ["ersatzakku"]},
+    {"id": "bench-arrival", "text": "Wann wird unser neuer Arbeitstisch geliefert?", "expectedIds": ["lieferung"]},
+    {"id": "file-formats", "text": "Welche Dateiformate haben die archivierten Tonaufnahmen und die Filmvorschau?", "expectedIds": ["archiv", "schnitt"]},
+    {"id": "umlaut", "text": "Mueller Werkstattplan Freigabe", "expectedIds": ["autor"]},
+    {"id": "unknown", "text": "At what altitude did the weather balloon burst?", "expectedIds": []}
+  ]
+}

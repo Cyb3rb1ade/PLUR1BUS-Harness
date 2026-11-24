@@ -407,6 +407,7 @@ fn main() {
         "schema/engine-contract.schema.json",
         "schema/engine-config.schema.json",
         "schema/native-neo-n1.schema.json",
+        "schema/native-recall-score.schema.json",
         "schema/DRIFT.json",
         "schema/input-limits.json",
     ] {
@@ -459,6 +460,16 @@ fn main() {
     {
         install_field(&mut config, &format!("neo.{name}"), field.clone());
     }
+    for (name, field) in read("schema/native-recall-score.schema.json")["properties"]
+        .as_object()
+        .expect("native recall score fields")
+    {
+        install_field(&mut config, &format!("recall.{name}"), field.clone());
+    }
+    config["properties"]
+        .as_object_mut()
+        .expect("engine config properties")
+        .remove("forgetThreshold");
     generate(config, true, "engine_config.rs");
     let limits = read("schema/input-limits.json");
     let constants = limits.as_object().expect("input limits").iter().map(|(name, value)| {

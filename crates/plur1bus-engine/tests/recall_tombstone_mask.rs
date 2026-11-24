@@ -131,6 +131,7 @@ impl Fixture {
 
 fn limits(top: usize, min_score: f64) -> StageLimits {
     StageLimits {
+        score_scale: Default::default(),
         top_n: top,
         candidate_top_k: top,
         candidate_hard_limit: 10,

@@ -78,7 +78,11 @@ const ICU_LEGACY_TIMEZONES: &[&str] = &[
 /// Sibling failures follow the supplied JSON value's iteration order: original text
 /// insertion order is unavailable after parsing into a sorted JSON object map.
 pub fn validate(raw: &Value) -> Result<EngineConfig, Vec<ConfigError>> {
-    let normalized = normalize(raw)?;
+    let mut normalized = normalize(raw)?;
+    // Validate the historical field for old configs, then omit it from the native engine.
+    if let Some(properties) = normalized.as_object_mut() {
+        properties.remove("forgetThreshold");
+    }
     serde_json::from_value(normalized)
         .map_err(|cause| vec![error("", format!("generated configuration type: {cause}"))])
 }

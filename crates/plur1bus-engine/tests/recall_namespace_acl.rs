@@ -396,6 +396,7 @@ fn pipeline<'a>(
         tombstones: None,
         cancel,
         limits: StageLimits {
+            score_scale: Default::default(),
             top_n: 4,
             candidate_top_k: 40,
             candidate_hard_limit: 100,
