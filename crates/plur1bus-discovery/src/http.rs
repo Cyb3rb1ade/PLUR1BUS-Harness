@@ -22,6 +22,11 @@ const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
 pub trait Admission {
     /// Resolve and admit one address. The connector dials only this pin.
     fn pin(&self, uri: &Uri, deadline: Instant) -> Result<SocketAddr>;
+    /// Verify this exact HTTP base came from explicit user configuration.
+    fn configured_cleartext(&self, _base: &Uri) -> bool {
+        false
+    }
+
     fn now_ms(&self) -> i64;
 }
 
@@ -54,16 +59,26 @@ impl<'a> Http<'a> {
         lease: Option<Lease<'_>>,
         allow_loopback: bool,
     ) -> Result<Self> {
-        let loopback = base.scheme_str() == Some("http") && allow_loopback;
         let (scheme, host_name, _) = origin(base)?;
+        let base_url =
+            Url::parse(&base.to_string()).map_err(|_| Error::invalid("invalid_base_url"))?;
+        let local_target = host_name.eq_ignore_ascii_case("localhost")
+            || literal(host_name).is_some_and(|ip| ip.is_loopback());
+        let normalized_loopback = base_url
+            .host_str()
+            .and_then(literal)
+            .is_some_and(|ip| ip.to_canonical().is_loopback());
+        let loopback = scheme == "http" && local_target && allow_loopback;
         if scheme != "https"
-            && !(loopback
-                && (host_name.eq_ignore_ascii_case("localhost")
-                    || literal(host_name).is_some_and(|ip| ip.is_loopback())))
+            && !loopback
+            && (local_target
+                || normalized_loopback
+                || lease.is_some()
+                || !host.configured_cleartext(base))
         {
             return Err(Error::invalid("insecure_transport"));
         }
-        let base = Url::parse(&base.to_string()).map_err(|_| Error::invalid("invalid_base_url"))?;
+        let base = base_url;
         if base.query().is_some() || base.fragment().is_some() {
             return Err(Error::invalid("invalid_base_url"));
         }

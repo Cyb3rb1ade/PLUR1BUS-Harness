@@ -338,3 +338,44 @@ fn decoded_gzip_respects_the_page_size_limit() {
         }
     }
 }
+
+#[test]
+fn remote_cleartext_requires_manual_configuration_and_no_lease() {
+    struct Configured;
+    impl Admission for Configured {
+        fn pin(&self, _: &Uri, _: Instant) -> Result<SocketAddr> {
+            panic!("configuration checks must run before network admission");
+        }
+        fn configured_cleartext(&self, base: &Uri) -> bool {
+            matches!(
+                base.host(),
+                Some("models.example.invalid" | "127.1" | "[::ffff:127.0.0.1]")
+            )
+        }
+        fn now_ms(&self) -> i64 {
+            0
+        }
+    }
+    let manual: Uri = "http://models.example.invalid:11434".parse().unwrap();
+    assert!(Http::new(&Configured, &manual, "fixture", None, false).is_ok());
+
+    let unauthorized: Uri = "http://discovered.example.invalid:11434".parse().unwrap();
+    let origin = Url::parse(&manual.to_string()).unwrap();
+    let lease = Lease {
+        origin: &origin,
+        header: CredentialHeader::Bearer("fixture"),
+    };
+    for (uri, lease) in [(&unauthorized, None), (&manual, Some(lease))] {
+        let error = Http::new(&Configured, uri, "fixture", lease, true)
+            .err()
+            .unwrap();
+        assert_eq!(error.reason, "insecure_transport");
+    }
+    for raw in ["http://127.1:11434", "http://[::ffff:127.0.0.1]:11434"] {
+        let uri = raw.parse().unwrap();
+        let error = Http::new(&Configured, &uri, "fixture", None, true)
+            .err()
+            .unwrap();
+        assert_eq!(error.reason, "insecure_transport");
+    }
+}
