@@ -404,6 +404,7 @@ fn pipeline<'a>(
             canonical_max_items: 2,
         },
         flags: StageFlags {
+            hybrid: false,
             canonical: false,
             associative: false,
             defer_final_cap: true,

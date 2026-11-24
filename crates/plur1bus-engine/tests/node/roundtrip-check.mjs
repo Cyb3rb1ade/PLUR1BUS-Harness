@@ -23,11 +23,19 @@ if(args[0]==="--sqlite"){
   try{engineRoot=path.dirname(createRequire(path.join(process.cwd(),"package.json")).resolve("@cyb3rb1ade/plur1bus-memory/package.json"));}
   catch{throw new Error("run pnpm test:prep (the engine package is not installed)");}
   const {MemoryDB}=await import(pathToFileURL(path.join(engineRoot,"engine/store/memory-db.js")));
-  const db=new MemoryDB(args[0],384,null,{readOnly:true});
+  const mutate = args[1] === "--lexical-update";
+  const db=new MemoryDB(args[0],384,null,{readOnly:!mutate});
   await db.init();
   try{
+    if (mutate) {
+      assert.match(args[2], /^[0-9a-f-]{36}$/);
+      const values = args[3] === "delete" ? { status: "deleted" } : { text: "Isotopenkalibrierung" };
+      await db.table.update({ where: `id = '${args[2]}'`, values });
+      console.log(JSON.stringify({ updated: true }));
+    } else {
     const rows=await db.table.query().toArray();
     assert.equal(rows.length,Number(args[1]));
     console.log(JSON.stringify({count:rows.length,ids:rows.map(row=>row.id).sort(),identityStatus:db.identityStatus,textType:String((await db.table.schema()).fields.find(field=>field.name==="text").type)}));
+    }
   }finally{await db.shutdown();}
 }

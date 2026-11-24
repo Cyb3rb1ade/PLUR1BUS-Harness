@@ -3473,3 +3473,9 @@ spinning at all. Scores do not depend on the shape (the local embedding parity s
 sessions keep their own pool of half the processors (`media/session.rs`); they wait while text inference is pending,
 and the two pools were not measured together.
 
+
+### Exact and lexical recall (RE-D12 and RE-D15)
+
+Native `recall.hybridEnabled` opts into exact ID and metadata lookup, BM25 over German and English terms, and vector retrieval. The physical `memories` table supplies every returned row. The query's validity window, lifecycle, row authorization and committed tombstones apply before reranking or display. Each source contributes at most one reciprocal rank per ID, with denominator offset 60. Equal totals retain source discovery order.
+
+The writer maintains a separate Lance table named `_lexical`. It indexes the analyzed text and summary with whitespace tokenization on both fields. The match query uses OR, unit boosts and no stored positions. The watermark in `lexical-state.json` records the memories version and analyzer version. A repair compares SHA-256 over text, NUL, summary, NUL and status. It adds missing rows, updates changed terms and deletes terms for absent or inactive rows. A store-local file lock serializes repair. Read-only leases can consume an existing index. Writers can rebuild an index from committed text without loading a model.

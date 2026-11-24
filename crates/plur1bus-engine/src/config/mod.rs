@@ -90,6 +90,7 @@ fn schema() -> &'static Value {
             "properties": {"enabled":{"type":"boolean","default":true},"prefixes":{"type":"array","items":{"type":"string","minLength":1}}}
         });
         native_neo::install_validation_fields(&mut schema);
+        schema["properties"]["recall"]["properties"]["hybridEnabled"] = serde_json::from_str(include_str!("../../schema/native-recall-hybrid.schema.json")).embedded("native hybrid setting");
         schema
     })
 }

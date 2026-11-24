@@ -51,6 +51,8 @@ pub struct StageLimits {
 /// Switches for the stages this task owns.
 #[derive(Clone, Debug)]
 pub struct StageFlags {
+    /// Enable the experimental RE-D12 candidate sources.
+    pub hybrid: bool,
     /// Read `memory/KNOWLEDGE.md` when a workspace is set.
     pub canonical: bool,
     /// Walk `edges` after scoring.
@@ -468,13 +470,21 @@ fn search_hits(
     sink: &dyn DenialSink,
     rejections: &mut Vec<Rejection>,
 ) -> Result<Vec<Hit>, StageError> {
-    let hits = read_hits(input, query_vector, acl_stage, sink, rejections)?;
+    let hits = read_hits(
+        input,
+        input.query,
+        query_vector,
+        acl_stage,
+        sink,
+        rejections,
+    )?;
     retain_unmasked(input, hits, rejections)
 }
 
 /// Vector read, score filter, lifecycle and ACL; the tombstone mask is applied separately.
 fn read_hits(
     input: &StageInput<'_>,
+    query: &str,
     query_vector: &[f32],
     acl_stage: &str,
     sink: &dyn DenialSink,
@@ -502,9 +512,76 @@ fn read_hits(
             source: "vector",
         });
     }
+    if input.flags.hybrid {
+        hits = hybrid_hits(input, query, &filter, hits).map_err(StageError::Store)?;
+    }
     reject_inactive(input, &mut hits, rejections);
     hits.retain(|hit| acl_allows(input, hit, acl_stage, sink, rejections));
     Ok(hits)
+}
+
+fn hybrid_hits(
+    input: &StageInput<'_>,
+    query: &str,
+    filter: &RowFilter,
+    vector: Vec<Hit>,
+) -> Result<Vec<Hit>, StoreError> {
+    use std::collections::HashMap;
+    let limit = fetch_limit(input);
+    input.store.prepare_lexical_recall()?;
+    let exact = input.store.exact_recall(query, filter, limit)?;
+    let lexical = input.store.lexical_ids(query, limit)?;
+    if exact.is_empty() && lexical.is_empty() {
+        return Ok(vector);
+    }
+    let lexical_rows = if lexical.is_empty() {
+        Vec::new()
+    } else {
+        input.store.scan(
+            &RowFilter {
+                ids: Some(lexical.clone()),
+                ..filter.clone()
+            },
+            limit,
+        )?
+    };
+    let exact_ids: Vec<_> = exact.iter().map(|row| row.id.clone()).collect();
+    let vector_ids: Vec<_> = vector.iter().map(|hit| hit.id.clone()).collect();
+    let mut hits: HashMap<_, _> = vector
+        .into_iter()
+        .map(|hit| (hit.id.clone(), hit))
+        .collect();
+    for (rows, source) in [(lexical_rows, "lexical"), (exact, "exact")] {
+        for row in rows {
+            hits.insert(
+                row.id.clone(),
+                Hit {
+                    id: row.id.clone(),
+                    row: Some(row),
+                    score: 0.0,
+                    depth: None,
+                    source,
+                },
+            );
+        }
+    }
+    fn ids(v: &[String]) -> Vec<&str> {
+        v.iter().map(String::as_str).collect()
+    }
+    let exact_ranks = ids(&exact_ids);
+    let lexical_ranks = ids(&lexical);
+    let vector_ranks = ids(&vector_ids);
+    let ranked = super::fusion::rrf(&[&exact_ranks, &lexical_ranks, &vector_ranks]);
+    Ok(ranked
+        .into_iter()
+        .enumerate()
+        .filter_map(|(rank, id)| {
+            let mut hit = hits.remove(id)?;
+            hit.score = (super::namespace_identity::DEFAULT_RRF_K + 1.0)
+                / (super::namespace_identity::DEFAULT_RRF_K + 1.0 + rank as f64);
+            Some(hit)
+        })
+        .collect())
 }
 
 /// RE-D153: drop rows whose owner committed their deletion. Only the id and a fixed
@@ -560,10 +637,11 @@ fn refine_hits(
             .map(|row| (row.summary.as_str(), row.text.as_str())),
     });
     let refined = super::query_refiner::refine_query(input.query, top);
-    let vector = match input
-        .embedder
-        .embed(&[refined], EmbedKind::Query, &Cancel::never())
-    {
+    let vector = match input.embedder.embed(
+        std::slice::from_ref(&refined),
+        EmbedKind::Query,
+        &Cancel::never(),
+    ) {
         Ok(vectors) => match vectors.into_iter().next() {
             Some(vector) => vector,
             None => return Ok(None),
@@ -572,7 +650,7 @@ fn refine_hits(
         Err(_) => return Ok(None),
     };
     let mut found = Vec::new();
-    let refined = match read_hits(input, &vector, "refined-acl", sink, &mut found) {
+    let refined = match read_hits(input, &refined, &vector, "refined-acl", sink, &mut found) {
         Ok(refined) => refined,
         Err(_) => return Ok(None),
     };

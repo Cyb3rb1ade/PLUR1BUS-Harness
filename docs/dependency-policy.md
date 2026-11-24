@@ -277,3 +277,9 @@ Several rows appear in both Cargo workspaces. These are unlisted-policy findings
 that each licence is forbidden. None was silently approved, suppressed or added as an exception.
 The licence job exposes the full target-specific report for the owner policy review. The licence
 decisions of 2026-10-28 above settle these findings.
+
+## Data artefacts for native lexical recall
+
+The German and English lists in `crates/plur1bus-engine/src/text/stopwords` come from the Snowball project. The checked-in files contain the first field of each nonempty data line, sorted and deduplicated. The German list includes `dass`. Record any change to either list in the analyzer version so existing stores can rebuild their derived fields. [German source](https://snowballstem.org/algorithms/german/stop.txt) · [English source](https://snowballstem.org/algorithms/english/stop.txt)
+
+The analyzer applies the BSD-3-Clause frostem German and English stemmers. The release inventory records the exact package versions and licence texts. Any quality evaluation that includes an owner snapshot keeps source passages, queries, terms and individual results on the host.

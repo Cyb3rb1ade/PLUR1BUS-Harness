@@ -142,6 +142,7 @@ impl Fixture {
                 canonical_max_items: 5,
             },
             flags: StageFlags {
+                hybrid: false,
                 canonical: true,
                 associative: false,
                 defer_final_cap: true,

@@ -824,3 +824,24 @@ fn the_prompt_trace_does_not_count_a_masked_card() {
     };
     assert_eq!(summary(true), summary(false));
 }
+
+#[test]
+fn hybrid_sources_survive_an_empty_vector_pool_in_normal_recall() {
+    let temp = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let host = host_with(
+        temp.path(),
+        &json!({"autoRecallMinScore":1.01,"recall":{"hybridEnabled":true}}),
+    );
+    let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+    let (_store, row) = seeded(temp.path(), &engine);
+    for query in [row.id.as_str(), "archive"] {
+        let answer = recall(&engine, &params(query, "user"));
+        assert!(
+            block(&answer, "memories")["text"]
+                .as_str()
+                .unwrap()
+                .contains(&row.id),
+            "{answer}"
+        );
+    }
+}

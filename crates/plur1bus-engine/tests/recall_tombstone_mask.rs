@@ -142,6 +142,7 @@ fn limits(top: usize, min_score: f64) -> StageLimits {
 
 fn flags(associative: bool, query_refiner: bool) -> StageFlags {
     StageFlags {
+        hybrid: false,
         canonical: false,
         associative,
         defer_final_cap: true,

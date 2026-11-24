@@ -633,3 +633,88 @@ fn typed_lance_reads_preserve_adjacent_float64_values_exactly() {
         );
     }
 }
+
+#[test]
+fn an_exact_id_query_finds_the_row_without_a_vector_hit() {
+    let (_temp, store) = writable();
+    let row = appended_rows(&store).remove(0);
+    store.upsert(std::slice::from_ref(&row)).unwrap();
+    let filter = RowFilter::default();
+    let found = store.exact_recall(&row.id, &filter, 1).unwrap();
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].id, row.id);
+    assert!(store
+        .exact_recall("absent' OR true --", &filter, 5)
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn a_rare_token_is_found_lexically_and_forgotten_terms_leave_the_table() {
+    let (temp, store) = writable();
+    let mut row = appended_rows(&store).remove(0);
+    row.text = "Turbinenkalibrierung".into();
+    row.status = "active".into();
+    store.ensure_text_index().unwrap();
+    store.upsert(std::slice::from_ref(&row)).unwrap();
+    assert_eq!(
+        store.lexical_ids("Turbinenkalibrierung", 5).unwrap(),
+        [row.id.clone()]
+    );
+    assert_eq!(node(&[temp.path().to_str().unwrap(), "13"])["count"], 13);
+    store.delete(&[&row.id]).unwrap();
+    assert!(store
+        .lexical_ids("Turbinenkalibrierung", 5)
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn node_edits_and_tombstones_are_repaired_even_without_an_updated_at_change() {
+    let (temp, store) = writable();
+    let mut row = appended_rows(&store).remove(0);
+    row.text = "Turbinenkalibrierung".into();
+    row.status = "active".into();
+    store.upsert(std::slice::from_ref(&row)).unwrap();
+    store.ensure_text_index().unwrap();
+    drop(store);
+    for change in ["edit", "delete"] {
+        node(&[
+            temp.path().to_str().unwrap(),
+            "--lexical-update",
+            &row.id,
+            change,
+        ]);
+        let store = Store::open(temp.path(), OpenMode::ReadWrite, Some(&identity())).unwrap();
+        assert!(store
+            .lexical_ids("Turbinenkalibrierung", 5)
+            .unwrap()
+            .is_empty());
+        let expected: Vec<_> = (change == "edit")
+            .then_some(row.id.clone())
+            .into_iter()
+            .collect();
+        assert_eq!(
+            store.lexical_ids("Isotopenkalibrierung", 5).unwrap(),
+            expected
+        );
+    }
+}
+
+#[test]
+fn a_restored_store_without_a_lexical_table_rebuilds_from_current_text() {
+    let (temp, store) = writable();
+    let mut row = appended_rows(&store).remove(0);
+    row.text = "Oszillographenprüfung".into();
+    row.status = "active".into();
+    store.upsert(std::slice::from_ref(&row)).unwrap();
+    store.ensure_text_index().unwrap();
+    drop(store);
+    std::fs::remove_dir_all(temp.path().join("_lexical.lance")).unwrap();
+    let store = Store::open(temp.path(), OpenMode::ReadWrite, Some(&identity())).unwrap();
+    store.ensure_text_index().unwrap();
+    assert_eq!(
+        store.lexical_ids("Oszillographenprüfung", 10).unwrap(),
+        [row.id]
+    );
+}

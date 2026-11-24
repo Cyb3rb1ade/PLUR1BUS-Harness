@@ -45,3 +45,5 @@ mod recall_stages;
 mod recall_stats_render;
 #[path = "../recall_tombstone_mask.rs"]
 mod recall_tombstone_mask;
+#[path = "../text_analyzer.rs"]
+mod text_analyzer;

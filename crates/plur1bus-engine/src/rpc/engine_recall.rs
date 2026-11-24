@@ -297,6 +297,7 @@ fn retrieve(
                 .map_or(5, |n| n as usize),
         },
         flags: StageFlags {
+            hybrid: recall["hybridEnabled"] == true,
             canonical: recall["canonicalFirst"] != false,
             associative: continuity
                 && raw["continuityEngine"]["associativeRecall"]["enabled"] != false,
