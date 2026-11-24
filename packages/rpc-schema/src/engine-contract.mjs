@@ -283,10 +283,10 @@ export function engineRpcSurface() {
   const checkpoint = { ...opaque, required: ["v", "id"], properties: { v: { const: 1 }, id: string } };
   add("engine.admin.reembedding.checkpoint.get", {}, [],
     object({ revision: optionalCheckpointRevision, checkpoint: { anyOf: [checkpoint, { type: "null" }] } }, ["revision", "checkpoint"]),
-    "Read the private re-embedding restart checkpoint over the authenticated Core link.", "1.27.0");
+    "Read the private re-embedding restart checkpoint over the authenticated Core link without an audit write. E_NOT_AVAILABLE reason=composition-pending; E_STORAGE reason=state-corrupt|state-unreadable.", "1.28.0");
   add("engine.admin.reembedding.checkpoint.put", { revision: optionalCheckpointRevision, checkpoint }, ["revision", "checkpoint"],
     object({ revision: checkpointRevision }, ["revision"]),
-    "Commit the re-embedding restart checkpoint only if the observed revision still holds.", "1.27.0");
+    "Commit the private checkpoint if the observed revision holds. Replaying the committed bytes returns their revision. E_INVALID_PARAMS for an invalid checkpoint; E_CONFLICT reason=checkpoint-changed; E_STORAGE reason=state-corrupt|state-unreadable; E_NOT_AVAILABLE reason=composition-pending.", "1.28.0");
 
   add(
     "engine.media.index",

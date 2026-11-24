@@ -9383,8 +9383,8 @@
       "engine.admin.reembedding.checkpoint.put": {
         "x-server": "engine",
         "x-stability": "experimental",
-        "x-since": "1.27.0",
-        "description": "Commit the re-embedding restart checkpoint only if the observed revision still holds.",
+        "x-since": "1.28.0",
+        "description": "Commit the private checkpoint if the observed revision holds. Replaying the committed bytes returns their revision. E_INVALID_PARAMS for an invalid checkpoint; E_CONFLICT reason=checkpoint-changed; E_STORAGE reason=state-corrupt|state-unreadable; E_NOT_AVAILABLE reason=composition-pending.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -9439,8 +9439,8 @@
       "engine.admin.reembedding.checkpoint.get": {
         "x-server": "engine",
         "x-stability": "experimental",
-        "x-since": "1.27.0",
-        "description": "Read the private re-embedding restart checkpoint over the authenticated Core link.",
+        "x-since": "1.28.0",
+        "description": "Read the private re-embedding restart checkpoint over the authenticated Core link without an audit write. E_NOT_AVAILABLE reason=composition-pending; E_STORAGE reason=state-corrupt|state-unreadable.",
         "params": {
           "type": "object",
           "additionalProperties": false,

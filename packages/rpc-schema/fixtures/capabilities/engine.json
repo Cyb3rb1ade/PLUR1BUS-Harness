@@ -26,11 +26,11 @@
     },
     "engine.admin.reembedding.checkpoint.put": {
       "stability": "experimental",
-      "since": "1.27.0"
+      "since": "1.28.0"
     },
     "engine.admin.reembedding.checkpoint.get": {
       "stability": "experimental",
-      "since": "1.27.0"
+      "since": "1.28.0"
     },
     "engine.tokens.families": {
       "stability": "experimental",

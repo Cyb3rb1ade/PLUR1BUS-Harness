@@ -466,8 +466,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `engine.dreams.schedule`: experimental, since 1.28.0
 - `engine.dreams.status`: experimental, since 1.28.0
 - `engine.media.index`: experimental, since 1.28.0
-- `engine.admin.reembedding.checkpoint.put`: experimental, since 1.27.0
-- `engine.admin.reembedding.checkpoint.get`: experimental, since 1.27.0
+- `engine.admin.reembedding.checkpoint.put`: experimental, since 1.28.0
+- `engine.admin.reembedding.checkpoint.get`: experimental, since 1.28.0
 - `engine.tokens.families`: experimental, since 1.27.0
 - `engine.tokens.observe`: experimental, since 1.27.0
 - `engine.tokens.count`: experimental, since 1.27.0
@@ -1202,11 +1202,11 @@ Index one Core-authorized media item. Captioning and codec admission remain with
 
 ### `engine.admin.reembedding.checkpoint.put`
 
-**Stability:** experimental · since 1.27.0
+**Stability:** experimental · since 1.28.0
 
 **Served by:** engine
 
-Commit the re-embedding restart checkpoint only if the observed revision still holds.
+Commit the private checkpoint if the observed revision holds. Replaying the committed bytes returns their revision. E_INVALID_PARAMS for an invalid checkpoint; E_CONFLICT reason=checkpoint-changed; E_STORAGE reason=state-corrupt|state-unreadable; E_NOT_AVAILABLE reason=composition-pending.
 
 **params**
 
@@ -1270,11 +1270,11 @@ Commit the re-embedding restart checkpoint only if the observed revision still h
 
 ### `engine.admin.reembedding.checkpoint.get`
 
-**Stability:** experimental · since 1.27.0
+**Stability:** experimental · since 1.28.0
 
 **Served by:** engine
 
-Read the private re-embedding restart checkpoint over the authenticated Core link.
+Read the private re-embedding restart checkpoint over the authenticated Core link without an audit write. E_NOT_AVAILABLE reason=composition-pending; E_STORAGE reason=state-corrupt|state-unreadable.
 
 **params**
 

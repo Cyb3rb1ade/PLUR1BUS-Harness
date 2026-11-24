@@ -1323,6 +1323,187 @@ fn media_index_is_core_only_and_has_no_unbound_runtime_fallback() {
     assert!(unbound.get("result").is_none());
 }
 
+const CHECKPOINT_GET: &str = "engine.admin.reembedding.checkpoint.get";
+const CHECKPOINT_PUT: &str = "engine.admin.reembedding.checkpoint.put";
+
+fn assert_checkpoint_denied(peer: &mut RawConnection) {
+    for (method, params) in [
+        (CHECKPOINT_GET, json!({})),
+        (
+            CHECKPOINT_PUT,
+            json!({"revision":null,"checkpoint":{"v":1,"id":"checkpoint-fixture"}}),
+        ),
+    ] {
+        let reply = peer.call(2, method, params);
+        assert_unauthorized(&reply);
+        assert_eq!(reply["error"]["data"]["reason"], "core-link-required");
+    }
+}
+
+#[test]
+fn checkpoint_requires_the_core_or_its_actual_legacy_child() {
+    use std::{
+        io::Write,
+        process::{Command, Stdio},
+    };
+
+    let _guard = process_test();
+    let home = home();
+    let engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut peer = RawConnection::connect(engine.address());
+    let hello = peer.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"checkpoint-fixture"}),
+    );
+    assert_eq!(hello["result"]["pid"], engine.pid());
+    assert_checkpoint_denied(&mut peer);
+    assert!(!home.path().join("state/reembed/migration.json").exists());
+
+    let mut core = core_peer(&engine, home.path());
+    let initial = core.call(2, CHECKPOINT_GET, json!({}));
+    assert_eq!(
+        initial["result"],
+        json!({"revision":null,"checkpoint":null})
+    );
+    let write = core.call(
+        3,
+        CHECKPOINT_PUT,
+        json!({"revision":null,"checkpoint":{"v":1,"id":"checkpoint-fixture"}}),
+    );
+    assert!(write["result"]["revision"].is_string(), "{write}");
+
+    for allowed in [true, false] {
+        let mut child = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "checkpoint_legacy_peer_fixture"])
+            .env("PLUR1BUS_CHECKPOINT_FIXTURE_HOME", home.path())
+            .env("PLUR1BUS_CHECKPOINT_FIXTURE_ADDRESS", engine.address())
+            .env("PLUR1BUS_CHECKPOINT_FIXTURE_ALLOWED", allowed.to_string())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let parent = if allowed {
+            std::process::id()
+        } else {
+            engine.pid()
+        };
+        for (filename, pid) in [
+            ("run/core.pid", parent),
+            ("run/core-legacy.pid", child.id()),
+        ] {
+            let pid_file = home.path().join(filename);
+            fs::write(&pid_file, format!("{pid} {INSTANCE}\n")).unwrap();
+            plur1bus_engine::store::paths::secure_file(&pid_file).unwrap();
+        }
+        child.stdin.take().unwrap().write_all(b"ready\n").unwrap();
+        let output = child.wait_with_output().unwrap();
+        assert!(
+            output.status.success(),
+            "{allowed}: {} {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
+fn checkpoint_legacy_peer_fixture() {
+    let Some(home) = std::env::var_os("PLUR1BUS_CHECKPOINT_FIXTURE_HOME") else {
+        return;
+    };
+    let mut published = String::new();
+    std::io::stdin().read_line(&mut published).unwrap();
+    assert_eq!(published.trim(), "ready");
+    let token =
+        fs::read_to_string(std::path::PathBuf::from(home).join("run/engine.token")).unwrap();
+    let address = std::env::var("PLUR1BUS_CHECKPOINT_FIXTURE_ADDRESS").unwrap();
+    let mut peer = RawConnection::connect(&address);
+    peer.set_read_timeout(Duration::from_secs(10));
+    let hello = peer.call(
+        1,
+        "engine.auth",
+        json!({"token":token.trim(),"clientId":"legacy-checkpoint-fixture"}),
+    );
+    assert!(hello["result"].is_object(), "{hello}");
+    if std::env::var("PLUR1BUS_CHECKPOINT_FIXTURE_ALLOWED").as_deref() == Ok("false") {
+        assert_checkpoint_denied(&mut peer);
+        return;
+    }
+    let read = peer.call(2, CHECKPOINT_GET, json!({}));
+    assert_eq!(
+        read["result"]["checkpoint"]["id"], "checkpoint-fixture",
+        "{read}"
+    );
+    let write = peer.call(
+        3,
+        CHECKPOINT_PUT,
+        json!({"revision":read["result"]["revision"],
+        "checkpoint":{"v":1,"id":"checkpoint-fixture","phase":"running"}}),
+    );
+    assert!(write["result"]["revision"].is_string(), "{write}");
+}
+
+#[test]
+fn checkpoint_validates_the_id_replays_a_committed_write_and_audits_only_the_commit() {
+    let _guard = process_test();
+    let home = home();
+    let engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut core = core_peer(&engine, home.path());
+    let audit = home.path().join("state/engine-maintenance.jsonl");
+    let request = json!({"revision":null,"checkpoint":{"v":1,"id":"checkpoint-fixture"}});
+    let first = core.call(2, CHECKPOINT_GET, json!({}));
+    let write = core.call(3, CHECKPOINT_PUT, request.clone());
+    let retry = core.call(4, CHECKPOINT_PUT, request);
+    let conflict = core.call(
+        5,
+        CHECKPOINT_PUT,
+        json!({"revision":null,"checkpoint":{"v":1,"id":"different"}}),
+    );
+    let invalid = core.call(
+        6,
+        CHECKPOINT_PUT,
+        json!({"revision":write["result"]["revision"],"checkpoint":{"v":1}}),
+    );
+    let read = core.call(7, CHECKPOINT_GET, json!({}));
+    assert_eq!(
+        first["result"],
+        json!({"revision":null,"checkpoint":null}),
+        "{first}"
+    );
+    assert!(write["result"]["revision"].is_string(), "{write}");
+    assert_eq!(retry["result"], write["result"], "{retry}");
+    assert_eq!(
+        conflict["error"]["data"]["reason"], "checkpoint-changed",
+        "{conflict}"
+    );
+    assert_eq!(invalid["error"]["code"], -32602, "{invalid}");
+    assert_eq!(
+        read["result"]["checkpoint"]["id"], "checkpoint-fixture",
+        "{read}"
+    );
+    let audit = fs::read_to_string(audit).unwrap();
+    let entries: Vec<Value> = audit
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(entries.len(), 1, "{entries:?}");
+    assert_eq!(entries[0]["method"], CHECKPOINT_PUT);
+    assert_eq!(entries[0]["target"]["id"], "checkpoint-fixture");
+
+    fs::write(
+        home.path().join("state/reembed/migration.json"),
+        br#"{"v":1}"#,
+    )
+    .unwrap();
+    let corrupt = core.call(8, CHECKPOINT_GET, json!({}));
+    assert_eq!(
+        corrupt["error"]["data"]["reason"], "state-corrupt",
+        "{corrupt}"
+    );
+}
+
 #[test]
 fn dreams_schedule_imports_the_legacy_ledger_once() {
     let _guard = process_test();
