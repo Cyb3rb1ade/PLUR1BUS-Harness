@@ -1841,21 +1841,15 @@ fn fifty_thousand_closed_entries_never_refuse_capture() {
 fn a_slow_owners_startup_recovery_never_refuses_another_owners_turn() {
     let scratch = killed("admitted");
     let root = scratch.path().to_path_buf();
-    let inner = host(&root);
-    let mut config = serde_json::to_value(inner.config()).unwrap();
-    config["runtime"] = json!({"captureTimeoutMs":1500});
-    inner.set_config(serde_json::from_value(config).unwrap());
-    // The first owner's record is busy elsewhere for longer than the recovery budget.
+    // Keep the original owner's admission lease held through the foreign result.
+    // Use the same caller deadline as the other isolation cases, shorter than
+    // the engine's recovery budget. A wait on the held lease cannot pass.
     let held = hold_admission(&root);
-    let engine = ProcessEngine::new(inner, Some(Seam::FlatEmbedder)).unwrap();
-    // Prepare the unrelated owner's empty store outside the turn's 1.5 s
-    // budget. Keep recovery held during provisioning so the capture still
-    // meets the blocked recovery pass, even on a slow filesystem.
+    let engine = Arc::new(ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap());
     engine.capture.hold_recovery();
     let _opened = engine.open(&"other".parse().unwrap()).unwrap();
     engine.capture.release_recovery();
-    let other = capture(&engine, turn("other", "run-other"));
-    assert_eq!(other["stored"], 2, "{other}");
+    isolation::foreign_turn_is_stored(&engine, turn("other", "run-other"), "startup recovery");
     // The slow owner's input is deferred, not lost, and capture stays served.
     assert_eq!(pending_admissions(&root), 1);
     assert_eq!(
