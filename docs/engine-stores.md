@@ -3473,3 +3473,11 @@ spinning at all. Scores do not depend on the shape (the local embedding parity s
 sessions keep their own pool of half the processors (`media/session.rs`); they wait while text inference is pending,
 and the two pools were not measured together.
 
+
+### Persisted afterthought schedule (D137 Ü3)
+
+The authorized Afterthought job draws a due time once, 15 to 120 minutes after the latest foreground assistant turn in the owner-bound journal. It stores `schedule.generation` and `schedule.dueAt` alongside the session's reflection state. Older state can be read without the schedule fields. Repeat checks and engine restarts use the persisted value. The newest user turn clears its session's schedule. A changed assistant revision gets its own due time. A fresh check binds the journal revision and current policy before the model call and before durable publication. The current quiet hours and the 120-minute end of the eligibility window also apply.
+
+`not_due` marks a scheduled revision before its due time. `delivery_pending` marks a durable intent whose outcome still needs to be established. A new intent uses the revision as its idempotency key. Repeated checks of a pending intent skip model work and delivery. System instructions and the bounded, escaped conversation travel in distinct model messages.
+
+At the Core flip, the host must invoke the authorized path after recording the completed turn, check it every minute, and bind each check to the same owner, agent and workspace grant. Delivery composition must claim the idempotency key durably and use a receipt tied to the same generation. A pending intent with an unknown transport outcome requires reconciliation before retry. New activity and current routing authority are checked again at the delivery boundary.
