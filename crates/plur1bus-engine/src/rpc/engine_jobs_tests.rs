@@ -3644,3 +3644,217 @@ fn afterthought_reflects_one_exact_owner_revision_inside_the_idle_window() {
     assert_eq!(first["deliveryIntent"]["status"], "pending");
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
+
+#[test]
+fn daily_compaction_and_resolution_publish_owner_proposals_once() {
+    use crate::{
+        capture::row_defaults::schema_defaults,
+        context::{harness_user_principal, RouteVocabulary},
+        jobs::authority::JobAuthority,
+        ops::write::MutationStores,
+        recall::knowledge::private_key,
+    };
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let host = Arc::new(FakeHost::new(
+        temp.path().join("state"),
+        serde_json::from_value(
+            json!({"baseDbPath":base,"neo":{"enabled":true},"schicht15":{"enabled":false},"merging":{"enabled":true}}),
+        )
+        .unwrap(),
+    ));
+    host.set_now_ms(NOW);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let owner = harness_user_principal("consolidation-owner");
+    let grant = || {
+        JobAuthority::from_host(
+        host.as_ref(), JobName::ConsolidateDaily,&alpha(),
+        serde_json::from_value(json!({"agentId":"alpha","workspace":workspace,"user":owner,
+            "channel":"telegram","accountId":"fixture","chat":{"id":"fixture","kind":"direct"},"trust":"proved"})).unwrap(),
+        serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+        RouteVocabulary::shared()
+    ).unwrap()
+    };
+    let engine = ProcessEngine::new(host.clone(), Some(Seam::FlatEmbedder)).unwrap();
+    let _opened = engine.open(&alpha()).unwrap();
+    let store = engine
+        .live_stores
+        .existing_private(grant().request())
+        .unwrap()
+        .unwrap();
+    let row = |n: u8, text: &str, who: &str, ms: i64| {
+        let mut row = schema_defaults(vec![0.; 384]);
+        row.vector[usize::from(n)] = 1.0;
+        row.id = uuid::Uuid::from_u128(u128::from(n)).to_string();
+        row.agent_id = "alpha".into();
+        row.stored_by = "alpha".into();
+        row.scope = "agent-private".into();
+        row.workspace_id = workspace.clone();
+        row.workspace_key = workspace.clone();
+        row.owner_user_id = who.into();
+        row.created_at = ms.into();
+        row.text = text.into();
+        row
+    };
+    let earlier = NOW - 8 * 86_400_000;
+    let a = row(1, "The shop opens at ten", &owner, earlier);
+    let b = row(2, "The shop opens at nine", &owner, earlier + 1);
+    let dup = row(3, "  THE SHOP OPENS AT TEN  ", &owner, earlier + 2);
+    let foreign = row(
+        4,
+        "Foreign synthetic card",
+        &harness_user_principal("unrelated-owner"),
+        earlier,
+    );
+    store
+        .upsert(&[a.clone(), b.clone(), dup.clone(), foreign.clone()])
+        .unwrap();
+    let workspace_sidecars = temp.path().join(".adaptive-learning");
+    fs::create_dir(&workspace_sidecars).unwrap();
+    let layout = crate::neo::merged::Layout::for_key(&workspace);
+    crate::store::paths::secure_dir(&base.join("_neo/workspaces").join(layout.canonical)).unwrap();
+    let record = |b: &MemoryRow, at: i64| {
+        json!({"scope":"agent_private","agentId":"alpha","ownerUserId":owner,
+        "workspaceKey":workspace,"timestamp":chrono::DateTime::from_timestamp_millis(at).unwrap().to_rfc3339(),
+        "existingMemoryId":a.id,"newMemoryId":b.id,"existingText":a.text,"newText":b.text,"futureField":{"keep":true}})
+    };
+    let log = [
+        record(&b, earlier),
+        record(&foreign, earlier),
+        record(&dup, NOW - 86_400_000),
+    ];
+    let log = log.iter().map(|v| format!("{v}\n")).collect::<String>();
+    fs::write(workspace_sidecars.join("conflict-log.jsonl"), &log).unwrap();
+    let run = |engine: &ProcessEngine| {
+        engine
+            .run_authorized_job(grant(), options("harness"), &Cancel::never())
+            .unwrap()
+    };
+    let sink = base
+        .join("_consolidation")
+        .join(private_key(grant().request()).unwrap())
+        .join(".adaptive-learning");
+    let first = run(&engine);
+    assert_eq!(first.outcome, JobOutcome::Completed, "{first:?}");
+    assert_eq!(
+        first
+            .counts
+            .get("compactionProposals")
+            .and_then(serde_json::Number::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        first
+            .counts
+            .get("conflictProposals")
+            .and_then(serde_json::Number::as_u64),
+        Some(0)
+    );
+    let path = sink.join("merge-proposals.jsonl");
+    let bytes = fs::read(&path).unwrap();
+    let envelope: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(envelope["actions"][0]["type"], "delete");
+    assert_eq!(envelope["actions"][0]["id"], a.id);
+    assert_eq!(envelope["actions"][0]["targetId"], dup.id);
+    assert!(store.get(&a.id).unwrap().is_some());
+    assert!(store.get(&dup.id).unwrap().is_some());
+    assert!(!sink.join("conflict-resolved.jsonl").exists());
+    drop(engine);
+
+    let c = row(5, "Inspection at noon", &owner, earlier);
+    let mut d = row(
+        6,
+        "Inspection at noon in the central shop",
+        &owner,
+        earlier + 1,
+    );
+    d.vector.clone_from(&c.vector);
+    store.upsert(&[c.clone(), d.clone()]).unwrap();
+
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counter = calls.clone();
+    let completion: Arc<crate::jobs::llm::CompleteFor> = Arc::new(move |_, params, _| {
+        if params.messages.len() == 1 {
+            assert!(params.messages[0].content.contains("Inspection at noon"));
+            counter.fetch_add(1, Ordering::SeqCst);
+            return Ok(LlmResult { text:r#"{"merge":true,"reason":"same event","mergedText":"The inspection takes place at noon in the central shop."}"#.into(),model:None,usage:None });
+        }
+        let user = &params.messages[1].content;
+        assert!(
+            user.contains("opens at ten") && user.contains("opens at nine"),
+            "{user}"
+        );
+        assert!(!user.contains("Foreign"));
+        counter.fetch_add(1, Ordering::SeqCst);
+        Ok(LlmResult {
+            text: r#"{"resolution":"keep_b","confidence":0.8,"reason":"needs review"}"#.into(),
+            model: None,
+            usage: None,
+        })
+    });
+    let engine =
+        ProcessEngine::with_job_completion(host.clone(), Some(Seam::FlatEmbedder), &completion)
+            .unwrap();
+    let second = run(&engine);
+    assert_eq!(second.outcome, JobOutcome::Completed, "{second:?}");
+    assert_eq!(
+        second
+            .counts
+            .get("compactionProposals")
+            .and_then(serde_json::Number::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        second
+            .counts
+            .get("conflictProposals")
+            .and_then(serde_json::Number::as_u64),
+        Some(1)
+    );
+    let extended = fs::read(&path).unwrap();
+    assert!(extended.starts_with(&bytes));
+    let entry: Value = serde_json::from_slice(&extended[bytes.len()..]).unwrap();
+    assert_eq!(entry["actions"][0]["type"], "merge");
+    assert_eq!(entry["actions"][0]["id"], d.id);
+    assert!(store.get(&c.id).unwrap().is_some());
+    assert!(store.get(&d.id).unwrap().is_some());
+    let resolved = sink.join("conflict-resolved.jsonl");
+    let stored = fs::read(&resolved).unwrap();
+    let proposal: Value = serde_json::from_slice(&stored).unwrap();
+    assert_eq!(proposal["original"]["futureField"]["keep"], true);
+    assert_eq!(proposal["recommendation"], "review_only");
+    assert_eq!(proposal["resolution"], "keep_b");
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let node = std::process::Command::new("node")
+        .arg(repo.join("crates/plur1bus-engine/tests/node/daily-proposals-check.mjs"))
+        .arg(&resolved)
+        .current_dir(repo.join("packages/core"))
+        .output()
+        .unwrap();
+    assert!(
+        node.status.success(),
+        "{}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    drop(engine);
+    let engine =
+        ProcessEngine::with_job_completion(host.clone(), Some(Seam::FlatEmbedder), &completion)
+            .unwrap();
+    assert_eq!(
+        run(&engine)
+            .counts
+            .get("conflictProposals")
+            .and_then(serde_json::Number::as_u64),
+        Some(0)
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(fs::read(&resolved).unwrap(), stored);
+    assert_eq!(fs::read(&path).unwrap(), extended);
+    assert_eq!(
+        fs::read_to_string(workspace_sidecars.join("conflict-log.jsonl")).unwrap(),
+        log
+    );
+    assert!(!workspace_sidecars.join("conflict-resolved.jsonl").exists());
+}
