@@ -3857,4 +3857,33 @@ fn daily_compaction_and_resolution_publish_owner_proposals_once() {
         log
     );
     assert!(!workspace_sidecars.join("conflict-resolved.jsonl").exists());
+
+    drop(engine);
+    host.set_now_ms(NOW + 86_400_000);
+    fs::write(
+        workspace_sidecars.join("conflict-log.jsonl"),
+        format!("{log}{}\n", record(&c, earlier)),
+    )
+    .unwrap();
+    let home = temp.path().to_owned();
+    let forgotten = c.clone();
+    let counter = calls.clone();
+    let completion: Arc<crate::jobs::llm::CompleteFor> = Arc::new(move |_, params, _| {
+        assert!(params.messages[1].content.contains(&forgotten.text));
+        counter.fetch_add(1, Ordering::SeqCst);
+        forget_job_fixture(&home, &forgotten);
+        Ok(LlmResult {
+            text: r#"{"resolution":"keep_b","confidence":0.8}"#.into(),
+            model: None,
+            usage: None,
+        })
+    });
+    let engine =
+        ProcessEngine::with_job_completion(host.clone(), Some(Seam::FlatEmbedder), &completion)
+            .unwrap();
+    let result = run(&engine);
+    assert_eq!(calls.load(Ordering::SeqCst), 3, "{result:?}");
+    assert_eq!(fs::read(&resolved).unwrap(), stored, "{result:?}");
+    assert_eq!(result.outcome, JobOutcome::Failed, "{result:?}");
+    assert!(store.get(&c.id).unwrap().is_some());
 }
