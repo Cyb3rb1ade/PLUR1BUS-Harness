@@ -6,7 +6,7 @@ use unicode_casefold::UnicodeCaseFold;
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Stored alongside derived terms; changing their meaning requires rebuilding.
-pub const ANALYZER_ID: &str = "snowball-de-en-20260804-v1";
+pub const ANALYZER_ID: &str = "snowball-de-en-20260804-v2";
 static DE: LazyLock<HashSet<&str>> =
     LazyLock::new(|| include_str!("stopwords/german.txt").lines().collect());
 static EN: LazyLock<HashSet<&str>> =
@@ -28,6 +28,16 @@ fn analyze(text: &str, german: bool) -> Vec<String> {
     for token in folded.split_whitespace() {
         let token =
             token.trim_matches(|c: char| !c.is_alphanumeric() && !matches!(c, '-' | '/' | '_'));
+        if token.chars().any(char::is_numeric)
+            && token
+                .chars()
+                .all(|c| c.is_numeric() || matches!(c, '.' | ',' | '+' | '-' | ':'))
+        {
+            if token.len() <= 128 {
+                terms.push(token.to_owned());
+            }
+            continue;
+        }
         let identifier = token.contains(['.', '-', '@', '_', '/', '\\', ':']);
         if identifier && token.len() <= 128 {
             terms.push(token.to_owned());

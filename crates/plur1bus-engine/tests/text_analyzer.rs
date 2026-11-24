@@ -28,3 +28,16 @@ fn a_44_char_compound_is_indexed() {
     assert!(!analyze_de(&"abcd".repeat(11)).is_empty());
     assert_eq!(analyze_ngrams("ab cd"), Vec::<String>::new());
 }
+
+#[test]
+fn analyzer_terms_equal_the_golden_vectors() {
+    assert_eq!(
+        analyze_de("DASS Müllers messen 1.024,75"),
+        ["mull", "mess", "1.024,75"]
+    );
+    assert_eq!(
+        analyze_en("Connections remain 1.024,75"),
+        ["connect", "remain", "1.024,75"]
+    );
+    assert_eq!(analyze_ngrams("Übung ABCD"), ["ubun", "bung", "abcd"]);
+}

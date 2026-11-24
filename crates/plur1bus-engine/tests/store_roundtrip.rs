@@ -637,12 +637,22 @@ fn typed_lance_reads_preserve_adjacent_float64_values_exactly() {
 #[test]
 fn an_exact_id_query_finds_the_row_without_a_vector_hit() {
     let (_temp, store) = writable();
-    let row = appended_rows(&store).remove(0);
+    let mut row = appended_rows(&store).remove(0);
+    row.source_url = "https://archive.fixture.invalid/scan-2.txt".into();
     store.upsert(std::slice::from_ref(&row)).unwrap();
     let filter = RowFilter::default();
     let found = store.exact_recall(&row.id, &filter, 1).unwrap();
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].id, row.id);
+    assert_eq!(
+        store.exact_recall(&row.source_url, &filter, 1).unwrap()[0].id,
+        row.id
+    );
+    assert!(store
+        .exact_recall("scan-2.txt", &filter, 5)
+        .unwrap()
+        .is_empty());
+
     assert!(store
         .exact_recall("absent' OR true --", &filter, 5)
         .unwrap()
@@ -717,4 +727,52 @@ fn a_restored_store_without_a_lexical_table_rebuilds_from_current_text() {
         store.lexical_ids("Oszillographenprüfung", 10).unwrap(),
         [row.id]
     );
+}
+
+#[test]
+fn an_analyzer_id_change_rebuilds_the_terms_even_at_the_same_memories_version() {
+    let (temp, store) = writable();
+    let mut row = appended_rows(&store).remove(0);
+    row.status = "active".into();
+    row.text = "Ultraschallmessung".into();
+    store.upsert(std::slice::from_ref(&row)).unwrap();
+    store.ensure_text_index().unwrap();
+    drop(store);
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        let table = lancedb::connect(temp.path().to_str().unwrap())
+            .execute()
+            .await
+            .unwrap()
+            .open_table("_lexical")
+            .execute()
+            .await
+            .unwrap();
+        table
+            .update()
+            .only_if(format!("id = '{}'", row.id))
+            .column("analyzer_id", "'previous'")
+            .column("de", "'staleterm'")
+            .column("en", "'staleterm'")
+            .execute()
+            .await
+            .unwrap();
+    });
+    let watermark = temp.path().join("lexical-state.json");
+    let mut marker: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&watermark).unwrap()).unwrap();
+    marker["analyzerId"] = "previous".into();
+    std::fs::write(&watermark, serde_json::to_vec(&marker).unwrap()).unwrap();
+
+    let store = Store::open(temp.path(), OpenMode::ReadWrite, Some(&identity())).unwrap();
+    assert_eq!(
+        store.lexical_ids("Ultraschallmessung", 5).unwrap(),
+        [row.id]
+    );
+    assert!(store.lexical_ids("staleterm", 5).unwrap().is_empty());
 }

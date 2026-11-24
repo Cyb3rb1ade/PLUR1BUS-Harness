@@ -28,7 +28,7 @@ fn params() -> FtsIndexBuilder {
 }
 
 impl Store {
-    fn lexical_path(&self) -> Result<String, StoreError> {
+    pub(super) fn lexical_path(&self) -> Result<String, StoreError> {
         self.trusted()?;
         paths::assert_trusted_path(&self.path.join("_lexical.lance"))?;
         paths::assert_trusted_path(&self.path.join("lexical-state.json"))?;
@@ -251,5 +251,25 @@ impl Store {
             }
             Ok(ids)
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn the_index_params_are_explicit() -> Result<(), serde_json::Error> {
+        let value = serde_json::to_value(super::params())?;
+        assert_eq!(value["base_tokenizer"], "whitespace");
+        assert!(value["max_token_length"].is_null());
+        for flag in [
+            "lower_case",
+            "stem",
+            "ascii_folding",
+            "remove_stop_words",
+            "with_position",
+        ] {
+            assert_eq!(value[flag], false, "{flag}");
+        }
+        Ok(())
     }
 }

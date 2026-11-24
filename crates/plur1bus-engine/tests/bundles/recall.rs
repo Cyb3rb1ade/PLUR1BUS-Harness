@@ -47,3 +47,6 @@ mod recall_stats_render;
 mod recall_tombstone_mask;
 #[path = "../text_analyzer.rs"]
 mod text_analyzer;
+
+#[path = "../lexical_bakeoff.rs"]
+mod lexical_bakeoff;
