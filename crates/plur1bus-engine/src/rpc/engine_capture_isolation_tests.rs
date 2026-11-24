@@ -72,7 +72,11 @@ fn compose(engine: &Arc<ProcessEngine>, root: &Path, case: &str) {
 }
 
 /// The shared assertion: a foreign turn with the caller's deadline is stored.
-fn foreign_turn_is_stored(engine: &Arc<ProcessEngine>, mut turn: TurnRecord, case: &str) {
+pub(super) fn foreign_turn_is_stored(
+    engine: &Arc<ProcessEngine>,
+    mut turn: TurnRecord,
+    case: &str,
+) {
     turn.cancel = Cancel::with_deadline(std::time::Instant::now() + FOREIGN_DEADLINE);
     let (sent, done) = mpsc::channel();
     let engine = engine.clone();
