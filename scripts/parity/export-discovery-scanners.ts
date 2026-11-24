@@ -38,6 +38,7 @@ export async function recordDiscoveryScanners() {
     { scanner: "ollama-tags", responses: [{ models: [{ name: "example", details: { family: "alpha\nbeta" } }] }] },
     { scanner: "ollama-tags", responses: [{ models: [{ name: "example", details: { family: "a".repeat(513) } }] }] },
     { scanner: "openai-models", responses: [{ data: [{ id: "two words" }] }] },
+    { scanner: "openai-models", responses: [{ data: [{ id: "a".repeat(257) }] }] },
   ] as const;
   const vectors = [];
   for (const item of cases) {
@@ -82,7 +83,7 @@ export async function recordDiscoveryScanners() {
     entryLimit.push({ count, sample, expected });
   }
   return { scanners: { source: "packages/core/src/discovery/scanners", cases: vectors, entryLimit,
-    display: { input: displayInput, observed: displayOutput } } };
+    display: { input: displayInput, observed: displayOutput, "expected-divergence": "P4D-266" } } };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

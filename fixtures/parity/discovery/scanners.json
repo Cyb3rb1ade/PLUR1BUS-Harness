@@ -469,9 +469,31 @@
         }
       ],
       "scanner": "openai-models"
+    },
+    {
+      "expected": {
+        "reason": "invalid_entry",
+        "result": "failed:invalid"
+      },
+      "requests": [
+        {
+          "path": "/models"
+        }
+      ],
+      "responses": [
+        {
+          "data": [
+            {
+              "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ]
+        }
+      ],
+      "scanner": "openai-models"
     }
   ],
   "display": {
+    "expected-divergence": "P4D-266",
     "input": {
       "data": [
         {

@@ -273,28 +273,29 @@ fn failed_scans_keep_credentials_and_response_details_out_of_diagnostics() {
 }
 
 #[test]
-fn a_partial_scanner_page_maps_the_body_deadline_to_timeout() {
+fn a_partial_scanner_page_respects_its_deadline_and_cancellation() {
     let fixture = json!({"transport":"http","exchanges":[{
         "request":{"method":"GET","path":"/models"},
         "response":{"status":200,"headers":{"content-type":"application/json"},
-            "chunksBase64":["eyJkYXRhIjo=","W119"],"chunkGapMs":1500}
+            "chunksBase64":["eyJkYXRhIjo=","W119"],"chunkGapMs":400}
     }]});
-    let server = FakeServer::start(&fixture);
-    let uri = format!("http://{}/", server.addr).parse().unwrap();
-    let host = Fixture(server.addr);
-    let mut http = Http::new(&host, &uri, "fixture-discovery/1", None, true).unwrap();
-    assert_eq!(
-        scanners::scan(
+    for (cancel, reason) in [(false, "request_timeout"), (true, "aborted")] {
+        let server = FakeServer::start(&fixture);
+        let uri = format!("http://{}/", server.addr).parse().unwrap();
+        let host = Fixture(server.addr);
+        let mut http = Http::new(&host, &uri, "fixture-discovery/1", None, true).unwrap();
+        let start = Instant::now();
+        let result = scanners::scan(
             Scanner::OpenAi,
             false,
             &mut http,
-            Instant::now() + Duration::from_secs(1),
-            &|| false,
-        )
-        .err(),
-        Some(Error::network("request_timeout"))
-    );
-    assert_eq!(server.received().len(), 1);
+            start + Duration::from_millis(200),
+            &|| cancel && start.elapsed() >= Duration::from_millis(100),
+        );
+        assert_eq!(result.err(), Some(Error::network(reason)));
+        assert_eq!(server.received().len(), 1);
+        assert!(start.elapsed() < Duration::from_millis(350));
+    }
 }
 
 #[test]
