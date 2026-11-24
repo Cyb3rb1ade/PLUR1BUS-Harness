@@ -378,6 +378,23 @@ Egress-Freigabe für jedes produktive HTTPS-Ziel bereit. Die TS-Replays zeichnen
 HTTP-Wechsel, Reconcile, Overrides und den Katalog-Lebenszyklus auf.
 
 
+R-W-24: Der Port bestätigt die ausdrückliche Nutzerkonfiguration eines
+HTTP-Endpunkts außerhalb von Loopback. Ohne Schlüssel darf dieser Ursprung
+gescannt werden. Die Kurzform `127.1` und IPv4-gemappte IPv6-Loopback-Adressen
+bleiben gesperrt ([P4D-264](defects.md#p4d-264)). Der Host kennt bei
+Klartext-Loopback mit Lease den lokalen Prozess am Port oder scannt
+schlüssellos. Der Host klassifiziert und pinnt jedes Ziel.
+
+Die Scanfrist beträgt 60 Sekunden, pro Seite höchstens 15 Sekunden. Der
+HTTP-Leser, die Dekomprimierung und der Apple-FM-Socket prüfen den Abbruch
+an den Lesegrenzen. Ein bereits laufender blockierender Socket-Aufruf ist
+an die Restfrist gebunden ([P4D-265](defects.md#p4d-265)).
+Anzeigenamen passieren dieselbe Bereinigung wie MCP-Deskriptoren
+([P4D-266](defects.md#p4d-266)). Die Scanner übernehmen keine
+Provider-Beschreibungen. Beim Flip deckelt der Host `contextWindow` an
+der Nutzstelle und bindet Rollen an Anbieter und Modell statt an die
+bloße Modell-ID.
+
 ### W6 · Web (Bibliothek von P4-30)
 
 - **Dateien.** [Web-Tools](../../packages/core/src/tools/web) für Fetch, Guard, IP, Robots, HTML und

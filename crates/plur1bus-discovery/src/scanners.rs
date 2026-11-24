@@ -156,6 +156,15 @@ fn optional_string(value: &Value) -> Result<Option<String>> {
     }
 }
 
+fn display_name(value: &Value) -> Result<Option<String>> {
+    if value.is_null() {
+        return Ok(None);
+    }
+    let text = value.as_str().ok_or(ENTRY)?;
+    let sanitized = plur1bus_providers::display::sanitize(text, MAX_STRING);
+    Ok((!sanitized.is_empty()).then_some(sanitized))
+}
+
 fn positive(value: &Value) -> Result<Option<u64>> {
     if value.is_null() {
         return Ok(None);
@@ -220,7 +229,7 @@ fn entry(scanner: Scanner, item: &Value, apple: bool) -> Result<RawEntry> {
         Scanner::OpenAi => {
             let id = model_id(&item["id"])?;
             let created = positive(&item["created"])?.and_then(|n| i64::try_from(n * 1000).ok());
-            api.display_name = optional_string(&item["name"])?;
+            api.display_name = display_name(&item["name"])?;
             api.context_window = positive(&item["context_length"])?;
             let mut caps = Vec::new();
             if let Some(params) = item["supported_parameters"].as_array() {
@@ -259,14 +268,14 @@ fn entry(scanner: Scanner, item: &Value, apple: bool) -> Result<RawEntry> {
             (id, created)
         }
         Scanner::Anthropic => {
-            api.display_name = optional_string(&item["display_name"])?;
+            api.display_name = display_name(&item["display_name"])?;
             api.context_window = positive(&item["max_input_tokens"])?;
             (model_id(&item["id"])?, time_ms(&item["created_at"])?)
         }
         Scanner::Google => {
             let name = checked_string(&item["name"])?;
             let id = admit_id(name.strip_prefix("models/").unwrap_or(name))?;
-            api.display_name = optional_string(&item["displayName"])?;
+            api.display_name = display_name(&item["displayName"])?;
             api.context_window = positive(&item["inputTokenLimit"])?;
             if item["supportedGenerationMethods"]
                 .as_array()

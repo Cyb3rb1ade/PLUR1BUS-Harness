@@ -471,5 +471,45 @@
       "scanner": "openai-models"
     }
   ],
+  "display": {
+    "input": {
+      "data": [
+        {
+          "id": "sample",
+          "name": "Report A​"
+        }
+      ]
+    },
+    "observed": {
+      "duplicates": 0,
+      "entries": [
+        {
+          "displayName": "Report A​",
+          "id": "sample"
+        }
+      ],
+      "pages": 1
+    }
+  },
+  "entryLimit": [
+    {
+      "count": 5000,
+      "expected": {
+        "duplicates": 4999
+      },
+      "sample": {
+        "id": "example"
+      }
+    },
+    {
+      "count": 5001,
+      "expected": {
+        "reason": "too_many_entries"
+      },
+      "sample": {
+        "id": "example"
+      }
+    }
+  ],
   "source": "packages/core/src/discovery/scanners"
 }

@@ -1877,3 +1877,30 @@ The Rust endpoint rejects numbers outside the finite f64 range and unpaired
 Unicode surrogates as parse errors. The TypeScript parser accepts these JSON
 tokens. The Rust peer card verifier also rejects control characters in
 `kid`, overlong URLs and a JSON-RPC 1.0 interface with no URL.
+
+<a id="p4d-264"></a>
+
+## P4D-264 — Bind plaintext discovery to explicit configuration (R-W-24)
+
+Rust permits remote HTTP only when the host confirms the base URL was
+explicitly configured and the scan carries no lease. TypeScript enforces the
+credential condition through its transport policy. Rust also refuses
+abbreviated IPv4 or IPv4-mapped loopback aliases such as `127.1` and
+`[::ffff:127.0.0.1]`.
+
+<a id="p4d-265"></a>
+
+## P4D-265 — Observe discovery cancellation while reading (R-W-9)
+
+Discovery checks cancellation before and after body and decoder reads.
+A blocking call already in progress ends at the remaining page deadline.
+TypeScript forwards an abort signal to its asynchronous transport. The
+total scan budget is 60 seconds and the maximum for a page is 15 seconds.
+
+<a id="p4d-266"></a>
+
+## P4D-266 — Sanitize model-server display names (R-W-25)
+
+Model scanners remove display controls using the same sanitizer as MCP and
+limit labels to 512 UTF-16 code units. Model IDs retain their own grammar.
+TypeScript may preserve invisible controls in display names.

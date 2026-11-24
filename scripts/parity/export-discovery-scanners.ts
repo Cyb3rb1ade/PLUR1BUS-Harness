@@ -60,7 +60,29 @@ export async function recordDiscoveryScanners() {
     }
     vectors.push({ ...item, requests, expected });
   }
-  return { scanners: { source: "packages/core/src/discovery/scanners", cases: vectors } };
+  const displayInput = { data: [{ id: "sample", name: "Report\u2028A\u200b" }] };
+  const displayOutput = await SCANNERS["openai-models"]({ id: "fixture" } as never, {
+    async get() { return displayInput; },
+    get pages() { return 1; },
+  });
+  const entryLimit = [];
+  for (const count of [5_000, 5_001]) {
+    const sample = { id: "example" };
+    let expected;
+    try {
+      const result = await SCANNERS["openai-models"]({ id: "fixture" } as never, {
+        async get() { return { data: Array.from({ length: count }, () => ({ ...sample })) }; },
+        get pages() { return 1; },
+      });
+      expected = { duplicates: result.duplicates };
+    } catch (error) {
+      if (!(error instanceof ScanError)) throw error;
+      expected = { reason: error.reason };
+    }
+    entryLimit.push({ count, sample, expected });
+  }
+  return { scanners: { source: "packages/core/src/discovery/scanners", cases: vectors, entryLimit,
+    display: { input: displayInput, observed: displayOutput } } };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

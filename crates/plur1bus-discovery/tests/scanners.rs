@@ -60,8 +60,13 @@ fn recorded_pages_replay_each_scanner_and_its_provider_request() {
 
 #[test]
 fn entry_interpretation_stops_at_its_inclusive_limit() {
-    for count in [5_000, 5_001] {
-        let replies = [json!({"data": vec![json!({"id":"example"}); count]})];
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/discovery/scanners.json"
+    ))
+    .unwrap();
+    for case in fixture["entryLimit"].as_array().unwrap() {
+        let count = case["count"].as_u64().unwrap() as usize;
+        let replies = [json!({"data": vec![case["sample"].clone(); count]})];
         let deadline = Instant::now() + Duration::from_secs(5);
         let mut port = Fixture {
             replies: &replies,
@@ -75,11 +80,11 @@ fn entry_interpretation_stops_at_its_inclusive_limit() {
             deadline,
             &|| false,
         );
-        if count == 5_000 {
-            assert_eq!(result.unwrap().duplicates, 4_999);
-        } else {
-            assert_eq!(result.err().unwrap().reason, "too_many_entries");
-        }
+        let observed = match result {
+            Ok(output) => json!({"duplicates": output.duplicates}),
+            Err(error) => json!({"reason": error.reason}),
+        };
+        assert_eq!(observed, case["expected"]);
     }
 }
 
@@ -107,4 +112,41 @@ fn each_page_receives_a_deadline_of_at_most_fifteen_seconds() {
     let deadline = port.0.get().unwrap();
     assert!(deadline >= now + Duration::from_secs(15));
     assert!(deadline <= Instant::now() + Duration::from_secs(15));
+}
+
+#[test]
+fn model_labels_strip_controls_and_apply_a_display_limit() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/discovery/scanners.json"
+    ))
+    .unwrap();
+    let display = &fixture["display"];
+    let mut replay = display["input"].clone();
+    let raw = display["observed"]["entries"][0]["displayName"].clone();
+    assert_eq!(replay["data"][0]["name"], raw);
+
+    for (label, expected) in [
+        (raw.as_str().unwrap().to_owned(), "ReportA".to_owned()),
+        ("a".repeat(600), "a".repeat(512)),
+        ("Line\nTwo".into(), "LineTwo".into()),
+    ] {
+        replay["data"][0]["name"] = json!(label);
+        let responses = [replay.clone()];
+        let deadline = Instant::now() + Duration::from_secs(1);
+        let mut fixture = Fixture {
+            replies: &responses,
+            requests: Vec::new(),
+            deadline,
+        };
+        let output = scanners::scan(
+            scanners::Scanner::OpenAi,
+            false,
+            &mut fixture,
+            deadline,
+            &|| false,
+        )
+        .unwrap();
+        let observed = serde_json::to_value(output).unwrap();
+        assert_eq!(observed["entries"][0]["displayName"], expected);
+    }
 }
