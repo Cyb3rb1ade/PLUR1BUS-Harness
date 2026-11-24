@@ -1019,7 +1019,7 @@ fn status_reports_shared_memory_as_share_calls_find_it() {
                 "verified-path"
             );
             assert_eq!(
-                f.private().get(LIVE).unwrap().unwrap().text,
+                f.reopen().get(LIVE).unwrap().unwrap().text,
                 "Prefers tea in the afternoon"
             );
             return;
