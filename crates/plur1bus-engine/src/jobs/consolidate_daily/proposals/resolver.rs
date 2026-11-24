@@ -64,6 +64,38 @@ fn checked_sources(original: &Value, run: &Run<'_>) -> Result<Option<[MemoryRow;
     Ok(Some([a, b]))
 }
 
+fn topic_grouped(conflicts: Vec<(&Value, [MemoryRow; 2])>) -> Vec<(&Value, [MemoryRow; 2])> {
+    let mut groups: Vec<(HashSet<String>, Vec<_>)> = Vec::new();
+    for entry in conflicts {
+        let value = entry.0;
+        let text = format!(
+            "{} {}",
+            value["newText"].as_str().unwrap_or_default(),
+            value["existingText"].as_str().unwrap_or_default()
+        )
+        .to_lowercase();
+        let words: HashSet<_> = text
+            .split(|c: char| {
+                !c.is_ascii_alphanumeric() && !matches!(c, '_' | 'ä' | 'ö' | 'ü' | 'ß')
+            })
+            .filter(|word| word.len() > 4 && word.encode_utf16().count() > 4)
+            .map(str::to_owned)
+            .collect();
+        if let Some((_, group)) = groups.iter_mut().find(|(first, _)| {
+            let denominator = first.len().max(words.len());
+            denominator > 0 && words.intersection(first).count() * 10 >= denominator * 3
+        }) {
+            group.push(entry);
+        } else {
+            groups.push((words, vec![entry]));
+        }
+    }
+    groups
+        .into_iter()
+        .flat_map(|(_, entries)| entries)
+        .collect()
+}
+
 pub(super) fn run(run: &Run<'_>) -> Result<usize, EngineError> {
     let host = run.job.scope.operations.host_handle();
     let config = serde_json::to_value(host.config()).map_err(|_| StoreError::Corrupt)?;
@@ -108,7 +140,7 @@ pub(super) fn run(run: &Run<'_>) -> Result<usize, EngineError> {
         .filter_map(|value| pair(&value["original"]))
         .collect();
     let cutoff = run.context.now_ms.saturating_sub(MIN_AGE);
-    let mut count = 0;
+    let mut selected = Vec::new();
     for original in observations.iter().filter(|row| owner(row, run)) {
         run.cancel.check()?;
         let Some(key) = pair(original) else {
@@ -126,6 +158,14 @@ pub(super) fn run(run: &Run<'_>) -> Result<usize, EngineError> {
         let Some([new, old]) = checked_sources(original, run)? else {
             continue;
         };
+        already.insert(key);
+        selected.push((original, [new, old]));
+        if selected.len() == LIMIT {
+            break;
+        }
+    }
+    let mut count = 0;
+    for (original, [new, old]) in topic_grouped(selected) {
         let current = || {
             run.current(&[&new, &old])?;
             lease.check(&target)?;
@@ -185,11 +225,31 @@ pub(super) fn run(run: &Run<'_>) -> Result<usize, EngineError> {
             &current,
         )?;
         pending = io::read(&target, RESOLVED, MAX_FILE, run.cancel)?;
-        already.insert(key);
         count += 1;
-        if count == LIMIT {
-            break;
-        }
     }
     Ok(count)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn topic_related_conflicts_keep_the_pinned_group_order() {
+        let records = [
+            json!({"id":"first","newText":"Turbinenkalibrierung ändern"}),
+            json!({"id":"second","newText":"Zugangsprotokoll verschlüsseln"}),
+            json!({"id":"third","newText":"Turbinenkalibrierung bestätigen"}),
+        ];
+        let sample = crate::capture::row_defaults::schema_defaults(vec![1.0]);
+        let conflicts = records
+            .iter()
+            .map(|entry| (entry, [sample.clone(), sample.clone()]))
+            .collect();
+        let order = topic_grouped(conflicts)
+            .into_iter()
+            .map(|(entry, _)| entry["id"].as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(order, [Some("first"), Some("third"), Some("second")]);
+    }
 }
