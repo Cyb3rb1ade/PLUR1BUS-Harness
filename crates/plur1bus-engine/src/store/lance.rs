@@ -267,7 +267,7 @@ impl Store {
             pinned_roots: Vec::new(),
         };
         if mode == OpenMode::ReadWrite && path.join("_lexical.lance").exists() {
-            store.ensure_text_index()?;
+            store.sync_lexical_index(true)?;
         }
         Ok(store)
     }

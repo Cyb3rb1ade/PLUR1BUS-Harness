@@ -730,6 +730,49 @@ fn a_restored_store_without_a_lexical_table_rebuilds_from_current_text() {
 }
 
 #[test]
+fn open_restores_a_missing_fts_index_without_a_memories_change() {
+    let (temp, store) = writable();
+    let mut row = appended_rows(&store).remove(0);
+    row.status = "active".into();
+    row.text = "Oszillographenprüfung".into();
+    store.upsert(std::slice::from_ref(&row)).unwrap();
+    store.ensure_text_index().unwrap();
+    drop(store);
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .unwrap();
+    let table = runtime.block_on(async {
+        let table = lancedb::connect(temp.path().to_str().unwrap())
+            .read_consistency_interval(std::time::Duration::ZERO)
+            .execute()
+            .await
+            .unwrap()
+            .open_table("_lexical")
+            .execute()
+            .await
+            .unwrap();
+        let removed = table.list_indices().await.unwrap().remove(0);
+        table.drop_index(&removed.name).await.unwrap();
+        assert_eq!(table.list_indices().await.unwrap().len(), 1);
+        table
+    });
+    let marker = temp.path().join("lexical-state.json");
+    let before = std::fs::read(&marker).unwrap();
+    let store = Store::open(temp.path(), OpenMode::ReadWrite, Some(&identity())).unwrap();
+    runtime.block_on(async {
+        let indices = table.list_indices().await.unwrap();
+        for expected in ["de", "en"] {
+            assert!(indices.iter().any(|index| index.columns == [expected]));
+        }
+    });
+    assert_eq!(std::fs::read(marker).unwrap(), before);
+    assert_eq!(store.lexical_ids(&row.text, 10).unwrap(), [row.id]);
+}
+
+#[test]
 fn an_analyzer_id_change_rebuilds_the_terms_even_at_the_same_memories_version() {
     let (temp, store) = writable();
     let mut row = appended_rows(&store).remove(0);

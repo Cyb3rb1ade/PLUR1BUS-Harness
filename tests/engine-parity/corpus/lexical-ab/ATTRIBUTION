@@ -14,4 +14,4 @@ QASPER by the Allen Institute for AI supplies the English evaluation set
 questions to evidence paragraphs by whitespace-normalized exact matches.
 https://huggingface.co/datasets/allenai/qasper
 
-See public-sources.json for revisions, exact payload URLs and SHA-256 values.
+See manifest.json for revisions, exact payload URLs and SHA-256 values.

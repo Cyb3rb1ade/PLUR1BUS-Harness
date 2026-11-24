@@ -10,20 +10,14 @@ import pyarrow.ipc as ipc
 import pyarrow.parquet as pq
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("directory", nargs="?", type=pathlib.Path, default=pathlib.Path(__file__).parent)
+parser.add_argument("directory", type=pathlib.Path, help="scratch directory with the pinned payloads")
 root = parser.parse_args().directory
-checksums = {
-    "de-corpus.arrow": "396449efe7478e7a8edc480fd85ccee4b20002ea609f519fcd8cd62add042b45",
-    "de-queries.arrow": "4bdea8268da0cbc32c031a1c6ea078fcac435c6bef3c68c7b4367498c19ea5e9",
-    "de-qrels.arrow": "4c119a8339e58ebb6382e3df45279086bd1f44504b9edab2bf0a933f7de5b55c",
-    "de-distractors.parquet": "f370564f527a10cf125f267d8f10175d6a6366390480620e90a469bbf80a2a46",
-    "qasper-test.tgz": "72a52a41193e2838b8074f80ac074b94f956b84886c36a61c58a7df4171bdd72",
-}
-for name, expected in checksums.items():
+manifest = pathlib.Path(__file__).with_name("manifest.json")
+for source in json.loads(manifest.read_text(encoding="utf-8"))["sources"]:
+    name = source["localName"]
     with (root / name).open("rb") as payload:
-        if hashlib.file_digest(payload, "sha256").hexdigest() != expected:
+        if hashlib.file_digest(payload, "sha256").hexdigest() != source["sha256"]:
             raise ValueError(f"Checksum mismatch for {name}")
-
 
 
 def arrow(name):

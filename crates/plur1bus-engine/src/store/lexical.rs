@@ -27,6 +27,20 @@ fn params() -> FtsIndexBuilder {
         .with_position(false)
 }
 
+async fn ensure_fts_indices(table: &lancedb::Table) -> Result<(), StoreError> {
+    let indices = table.list_indices().await.map_err(backend_error)?;
+    for field in ["de", "en"] {
+        if !indices.iter().any(|index| index.columns == [field]) {
+            table
+                .create_index(&[field], Index::FTS(params()))
+                .execute()
+                .await
+                .map_err(backend_error)?;
+        }
+    }
+    Ok(())
+}
+
 impl Store {
     pub(super) fn lexical_path(&self) -> Result<String, StoreError> {
         self.trusted()?;
@@ -49,6 +63,10 @@ impl Store {
 
     /// Reconcile derived terms with the authoritative memories version before publishing its watermark.
     pub fn ensure_text_index(&self) -> Result<(), StoreError> {
+        self.sync_lexical_index(false)
+    }
+
+    pub(super) fn sync_lexical_index(&self, verify_indices: bool) -> Result<(), StoreError> {
         self.writable()?;
         let path = self.lexical_path()?;
         let watermark = self.directory.lance_path().join("lexical-state.json");
@@ -77,7 +95,9 @@ impl Store {
             let version = memories.version().await.map_err(backend_error)?;
             let marker =
                 serde_json::json!({"memoriesVersion":version,"analyzerId":ANALYZER_ID}).to_string();
-            if exists && std::fs::read_to_string(&watermark).ok().as_ref() == Some(&marker) {
+            let current =
+                exists && std::fs::read_to_string(&watermark).ok().as_ref() == Some(&marker);
+            if current && !verify_indices {
                 return Ok(());
             }
             let db = lancedb::connect(&path)
@@ -98,6 +118,9 @@ impl Store {
                     .await
             }
             .map_err(backend_error)?;
+            if current {
+                return ensure_fts_indices(&table).await;
+            }
             let mut old = HashMap::new();
             let mut stream = table
                 .query()
@@ -193,16 +216,7 @@ impl Store {
                     .await
                     .map_err(backend_error)?;
             }
-            let indices = table.list_indices().await.map_err(backend_error)?;
-            for field in ["de", "en"] {
-                if !indices.iter().any(|index| index.columns == [field]) {
-                    table
-                        .create_index(&[field], Index::FTS(params()))
-                        .execute()
-                        .await
-                        .map_err(backend_error)?;
-                }
-            }
+            ensure_fts_indices(&table).await?;
             crate::store::atomic_write::atomic_write(&watermark, marker.as_bytes())
                 .map_err(|e| StoreError::Io { kind: e.kind() })
         })
