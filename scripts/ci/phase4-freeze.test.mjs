@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -232,13 +232,15 @@ test('the correction list accepts only full commit ids, plain work trailers and 
   const bad = [{}, null, 'x', [correction({ sha: 'a'.repeat(39) })], [correction({ sha: 'A'.repeat(40) })], [correction({ sha: `${'a'.repeat(40)} ` })],
     [correction({ sha: undefined })], [correction({ trailer: 'running-work' })], [correction({ trailer: 'defect P4D-43' })],
     [correction({ trailer: 'Phase4: running-work RY' })], [correction({ trailer: undefined })], [correction({ reason: ' ' })],
-    [correction({ reason: undefined })], [correction(), correction()], [null], ['x']];
+    [correction({ reason: undefined })], [correction(), correction()], [null], ['x'], [[]], [correction({ paths: ['packages/core/src/core.ts'] })]];
   for (const entries of bad) assert.throws(() => parseCorrections(entries), /phase4-trailer-corrections\.json/, JSON.stringify(entries));
 });
 
+// The list is judged from the PR base, so the pull request that changes it is not checked against it by the guard.
+// This test is what keeps a list the guard cannot read out of the base, where it would fail every pull request.
 test('the shipped correction list parses', () => {
   const shipped = JSON.parse(readFileSync(new URL('./phase4-trailer-corrections.json', import.meta.url), 'utf8'));
-  assert.deepEqual([...parseCorrections(shipped)], [['0e79cff1c483f9d46c2381a48d1d9c55a62df963', 'running-work RY']]);
+  assert.equal(parseCorrections(shipped).get('0e79cff1c483f9d46c2381a48d1d9c55a62df963'), 'running-work RY');
 });
 
 // A real repository: the range is base..head, merge commits are skipped, renames count on both sides.
@@ -385,6 +387,8 @@ const CORRECTION_FILE = 'scripts/ci/phase4-trailer-corrections.json';
 // The pull request carries a pushed commit with a mistyped line. Only the base may say what the line should have been.
 function mistypedBranch() {
   const r = repo();
+  // The base already has a list, for some other commit: the guard must read that one, not the one in the checkout.
+  r.put(CORRECTION_FILE, JSON.stringify([correction({ sha: 'f'.repeat(40) })]));
   r.put('packages/core/src/core.ts', 'a');
   const base = r.save('base', BEFORE);
   r.git(['checkout', '-q', '-b', 'pr']);
@@ -396,7 +400,7 @@ function mistypedBranch() {
 test('the command line rejects a correction recorded only on the PR branch', () => {
   const r = mistypedBranch();
   try {
-    r.put(CORRECTION_FILE, JSON.stringify([correction({ sha: r.mistyped })]));
+    r.put(CORRECTION_FILE, JSON.stringify([correction({ sha: 'f'.repeat(40) }), correction({ sha: r.mistyped })]));
     const head = r.save('PR corrects its own commit', AFTER);
     const result = runGuard(r.dir, ['--base', r.base, '--head', head]);
     assert.equal(result.code, 1, result.out);
@@ -433,13 +437,25 @@ test('the command line fails closed on a correction list it cannot accept', () =
     const head = r.save('feat: x\n\nPhase4: running-work RY\n', AFTER);
     assert.equal(runGuard(r.dir, ['--base', start, '--head', head]).code, 0);
     r.git(['checkout', '-q', 'main']);
-    for (const text of ['{', JSON.stringify([correction({ trailer: 'defect P4D-43' })]), JSON.stringify({ ['a'.repeat(40)]: 'running-work RY' })]) {
-      r.put(CORRECTION_FILE, text);
-      const base = r.save('a broken correction list', AFTER);
+    const refused = (base, label) => {
       const result = runGuard(r.dir, ['--base', base, '--head', head]);
-      assert.equal(result.code, 1, `${text}\n${result.out}`);
-      assert.match(result.out, /^phase4-freeze: /m);
+      assert.equal(result.code, 1, `${label}\n${result.out}`);
+      assert.match(result.out, /^phase4-freeze: scripts\/ci\/phase4-trailer-corrections\.json: /m, label);
       assert.doesNotMatch(result.out, /violate/);
+    };
+    for (const text of ['{', `\uFEFF${JSON.stringify([correction()])}`, JSON.stringify([correction({ trailer: 'defect P4D-43' })]), JSON.stringify({ ['a'.repeat(40)]: 'running-work RY' })]) {
+      r.put(CORRECTION_FILE, text);
+      refused(r.save('a broken correction list', AFTER), text);
     }
+    r.git(['rm', '-q', CORRECTION_FILE]);
+    r.put(`${CORRECTION_FILE}/list.json`, JSON.stringify([correction()]));
+    refused(r.save('a directory in place of the list', AFTER), 'directory');
+    // A symbolic link is stored as its target text. `[]` would read as an empty list if the guard took it for the file.
+    r.git(['rm', '-rq', CORRECTION_FILE]);
+    let linked = true;
+    mkdirSync(dirname(join(r.dir, CORRECTION_FILE)), { recursive: true });
+    try { symlinkSync('[]', join(r.dir, CORRECTION_FILE)); }
+    catch (error) { if (error.code !== 'EPERM') throw error; linked = false; } // Windows without the symlink right
+    if (linked) refused(r.save('a symbolic link in place of the list', AFTER), 'symlink');
   } finally { rmSync(r.dir, { recursive: true, force: true }); }
 });

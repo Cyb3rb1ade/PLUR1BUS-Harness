@@ -291,6 +291,9 @@ and a reason, in a pull request of its own. The guard reads that list from the P
 pull request cannot correct its own commits; the branch picks the correction up with its next push or by merging the
 base. A corrected commit is judged with the recorded value in place of its own lines and by the same rules as any other
 commit. The value is one of the work trailers above, never a defect, and a list the guard cannot read fails the check.
+Re-running an old workflow run does not pick a new correction up, because the run keeps the base it started with. The
+pull request that changes the list is itself judged against the list on its base, so the list's own form is checked
+there by the unit test only.
 
 ## Using it
 

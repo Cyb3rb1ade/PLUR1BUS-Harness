@@ -70,10 +70,12 @@ export function parseCorrections(entries) {
   if (!Array.isArray(entries)) throw new Error(`${CORRECTION_FILE}: expected an array`);
   const corrections = new Map();
   for (const entry of entries) {
-    const { sha, trailer, reason } = entry ?? {};
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) throw new Error(`${CORRECTION_FILE}: every entry must be an object`);
+    const { sha, trailer, reason, ...unknown } = entry;
     if (typeof sha !== 'string' || !/^[0-9a-f]{40}$/.test(sha)) throw new Error(`${CORRECTION_FILE}: sha must be a full lower-case commit id`);
     if (typeof trailer !== 'string' || !TRAILER.test(trailer)) throw new Error(`${CORRECTION_FILE}: ${sha}: trailer must be a valid Phase4 value other than a defect`);
     if (typeof reason !== 'string' || !reason.trim()) throw new Error(`${CORRECTION_FILE}: ${sha}: reason is required`);
+    if (Object.keys(unknown).length) throw new Error(`${CORRECTION_FILE}: ${sha}: unknown field ${Object.keys(unknown).join(', ')}`);
     if (corrections.has(sha)) throw new Error(`${CORRECTION_FILE}: ${sha} is listed twice`);
     corrections.set(sha, trailer);
   }
@@ -141,8 +143,13 @@ function readApprovedDefects(cwd, baseCommit) {
 
 function readCorrections(cwd, baseCommit) {
   // Read from the PR base like the approvals, so a pull request cannot correct its own commits.
-  if (!git(cwd, ['ls-tree', '--full-tree', baseCommit, '--', CORRECTION_FILE])) return NO_CORRECTIONS;
-  return parseCorrections(JSON.parse(git(cwd, ['show', `${baseCommit}:${CORRECTION_FILE}`])));
+  const entry = git(cwd, ['ls-tree', '--full-tree', baseCommit, '--', CORRECTION_FILE]);
+  if (!entry) return NO_CORRECTIONS;
+  if (!/^100(?:644|755) blob /.test(entry)) throw new Error(`${CORRECTION_FILE}: must be a regular file on the PR base`);
+  let entries;
+  try { entries = JSON.parse(git(cwd, ['show', `${baseCommit}:${CORRECTION_FILE}`])); }
+  catch (error) { throw new Error(`${CORRECTION_FILE}: not readable as JSON on the PR base (${error.message})`); }
+  return parseCorrections(entries);
 }
 
 // Non-merge commits reachable from head and not from base, oldest first. Renames count on both sides (`--no-renames`).
