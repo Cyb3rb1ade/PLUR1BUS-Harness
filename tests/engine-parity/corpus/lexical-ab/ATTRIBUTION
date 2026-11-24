@@ -1,0 +1,17 @@
+GermanQuAD retrieval uses annotations by deepset (CC BY 4.0) and passages from
+German Wikipedia (CC BY-SA). The pinned MTEB exports supply queries, corpus and
+relevance judgments.
+https://huggingface.co/datasets/mteb/germanquad-retrieval
+https://huggingface.co/datasets/mteb/germanquad-retrieval-qrels
+
+FineWeb-2 by Hugging Face supplies German distractors (ODC-By 1.0, also subject
+to the Common Crawl terms of use). The test takes the first 5,000 nonempty texts
+from the pinned shard and caps each text at 6,144 characters.
+https://huggingface.co/datasets/HuggingFaceFW/fineweb-2
+
+QASPER by the Allen Institute for AI supplies the English evaluation set
+(CC BY 4.0). The preparer uses test abstracts and body paragraphs and maps
+questions to evidence paragraphs by whitespace-normalized exact matches.
+https://huggingface.co/datasets/allenai/qasper
+
+See public-sources.json for revisions, exact payload URLs and SHA-256 values.

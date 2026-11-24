@@ -44,6 +44,7 @@ struct Report {
     summary: &'static str,
     corpus_size: usize,
     positive_queries: usize,
+    lexical_index_bytes: u64,
     mrr_at_10: f64,
     macro_recall_at_10: f64,
     hybrid_mrr_at_10: Option<f64>,
@@ -181,6 +182,8 @@ async fn measure(
             .await
             .unwrap();
     }
+    let lexical_index_bytes = directory_bytes(&path.join("corpus.lance/_indices")).unwrap();
+    assert!(lexical_index_bytes > 0);
     let scores = futures::stream::iter(case.queries.iter().enumerate().map(|(i, q)| {
         let table = &table;
         let column_names = &column_names;
@@ -247,6 +250,7 @@ async fn measure(
         },
         corpus_size: case.cards.len(),
         positive_queries: n,
+        lexical_index_bytes,
         mrr_at_10: totals[0][0] / n as f64,
         macro_recall_at_10: totals[0][1] / n as f64,
         hit_at_1: totals[0][2] / n as f64,
@@ -256,6 +260,19 @@ async fn measure(
         vector_mrr_at_10: vectors.map(|_| totals[2][0] / n as f64),
         vector_macro_recall_at_10: vectors.map(|_| totals[2][1] / n as f64),
     }
+}
+
+fn directory_bytes(path: &Path) -> std::io::Result<u64> {
+    fs::read_dir(path)?.try_fold(0, |total, entry| {
+        let entry = entry?;
+        let metadata = entry.metadata()?;
+        let bytes = if metadata.is_dir() {
+            directory_bytes(&entry.path())?
+        } else {
+            metadata.len()
+        };
+        Ok(total + bytes)
+    })
 }
 
 fn extract_ids(batches: &[RecordBatch]) -> Vec<String> {
@@ -309,19 +326,20 @@ fn embed(case: &Case, input: &Path, name: &str) -> Option<Vectors> {
         Sha256::digest(fs::read(input.join(format!("{name}.json"))).unwrap())
     );
     let vectors_file = input.join(format!("{name}-e5-fp32-{input_hash}.json"));
-    if let Ok(bytes) = fs::read(&vectors_file) {
-        if let Ok(vectors) = serde_json::from_slice::<Vectors>(&bytes) {
-            let complete = vectors.cards.len() == case.cards.len()
+    if let Some(vectors) = fs::read(&vectors_file)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<Vectors>(&bytes).ok())
+        .filter(|vectors| {
+            vectors.cards.len() == case.cards.len()
                 && vectors.queries.len() == case.queries.len()
                 && vectors
                     .cards
                     .iter()
                     .chain(&vectors.queries)
-                    .all(|row| row.len() == 384 && row.iter().all(|value| value.is_finite()));
-            if complete {
-                return Some(vectors);
-            }
-        }
+                    .all(|row| row.len() == 384 && row.iter().all(|value| value.is_finite()))
+        })
+    {
+        return Some(vectors);
     }
     let config = normalize_embedding_config(&serde_json::json!({"provider":"local-transformers",
         "local":{"model":"intfloat/multilingual-e5-small","dimensions":384,"cacheDir":cache}}))
