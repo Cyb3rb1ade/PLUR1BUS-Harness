@@ -25,6 +25,9 @@ export async function recordDiscoveryHttp() {
     ] },
     { name: "ollama", scanner: "ollama-tags", replies: [response(200, {}, { models: [{ name: "fixture" }] })] },
     { name: "same-origin", scanner: "openai-models", replies: [response(302, { location: "/next/models?view=brief" }), response(200)] },
+    { name: "foreign-origin", scanner: "openai-models", replies: [response(302, { location: "https://catalog.example.invalid/models" })] },
+    { name: "paging-boundary", scanner: "anthropic-models", replies: Array.from({ length: 10 }, (_, page) =>
+      response(200, {}, { data: [], has_more: true, last_id: `fixture-${page}` })) },
     { name: "relative", scanner: "openai-models", replies: [response(307, { location: "next" }), response(200)] },
     { name: "redirect-limit", scanner: "openai-models", replies: [1, 2, 3, 4].map(n => response(302, { location: `/next${n}` })) },
     { name: "missing-location", scanner: "openai-models", replies: [response(302)] },

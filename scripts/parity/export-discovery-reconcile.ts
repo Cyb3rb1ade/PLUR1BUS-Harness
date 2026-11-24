@@ -77,6 +77,16 @@ export function recordDiscoveryReconcile() {
     { id: "a-model", created: 100 },
     { id: "B-model", created: 200 },
   ]);
+  run("user-alias-outranks-newer-table-alias", {
+    ...start,
+    models: [{
+      ...aliasContest.models[0]!,
+      overrides: { aliases: ["example-chat-latest"] },
+    }],
+  }, [
+    { id: "a-model", created: 100 },
+    { id: "example-chat-large", created: 200 },
+  ]);
   const catalog = structuredClone(base);
   const id = "example-chat-large";
   const overrideRequests = [

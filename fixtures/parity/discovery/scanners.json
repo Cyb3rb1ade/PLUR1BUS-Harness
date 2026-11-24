@@ -400,6 +400,75 @@
         }
       ],
       "scanner": "google-models"
+    },
+    {
+      "expected": {
+        "reason": "invalid_entry",
+        "result": "failed:invalid"
+      },
+      "requests": [
+        {
+          "path": "/api/tags"
+        }
+      ],
+      "responses": [
+        {
+          "models": [
+            {
+              "details": {
+                "family": "alpha\nbeta"
+              },
+              "name": "example"
+            }
+          ]
+        }
+      ],
+      "scanner": "ollama-tags"
+    },
+    {
+      "expected": {
+        "reason": "invalid_entry",
+        "result": "failed:invalid"
+      },
+      "requests": [
+        {
+          "path": "/api/tags"
+        }
+      ],
+      "responses": [
+        {
+          "models": [
+            {
+              "details": {
+                "family": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "name": "example"
+            }
+          ]
+        }
+      ],
+      "scanner": "ollama-tags"
+    },
+    {
+      "expected": {
+        "reason": "invalid_entry",
+        "result": "failed:invalid"
+      },
+      "requests": [
+        {
+          "path": "/models"
+        }
+      ],
+      "responses": [
+        {
+          "data": [
+            {
+              "id": "two words"
+            }
+          ]
+        }
+      ],
+      "scanner": "openai-models"
     }
   ],
   "source": "packages/core/src/discovery/scanners"

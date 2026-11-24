@@ -120,6 +120,16 @@ fn literal(host: &str) -> Option<IpAddr> {
         .ok()
 }
 
+fn check_pin(pin: SocketAddr, host: &str, port: u16, loopback: bool) -> Result<()> {
+    if pin.port() != port
+        || (loopback && !pin.ip().is_loopback())
+        || literal(host).is_some_and(|address| pin.ip() != address)
+    {
+        return Err(Error::invalid("egress_pin"));
+    }
+    Ok(())
+}
+
 fn deadline_remaining(deadline: Instant) -> Result<Duration> {
     let remaining = deadline.saturating_duration_since(Instant::now());
     if remaining.as_millis() == 0 {
@@ -154,12 +164,7 @@ impl Port for Http<'_> {
             let (_, host, port) = origin(&uri)?;
             deadline_remaining(page.deadline)?;
             let pin = self.host.pin(&uri, page.deadline)?;
-            if pin.port() != port
-                || (self.loopback && !pin.ip().is_loopback())
-                || literal(host).is_some_and(|address| pin.ip() != address)
-            {
-                return Err(Error::invalid("egress_pin"));
-            }
+            check_pin(pin, host, port, self.loopback)?;
             let remaining = deadline_remaining(page.deadline)?;
             let config = ureq::Agent::config_builder()
                 .proxy(None)
@@ -217,20 +222,7 @@ impl Port for Http<'_> {
                 {
                     return Err(Error::invalid("content_type"));
                 }
-                let mut encodings = response.headers().get_all("content-encoding").iter();
-                let encoding = encodings
-                    .next()
-                    .map(|value| {
-                        value
-                            .to_str()
-                            .map(|value| value.trim().to_ascii_lowercase())
-                            .map_err(|_| Error::invalid("content_encoding"))
-                    })
-                    .transpose()?
-                    .unwrap_or_default();
-                if encodings.next().is_some() {
-                    return Err(Error::invalid("content_encoding"));
-                }
+                let encoding = response_encoding(response.headers())?;
                 let maximum = page.max_bytes.min(MAX_JSON_BYTES);
                 let body = read_bounded(response.body_mut().as_reader(), maximum, page.deadline)?;
                 return match encoding.as_str() {
@@ -289,6 +281,24 @@ impl Port for Http<'_> {
         }
         Err(Error::invalid("too_many_redirects"))
     }
+}
+
+fn response_encoding(headers: &ureq::http::HeaderMap) -> Result<String> {
+    let mut encodings = headers.get_all("content-encoding").iter();
+    let encoding = encodings
+        .next()
+        .map(|value| {
+            value
+                .to_str()
+                .map(|value| value.trim().to_ascii_lowercase())
+                .map_err(|_| Error::invalid("content_encoding"))
+        })
+        .transpose()?
+        .unwrap_or_default();
+    if encodings.next().is_some() {
+        return Err(Error::invalid("content_encoding"));
+    }
+    Ok(encoding)
 }
 
 fn json_content_type(value: &str) -> bool {
@@ -391,6 +401,44 @@ mod tests {
         assert_eq!(
             read_bounded(b"abcd".as_slice(), 4, Instant::now()),
             Err(Error::network("request_timeout"))
+        );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "fixture assertions")]
+mod additional_tests {
+    use super::*;
+    use ureq::http::HeaderMap;
+
+    #[test]
+    fn pin_matches_port_address_and_loopback() {
+        let pin: SocketAddr = "127.0.0.1:3210".parse().unwrap();
+        assert!(check_pin(pin, "127.0.0.1", 3210, true).is_ok());
+        assert_eq!(
+            check_pin(pin, "127.0.0.1", 3211, true),
+            Err(Error::invalid("egress_pin"))
+        );
+        assert_eq!(
+            check_pin(pin, "127.0.0.2", 3210, true),
+            Err(Error::invalid("egress_pin"))
+        );
+        let nonlocal: SocketAddr = "192.0.2.4:3210".parse().unwrap();
+        assert_eq!(
+            check_pin(nonlocal, "localhost", 3210, true),
+            Err(Error::invalid("egress_pin"))
+        );
+    }
+
+    #[test]
+    fn a_response_has_at_most_one_content_coding_header() {
+        let mut headers = HeaderMap::new();
+        headers.append("content-encoding", HeaderValue::from_static("identity"));
+        assert_eq!(response_encoding(&headers).as_deref(), Ok("identity"));
+        headers.append("content-encoding", HeaderValue::from_static("identity"));
+        assert_eq!(
+            response_encoding(&headers),
+            Err(Error::invalid("content_encoding"))
         );
     }
 }

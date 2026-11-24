@@ -754,3 +754,35 @@ fn warnings(
             "message":format!("revocation names package {} which the index does not contain; it stays revoked", json!(p.id))})
     })).collect()
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "static fixture URLs")]
+mod admission_tests {
+    use super::*;
+
+    #[test]
+    fn catalogue_transport_requires_https_outside_the_test_endpoint() {
+        assert!(url_policy(
+            &Url::parse("https://catalog.example.invalid/index").unwrap(),
+            None
+        ));
+        assert!(!url_policy(
+            &Url::parse("http://catalog.example.invalid/index").unwrap(),
+            None
+        ));
+        let local = Url::parse("http://localhost:3000/index").unwrap();
+        assert!(url_policy(&local, Some(&local.origin())));
+        assert!(!url_policy(&local, None));
+    }
+
+    #[test]
+    fn index_package_names_are_distinct_after_normalization() {
+        let mut index = json!({"format":1, "packages":[
+            {"id":"example/report", "kind":"module", "name":"Report", "versions":[]},
+            {"id":"example/outline", "kind":"module", "name":"Outline", "versions":[]},
+        ]});
+        assert!(check_index(&mut index, None).is_ok());
+        index["packages"][1]["id"] = json!("example/REPORT");
+        assert_eq!(check_index(&mut index, None), Err(Error::SignatureInvalid));
+    }
+}

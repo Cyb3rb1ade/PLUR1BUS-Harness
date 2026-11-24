@@ -1373,6 +1373,118 @@
         "vendor": "example-vendor"
       },
       "name": "created-wins-for-two-live-override-aliases"
+    },
+    {
+      "expected": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [
+                "example-chat-latest"
+              ],
+              "api": {},
+              "capabilities": [],
+              "displayName": "a-model",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "a-model",
+              "kind": "unknown",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "example-chat-latest"
+                ]
+              },
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            },
+            {
+              "aliases": [],
+              "api": {},
+              "capabilities": [
+                "tools",
+                "vision",
+                "reasoning"
+              ],
+              "contextWindow": 128000,
+              "displayName": "example-chat-large",
+              "firstSeen": "2026-11-22T10:00:00.000Z",
+              "id": "example-chat-large",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T10:00:00.000Z",
+              "overrides": {},
+              "provider": "fixture",
+              "source": "table",
+              "status": "available"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "new": [
+          "example-chat-large"
+        ],
+        "reappeared": [],
+        "shadowed": [],
+        "unavailable": [],
+        "unchanged": 1,
+        "warnings": []
+      },
+      "input": {
+        "catalog": {
+          "models": [
+            {
+              "aliases": [
+                "shared"
+              ],
+              "capabilities": [],
+              "displayName": "Manual",
+              "firstSeen": "2026-11-22T09:00:00.000Z",
+              "id": "a-model",
+              "kind": "chat",
+              "lastSeen": "2026-11-22T09:00:00.000Z",
+              "overrides": {
+                "aliases": [
+                  "example-chat-latest"
+                ]
+              },
+              "provider": "fixture",
+              "source": "scan",
+              "status": "available"
+            }
+          ],
+          "providers": {},
+          "revision": 0,
+          "schema": "plur1bus.model-catalog/1",
+          "tableRevision": "2026-11-01.1"
+        },
+        "now": "2026-11-22T10:00:00.000Z",
+        "provider": "fixture",
+        "raw": [
+          {
+            "created": 100,
+            "id": "a-model"
+          },
+          {
+            "created": 200,
+            "id": "example-chat-large"
+          }
+        ],
+        "roles": [
+          [
+            "chat",
+            "fixture/example-chat-large"
+          ],
+          [
+            "embeddings",
+            "fixture/example-embed-gone"
+          ]
+        ],
+        "vendor": "example-vendor"
+      },
+      "name": "user-alias-outranks-newer-table-alias"
     }
   ],
   "overrides": [

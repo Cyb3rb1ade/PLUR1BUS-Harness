@@ -57,3 +57,54 @@ fn recorded_pages_replay_each_scanner_and_its_provider_request() {
         );
     }
 }
+
+#[test]
+fn entry_interpretation_stops_at_its_inclusive_limit() {
+    for count in [5_000, 5_001] {
+        let replies = [json!({"data": vec![json!({"id":"example"}); count]})];
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut port = Fixture {
+            replies: &replies,
+            requests: vec![],
+            deadline,
+        };
+        let result = scanners::scan(
+            scanners::Scanner::OpenAi,
+            false,
+            &mut port,
+            deadline,
+            &|| false,
+        );
+        if count == 5_000 {
+            assert_eq!(result.unwrap().duplicates, 4_999);
+        } else {
+            assert_eq!(result.err().unwrap().reason, "too_many_entries");
+        }
+    }
+}
+
+#[test]
+fn each_page_receives_a_deadline_of_at_most_fifteen_seconds() {
+    use std::cell::Cell;
+    struct PageClock(Cell<Option<Instant>>);
+
+    impl Port for PageClock {
+        fn get(&mut self, page: Page<'_>) -> Result<Vec<u8>> {
+            self.0.set(Some(page.deadline));
+            Ok(br#"{"data":[{"id":"sample"}]}"#.to_vec())
+        }
+    }
+    let mut port = PageClock(Cell::new(None));
+    let now = Instant::now();
+    let result = scanners::scan(
+        scanners::Scanner::OpenAi,
+        false,
+        &mut port,
+        now + Duration::from_secs(45),
+        &|| false,
+    );
+    assert!(result.is_ok());
+    let deadline = port.0.get().unwrap();
+    assert!(deadline >= now + Duration::from_secs(15));
+    assert!(deadline <= Instant::now() + Duration::from_secs(15));
+}

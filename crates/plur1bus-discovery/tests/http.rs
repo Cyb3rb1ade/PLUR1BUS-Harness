@@ -95,7 +95,12 @@ struct WireHost {
 }
 
 impl Admission for WireHost {
-    fn pin(&self, _uri: &Uri, _deadline: Instant) -> Result<SocketAddr> {
+    fn pin(&self, uri: &Uri, _deadline: Instant) -> Result<SocketAddr> {
+        assert_eq!(
+            uri.host(),
+            Some("127.0.0.1"),
+            "the fixture authorizes its own listener"
+        );
         Ok(self.address)
     }
 
@@ -290,4 +295,46 @@ fn a_partial_scanner_page_maps_the_body_deadline_to_timeout() {
         Some(Error::network("request_timeout"))
     );
     assert_eq!(server.received().len(), 1);
+}
+
+#[test]
+fn decoded_gzip_respects_the_page_size_limit() {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    use flate2::{write::GzEncoder, Compression};
+    use plur1bus_discovery::scanners::{Page, Port};
+    use std::io::Write;
+
+    let bytes =
+        serde_json::to_vec(&json!({"data":[{"id":"sample","description":"a".repeat(200)}]}))
+            .unwrap();
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(&bytes).unwrap();
+    let compressed = encoder.finish().unwrap();
+    assert!(compressed.len() < bytes.len() - 1);
+    for maximum in [bytes.len(), bytes.len() - 1] {
+        let server = FakeServer::start(&json!({
+            "transport": "http", "exchanges": [{
+                "request": {"method": "GET", "path": "/models"},
+                "response": {"status": 200, "headers": {"content-type": "application/json", "content-encoding": "gzip"},
+                    "chunksBase64": [STANDARD.encode(&compressed)]}
+            }]
+        }));
+        let host = WireHost {
+            address: server.addr,
+        };
+        let base: Uri = format!("http://{}", server.addr).parse().unwrap();
+        let mut http = Http::new(&host, &base, "fixture", None, true).unwrap();
+        let result = http.get(Page {
+            path: "/models",
+            query: vec![],
+            headers: Default::default(),
+            max_bytes: maximum,
+            deadline: Instant::now() + Duration::from_secs(2),
+        });
+        if maximum == bytes.len() {
+            assert_eq!(result.unwrap(), bytes);
+        } else {
+            assert_eq!(result.unwrap_err().reason, "response_too_large");
+        }
+    }
 }

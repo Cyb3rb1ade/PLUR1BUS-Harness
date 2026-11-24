@@ -35,6 +35,9 @@ export async function recordDiscoveryScanners() {
     { scanner: "ollama-tags", responses: [{ models: [{ name: "test", details: { family: 17 } }] }] },
     { scanner: "openai-models", responses: [{ error: { status: 429 } }] },
     { scanner: "google-models", responses: [{ models: [{ name: "models/" }] }] },
+    { scanner: "ollama-tags", responses: [{ models: [{ name: "example", details: { family: "alpha\nbeta" } }] }] },
+    { scanner: "ollama-tags", responses: [{ models: [{ name: "example", details: { family: "a".repeat(513) } }] }] },
+    { scanner: "openai-models", responses: [{ data: [{ id: "two words" }] }] },
   ] as const;
   const vectors = [];
   for (const item of cases) {

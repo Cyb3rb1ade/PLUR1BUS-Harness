@@ -346,6 +346,14 @@ fn running(deadline: Instant, cancelled: &dyn Fn() -> bool) -> Result<()> {
     }
 }
 
+fn scan_deadline(deadline: Instant, now: Instant) -> Instant {
+    deadline.min(now + SCAN_BUDGET)
+}
+
+fn page_bytes(total_bytes: usize) -> usize {
+    MAX_PAGE_BYTES.min(MAX_SCAN_BYTES - total_bytes)
+}
+
 pub fn scan(
     scanner: Scanner,
     apple: bool,
@@ -353,7 +361,7 @@ pub fn scan(
     deadline: Instant,
     cancelled: &dyn Fn() -> bool,
 ) -> Result<Output> {
-    let deadline = deadline.min(Instant::now() + SCAN_BUDGET);
+    let deadline = scan_deadline(deadline, Instant::now());
     let mut after = None::<String>;
     let mut pages = 0;
     let mut total_bytes = 0;
@@ -364,7 +372,7 @@ pub fn scan(
         if pages == MAX_PAGES {
             return Err(Error::invalid("too_many_pages"));
         }
-        let max_bytes = MAX_PAGE_BYTES.min(MAX_SCAN_BYTES - total_bytes);
+        let max_bytes = page_bytes(total_bytes);
         let page = make_page(
             scanner,
             after.as_deref(),
@@ -411,4 +419,25 @@ pub fn scan(
         pages,
         filtered_by_policy: (filtered > 0).then_some(filtered),
     })
+}
+
+#[cfg(test)]
+mod budget_tests {
+    use super::*;
+
+    #[test]
+    fn scan_deadline_is_capped_at_sixty_seconds() {
+        let now = Instant::now();
+        let own = now + Duration::from_secs(5);
+        let longer = now + Duration::from_secs(100);
+        assert_eq!(scan_deadline(own, now), own);
+        assert_eq!(scan_deadline(longer, now), now + Duration::from_secs(60));
+    }
+
+    #[test]
+    fn page_allocation_can_never_exceed_the_remaining_scan_budget() {
+        assert_eq!(page_bytes(0), MAX_PAGE_BYTES);
+        assert_eq!(page_bytes(MAX_SCAN_BYTES - 2), 2);
+        assert_eq!(page_bytes(MAX_SCAN_BYTES), 0);
+    }
 }

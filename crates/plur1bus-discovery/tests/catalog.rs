@@ -44,7 +44,7 @@ impl Port for Fixture {
         };
         Ok(Response {
             url: request.url.clone(),
-            redirected: false,
+            redirected: self.step["redirected"].as_bool().unwrap_or(false),
             status: 200,
             body,
         })
@@ -135,4 +135,35 @@ fn signed_catalogue_matches_typescript_sequences() {
             assert_eq!(json!(port.state.checkpoint), step["checkpoint"], "{label}");
         }
     }
+}
+
+#[test]
+fn an_engine_port_cannot_return_a_redirected_catalog_even_with_the_same_final_url() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/discovery/catalog.json"
+    ))
+    .unwrap();
+    let case = &fixture["cases"][0];
+    let settings = &case["config"];
+    let url = Url::parse(settings["url"].as_str().unwrap()).unwrap();
+    let origin = url.origin();
+    let client = Client::new(Config::new(url, settings["root"].to_string())).unwrap();
+    let mut valid = case["steps"][0].clone();
+    let mut port = Fixture {
+        state: State::default(),
+        step: valid.clone(),
+        requests: vec![],
+        reports: vec![],
+        installed: InstalledPackage {
+            id: "fixture".into(),
+            version: "1.0.0".into(),
+        },
+        catalog_origin: origin,
+    };
+    assert!(client.refresh(&mut port).is_ok());
+    port.state = State::default();
+    valid["redirected"] = json!(true);
+    port.step = valid;
+    assert!(matches!(client.refresh(&mut port), Err(Error::Transport)));
+    assert!(port.requests.last().is_some());
 }

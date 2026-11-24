@@ -319,6 +319,296 @@
             },
             "headers": {
               "content-type": "application/json",
+              "location": "https://catalog.example.invalid/models"
+            },
+            "status": 302
+          }
+        }
+      ],
+      "expected": {
+        "reason": "redirect_foreign_origin",
+        "result": "failed:invalid"
+      },
+      "headerName": "authorization",
+      "name": "foreign-origin",
+      "scanner": "openai-models",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "anthropic-version": "2023-06-01",
+              "user-agent": "fixture-discovery/1",
+              "x-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/models?limit=1000"
+          },
+          "response": {
+            "body": {
+              "data": [],
+              "has_more": true,
+              "last_id": "fixture-0"
+            },
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "anthropic-version": "2023-06-01",
+              "user-agent": "fixture-discovery/1",
+              "x-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/models?limit=1000&after_id=fixture-0"
+          },
+          "response": {
+            "body": {
+              "data": [],
+              "has_more": true,
+              "last_id": "fixture-1"
+            },
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "anthropic-version": "2023-06-01",
+              "user-agent": "fixture-discovery/1",
+              "x-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/models?limit=1000&after_id=fixture-1"
+          },
+          "response": {
+            "body": {
+              "data": [],
+              "has_more": true,
+              "last_id": "fixture-2"
+            },
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "anthropic-version": "2023-06-01",
+              "user-agent": "fixture-discovery/1",
+              "x-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/models?limit=1000&after_id=fixture-2"
+          },
+          "response": {
+            "body": {
+              "data": [],
+              "has_more": true,
+              "last_id": "fixture-3"
+            },
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "anthropic-version": "2023-06-01",
+              "user-agent": "fixture-discovery/1",
+              "x-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/models?limit=1000&after_id=fixture-3"
+          },
+          "response": {
+            "body": {
+              "data": [],
+              "has_more": true,
+              "last_id": "fixture-4"
+            },
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "anthropic-version": "2023-06-01",
+              "user-agent": "fixture-discovery/1",
+              "x-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/models?limit=1000&after_id=fixture-4"
+          },
+          "response": {
+            "body": {
+              "data": [],
+              "has_more": true,
+              "last_id": "fixture-5"
+            },
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "anthropic-version": "2023-06-01",
+              "user-agent": "fixture-discovery/1",
+              "x-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/models?limit=1000&after_id=fixture-5"
+          },
+          "response": {
+            "body": {
+              "data": [],
+              "has_more": true,
+              "last_id": "fixture-6"
+            },
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "anthropic-version": "2023-06-01",
+              "user-agent": "fixture-discovery/1",
+              "x-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/models?limit=1000&after_id=fixture-6"
+          },
+          "response": {
+            "body": {
+              "data": [],
+              "has_more": true,
+              "last_id": "fixture-7"
+            },
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "anthropic-version": "2023-06-01",
+              "user-agent": "fixture-discovery/1",
+              "x-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/models?limit=1000&after_id=fixture-7"
+          },
+          "response": {
+            "body": {
+              "data": [],
+              "has_more": true,
+              "last_id": "fixture-8"
+            },
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "anthropic-version": "2023-06-01",
+              "user-agent": "fixture-discovery/1",
+              "x-api-key": "<credential>"
+            },
+            "method": "GET",
+            "path": "/v1/models?limit=1000&after_id=fixture-8"
+          },
+          "response": {
+            "body": {
+              "data": [],
+              "has_more": true,
+              "last_id": "fixture-9"
+            },
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "reason": "too_many_pages",
+        "result": "failed:invalid"
+      },
+      "headerName": "x-api-key",
+      "name": "paging-boundary",
+      "scanner": "anthropic-models",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "authorization": "<credential>",
+              "user-agent": "fixture-discovery/1"
+            },
+            "method": "GET",
+            "path": "/v1/models"
+          },
+          "response": {
+            "body": {
+              "data": [
+                {
+                  "id": "fixture-model"
+                }
+              ]
+            },
+            "headers": {
+              "content-type": "application/json",
               "location": "next"
             },
             "status": 307
