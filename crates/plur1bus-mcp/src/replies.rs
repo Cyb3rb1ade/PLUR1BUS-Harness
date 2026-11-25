@@ -438,6 +438,28 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn pending_host_work_does_not_start_the_write_deadline(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut transport = memory_transport(&[1, 2], MAX_FRAME_BYTES)?;
+        transport.is_ping = |_| false;
+        transport.closing_budget = Duration::from_millis(20);
+        assert!(transport.receive().await.is_some());
+        assert!(
+            tokio::time::timeout(Duration::from_millis(80), transport.receive())
+                .await
+                .is_err()
+        );
+        assert!(transport.fault.current().is_none());
+        transport
+            .send(serde_json::from_str(
+                r#"{"jsonrpc":"2.0","id":1,"result":{}}"#,
+            )?)
+            .await?;
+        assert!(transport.receive().await.is_some());
+        Ok(())
+    }
+
     #[test]
     fn reservations_are_bounded_independently_by_count_and_bytes() {
         let full = Outstanding {
