@@ -120,7 +120,25 @@ fn smtp_replays_send_and_refuses_to_authenticate_before_tls() {
 #[test]
 fn imap_replays_size_literal_and_uid_operations_over_starttls() {
     for name in ["imap-fetch", "imap-no-starttls"] {
-        let fixture = recorded(name);
+        let mut fixture = recorded(name);
+        if name == "imap-fetch" {
+            // R-W-28 changes only the SEARCH interval in this TypeScript recording.
+            let expected = STANDARD.encode("A0007 UID SEARCH UID 1:*\r\n");
+            let replacement = STANDARD.encode("A0007 UID SEARCH UID 1:1\r\n");
+            let commands = fixture["exchanges"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .flat_map(|exchange| exchange["sendBase64"].as_array_mut().unwrap());
+            let mut changed = 0;
+            for command in commands {
+                if command == &expected {
+                    *command = json!(replacement);
+                    changed += 1;
+                }
+            }
+            assert_eq!(changed, 1);
+        }
         let server = FakeServer::start(&fixture);
         let ports = Stub {
             addr: server.addr,
@@ -193,4 +211,75 @@ fn a_zero_part_budget_does_not_render_the_root_entity() {
         .text,
         "Report"
     );
+}
+
+#[test]
+fn imap_reduces_a_limited_search_and_checkpoints_completed_pages() {
+    let mut fixture = recorded("imap-fetch");
+    let exchanges = fixture["exchanges"].as_array_mut().unwrap();
+    exchanges.truncate(8);
+    exchanges[7]["receiveChunksBase64"] = json!([
+        STANDARD.encode("* 3 EXISTS\r\n* OK [UIDVALIDITY 1] mailbox\r\nA0006 OK selected\r\n")
+    ]);
+    for (tag, command, result) in [
+        (7, "UID SEARCH *", "* SEARCH 8\r\nA0007 OK last"),
+        (
+            8,
+            "UID SEARCH UID 1:8",
+            "A0008 NO [LIMIT] narrower search required",
+        ),
+        (
+            9,
+            "UID SEARCH UID 1:4",
+            "* SEARCH 4 2 2\r\nA0009 OK first page",
+        ),
+        (
+            10,
+            "UID SEARCH UID 5:8",
+            "* SEARCH 8\r\nA0010 OK second page",
+        ),
+        (11, "UID SEARCH *", "* SEARCH 8\r\nA0011 OK last"),
+        (12, "UID SEARCH UID 5:8", "* SEARCH 8\r\nA0012 OK resumed"),
+    ] {
+        exchanges.push(json!({
+            "sendBase64":[STANDARD.encode(format!("A{tag:04} {command}\r\n"))],
+            "receiveChunksBase64":[STANDARD.encode(format!("{result}\r\n"))]
+        }));
+    }
+    let server = FakeServer::start(&fixture);
+    let ports = Stub {
+        addr: server.addr,
+        upgrades: Cell::default(),
+    };
+    let (mut connection, _, _) = imap::open(&ports, &options(&server), "INBOX").unwrap();
+    let mut cursor = 0;
+    let mut delivered = Vec::new();
+    let pause = connection.for_each_uid_page(&mut cursor, |_, uids| {
+        if !delivered.is_empty() {
+            return Err(plur1bus_channels::email::Error {
+                kind: plur1bus_channels::email::Kind::State,
+                message: "consumer paused",
+            });
+        }
+        delivered.extend_from_slice(uids);
+        Ok(())
+    });
+    assert!(pause.is_err());
+    assert_eq!(cursor, 4);
+    assert_eq!(delivered, [2, 4]);
+    connection
+        .for_each_uid_page(&mut cursor, |_, uids| {
+            delivered.extend_from_slice(uids);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(cursor, 8);
+    assert_eq!(delivered, [2, 4, 8]);
+    let expected: Vec<_> = fixture["exchanges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|ex| ex["sendBase64"].as_array().unwrap().iter().cloned())
+        .collect();
+    assert_eq!(server.received(), expected);
 }

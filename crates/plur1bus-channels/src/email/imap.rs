@@ -10,6 +10,8 @@ const MAX_LITERAL: usize = 50 * 1024 * 1024;
 const MAX_LOGICAL: usize = 64 * 1024 * 1024;
 const MAX_METADATA: usize = 1024 * 1024;
 const MAX_RESPONSES: usize = 8192;
+// 4,096 decimal 32-bit UIDs plus separators fit on a 64-KiB SEARCH line.
+const UID_PAGE: u64 = 4096;
 const IDLE_MAX: Duration = Duration::from_secs(25 * 60);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -26,6 +28,7 @@ struct Response {
 
 struct Tagged {
     status: Status,
+    limited: bool,
     untagged: Vec<Response>,
 }
 
@@ -82,6 +85,7 @@ pub enum Idle {
 pub struct Connection {
     wire: Wire,
     tag: u64,
+    selection_upper: Option<u64>,
 }
 
 pub type Capabilities = BTreeSet<String>;
@@ -141,6 +145,7 @@ pub fn open(
     let mut conn = Connection {
         wire: Wire::open(ports, opt, "IMAP connection failed")?,
         tag: 0,
+        selection_upper: None,
     };
     let greeting = conn.response(&mut ResponseBudget::default())?;
     if bye(&greeting.text) {
@@ -165,6 +170,7 @@ pub fn open(
         conn = Connection {
             wire: conn.wire.upgrade(ports, opt.host)?,
             tag: conn.tag,
+            selection_upper: None,
         };
     }
     let caps = conn.capabilities()?;
@@ -235,7 +241,16 @@ impl Connection {
                 check_untagged_count(untagged.len())?;
                 untagged.push(response);
             } else if let Some(status) = status(&response.text, &tag)? {
-                return Ok(Tagged { status, untagged });
+                let limited = response
+                    .text
+                    .split_ascii_whitespace()
+                    .nth(2)
+                    .is_some_and(|code| code.eq_ignore_ascii_case("[LIMIT]"));
+                return Ok(Tagged {
+                    status,
+                    limited,
+                    untagged,
+                });
             } else {
                 return Err(Error::new(Kind::Protocol, "unexpected IMAP response"));
             }
@@ -304,6 +319,9 @@ impl Connection {
         let uid_validity = uid_validity
             .filter(|value| *value < (1u64 << 53))
             .ok_or_else(|| Error::new(Kind::Protocol, "mailbox has no UIDVALIDITY"))?;
+        self.selection_upper = uid_next
+            .and_then(|next: u64| next.checked_sub(1))
+            .filter(|upper| *upper <= u64::from(u32::MAX));
         Ok(Selection {
             uid_validity,
             uid_next,
@@ -312,20 +330,57 @@ impl Connection {
     }
 
     pub fn uids_above(&mut self, uid: u64) -> Result<Vec<u64>, Error> {
-        let start = uid
-            .checked_add(1)
-            .ok_or_else(|| Error::new(Kind::Protocol, "invalid UID"))?;
-        let mut uids: Vec<_> = self
-            .ok(&format!("UID SEARCH UID {start}:*"), "UID SEARCH failed")?
-            .untagged
-            .iter()
-            .filter_map(|r| strip_prefix_case(&r.text, "* SEARCH"))
-            .flat_map(str::split_ascii_whitespace)
-            .filter_map(|item| item.parse::<u64>().ok())
-            .filter(|number| *number > uid && *number < (1u64 << 53))
-            .collect();
-        uids.sort_unstable();
-        Ok(uids)
+        let mut result = Vec::new();
+        let mut cursor = uid;
+        self.for_each_uid_page(&mut cursor, |_, page| {
+            result.extend_from_slice(page);
+            Ok(())
+        })?;
+        Ok(result)
+    }
+
+    /// Deliver each ordered page before advancing the caller's mailbox cursor.
+    /// If processing fails, the caller can resume from the last completed page.
+    pub fn for_each_uid_page(
+        &mut self,
+        cursor: &mut u64,
+        mut process: impl FnMut(&mut Self, &[u64]) -> Result<(), Error>,
+    ) -> Result<(), Error> {
+        if *cursor > u64::from(u32::MAX) {
+            return Err(Error::new(Kind::Protocol, "invalid UID"));
+        }
+        let upper = match self.selection_upper.take() {
+            Some(bound) => bound,
+            None => {
+                // Sequence number * selects the last message, even with sparse UIDs.
+                let last = self.ok("UID SEARCH *", "UID SEARCH failed")?;
+                let ids = search_uids(&last)?;
+                if ids.len() > 1 {
+                    return Err(Error::new(Kind::Protocol, "invalid last UID"));
+                }
+                ids.first().copied().unwrap_or_default()
+            }
+        };
+        let mut width = UID_PAGE;
+        while *cursor < upper {
+            let first = *cursor + 1;
+            let last = (*cursor + width).min(upper);
+            let reply = self.command(&format!("UID SEARCH UID {first}:{last}"), None)?;
+            if reply.status != Status::Ok {
+                if reply.limited && last > first {
+                    width = (last - first + 1) / 2;
+                    continue;
+                }
+                return Err(Error::new(Kind::Protocol, "UID SEARCH failed"));
+            }
+            let uids = search_uids(&reply)?;
+            if uids.iter().any(|uid| !(first..=last).contains(uid)) {
+                return Err(Error::new(Kind::Protocol, "UID outside requested range"));
+            }
+            process(self, &uids)?;
+            *cursor = last;
+        }
+        Ok(())
     }
 
     pub fn fetch_size(&mut self, uid: u64) -> Result<u64, Error> {
@@ -493,6 +548,31 @@ fn fetch_value(input: &str) -> Option<(&str, &str)> {
     (!quoted && depth == 0).then_some((input, ""))
 }
 
+fn search_uids(reply: &Tagged) -> Result<Vec<u64>, Error> {
+    let mut uids = Vec::new();
+    for response in &reply.untagged {
+        let mut words = response.text.split_ascii_whitespace();
+        if words.next() != Some("*")
+            || !words
+                .next()
+                .is_some_and(|word| word.eq_ignore_ascii_case("SEARCH"))
+        {
+            continue;
+        }
+        for word in words {
+            let uid = word
+                .parse::<u32>()
+                .ok()
+                .filter(|uid| *uid > 0)
+                .ok_or_else(|| Error::new(Kind::Protocol, "invalid UID in SEARCH response"))?;
+            uids.push(u64::from(uid));
+        }
+    }
+    uids.sort_unstable();
+    uids.dedup();
+    Ok(uids)
+}
+
 fn check_untagged_count(count: usize) -> Result<(), Error> {
     if count >= MAX_RESPONSES {
         return Err(Error::new(Kind::Protocol, "IMAP response too large"));
@@ -513,13 +593,43 @@ mod budget_tests {
     use super::*;
 
     #[test]
+    fn search_returns_twenty_thousand_uids_from_bounded_pages() -> Result<(), Error> {
+        let start = 1_000_001;
+        let expected: Vec<u64> = (start..start + 20_000).collect();
+        let mut replies = format!("* SEARCH {}\r\nA0001 OK last uid\r\n", start + 19_999);
+        for (index, page) in expected.chunks(4096).enumerate() {
+            replies.push_str("* SEARCH");
+            for uid in page {
+                replies.push(' ');
+                replies.push_str(&uid.to_string());
+            }
+            replies.push_str(&format!("\r\nA{:04} OK searched\r\n", index + 2));
+        }
+        let wire = super::super::wire::test_stream::wire(
+            replies.as_bytes(),
+            std::io::ErrorKind::UnexpectedEof,
+        );
+        let mut connection = Connection {
+            wire,
+            tag: 0,
+            selection_upper: None,
+        };
+        assert_eq!(connection.uids_above(start - 1)?, expected);
+        Ok(())
+    }
+
+    #[test]
     fn fetch_selects_the_requested_uid_when_another_message_is_reported() -> Result<(), Error> {
         let input = b"* 3 FETCH (UID 2 BODY[] {5}\r\nFirst)\r\n* 4 FETCH (BODY[] {6}\r\nReport UID 7)\r\nA0001 OK fetch complete\r\n";
         let wire = super::super::wire::test_stream::wire(
             input.as_slice(),
             std::io::ErrorKind::UnexpectedEof,
         );
-        let mut connection = Connection { wire, tag: 0 };
+        let mut connection = Connection {
+            wire,
+            tag: 0,
+            selection_upper: None,
+        };
         assert_eq!(connection.fetch_raw(7)?, b"Report");
         Ok(())
     }
@@ -529,7 +639,11 @@ mod budget_tests {
         let input = b"+ idling\r\n* 4 FETCH (UID 7 BODY[] {6}\r\nRep";
         let wire =
             super::super::wire::test_stream::wire(input.as_slice(), std::io::ErrorKind::TimedOut);
-        let mut connection = Connection { wire, tag: 0 };
+        let mut connection = Connection {
+            wire,
+            tag: 0,
+            selection_upper: None,
+        };
         assert_eq!(
             connection
                 .idle(Duration::from_millis(25))
