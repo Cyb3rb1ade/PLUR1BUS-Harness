@@ -340,7 +340,20 @@ fn process_dream_diary_resolves_only_the_workspace_from_the_verified_core() {
         format!("{} {}\n", std::process::id(), uuid::Uuid::from_u128(1)),
     )
     .unwrap();
-    let response = peer.call(3, "engine.dreams.diary", params);
+    let pending = peer.call(3, "engine.dreams.diary", params.clone());
+    assert_eq!(
+        pending["error"]["data"]["reason"],
+        "dream-ledger-not-imported"
+    );
+    assert_eq!(core.count("host.workspaceDir"), 0);
+    assert!(!root.join("state/dreams/engine.sqlite").exists());
+    let imported = peer.call(
+        4,
+        "engine.dreams.import",
+        json!({"legacyWriterRetired":true}),
+    );
+    assert_eq!(imported["result"], json!({"imported":true}), "{imported}");
+    let response = peer.call(5, "engine.dreams.diary", params);
     assert_eq!(
         response["result"],
         json!({
