@@ -6,9 +6,8 @@
 //!
 //! The deadline only has to be shorter than the shortest budget a holder could impose. The
 //! engines under test therefore run with a capture budget of 120 s and a Neo budget of
-//! 60 s, and the caller gives its turn 20 s: any dependency on a holder costs at least a
-//! minute and still ends the turn unstored, while a loaded machine has several times the
-//! time a turn needs on its own. The tests of this module run one after the other.
+//! 60 s. The caller deadline is below both PLACE_PATIENCE and the five-second
+//! recovery wait used in the regression probe. These wall-clock tests run in series.
 #![allow(
     clippy::unwrap_used,
     clippy::panic,
@@ -28,7 +27,7 @@ fn patient(host: Arc<FakeHost>) -> Arc<FakeHost> {
 }
 
 /// The caller's deadline of a foreign turn.
-const FOREIGN_DEADLINE: Duration = Duration::from_secs(20);
+const FOREIGN_DEADLINE: Duration = Duration::from_millis(4_500);
 
 /// The tests of this module measure against the wall clock; they do not load each other.
 fn serial() -> std::sync::MutexGuard<'static, ()> {
