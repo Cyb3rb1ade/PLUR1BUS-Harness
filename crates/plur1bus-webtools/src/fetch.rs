@@ -133,7 +133,9 @@ impl Client<'_> {
             return self.present(entry, Some(id), at, tokens, ctx);
         }
         let response = self.load(args, ctx, deadline)?;
-        check_status(&response, self.clock.now_ms())?;
+        check_status(&response, self.clock.now_ms(), &|| {
+            http::remaining(deadline, ctx.aborted).map(|_| ())
+        })?;
         let document = self.document(args, ctx, &response, deadline)?;
         self.present(document, None, 0, tokens, ctx)
     }
@@ -207,7 +209,7 @@ impl Client<'_> {
                     harvested.borrow_mut()[key] = Some(value.clone());
                     value
                 };
-                let extracted = html::extract_bounded(
+                let extracted = html::extract(
                     &input,
                     response.url.as_str(),
                     &mask_metadata,
@@ -583,21 +585,36 @@ fn wall_code(signals: &PageSignals) -> Option<&'static str> {
     }
 }
 
-fn check_status(response: &Response, now_ms: u64) -> Result<()> {
+fn check_status(
+    response: &Response,
+    now_ms: u64,
+    check: &dyn Fn() -> std::result::Result<(), Failure>,
+) -> Result<()> {
     if (200..300).contains(&response.status) {
         return Ok(());
     }
+    check()?;
+    const DIAGNOSTIC_HTML_UNITS: usize = 4096;
     let mime = mime(content_type(response));
-    let captcha = !response.body.is_empty()
-        && mime.as_deref().is_none_or(|mime| {
-            matches!(mime, "text/html" | "application/xhtml+xml" | "text/plain")
-        })
-        && html::extract(
+    let mut captcha = false;
+    if !response.body.is_empty()
+        && mime
+            .as_deref()
+            .is_none_or(|mime| matches!(mime, "text/html" | "application/xhtml+xml" | "text/plain"))
+    {
+        match html::extract(
             &decode_body(&response.body, content_type(response)),
             response.url.as_str(),
             &|text, _| text.to_owned(),
-        )
-        .is_ok_and(|page| page.signals.captcha);
+            DIAGNOSTIC_HTML_UNITS,
+            check,
+        ) {
+            Ok(page) => captcha = page.signals.captcha,
+            Err(Failure::Timeout) => return Err(Failure::Timeout.into()),
+            Err(_) => {}
+        }
+    }
+    check()?;
     let code = if captcha {
         "captcha"
     } else {

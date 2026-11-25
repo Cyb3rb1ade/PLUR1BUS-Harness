@@ -275,21 +275,9 @@ fn render(nodes: &[Element], id: usize, renderer: &Renderer<'_>) -> Result<Strin
     Ok(body.trim_matches(space).to_owned())
 }
 
+/// Extract readable content with a hard output budget and a caller-supplied
+/// deadline and cancellation check.
 pub fn extract(
-    html: &str,
-    base_url: &str,
-    mask: &dyn Fn(&str, Metadata) -> String,
-) -> Result<Extracted, Failure> {
-    extract_bounded(
-        html,
-        base_url,
-        mask,
-        crate::http::DEFAULT_BODY_BYTES,
-        &|| Ok(()),
-    )
-}
-
-pub(crate) fn extract_bounded(
     html: &str,
     base_url: &str,
     mask: &dyn Fn(&str, Metadata) -> String,
@@ -314,7 +302,7 @@ pub(crate) fn extract_bounded(
         base,
         keep: picked,
         keep_header: picked.is_some(),
-        max_units,
+        max_units: max_units.min(crate::http::DEFAULT_BODY_BYTES),
         check,
     };
     let mut markdown = render(&nodes, picked.unwrap_or(body_id), &renderer)?;
@@ -380,7 +368,7 @@ pub(crate) fn extract_bounded(
 
 #[cfg(test)]
 mod budget_tests {
-    use super::{extract_bounded, Failure};
+    use super::{extract, Failure};
 
     #[test]
     fn quote_formatting_counts_against_the_output_limits() -> Result<(), Failure> {
@@ -389,11 +377,11 @@ mod budget_tests {
         let base = "https://edition.example.invalid/";
         let limit = ">> Ordinary quote".len() + 1;
         assert_eq!(
-            extract_bounded(html, base, &mask, limit, &|| Ok(()))?.markdown,
+            extract(html, base, &mask, limit, &|| Ok(()))?.markdown,
             "> > Ordinary quote"
         );
         assert_eq!(
-            extract_bounded(html, base, &mask, limit - 1, &|| Ok(())).err(),
+            extract(html, base, &mask, limit - 1, &|| Ok(())).err(),
             Some(Failure::TooLarge)
         );
         Ok(())

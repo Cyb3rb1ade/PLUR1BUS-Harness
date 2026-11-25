@@ -12,6 +12,8 @@ fn readable_markdown_metadata_and_page_signals_match_typescript() {
             row["input"].as_str().unwrap(),
             row["base"].as_str().unwrap(),
             &|text, _| text.to_owned(),
+            800_000,
+            &|| Ok(()),
         )
         .unwrap();
         assert_eq!(
@@ -36,6 +38,8 @@ fn metadata_mask_runs_before_the_utf16_title_limit() {
             Metadata::Title => value.replace("fixture-private-marker", "listed"),
             _ => value.to_owned(),
         },
+        800_000,
+        &|| Ok(()),
     )
     .unwrap();
     assert_eq!(
