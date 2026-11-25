@@ -123,3 +123,34 @@ fn table_text_and_sibling_blocks_share_capacity() {
         Some(plur1bus_webtools::http::Failure::TooLarge)
     );
 }
+
+#[test]
+fn table_cells_stop_consuming_work_when_their_combined_text_is_full() {
+    use std::cell::Cell;
+    let polls_before_rejection = |first: &str| {
+        let input = format!(
+            "<table><tr><td>{first}</td></tr>{}</table>",
+            "<tr><td>Community newspaper editions</td></tr>".repeat(80)
+        );
+        let checks = Cell::new(0);
+        let result = extract(
+            &input,
+            "https://example.invalid/",
+            &|text, _| text.into(),
+            128,
+            &|| {
+                checks.set(checks.get() + 1);
+                Ok(())
+            },
+        );
+        assert_eq!(
+            result.err(),
+            Some(plur1bus_webtools::http::Failure::TooLarge)
+        );
+        checks.get()
+    };
+    // Both pages pay for parsing and classifying the same 81 rows. At most
+    // five short rows fit in the text buffer after the table scan.
+    let first_row_rejection = polls_before_rejection(&"A".repeat(129));
+    assert!(polls_before_rejection("Local edition") <= first_row_rejection + 80);
+}
