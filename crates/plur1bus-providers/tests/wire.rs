@@ -291,7 +291,7 @@ fn credentialed_plain_http_is_refused_before_dialling() {
 }
 
 #[test]
-fn cancellation_during_a_stalled_read_returns_by_the_port_deadline() {
+fn cancellation_during_a_stalled_read_returns_before_the_port_deadline() {
     use plur1bus_providers::{ErrorKind, Timeouts};
     use std::sync::{
         atomic::{AtomicBool, Ordering},
@@ -320,7 +320,7 @@ fn cancellation_during_a_stalled_read_returns_by_the_port_deadline() {
         }
     }
 
-    let budget = Duration::from_millis(350);
+    let budget = Duration::from_secs(3);
     let recording = load_fixture("providers", "chat-completions-protocol");
     let mut exchange = recording["exchanges"][1].clone();
     let input = Json::parse(exchange["requestJson"].as_str().unwrap()).unwrap();
@@ -370,8 +370,8 @@ fn cancellation_during_a_stalled_read_returns_by_the_port_deadline() {
     });
     assert_eq!(error.kind, ErrorKind::Aborted);
     assert!(
-        elapsed <= budget + Duration::from_millis(100),
-        "stalled read returned after {elapsed:?}, port deadline {budget:?}"
+        elapsed < Duration::from_millis(500),
+        "stalled read held the stream for {elapsed:?}, port deadline {budget:?}"
     );
 }
 

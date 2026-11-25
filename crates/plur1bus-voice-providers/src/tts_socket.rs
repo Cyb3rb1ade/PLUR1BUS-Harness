@@ -34,7 +34,7 @@ struct Text<'a> {
 /// A host supplies text and drains available audio in its own duplex loop.
 /// There is no unbounded text or audio queue inside the adapter.
 pub struct TtsSocket<'a> {
-    socket: Option<Socket>,
+    socket: Option<Socket<'a>>,
     ports: &'a dyn SocketPorts,
     format: AudioFormat,
     sample_rate: u32,
@@ -150,7 +150,7 @@ impl<'a> TtsSocket<'a> {
 
     fn operate<T>(
         &mut self,
-        operation: impl FnOnce(&mut Socket, Instant) -> Result<T, Error>,
+        operation: impl FnOnce(&mut Socket<'a>, Instant) -> Result<T, Error>,
     ) -> Result<T, Error> {
         let result = if self.ports.cancelled() {
             Err(Error::Aborted)

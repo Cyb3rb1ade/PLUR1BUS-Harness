@@ -10,8 +10,9 @@ use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Arc,
+    mpsc, Arc,
 };
+use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 use ureq::unversioned::resolver::{ResolvedSocketAddrs, Resolver};
 use ureq::unversioned::transport::{
@@ -22,6 +23,8 @@ use url::Url;
 type Result<T> = std::result::Result<T, ProviderError>;
 
 const MAX_SOCKET_TIMEOUT: Duration = Duration::from_secs(600);
+const IO_SLICE: Duration = Duration::from_millis(100);
+const CANCEL_SAMPLE: Duration = Duration::from_millis(25);
 
 /// Call ports supplied by the owner of the connection policy and the credential lease.
 pub trait Ports {
@@ -154,6 +157,7 @@ impl Resolver for Pin {
 struct PinnedTcp {
     address: SocketAddr,
     deadline: SocketDeadline,
+    cancelled: Option<Arc<AtomicBool>>,
 }
 
 impl Connector for PinnedTcp {
@@ -165,14 +169,18 @@ impl Connector for PinnedTcp {
         _: Option<()>,
     ) -> std::result::Result<Option<Self::Out>, ureq::Error> {
         let timeout = self.deadline.bound(details.timeout)?;
-        let stream = TcpStream::connect_timeout(&self.address, *timeout.after)
-            .map_err(|error| socket_error(error, timeout))?;
+        let deadline = (Instant::now() + *timeout.after).min(self.deadline.0);
+        let stream = match self.cancelled.as_deref() {
+            Some(cancelled) => connect_pinned_tcp(self.address, deadline, &|| {
+                cancelled.load(Ordering::Acquire)
+            }),
+            None => TcpStream::connect_timeout(&self.address, *timeout.after),
+        }
+        .map_err(|error| socket_error(error, timeout))?;
         stream.set_nodelay(details.config.no_delay())?;
-        Ok(Some(SocketTransport::new(
-            stream.into(),
-            details,
-            self.deadline,
-        )))
+        let mut transport = SocketTransport::new(stream.into(), details, self.deadline);
+        transport.cancelled = self.cancelled.clone();
+        Ok(Some(transport))
     }
 }
 
@@ -182,12 +190,267 @@ pub fn pinned_http_agent(
     pin: SocketAddr,
     deadline: Instant,
 ) -> ureq::Agent {
+    pinned_agent(config, pin, deadline, None)
+}
+
+fn pinned_agent(
+    config: ureq::config::Config,
+    pin: SocketAddr,
+    deadline: Instant,
+    cancelled: Option<Arc<AtomicBool>>,
+) -> ureq::Agent {
     let connector = PinnedTcp {
         address: pin,
         deadline: SocketDeadline(deadline),
+        cancelled,
     }
     .chain(RustlsConnector::default());
     ureq::Agent::with_parts(config, connector, Pin(pin))
+}
+
+/// Run a pinned HTTP exchange with a caller-owned cancellation predicate.
+/// Admission and the predicate stay on the caller's thread. The scoped worker
+/// owns the socket and must finish before this call returns.
+pub fn with_pinned_http_cancellation<T: Send>(
+    config: ureq::config::Config,
+    pin: SocketAddr,
+    deadline: Instant,
+    cancelled: &dyn Fn() -> bool,
+    exchange: impl FnOnce(ureq::Agent, &dyn Fn() -> bool) -> T + Send,
+) -> io::Result<T> {
+    let signal = HttpCancellation::default();
+    let agent = signal.pinned_agent(config, pin, deadline);
+    signal.run(cancelled, || exchange(agent, &|| signal.cancelled()))
+}
+
+/// Cancellation shared by a pinned agent and its body. It is scoped to one
+/// wire exchange and stays cancelled once triggered.
+#[derive(Clone, Debug, Default)]
+pub struct HttpCancellation(Arc<AtomicBool>);
+
+impl HttpCancellation {
+    pub fn pinned_agent(
+        &self,
+        config: ureq::config::Config,
+        pin: SocketAddr,
+        deadline: Instant,
+    ) -> ureq::Agent {
+        pinned_agent(config, pin, deadline, Some(self.0.clone()))
+    }
+
+    pub fn cancelled(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+
+    pub fn cancel(&self) {
+        self.0.store(true, Ordering::Release);
+    }
+
+    /// Read a streaming HTTP body on demand while sampling cancellation on
+    /// the consumer's thread. Dropping the reader closes and joins its worker.
+    pub fn reader<F: Fn() -> bool>(&self, body: ureq::Body, cancelled: F) -> io::Result<impl Read> {
+        let (request, demand) = mpsc::sync_channel(1);
+        let (response, result) = mpsc::sync_channel(1);
+        let worker = thread::Builder::new().spawn(move || {
+            let mut reader = body.into_reader();
+            while let Ok(limit) = demand.recv() {
+                let mut chunk = vec![0; limit];
+                let read = reader.read(&mut chunk).map(|size| {
+                    chunk.truncate(size);
+                    chunk
+                });
+                let finished = !matches!(&read, Ok(bytes) if !bytes.is_empty());
+                if response.send(read).is_err() || finished {
+                    break;
+                }
+            }
+        })?;
+        Ok(HttpReader {
+            signal: self.clone(),
+            cancelled,
+            request: Some(request),
+            result,
+            worker: Some(worker),
+            done: false,
+        })
+    }
+
+    /// Sample the caller's predicate while socket I/O runs on a scoped worker.
+    pub fn run<T: Send>(
+        &self,
+        cancelled: &dyn Fn() -> bool,
+        exchange: impl FnOnce() -> T + Send,
+    ) -> io::Result<T> {
+        self.sample(cancelled);
+        thread::scope(|scope| {
+            let (complete, result) = mpsc::sync_channel(1);
+            thread::Builder::new().spawn_scoped(scope, move || {
+                let value = exchange();
+                let _ = complete.send(value);
+            })?;
+            loop {
+                match result.recv_timeout(CANCEL_SAMPLE) {
+                    Ok(value) => return Ok(value),
+                    Err(mpsc::RecvTimeoutError::Timeout) => self.sample(cancelled),
+                    Err(mpsc::RecvTimeoutError::Disconnected) => {
+                        return Err(io::Error::other("HTTP exchange ended without a result"));
+                    }
+                }
+            }
+        })
+    }
+
+    fn sample(&self, cancelled: &dyn Fn() -> bool) {
+        if cancelled() {
+            self.cancel();
+        }
+    }
+}
+
+struct HttpReader<F> {
+    signal: HttpCancellation,
+    cancelled: F,
+    request: Option<mpsc::SyncSender<usize>>,
+    result: mpsc::Receiver<io::Result<Vec<u8>>>,
+    worker: Option<thread::JoinHandle<()>>,
+    done: bool,
+}
+
+impl<F: Fn() -> bool> Read for HttpReader<F> {
+    fn read(&mut self, output: &mut [u8]) -> io::Result<usize> {
+        if output.is_empty() || self.done {
+            return Ok(0);
+        }
+        self.signal.sample(&self.cancelled);
+        if self.signal.cancelled() {
+            return Err(io::ErrorKind::ConnectionAborted.into());
+        }
+        let request = self.request.as_ref().ok_or_else(reader_closed)?;
+        request
+            .send(output.len().min(8192))
+            .map_err(|_| reader_closed())?;
+        let result = loop {
+            match self.result.recv_timeout(CANCEL_SAMPLE) {
+                Ok(result) => break result,
+                Err(mpsc::RecvTimeoutError::Timeout) => self.signal.sample(&self.cancelled),
+                Err(mpsc::RecvTimeoutError::Disconnected) => break Err(reader_closed()),
+            }
+        };
+        self.signal.sample(&self.cancelled);
+        if self.signal.cancelled() {
+            return Err(io::ErrorKind::ConnectionAborted.into());
+        }
+        let bytes = result?;
+        self.done = bytes.is_empty();
+        output[..bytes.len()].copy_from_slice(&bytes);
+        Ok(bytes.len())
+    }
+}
+
+impl<F> Drop for HttpReader<F> {
+    fn drop(&mut self) {
+        self.signal.cancel();
+        drop(self.request.take());
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+    }
+}
+
+fn reader_closed() -> io::Error {
+    io::Error::new(io::ErrorKind::BrokenPipe, "HTTP body reader closed")
+}
+
+/// ureq wraps protocol-level timeouts in `io::Error::other` when reading a body.
+pub fn http_read_timed_out(error: &io::Error) -> bool {
+    io_would_wait(error)
+        || matches!(
+            error
+                .get_ref()
+                .and_then(|cause| cause.downcast_ref::<ureq::Error>()),
+            Some(ureq::Error::Timeout(_))
+        )
+}
+
+/// Open one already-admitted TCP address with a deadline and a cancellation
+/// predicate, without repeating the connection attempt between poll slices.
+pub fn connect_pinned_tcp(
+    address: SocketAddr,
+    deadline: Instant,
+    cancelled: &dyn Fn() -> bool,
+) -> io::Result<TcpStream> {
+    connect_budget(deadline, cancelled)?;
+    let mut socket = mio::net::TcpStream::connect(address)?;
+    await_connect(&mut socket, deadline, cancelled, |socket| {
+        match socket.take_error()? {
+            Some(error) => Err(error),
+            None => socket.peer_addr().map(|_| ()),
+        }
+    })?;
+    let socket: TcpStream = socket.into();
+    socket.set_nonblocking(false)?;
+    Ok(socket)
+}
+
+pub(crate) fn await_connect<S: mio::event::Source>(
+    socket: &mut S,
+    deadline: Instant,
+    cancelled: &dyn Fn() -> bool,
+    check_peer: impl Fn(&S) -> io::Result<()>,
+) -> io::Result<()> {
+    use mio::{Events, Interest, Poll, Token};
+
+    let mut poll = Poll::new()?;
+    poll.registry()
+        .register(socket, Token(0), Interest::WRITABLE)?;
+    let mut events = Events::with_capacity(1);
+    loop {
+        let wait = connect_budget(deadline, cancelled)?;
+        match poll.poll(&mut events, Some(wait)) {
+            Ok(()) => {}
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(error) => return Err(error),
+        }
+        connect_budget(deadline, cancelled)?;
+        if events.is_empty() {
+            continue;
+        }
+        match check_peer(socket) {
+            Ok(()) => break,
+            Err(error) if error.kind() == io::ErrorKind::NotConnected => continue,
+            Err(error) => return Err(error),
+        }
+    }
+    poll.registry().deregister(socket)
+}
+
+fn connect_budget(deadline: Instant, cancelled: &dyn Fn() -> bool) -> io::Result<Duration> {
+    if cancelled() {
+        return Err(io::ErrorKind::ConnectionAborted.into());
+    }
+    io_budget(deadline, None).map(|remaining| remaining.min(IO_SLICE))
+}
+
+fn io_budget(deadline: Instant, cancelled: Option<&AtomicBool>) -> io::Result<Duration> {
+    if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+        return Err(io::ErrorKind::ConnectionAborted.into());
+    }
+    let remaining = deadline.saturating_duration_since(Instant::now());
+    if remaining.as_millis() == 0 {
+        return Err(io::ErrorKind::TimedOut.into());
+    }
+    Ok(if cancelled.is_some() {
+        remaining.min(IO_SLICE)
+    } else {
+        remaining
+    })
+}
+
+fn io_would_wait(error: &io::Error) -> bool {
+    matches!(
+        error.kind(),
+        io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
+    )
 }
 
 // TLS can perform several raw reads or writes with the same relative timeout.
@@ -219,6 +482,7 @@ pub(crate) struct SocketTransport {
     socket: Socket,
     buffers: LazyBuffers,
     deadline: SocketDeadline,
+    pub(crate) cancelled: Option<Arc<AtomicBool>>,
 }
 
 impl SocketTransport {
@@ -234,6 +498,7 @@ impl SocketTransport {
                 details.config.output_buffer_size(),
             ),
             deadline,
+            cancelled: None,
         }
     }
 }
@@ -252,15 +517,14 @@ impl Transport for SocketTransport {
         let deadline = (Instant::now() + *timeout.after).min(self.deadline.0);
         let mut pending = &self.buffers.output()[..amount];
         while !pending.is_empty() {
-            let remaining = deadline.saturating_duration_since(Instant::now());
-            if remaining.as_millis() == 0 {
-                return Err(ureq::Error::Timeout(timeout.reason));
-            }
-            self.socket.set_write_timeout(Some(remaining))?;
+            let slice = io_budget(deadline, self.cancelled.as_deref())
+                .map_err(|error| socket_error(error, timeout))?;
+            self.socket.set_write_timeout(Some(slice))?;
             match self.socket.write(pending) {
                 Ok(0) => return Err(io::Error::from(io::ErrorKind::WriteZero).into()),
                 Ok(written) => pending = &pending[written..],
                 Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+                Err(error) if self.cancelled.is_some() && io_would_wait(&error) => {}
                 Err(error) => return Err(socket_error(error, timeout)),
             }
         }
@@ -269,11 +533,17 @@ impl Transport for SocketTransport {
 
     fn await_input(&mut self, timeout: NextTimeout) -> std::result::Result<bool, ureq::Error> {
         let timeout = self.deadline.bound(timeout)?;
-        self.socket.set_read_timeout(Some(*timeout.after))?;
-        let amount = self
-            .socket
-            .read(self.buffers.input_append_buf())
-            .map_err(|error| socket_error(error, timeout))?;
+        let deadline = (Instant::now() + *timeout.after).min(self.deadline.0);
+        let amount = loop {
+            let slice = io_budget(deadline, self.cancelled.as_deref())
+                .map_err(|error| socket_error(error, timeout))?;
+            self.socket.set_read_timeout(Some(slice))?;
+            match self.socket.read(self.buffers.input_append_buf()) {
+                Ok(amount) => break amount,
+                Err(error) if self.cancelled.is_some() && io_would_wait(&error) => {}
+                Err(error) => return Err(socket_error(error, timeout)),
+            }
+        };
         self.buffers.input_appended(amount);
         Ok(amount != 0)
     }
@@ -364,7 +634,7 @@ impl<T: Transport> Transport for IdleTransport<T> {
     }
 }
 
-fn abort(ports: &dyn Ports) -> Result<()> {
+pub(crate) fn abort(ports: &dyn Ports) -> Result<()> {
     if ports.cancelled() {
         return Err(ProviderError::new(
             ErrorKind::Aborted,
@@ -657,7 +927,8 @@ impl Adapter {
                 "managed Unix request body exceeds one MiB",
             ));
         }
-        let (agent, headers_received) = self.agent(&uri, ports, start, timeouts)?;
+        let signal = HttpCancellation::default();
+        let (agent, headers_received) = self.agent(&uri, ports, start, timeouts, &signal)?;
         let mut http_request = ureq::http::Request::post(uri.as_str());
         if let Some(target) = http_request.headers_mut() {
             *target = headers;
@@ -665,8 +936,9 @@ impl Adapter {
         let http_request = http_request
             .body(body.as_bytes())
             .map_err(|_| ProviderError::invalid("provider HTTP request is invalid"))?;
-        let reply = agent
-            .run(http_request)
+        let reply = signal
+            .run(&|| ports.cancelled(), move || agent.run(http_request))
+            .map_err(|err| io_failure(&err.into(), ports, TimeoutPhase::Headers))?
             .map_err(|err| io_failure(&err, ports, TimeoutPhase::Headers))?;
         headers_received.store(true, Ordering::Relaxed);
         abort(ports)?;
@@ -687,10 +959,9 @@ impl Adapter {
             .get("content-type")
             .and_then(|h| h.to_str().ok())
             .unwrap_or_default();
-        let mut reader = CallReader {
-            input: body.into_reader(),
-            ports,
-        };
+        let mut reader = signal
+            .reader(body, || ports.cancelled())
+            .map_err(|error| response::read_error(&error))?;
         if !bodyless && !parts.status.is_success() {
             let mut error_body = Vec::new();
             let limit = self.config.max_body_bytes.min(64 * 1024);
@@ -748,6 +1019,7 @@ impl Adapter {
         ports: &dyn Ports,
         start: Instant,
         timeouts: Timeouts,
+        signal: &HttpCancellation,
     ) -> Result<(ureq::Agent, Arc<AtomicBool>)> {
         let socket_timeout = ports.socket_timeout().min(MAX_SOCKET_TIMEOUT);
         if socket_timeout.is_zero() {
@@ -818,7 +1090,9 @@ impl Adapter {
         };
         #[cfg(unix)]
         if let Some(socket) = &self.managed {
-            let connector = local::UnixConnector(socket.path().to_owned(), deadline).chain(idle);
+            let connector =
+                local::UnixConnector(socket.path().to_owned(), deadline, signal.0.clone())
+                    .chain(idle);
             return Ok((
                 ureq::Agent::with_parts(config, connector, Pin(pin)),
                 headers_received,
@@ -827,6 +1101,7 @@ impl Adapter {
         let connector = PinnedTcp {
             address: pin,
             deadline,
+            cancelled: Some(signal.0.clone()),
         }
         .chain(RustlsConnector::default())
         .chain(idle);
@@ -873,6 +1148,7 @@ impl Adapter {
         }
         let mut uri = self.base.clone();
         uri.set_path(if health { "/health" } else { "/v1/models" });
+        let signal = HttpCancellation::default();
         let response = self.probe_get(
             &uri,
             ports,
@@ -881,15 +1157,15 @@ impl Adapter {
                 idle: Some(remaining),
                 total: Some(remaining),
             },
+            &signal,
         )?;
         let status = response.status().as_u16();
         if !(200..300).contains(&status) {
             return Ok((status, Vec::new()));
         }
-        let mut reader = CallReader {
-            input: response.into_body().into_reader(),
-            ports,
-        };
+        let mut reader = signal
+            .reader(response.into_body(), || ports.cancelled())
+            .map_err(|error| response::read_error(&error))?;
         let limit = limit.min(1024 * 1024);
         let mut bytes = Vec::new();
         let read = reader
@@ -915,13 +1191,18 @@ impl Adapter {
         uri: &Url,
         ports: &dyn Ports,
         timeouts: Timeouts,
+        signal: &HttpCancellation,
     ) -> Result<ureq::http::Response<ureq::Body>> {
         abort(ports)?;
-        let (agent, headers_received) = self.agent(uri, ports, Instant::now(), timeouts)?;
-        let response = agent
-            .get(uri.as_str())
-            .header("accept", "application/json")
-            .call()
+        let (agent, headers_received) = self.agent(uri, ports, Instant::now(), timeouts, signal)?;
+        let response = signal
+            .run(&|| ports.cancelled(), move || {
+                agent
+                    .get(uri.as_str())
+                    .header("accept", "application/json")
+                    .call()
+            })
+            .map_err(|error| io_failure(&error.into(), ports, TimeoutPhase::Headers))?
             .map_err(|error| io_failure(&error, ports, TimeoutPhase::Headers))?;
         headers_received.store(true, Ordering::Relaxed);
         abort(ports)?;
@@ -958,30 +1239,6 @@ fn io_failure(error: &ureq::Error, ports: &dyn Ports, phase: TimeoutPhase) -> Pr
         ErrorKind::Network,
         "network failure: provider connection failed",
     )
-}
-
-struct CallReader<'a, R> {
-    input: R,
-    ports: &'a dyn Ports,
-}
-
-impl<R: Read> Read for CallReader<'_, R> {
-    fn read(&mut self, data: &mut [u8]) -> io::Result<usize> {
-        if self.ports.cancelled() {
-            return Err(io::Error::new(
-                io::ErrorKind::ConnectionAborted,
-                "call aborted by the caller",
-            ));
-        }
-        let read = self.input.read(data);
-        if self.ports.cancelled() {
-            return Err(io::Error::new(
-                io::ErrorKind::ConnectionAborted,
-                "call aborted by the caller",
-            ));
-        }
-        read
-    }
 }
 
 #[cfg(test)]
@@ -1028,6 +1285,7 @@ mod tests {
                 &FixturePort(pin, budget),
                 Instant::now(),
                 NO_PHASE_TIMEOUTS,
+                &HttpCancellation::default(),
             )
             .map(|(agent, _)| agent)
     }
@@ -1102,6 +1360,7 @@ mod tests {
             socket,
             buffers: LazyBuffers::new(32, 32),
             deadline: SocketDeadline(Instant::now() - Duration::from_secs(1)),
+            cancelled: None,
         };
         let phase = NextTimeout {
             after: Duration::from_secs(10).into(),
@@ -1116,5 +1375,41 @@ mod tests {
             transport.transmit_output(1, phase),
             Err(ureq::Error::Timeout(ureq::Timeout::Global)),
         ));
+    }
+
+    #[test]
+    fn cancellation_interrupts_one_pending_tcp_connection() {
+        use socket2::{Domain, SockAddr, Type};
+
+        let listener = Socket::new(Domain::IPV4, Type::STREAM, None).unwrap();
+        let address = SocketAddr::from(([127, 0, 0, 1], 0));
+        listener.bind(&SockAddr::from(address)).unwrap();
+        listener.listen(1).unwrap();
+        let target = listener.local_addr().unwrap().as_socket().unwrap();
+        let mut connected = Vec::new();
+        let mut waiting = false;
+        for _ in 0..16 {
+            match TcpStream::connect_timeout(&target, Duration::from_millis(80)) {
+                Ok(stream) => connected.push(stream),
+                Err(error) => {
+                    assert!(
+                        io_would_wait(&error),
+                        "loopback fixture connect failed: {error}"
+                    );
+                    waiting = true;
+                    break;
+                }
+            }
+        }
+        assert!(waiting, "the loopback fixture did not hold a connect");
+
+        let start = Instant::now();
+        let cancel_at = start + Duration::from_millis(125);
+        let error = connect_pinned_tcp(target, start + Duration::from_secs(2), &|| {
+            Instant::now() >= cancel_at
+        })
+        .unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::ConnectionAborted);
+        assert!(cancel_at.elapsed() < Duration::from_millis(500));
     }
 }

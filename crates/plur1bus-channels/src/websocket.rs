@@ -1,8 +1,7 @@
 //! Blocking WebSocket handshake and framing over a host-authorized stream.
-use crate::stream::DeadlineStream;
 pub use crate::stream::TimedStream;
 use std::fmt;
-use std::io;
+use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::time::{Duration, Instant, SystemTime};
 use tungstenite::client::IntoClientRequest;
@@ -14,8 +13,9 @@ use url::{Host, Url};
 
 const MAX_TIMEOUT: Duration = Duration::from_secs(600);
 const MAX_MESSAGE: usize = 32 * 1024 * 1024;
+const IO_SLICE: Duration = Duration::from_millis(100);
 
-pub trait SocketPorts {
+pub trait SocketPorts: Sync {
     fn cancelled(&self) -> bool {
         false
     }
@@ -27,7 +27,8 @@ pub trait SocketPorts {
     fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr>;
 
     /// Connect only to the pin. Complete and verify TLS for the original hostname before
-    /// returning a stream for a WSS endpoint. All underlying operations share the deadline.
+    /// returning a stream for a WSS endpoint. Check cancellation during TCP and TLS setup
+    /// at least every 100 ms and bound those operations by the absolute deadline.
     fn dial(
         &self,
         endpoint: &Url,
@@ -60,6 +61,7 @@ impl Default for Limits {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Error {
     Denied,
+    Aborted,
     Timeout,
     Capacity,
     Protocol,
@@ -75,6 +77,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
             Self::Denied => "websocket destination denied",
+            Self::Aborted => "websocket cancelled",
             Self::Timeout => "websocket deadline elapsed",
             Self::Capacity => "websocket size limit exceeded",
             Self::Protocol => "websocket protocol error",
@@ -102,18 +105,72 @@ pub enum VoiceKey<'a> {
     Gemini(&'a str),
 }
 
-pub struct Socket {
-    ws: WebSocket<DeadlineStream>,
+struct SocketStream<'a> {
+    io: Box<dyn TimedStream>,
+    deadline: Instant,
+    ports: &'a dyn SocketPorts,
+}
+
+impl SocketStream<'_> {
+    fn run<T>(
+        &mut self,
+        mut operation: impl FnMut(&mut dyn TimedStream) -> io::Result<T>,
+    ) -> io::Result<T> {
+        loop {
+            if self.ports.cancelled() {
+                return Err(io::ErrorKind::ConnectionAborted.into());
+            }
+            let now = Instant::now();
+            if now >= self.deadline {
+                return Err(io::ErrorKind::TimedOut.into());
+            }
+            self.io.set_deadline(self.deadline.min(now + IO_SLICE))?;
+            let result = operation(self.io.as_mut());
+            if self.ports.cancelled() {
+                return Err(io::ErrorKind::ConnectionAborted.into());
+            }
+            match result {
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        io::ErrorKind::WouldBlock
+                            | io::ErrorKind::TimedOut
+                            | io::ErrorKind::Interrupted
+                    ) => {}
+                result => return result,
+            }
+        }
+    }
+}
+
+impl Read for SocketStream<'_> {
+    fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+        self.run(|stream| stream.read(bytes))
+    }
+}
+
+impl Write for SocketStream<'_> {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.run(|stream| stream.write(bytes))
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.run(|stream| stream.flush())
+    }
+}
+
+pub struct Socket<'a> {
+    ws: WebSocket<SocketStream<'a>>,
     limits: Limits,
 }
 
-impl Socket {
+impl<'a> Socket<'a> {
     /// Hosts register through the shared wire log boundary (R-W-11), which rejects
     /// dependency DEBUG records containing peer close reasons.
     pub fn connect(
         url: &Url,
         headers: &[(&str, &str)],
-        ports: &dyn SocketPorts,
+        ports: &'a dyn SocketPorts,
         limits: Limits,
         insecure_loopback: bool,
     ) -> Result<Self, Error> {
@@ -124,7 +181,7 @@ impl Socket {
     pub fn connect_with_voice_key(
         url: &Url,
         key: VoiceKey<'_>,
-        ports: &dyn SocketPorts,
+        ports: &'a dyn SocketPorts,
         limits: Limits,
         insecure_loopback: bool,
     ) -> Result<Self, Error> {
@@ -145,7 +202,7 @@ impl Socket {
     fn connect_with_headers(
         url: &Url,
         headers: &[(&str, &str)],
-        ports: &dyn SocketPorts,
+        ports: &'a dyn SocketPorts,
         limits: Limits,
         insecure_loopback: bool,
         voice_header: Option<&str>,
@@ -174,6 +231,9 @@ impl Socket {
         {
             return Err(Error::Capacity);
         }
+        if ports.cancelled() {
+            return Err(Error::Aborted);
+        }
         let deadline = Instant::now() + limits.handshake.min(MAX_TIMEOUT);
         let pin = ports.pin(url, deadline).ok_or(Error::Denied)?;
         if Some(pin.port()) != url.port_or_known_default()
@@ -197,9 +257,11 @@ impl Socket {
             value.set_sensitive(true);
             request.headers_mut().insert(name, value);
         }
-        let io = ports
-            .dial(url, pin, deadline)
-            .map_err(|error| classify_io(error.kind()))?;
+        let io = ports.dial(url, pin, deadline);
+        if ports.cancelled() {
+            return Err(Error::Aborted);
+        }
+        let io = io.map_err(|error| classify_io(error.kind()))?;
         if io.peer_addr().map_err(|error| classify_io(error.kind()))? != pin {
             return Err(Error::Denied);
         }
@@ -209,7 +271,11 @@ impl Socket {
             .max_write_buffer_size(limits.message_bytes + 1024)
             .max_frame_size(Some(limits.frame_bytes))
             .max_message_size(Some(limits.message_bytes));
-        let stream = DeadlineStream { io, deadline };
+        let stream = SocketStream {
+            io,
+            deadline,
+            ports,
+        };
         let (ws, _) = tungstenite::client::client_with_config(request, stream, Some(config))
             .map_err(|e| match e {
                 HandshakeError::Interrupted(_) => Error::Timeout,
@@ -334,6 +400,7 @@ fn classify(error: tungstenite::Error) -> Error {
 
 fn classify_io(kind: io::ErrorKind) -> Error {
     match kind {
+        io::ErrorKind::ConnectionAborted => Error::Aborted,
         io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => Error::Timeout,
         _ => Error::Network,
     }

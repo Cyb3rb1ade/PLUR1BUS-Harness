@@ -38,11 +38,12 @@ Bibliotheksumfang zu. Bei den folgenden Meilensteinen beschreiben die Modi und o
 - **Abdeckung.** Die W1-Aufzeichnungen decken die hier genannten Drahtfälle ab. Die Zuordnung
   jeder TypeScript-Testdatei im MODULE-MAP wird mit dem Paketabschluss W10 nachgeführt.
   Der optionale Tool-Argument-Reparaturhook kommt vom Aufrufer und ist im Chat-Replay belegt.
-- **Benannte Abweichung R-W-9 (Abbruch während Socket-I/O).** TypeScript kann einen wartenden
-  Aufruf unmittelbar unterbrechen. Rust prüft den Abbruch an I/O-Grenzen. Die Verzögerung
-  beträgt höchstens das vom Port über `socket_timeout` gelieferte Zeitbudget, begrenzt auf
-  600 Sekunden. Eine kürzere Gesamtfrist verkürzt die Obergrenze. Die Frist gilt auch bei
-  deaktivierten Phasenfristen und deckt TCP, TLS und Unix-Sockets ab.
+- **R-W-9a (Abbruch während Socket-I/O).** Der gemeinsame HTTP-Connector wartet beim TCP-
+  und Unix-Aufbau sowie unterhalb von TLS in Zeitscheiben von höchstens 100 ms.
+  Die blockierenden Aufrufer geben ihr Signal während der I/O alle 25 ms weiter.
+  Das Ziel sind höchstens 500 ms bis zur Rückkehr. Die absolute Budget- und
+  Phasenfrist bleibt wirksam. TypeScript unterbricht den asynchronen Transport per Signal.
+  Die fünf Discovery-Messungen sind im Laufprotokoll erfasst ([P4D-265](defects.md#p4d-265)).
 - **RW-6, Frist der Rückfallkette.** Rust und TypeScript beziehen die Socket-Frist auf den
   einzelnen Adapterversuch. Der Router erlaubt standardmäßig bis zu sechs Versuche mit jeweils
   bis zu 600 Sekunden und den anfallenden Retry-Pausen. Beim Flip hält der Host die gemeinsame
@@ -149,8 +150,11 @@ Bei Buzz bleiben die tatsächlichen Signaturen prüfbar. Die Aufzeichnung vergle
 Signaturen und verschlüsselte Outbound-Frames über Event-ID, Signaturprüfung und entschlüsselte Nutzlast.
 
 R-W-6 bindet Nachrichten- und Frame-Limits getrennt und beaufschlagt Handshake, Lesen und
-Schreiben mit Fristen. Bei R-W-9 können blockierende Kanalaufrufe bis zur jeweiligen Restfrist
-laufen. HTTP begrenzt Einzelaufrufe auf 600 Sekunden, WebSocket-Phasen ebenfalls auf maximal
+Schreiben mit Fristen. Der Kanal-HTTP-Transport verwendet den gemeinsamen Connector
+nach R-W-9a. WebSocket liest und schreibt in kurzen Zeitscheiben. Beim Flip muss der
+Dial-Port dasselbe Signal beim TCP-Aufbau und in der TLS-Verhandlung prüfen. Der
+TCP-Helfer `connect_pinned_tcp` wartet dazu auf genau den zugelassenen Socket.
+HTTP begrenzt Einzelaufrufe auf 600 Sekunden, WebSocket-Phasen ebenfalls auf maximal
 600 Sekunden. SMTP/IMAP-Kommandos nutzen bis zu 600 Sekunden, IMAP IDLE hat separat das
 protokollbedingte Maximum von 25 Minuten. Egress- und TLS-Ports müssen ihre erhaltenen Fristen
 am Socket durchsetzen. Der IMAP-Client begrenzt die dekodierten Metadaten je Kommando
@@ -240,11 +244,11 @@ The flip must supply authorized pins, TLS for WebSocket, resolved credentials,
 Polly signing, request deadlines and the ASR multipart boundary. R-W-12/R-W-13
 are recorded in [P4D-202](defects.md#p4d-202), [P4D-204](defects.md#p4d-204),
 [P4D-205](defects.md#p4d-205) and [P4D-206](defects.md#p4d-206). Audio and JSON
-have separate ceilings. Host registration uses the R-W-11 logger. Under R-W-9
-an in-flight blocking read may observe cancellation as late as its current
-deadline. For realtime reads this is the shortest of the caller's remaining
-read budget, the socket's configured timeout and 600 seconds. The session
-releases the stream when the interrupted read returns.
+have separate ceilings. Host registration uses the R-W-11 logger. Under R-W-9a
+the HTTP and WebSocket transports check cancellation during reads. A phase
+deadline that expires during a response remains a timeout even when ureq
+wraps it in an I/O error. The realtime session releases the stream when the
+interrupted read returns.
 
 The HTTP and WebSocket synthesis streams, Polly sentence windows, retry
 schedule, and Grok/Gemini/ElevenLabs dialogues are recorded from the TypeScript
@@ -310,8 +314,8 @@ only. Refuse a configuration mismatch as an auth error.
   Abbruch, dauerhafte Job- und Store-Backends, Upload-Bindungen, die privaten ffmpeg-
   und CoreML-Prozesse sowie Chromium- und Asset-Pfade. R-W-13 begrenzt die dekodierte
   JSON-Antwort und die Diagnose in [P4D-223](defects.md#p4d-223).
-  Abbruch einer blockierten HTTP-Leseoperation wirkt spätestens nach ihrer absoluten Frist
-  (R-W-9). Das CoreML-JSONL-Cancel verwendet die explizite, separat begrenzte Grace-Zeit
+  Blockierte HTTP-Antworten prüfen den Abbruch am gemeinsamen Connector (R-W-9a).
+  Das CoreML-JSONL-Cancel verwendet die explizite, separat begrenzte Grace-Zeit
   des Ports, bevor der Kindprozess bei ausbleibender Bestätigung beendet wird.
 
 Das Rust-Dokumentmodul rendert Markdown in alle neun Vorlagen und bindet die drei ausgelieferten Fonts
@@ -386,9 +390,9 @@ Klartext-Loopback mit Lease den lokalen Prozess am Port oder scannt
 schlüssellos. Der Host klassifiziert und pinnt jedes Ziel.
 
 Die Scanfrist beträgt 60 Sekunden, pro Seite höchstens 15 Sekunden. Der
-HTTP-Leser, die Dekomprimierung und der Apple-FM-Socket prüfen den Abbruch
-an den Lesegrenzen. Ein bereits laufender blockierender Socket-Aufruf ist
-an die Restfrist gebunden ([P4D-265](defects.md#p4d-265)).
+HTTP-Leser, Dekomprimierung und Apple-FM-Socket prüfen den Abbruch auch
+während einer wartenden Verbindung bzw. zwischen Leseabschnitten.
+Der gemeinsame Connector setzt R-W-9a um ([P4D-265](defects.md#p4d-265)).
 Anzeigenamen passieren dieselbe Bereinigung wie MCP-Deskriptoren
 ([P4D-266](defects.md#p4d-266)). Die Scanner übernehmen keine
 Provider-Beschreibungen. Beim Flip deckelt der Host `contextWindow` an

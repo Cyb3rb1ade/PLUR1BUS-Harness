@@ -209,8 +209,8 @@ fn a_partial_page_cannot_extend_the_original_body_deadline() {
 }
 
 #[test]
-fn cancellation_during_a_body_read_keeps_the_original_deadline() {
-    for (gap_ms, budget_ms) in [(200, 1500), (1500, 900)] {
+fn cancellation_during_a_body_read_preempts_the_original_deadline() {
+    for (gap_ms, budget_ms) in [(1200, 3000), (1500, 900)] {
         let case = json!({"transport":"http","exchanges":[{
             "request":{"method":"GET","path":"/notes"},
             "response":{"status":200,"headers":{"content-type":"text/plain"},
@@ -231,13 +231,16 @@ fn cancellation_during_a_body_read_keeps_the_original_deadline() {
         let mut options = Options::get(&headers, "fixture-web-tools/1", "text/plain", deadline);
         options.accept_type = Some(&accept);
         let cancelled = AtomicBool::new(false);
+        let cancelled_at = std::sync::OnceLock::new();
         let (starting_read, start) = sync_channel(1);
         let signalled = Cell::new(false);
         thread::scope(|scope| {
             let cancellation = &cancelled;
+            let timestamp = &cancelled_at;
             let canceller = scope.spawn(move || {
                 start.recv_timeout(Duration::from_secs(2)).unwrap();
                 thread::sleep(Duration::from_millis(25));
+                timestamp.set(Instant::now()).unwrap();
                 cancellation.store(true, Ordering::Release);
             });
             let result = http::request(
@@ -256,7 +259,11 @@ fn cancellation_during_a_body_read_keeps_the_original_deadline() {
             canceller.join().unwrap();
             assert!(cancelled.load(Ordering::Acquire));
             assert_eq!(result.err(), Some(Failure::Timeout));
-            assert!(returned_at <= deadline + Duration::from_millis(300));
+            let elapsed = returned_at.saturating_duration_since(*cancelled_at.get().unwrap());
+            assert!(
+                elapsed < Duration::from_millis(500),
+                "post-cancellation wait: {elapsed:?}"
+            );
         });
         assert_eq!(server.received().len(), 1);
     }

@@ -20,4 +20,7 @@ pub use ordered::Json;
 pub use request::{RequestOptions, SignedThinking, Wire};
 pub use response::{retry_after_date_ms, ToolRepair, ToolRepairInput};
 pub use sse::{SseEvent, SseParser};
-pub use transport::{pinned_http_agent, Adapter, Config, Ports, Timeouts};
+pub use transport::{
+    connect_pinned_tcp, http_read_timed_out, pinned_http_agent, with_pinned_http_cancellation,
+    Adapter, Config, HttpCancellation, Ports, Timeouts,
+};

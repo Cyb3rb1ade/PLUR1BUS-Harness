@@ -225,6 +225,7 @@ pub enum Output<'a> {
 
 struct Exchange {
     response: Response<ureq::Body>,
+    signal: plur1bus_providers::HttpCancellation,
     grant: Box<dyn Authorization>,
 }
 
@@ -305,7 +306,7 @@ impl<'a> Client<'a> {
         if let Some(token) = &token {
             secrets.insert(token)?;
         }
-        let response = http::send(
+        let (response, signal) = http::send(
             url,
             body,
             stream,
@@ -314,14 +315,19 @@ impl<'a> Client<'a> {
             token.as_deref(),
         )?;
         self.check(call)?;
-        Ok(Exchange { response, grant })
+        Ok(Exchange {
+            response,
+            signal,
+            grant,
+        })
     }
 
     fn card(&self, call: &Call<'_>, secrets: &mut reply::Secrets) -> Result<Verified, Error> {
         let mut url = call.peer.card.clone();
         for hop in 0..=3 {
             let Exchange {
-                mut response,
+                response,
+                signal,
                 mut grant,
             } = self.exchange(call, &url, None, self.limits.card_bytes, secrets)?;
             if matches!(response.status().as_u16(), 301 | 302 | 303 | 307 | 308) && hop < 3 {
@@ -339,7 +345,8 @@ impl<'a> Client<'a> {
             }
             http::check_media(&response, false, self.limits.card_bytes)?;
             let body = http::read_json(
-                response.body_mut(),
+                response.into_body(),
+                &signal,
                 self.limits.card_bytes,
                 call.window,
                 || self.policy.current(call.peer, call.execution),
@@ -396,7 +403,8 @@ impl<'a> Client<'a> {
             return Err(Error::Untrusted);
         }
         let Exchange {
-            mut response,
+            response,
+            signal,
             mut grant,
         } = self.exchange(
             &call,
@@ -409,7 +417,14 @@ impl<'a> Client<'a> {
         if operation.streams() {
             return Ok(Output::Stream(Box::new(Stream::new(
                 reply::Wire {
-                    body: response.into_body(),
+                    body: Box::new(
+                        signal
+                            .reader(response.into_body(), move || {
+                                (call.window.canceled)()
+                                    || !self.policy.current(call.peer, call.execution)
+                            })
+                            .map_err(|_| Error::RequestFailed)?,
+                    ),
                     grant,
                 },
                 self.policy,
@@ -421,7 +436,8 @@ impl<'a> Client<'a> {
             ))));
         }
         let raw = http::read_json(
-            response.body_mut(),
+            response.into_body(),
+            &signal,
             self.limits.reply_bytes,
             call.window,
             || self.policy.current(call.peer, call.execution),

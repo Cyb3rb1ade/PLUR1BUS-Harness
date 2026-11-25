@@ -341,6 +341,62 @@ fn decoded_gzip_respects_the_page_size_limit() {
 }
 
 #[test]
+fn scanner_cancellation_interrupts_a_wait_for_headers_or_body() {
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::sync::OnceLock;
+
+    let limit = Duration::from_millis(500);
+    for headers in [
+        &b""[..],
+        &b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n"[..],
+        &b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n{"[..],
+    ] {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let host = Fixture(listener.local_addr().unwrap());
+        let base = format!("http://{}/", host.0).parse().unwrap();
+        let mut http = Http::new(&host, &base, "fixture", None, true).unwrap();
+        let cancelled_at = OnceLock::new();
+        let (result, elapsed) = std::thread::scope(|scope| {
+            scope.spawn(|| {
+                let (socket, _) = listener.accept().unwrap();
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(4)))
+                    .unwrap();
+                let mut socket = BufReader::new(socket);
+                let mut line = String::new();
+                loop {
+                    line.clear();
+                    assert_ne!(socket.read_line(&mut line).unwrap(), 0);
+                    if line == "\r\n" {
+                        break;
+                    }
+                }
+                socket.get_mut().write_all(headers).unwrap();
+                std::thread::sleep(Duration::from_millis(150));
+                cancelled_at.set(Instant::now()).unwrap();
+                // Hold the response open until the cancelled client closes it.
+                assert_eq!(socket.read(&mut [0; 1]).unwrap(), 0);
+            });
+            let result = scanners::scan(
+                Scanner::OpenAi,
+                false,
+                &mut http,
+                Instant::now() + Duration::from_secs(2),
+                &|| cancelled_at.get().is_some(),
+            );
+            (result, cancelled_at.get().unwrap().elapsed())
+        });
+        assert_eq!(result.err(), Some(Error::network("aborted")));
+        assert!(
+            elapsed < limit,
+            "headers={} elapsed={elapsed:?}",
+            !headers.is_empty()
+        );
+    }
+}
+
+#[test]
 fn remote_cleartext_requires_manual_configuration_and_no_lease() {
     struct Configured;
     impl Admission for Configured {

@@ -78,6 +78,75 @@ const JSON_LIMIT: usize = 16 * 1024 * 1024;
 const DIAGNOSTIC_LIMIT: usize = 64 * 1024;
 
 #[tokio::test]
+async fn dropping_a_waiting_mcp_request_closes_its_socket() {
+    assert_mcp_socket_closes(false).await;
+}
+
+#[tokio::test]
+async fn dropping_an_idle_mcp_sse_stream_closes_its_socket() {
+    assert_mcp_socket_closes(true).await;
+}
+
+async fn assert_mcp_socket_closes(send_event: bool) {
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use tokio::sync::oneshot;
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let (received, ready) = oneshot::channel();
+    let (closed, observed) = oneshot::channel();
+    let server = std::thread::spawn(move || {
+        let (socket, _) = listener.accept().unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        let mut stream = BufReader::new(socket);
+        let mut line = String::new();
+        loop {
+            line.clear();
+            assert_ne!(stream.read_line(&mut line).unwrap(), 0);
+            if line == "\r\n" {
+                break;
+            }
+        }
+        if send_event {
+            let event = b"data: record\n\n";
+            stream.get_mut().write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\n\r\n").unwrap();
+            write!(stream.get_mut(), "{:x}\r\n", event.len()).unwrap();
+            stream.get_mut().write_all(event).unwrap();
+            stream.get_mut().write_all(b"\r\n").unwrap();
+        }
+        received.send(()).unwrap();
+        let _ = closed.send(stream.read(&mut [0; 1]));
+    });
+    let target: Arc<str> = format!("http://{address}/mcp").into();
+    let client = HttpClient::new(&target, Arc::new(Pin(address)), Duration::from_secs(3)).unwrap();
+    let request = tokio::spawn(async move {
+        client
+            .get_stream(target, None, None, None, HashMap::new())
+            .await
+    });
+    tokio::time::timeout(Duration::from_secs(2), ready)
+        .await
+        .unwrap()
+        .unwrap();
+    if send_event {
+        let mut events = request.await.unwrap().unwrap();
+        let event = events.next().await.unwrap().unwrap();
+        assert_eq!(event.data.as_deref(), Some("record"));
+        // The producer immediately returns to the socket after the event.
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        drop(events);
+    } else {
+        request.abort();
+    }
+    let returned = tokio::time::timeout(Duration::from_millis(500), observed).await;
+    server.join().unwrap();
+    assert_eq!(returned.unwrap().unwrap().unwrap(), 0);
+}
+
+#[tokio::test]
 async fn counts_streamed_json_at_the_exact_limit_before_parsing() {
     let valid = br#"{"jsonrpc":"2.0","id":1,"result":{}}"#;
     let exact = server(200, "application/json", &padded_json(valid, JSON_LIMIT));

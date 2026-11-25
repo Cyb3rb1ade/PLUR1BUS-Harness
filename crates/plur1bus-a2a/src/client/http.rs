@@ -4,7 +4,7 @@ use std::{
     time::Instant,
 };
 
-use plur1bus_providers::pinned_http_agent;
+use plur1bus_providers::{http_read_timed_out, HttpCancellation};
 use ureq::http::{header, Request, Response};
 use url::{Host, Url};
 
@@ -57,7 +57,7 @@ pub(super) fn send(
     window: Window<'_>,
     grant: &mut dyn Authorization,
     token: Option<&str>,
-) -> Result<Response<ureq::Body>, Error> {
+) -> Result<(Response<ureq::Body>, HttpCancellation), Error> {
     let pin = grant.pin();
     if !pin_matches(target, pin) {
         return Err(Error::Denied);
@@ -102,9 +102,7 @@ pub(super) fn send(
     check(window)?;
     // From here the write may reach the peer even when there is no reply.
     grant.mark_attempted();
-    let response = direct_agent(pin, window).run(request);
-    check(window)?;
-    let response = response.map_err(|_| Error::RequestFailed)?;
+    let (response, signal) = run(pin, window, request)?;
     if response
         .headers()
         .get_all(header::CONTENT_ENCODING)
@@ -113,10 +111,14 @@ pub(super) fn send(
     {
         return Err(Error::RequestFailed);
     }
-    Ok(response)
+    Ok((response, signal))
 }
 
-pub(crate) fn direct_agent(pin: SocketAddr, window: Window<'_>) -> ureq::Agent {
+pub(crate) fn run(
+    pin: SocketAddr,
+    window: Window<'_>,
+    request: Request<&[u8]>,
+) -> Result<(Response<ureq::Body>, HttpCancellation), Error> {
     let transport_deadline = window.deadline;
     let config = ureq::config::Config::builder()
         .proxy(None)
@@ -133,7 +135,17 @@ pub(crate) fn direct_agent(pin: SocketAddr, window: Window<'_>) -> ureq::Agent {
                 .build(),
         )
         .build();
-    pinned_http_agent(config, pin, transport_deadline)
+    let signal = HttpCancellation::default();
+    let agent = signal.pinned_agent(config, pin, transport_deadline);
+    let response = signal.run(window.canceled, move || agent.run(request));
+    check(window)?;
+    let response = response
+        .map_err(|_| Error::RequestFailed)?
+        .map_err(|error| match error {
+            ureq::Error::Timeout(_) => Error::Deadline,
+            _ => Error::RequestFailed,
+        })?;
+    Ok((response, signal))
 }
 
 pub(super) fn check_media(
@@ -185,12 +197,15 @@ pub(super) fn check_media(
 }
 
 pub(crate) fn read_json(
-    body: &mut ureq::Body,
+    body: ureq::Body,
+    signal: &HttpCancellation,
     cap: usize,
     window: Window<'_>,
     current: impl Fn() -> bool,
 ) -> Result<Vec<u8>, Error> {
-    let mut reader = body.as_reader();
+    let mut reader = signal
+        .reader(body, || (window.canceled)() || !current())
+        .map_err(|_| Error::RequestFailed)?;
     let mut bytes = Vec::new();
     let mut buf = [0u8; 8192];
     loop {
@@ -207,7 +222,13 @@ pub(crate) fn read_json(
         if !current() {
             return Err(Error::Revoked);
         }
-        let n = received.map_err(|_| Error::RequestFailed)?;
+        let n = received.map_err(|error| {
+            if http_read_timed_out(&error) {
+                Error::Deadline
+            } else {
+                Error::RequestFailed
+            }
+        })?;
         if n == 0 {
             return Ok(bytes);
         }

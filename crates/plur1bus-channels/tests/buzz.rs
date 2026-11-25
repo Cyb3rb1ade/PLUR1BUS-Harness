@@ -42,14 +42,8 @@ fn replays_buzz_subscriptions_encrypted_delivery_and_authentication() {
     let fixture = load_fixture("channels", "buzz-relay");
     let server = FakeServer::start(&fixture);
     let endpoint = Url::parse(&format!("ws://{}", server.addr)).unwrap();
-    let mut ws = Socket::connect(
-        &endpoint,
-        &[],
-        &Loopback(server.addr),
-        Limits::default(),
-        true,
-    )
-    .unwrap();
+    let port = Loopback(server.addr);
+    let mut ws = Socket::connect(&endpoint, &[], &port, Limits::default(), true).unwrap();
     let own = Keys::new(SecretKey::from_slice(&[1; 32]).unwrap());
     let peer = Keys::new(SecretKey::from_slice(&[2; 32]).unwrap());
     let relay_url = fixture["relay"].as_str().unwrap();

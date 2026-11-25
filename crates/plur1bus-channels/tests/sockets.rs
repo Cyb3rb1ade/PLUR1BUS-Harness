@@ -13,12 +13,12 @@ use url::Url;
 mod socket;
 use socket::Loopback;
 
-fn connect(server: &FakeServer, limits: Limits) -> Socket {
-    let endpoint = Url::parse(&format!("ws://{}/gateway", server.addr)).unwrap();
-    Socket::connect(&endpoint, &[], &Loopback(server.addr), limits, true).unwrap()
+fn connect(port: &Loopback, limits: Limits) -> Socket<'_> {
+    let endpoint = Url::parse(&format!("ws://{}/gateway", port.0)).unwrap();
+    Socket::connect(&endpoint, &[], port, limits, true).unwrap()
 }
 
-fn read_text(socket: &mut Socket) -> String {
+fn read_text(socket: &mut Socket<'_>) -> String {
     let Peer::Text(text) = socket.receive(Duration::from_secs(1)).unwrap() else {
         panic!("expected text frame");
     };
@@ -37,7 +37,8 @@ fn discord_identifies_and_resumes_then_uses_sequence_in_heartbeat() {
         )
         .unwrap();
         let server = FakeServer::start(&fixture);
-        let mut socket = connect(&server, Limits::default());
+        let port = Loopback(server.addr);
+        let mut socket = connect(&port, Limits::default());
         let initial: Option<Session> =
             serde_json::from_value(fixture["initialSession"].clone()).unwrap();
         let mut gateway = Gateway::new(CREDENTIAL, 513, "fixture-os", "42", initial);
@@ -95,7 +96,8 @@ fn discord_identifies_and_resumes_then_uses_sequence_in_heartbeat() {
 fn slack_reacks_duplicates_without_redispatch() {
     let fixture = load_fixture("channels", "slack-socket");
     let server = FakeServer::start(&fixture);
-    let mut socket = connect(&server, Limits::default());
+    let port = Loopback(server.addr);
+    let mut socket = connect(&port, Limits::default());
     let mut mode = SocketMode::default();
     let mut connection = mode.new_connection();
     let mut observed = Vec::new();
@@ -169,7 +171,8 @@ fn slack_socket_acks_filtered_messages_without_dispatching_them() {
 #[test]
 fn a_silent_peer_hits_the_read_deadline() {
     let server = FakeServer::start(&json!({"transport":"websocket", "exchanges":[]}));
-    let mut socket = connect(&server, Limits::default());
+    let port = Loopback(server.addr);
+    let mut socket = connect(&port, Limits::default());
     let before = Instant::now();
     assert!(matches!(
         socket.receive(Duration::from_millis(35)),
@@ -184,8 +187,9 @@ fn the_text_frame_byte_limit_is_inclusive() {
     for text in ["123456", "1234567"] {
         let fixture = json!({"transport":"websocket", "exchanges":[{"send":[],"receive":[text]}]});
         let server = FakeServer::start(&fixture);
+        let port = Loopback(server.addr);
         let mut socket = connect(
-            &server,
+            &port,
             Limits {
                 message_bytes: 64,
                 frame_bytes: 8,
@@ -213,8 +217,9 @@ fn a_fragmented_message_has_its_own_limit() {
             "send":[], "receive":[], "rawFramesBase64":[STANDARD.encode(first), STANDARD.encode(last_frame)]
         }]});
         let server = FakeServer::start(&fixture);
+        let port = Loopback(server.addr);
         let mut socket = connect(
-            &server,
+            &port,
             Limits {
                 message_bytes: 8,
                 frame_bytes: 6,

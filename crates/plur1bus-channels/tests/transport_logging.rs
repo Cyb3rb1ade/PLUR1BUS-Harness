@@ -56,8 +56,8 @@ mod websocket {
             "send": [], "receive": [], "rawFramesBase64": [STANDARD.encode(frame(0x8, &payload, None))]
         }]}));
         let url = Url::parse(&format!("ws://{}/gateway", server.addr)).unwrap();
-        let mut socket =
-            Socket::connect(&url, &[], &Loopback(server.addr), Limits::default(), true).unwrap();
+        let port = Loopback(server.addr);
+        let mut socket = Socket::connect(&url, &[], &port, Limits::default(), true).unwrap();
         assert!(matches!(
             socket.receive(Duration::from_secs(1)),
             Ok(Peer::Closed(Some(1000)))

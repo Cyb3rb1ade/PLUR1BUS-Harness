@@ -159,7 +159,8 @@ impl<'a> Telegram<'a> {
     }
 
     pub fn download(&self, path: &str, limit: usize) -> Result<Attachment, Error> {
-        let fail = || Error::new(Kind::Network, "Telegram file download failed");
+        let fail =
+            |reason: Failure| Error::new(reason.network_kind(), "Telegram file download failed");
         if !safe_file_path(path) {
             return Err(Error::new(Kind::Protocol, "unsafe Telegram file path"));
         }
@@ -167,9 +168,9 @@ impl<'a> Telegram<'a> {
         let mut response = self
             .http
             .request("GET", &url, &[], &[], REQUEST_TIMEOUT)
-            .map_err(|_| fail())?;
+            .map_err(fail)?;
         if http::follow_forbidden(response.status()) {
-            return Err(fail());
+            return Err(fail(Failure::Network));
         }
         if !response.status().is_success() || matches!(response.status().as_u16(), 204 | 205) {
             return Err(Error::new(Kind::Protocol, "Telegram file download failed"));
@@ -178,7 +179,7 @@ impl<'a> Telegram<'a> {
             if e == Failure::TooLarge {
                 Error::new(Kind::Protocol, "Telegram file exceeds size limit")
             } else {
-                fail()
+                fail(e)
             }
         })?;
         Ok(Attachment {

@@ -672,7 +672,7 @@ fn body_wait_uses_the_original_deadline_and_cancel_does_not_retry_a_write() {
         let body = serde_json::to_vec(&rpc_response(success_task())["body"]).unwrap();
         let fixture = ready_fixture(
             json!({ "status": 200, "headers": { "content-type": "application/json" },
-            "chunksBase64": [STANDARD.encode(&body[..1]), STANDARD.encode(&body[1..])], "chunkGapMs": 500 }),
+            "chunksBase64": [STANDARD.encode(&body[..1]), STANDARD.encode(&body[1..])], "chunkGapMs": 1200 }),
         );
         let policy = PolicyFixture::new(fixture.addr);
         let client = Client::new(&policy, Limits::default()).unwrap();
@@ -680,7 +680,7 @@ fn body_wait_uses_the_original_deadline_and_cancel_does_not_retry_a_write() {
         let start = Instant::now();
         let canceled = || cancel && start.elapsed() >= Duration::from_millis(100);
         let window = Window {
-            deadline: start + Duration::from_millis(240),
+            deadline: start + Duration::from_millis(if cancel { 3000 } else { 240 }),
             canceled: &canceled,
         };
         let outcome = client.perform(
@@ -702,7 +702,7 @@ fn body_wait_uses_the_original_deadline_and_cancel_does_not_retry_a_write() {
             }
         );
         assert!(
-            start.elapsed() < Duration::from_millis(420),
+            start.elapsed() < Duration::from_millis(if cancel { 600 } else { 420 }),
             "a stalled body changed the operation deadline"
         );
         assert_eq!(

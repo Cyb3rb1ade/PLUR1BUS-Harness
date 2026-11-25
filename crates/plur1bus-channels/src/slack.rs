@@ -110,7 +110,8 @@ impl<'a> Slack<'a> {
     pub fn download(&self, raw: &str, limit: usize) -> Result<Attachment, Error> {
         let mut target = self.file_url(raw, "file")?;
         let authorization = format!("Bearer {}", self.bot);
-        let fail = || Error::new(Kind::Network, "Slack file download failed");
+        let fail =
+            |reason: Failure| Error::new(reason.network_kind(), "Slack file download failed");
         for _ in 0..4 {
             let mut response = self
                 .http
@@ -121,12 +122,12 @@ impl<'a> Slack<'a> {
                     &[],
                     TIMEOUT,
                 )
-                .map_err(|_| fail())?;
+                .map_err(fail)?;
             let status = response.status().as_u16();
             if response.status().is_redirection() {
                 let location = http::header(response.headers(), "location")
                     .ok_or_else(|| Error::new(Kind::Protocol, "Slack file download failed"))?;
-                let next = target.join(location).map_err(|_| fail())?;
+                let next = target.join(location).map_err(|_| fail(Failure::Network))?;
                 target = self.file_url(next.as_str(), "file")?;
                 continue;
             }
@@ -158,7 +159,7 @@ impl<'a> Slack<'a> {
                 if e == Failure::TooLarge {
                     Error::new(Kind::Protocol, "Slack file exceeds size limit")
                 } else {
-                    fail()
+                    fail(e)
                 }
             })?;
             return Ok(Attachment { data, mime_type });
@@ -171,12 +172,10 @@ impl<'a> Slack<'a> {
 
     pub fn upload_bytes(&self, raw: &str, bytes: &[u8]) -> Result<(), Error> {
         let target = self.file_url(raw, "upload")?;
-        let failure = |reason| {
-            if reason == Failure::Aborted {
-                Error::new(Kind::Aborted, "file upload aborted")
-            } else {
-                Error::new(Kind::Network, "file upload network error")
-            }
+        let failure = |reason| match reason {
+            Failure::Aborted => Error::new(Kind::Aborted, "file upload aborted"),
+            Failure::TimedOut => Error::new(Kind::Timeout, "file upload timed out"),
+            _ => Error::new(Kind::Network, "file upload network error"),
         };
         let response = self
             .http

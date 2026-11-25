@@ -2,14 +2,13 @@
 //!
 //! The manifest compiles out dependency TRACE records, which can contain paths and bodies.
 //! Hosts register their logger through the shared wire log boundary (R-W-11).
+use plur1bus_providers::{http_read_timed_out, HttpCancellation};
 use serde::Serialize;
 use std::fmt;
-use std::io::{self, Read};
+use std::io::Read;
 use std::net::{IpAddr, SocketAddr};
 use std::time::{Duration, Instant};
 use ureq::http::{HeaderMap, Request, Response, StatusCode};
-use ureq::unversioned::resolver::{ResolvedSocketAddrs, Resolver};
-use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
 use url::{Host, Url};
 
 pub(crate) const STRUCTURED_LIMIT: usize = 1024 * 1024;
@@ -92,25 +91,24 @@ pub(crate) enum Failure {
     TooLarge,
 }
 
+impl Failure {
+    pub(crate) fn network_kind(self) -> Kind {
+        match self {
+            Self::Aborted => Kind::Aborted,
+            Self::TimedOut => Kind::Timeout,
+            _ => Kind::Network,
+        }
+    }
+}
+
 pub struct Attachment {
     pub data: Vec<u8>,
     pub mime_type: String,
 }
 
-#[derive(Debug)]
-struct Pin(SocketAddr);
-
-impl Resolver for Pin {
-    fn resolve(
-        &self,
-        _: &ureq::http::Uri,
-        _: &ureq::config::Config,
-        _: NextTimeout,
-    ) -> Result<ResolvedSocketAddrs, ureq::Error> {
-        let mut resolved = self.empty();
-        resolved.push(self.0);
-        Ok(resolved)
-    }
+pub(crate) struct HttpBody {
+    inner: ureq::Body,
+    cancelled: HttpCancellation,
 }
 
 impl<'a> Http<'a> {
@@ -133,7 +131,7 @@ impl<'a> Http<'a> {
         headers: &[(&str, &str)],
         body: &[u8],
         timeout: Duration,
-    ) -> Result<Response<ureq::Body>, Failure> {
+    ) -> Result<Response<HttpBody>, Failure> {
         if self.cancelled() {
             return Err(Failure::Aborted);
         }
@@ -179,7 +177,8 @@ impl<'a> Http<'a> {
                     .build(),
             )
             .build();
-        let agent = ureq::Agent::with_parts(settings, DefaultConnector::default(), Pin(pin));
+        let cancelled = HttpCancellation::default();
+        let agent = cancelled.pinned_agent(settings, pin, deadline);
         let mut request = Request::builder().method(method).uri(endpoint.as_str());
         for (name, value) in headers {
             let mut value =
@@ -189,23 +188,24 @@ impl<'a> Http<'a> {
             }
             request = request.header(*name, value);
         }
-        agent
-            .run(request.body(body).map_err(|_| Failure::Denied)?)
-            .map_err(|e| {
-                if self.cancelled() {
-                    Failure::Aborted
-                } else if matches!(e, ureq::Error::Timeout(_)) {
-                    Failure::TimedOut
-                } else {
-                    Failure::Network
-                }
+        let request = request.body(body).map_err(|_| Failure::Denied)?;
+        let response = cancelled.run(&|| self.cancelled(), move || agent.run(request));
+        if self.cancelled() {
+            return Err(Failure::Aborted);
+        }
+        response
+            .map_err(|_| Failure::Network)?
+            .map_err(|error| match error {
+                ureq::Error::Timeout(_) => Failure::TimedOut,
+                _ => Failure::Network,
             })
+            .map(|response| response.map(|inner| HttpBody { inner, cancelled }))
     }
 
     #[cfg(any(feature = "telegram", feature = "slack"))]
     pub(crate) fn api_payload(
         self,
-        response: &mut Response<ureq::Body>,
+        response: &mut Response<HttpBody>,
     ) -> Result<serde_json::Value, Failure> {
         let success = response.status().is_success();
         let limit = if success {
@@ -222,7 +222,7 @@ impl<'a> Http<'a> {
 
     pub(crate) fn body(
         self,
-        response: &mut Response<ureq::Body>,
+        response: &mut Response<HttpBody>,
         limit: usize,
     ) -> Result<Vec<u8>, Failure> {
         if header(response.headers(), "content-length")
@@ -231,29 +231,39 @@ impl<'a> Http<'a> {
         {
             return Err(Failure::TooLarge);
         }
-        let mut reader = response.body_mut().as_reader();
-        let mut bytes = Vec::new();
-        let mut buffer = [0; 8192];
-        loop {
-            if self.cancelled() {
-                return Err(Failure::Aborted);
-            }
-            let remaining = limit.saturating_sub(bytes.len()).saturating_add(1);
-            let chunk = remaining.min(buffer.len());
-            let size = reader
-                .read(&mut buffer[..chunk])
-                .map_err(|error| match error.kind() {
-                    io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => Failure::TimedOut,
-                    _ => Failure::Network,
+        let HttpBody { inner, cancelled } = response.body_mut();
+        let result = cancelled.run(&|| self.cancelled(), || {
+            let mut reader = inner.as_reader();
+            let mut bytes = Vec::new();
+            let mut buffer = [0; 8192];
+            loop {
+                if cancelled.cancelled() {
+                    return Err(Failure::Aborted);
+                }
+                let remaining = limit.saturating_sub(bytes.len()).saturating_add(1);
+                let chunk = remaining.min(buffer.len());
+                let size = reader.read(&mut buffer[..chunk]).map_err(|error| {
+                    if cancelled.cancelled() {
+                        Failure::Aborted
+                    } else if http_read_timed_out(&error) {
+                        Failure::TimedOut
+                    } else {
+                        Failure::Network
+                    }
                 })?;
-            if size == 0 {
-                return Ok(bytes);
+                if size == 0 {
+                    return Ok(bytes);
+                }
+                if size > limit - bytes.len() {
+                    return Err(Failure::TooLarge);
+                }
+                bytes.extend_from_slice(&buffer[..size]);
             }
-            if size > limit - bytes.len() {
-                return Err(Failure::TooLarge);
-            }
-            bytes.extend_from_slice(&buffer[..size]);
+        });
+        if self.cancelled() {
+            return Err(Failure::Aborted);
         }
+        result.map_err(|_| Failure::Network)?
     }
 }
 
@@ -311,5 +321,38 @@ pub(crate) fn truncate_utf16(value: &mut String, max: usize) {
             value.truncate(idx);
             break;
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "loopback deadline fixture")]
+mod tests {
+    use super::*;
+    use plur1bus_wire_fixtures::FakeServer;
+    use serde_json::json;
+
+    struct Port(SocketAddr);
+    impl HttpPorts for Port {
+        fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
+            Some(self.0)
+        }
+    }
+
+    #[test]
+    fn wrapped_ureq_body_timeout_keeps_its_classification() {
+        let fixture = FakeServer::start(&json!({
+            "transport": "http",
+            "exchanges": [{
+                "request": {"method": "GET", "path": "/status"},
+                "response": {"status": 200, "chunksBase64": ["e30=", "IA=="], "chunkGapMs": 800}
+            }]
+        }));
+        let uri = Url::parse(&format!("http://{}/status", fixture.addr)).unwrap();
+        let port = Port(fixture.addr);
+        let client = Http::new(&port, true);
+        let mut response = client
+            .request("GET", &uri, &[], &[], Duration::from_millis(350))
+            .unwrap();
+        assert_eq!(client.body(&mut response, 128), Err(Failure::TimedOut));
     }
 }

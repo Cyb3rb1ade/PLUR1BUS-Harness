@@ -168,14 +168,19 @@ pub(crate) use unix::UnixConnector;
 
 #[cfg(unix)]
 mod unix {
-    use crate::transport::{socket_error, SocketDeadline, SocketTransport};
-    use socket2::{Domain, SockAddr, Socket, Type};
+    use crate::transport::{await_connect, socket_error, SocketDeadline, SocketTransport};
+    use std::os::fd::OwnedFd;
+    use std::os::unix::net::UnixStream;
     use std::path::PathBuf;
-    use std::time::Duration;
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+    use std::time::{Duration, Instant};
     use ureq::unversioned::transport::{ConnectionDetails, Connector};
 
     #[derive(Debug)]
-    pub(crate) struct UnixConnector(pub PathBuf, pub SocketDeadline);
+    pub(crate) struct UnixConnector(pub PathBuf, pub SocketDeadline, pub Arc<AtomicBool>);
 
     impl Connector for UnixConnector {
         type Out = SocketTransport;
@@ -185,13 +190,25 @@ mod unix {
             details: &ConnectionDetails<'_>,
             _: Option<()>,
         ) -> Result<Option<Self::Out>, ureq::Error> {
-            let path = SockAddr::unix(&self.0)?;
-            let socket = Socket::new(Domain::UNIX, Type::STREAM, None)?;
             let timeout = self.1.bound(details.timeout)?;
-            socket
-                .connect_timeout(&path, (*timeout.after).min(Duration::from_secs(2)))
+            let deadline = Instant::now() + (*timeout.after).min(Duration::from_secs(2));
+            let mut stream = mio::net::UnixStream::connect(&self.0)
                 .map_err(|error| socket_error(error, timeout))?;
-            Ok(Some(SocketTransport::new(socket, details, self.1)))
+            await_connect(
+                &mut stream,
+                deadline,
+                &|| self.2.load(Ordering::Acquire),
+                |stream| match stream.take_error()? {
+                    Some(error) => Err(error),
+                    None => stream.peer_addr().map(|_| ()),
+                },
+            )
+            .map_err(|error| socket_error(error, timeout))?;
+            let stream: UnixStream = stream.into();
+            stream.set_nonblocking(false)?;
+            let mut transport = SocketTransport::new(OwnedFd::from(stream).into(), details, self.1);
+            transport.cancelled = Some(self.2.clone());
+            Ok(Some(transport))
         }
     }
 }

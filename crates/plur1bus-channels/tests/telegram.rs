@@ -146,6 +146,47 @@ fn webhook_checks_authentication_and_size_before_delivery() {
 }
 
 #[test]
+fn a_telegram_response_body_can_be_cancelled_while_waiting_for_data() {
+    use plur1bus_channels::http::Kind;
+    use std::time::{Duration, Instant};
+
+    struct Port(SocketAddr, Instant);
+    impl HttpPorts for Port {
+        fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
+            Some(self.0)
+        }
+
+        fn cancelled(&self) -> bool {
+            Instant::now() >= self.1
+        }
+    }
+
+    let server = FakeServer::start(&json!({
+        "transport": "http",
+        "exchanges": [{
+            "request": {"method": "POST", "path": format!("/bot{MARKER}/getUpdates")},
+            "response": {"status": 200, "chunksBase64": ["e30=", "IA=="], "chunkGapMs": 1100}
+        }]
+    }));
+    let port = Port(server.addr, Instant::now() + Duration::from_millis(125));
+    let api = Telegram::new(
+        Http::new(&port, true),
+        Url::parse(&format!("http://{}/", server.addr)).unwrap(),
+        MARKER,
+        &[],
+    )
+    .unwrap();
+    let error = api.get_updates(None, 0).unwrap_err();
+    let elapsed = port.1.elapsed();
+    assert_eq!(error.kind, Kind::Aborted);
+    assert!(
+        elapsed < Duration::from_millis(500),
+        "post-cancellation wait: {elapsed:?}"
+    );
+    assert_eq!(server.received().len(), 1);
+}
+
+#[test]
 fn sender_admission_matches_the_typescript_webhook_channel() {
     let fixture = load_fixture("channels", "channel-admission");
     let telegram = &fixture["telegram"];

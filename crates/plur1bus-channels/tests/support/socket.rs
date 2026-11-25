@@ -1,6 +1,6 @@
 use plur1bus_channels::websocket::{SocketPorts, TimedStream};
 use std::io;
-use std::net::{SocketAddr, TcpStream};
+use std::net::SocketAddr;
 use std::time::Instant;
 use url::Url;
 
@@ -18,7 +18,7 @@ impl SocketPorts for Loopback {
         pin: SocketAddr,
         deadline: Instant,
     ) -> io::Result<Box<dyn TimedStream>> {
-        TcpStream::connect_timeout(&pin, deadline.saturating_duration_since(Instant::now()))
+        plur1bus_providers::connect_pinned_tcp(pin, deadline, &|| self.cancelled())
             .map(|tcp| Box::new(tcp) as Box<dyn TimedStream>)
     }
 }

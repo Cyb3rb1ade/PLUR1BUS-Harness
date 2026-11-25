@@ -7,7 +7,7 @@ use std::{
 };
 
 use flate2::read::{MultiGzDecoder, ZlibDecoder};
-use plur1bus_providers::pinned_http_agent;
+use plur1bus_providers::{http_read_timed_out, HttpCancellation};
 use ureq::http::{header, HeaderMap, Method, Request};
 use url::{Host, Url};
 
@@ -273,20 +273,28 @@ pub fn request(
                     .build(),
             )
             .build();
-        let agent = pinned_http_agent(config, pin, options.deadline);
+        let signal = HttpCancellation::default();
+        let agent = signal.pinned_agent(config, pin, options.deadline);
         let mut builder = Request::builder()
             .method(options.method.clone())
             .uri(url.as_str());
         for (name, value) in &headers {
             builder = builder.header(name, value);
         }
-        let response = if let Some(body) = options.body {
-            agent.run(builder.body(body).map_err(|_| Failure::InvalidUrl)?)
-        } else {
-            agent.run(builder.body(()).map_err(|_| Failure::InvalidUrl)?)
+        let response = match options.body {
+            Some(body) => {
+                let request = builder.body(body).map_err(|_| Failure::InvalidUrl)?;
+                signal.run(aborted, move || agent.run(request))
+            }
+            None => {
+                let request = builder.body(()).map_err(|_| Failure::InvalidUrl)?;
+                signal.run(aborted, move || agent.run(request))
+            }
         };
         remaining(options.deadline, aborted)?;
-        let mut response = response.map_err(wire_failure)?;
+        let response = response
+            .map_err(|_| Failure::Network)?
+            .map_err(wire_failure)?;
         let status = response.status().as_u16();
         let redirection = matches!(status, 301 | 302 | 303 | 307 | 308);
         if redirection && options.redirects == Redirects::Refuse {
@@ -308,11 +316,12 @@ pub fn request(
                 continue;
             }
         }
-        let body = response_body(&mut response, options, aborted)?;
+        let headers = response.headers().clone();
+        let body = response_body(response, options, &signal, aborted)?;
         return Ok(Response {
             url,
             status,
-            headers: response.headers().clone(),
+            headers,
             body,
             redirects,
         });
@@ -329,15 +338,7 @@ fn wire_failure(error: ureq::Error) -> Failure {
 }
 
 fn io_failure(error: &io::Error) -> Failure {
-    if matches!(
-        error.kind(),
-        io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
-    ) || error.get_ref().is_some_and(|cause| {
-        matches!(
-            cause.downcast_ref::<ureq::Error>(),
-            Some(ureq::Error::Timeout(_))
-        )
-    }) {
+    if http_read_timed_out(error) {
         Failure::Timeout
     } else {
         Failure::Network
@@ -345,8 +346,9 @@ fn io_failure(error: &io::Error) -> Failure {
 }
 
 fn response_body(
-    response: &mut ureq::http::Response<ureq::Body>,
+    response: ureq::http::Response<ureq::Body>,
     options: &Options<'_>,
+    signal: &HttpCancellation,
     aborted: &dyn Fn() -> bool,
 ) -> Result<Vec<u8>> {
     let status = response.status().as_u16();
@@ -374,15 +376,16 @@ fn response_body(
     {
         return Err(Failure::UnsupportedType);
     }
-    match read_response_body(response, options, aborted, diagnostic, limit) {
+    match read_response_body(response, options, signal, aborted, diagnostic, limit) {
         Err(Failure::Network | Failure::UnsupportedType) if diagnostic => Ok(Vec::new()),
         result => result,
     }
 }
 
 fn read_response_body(
-    response: &mut ureq::http::Response<ureq::Body>,
+    response: ureq::http::Response<ureq::Body>,
     options: &Options<'_>,
+    signal: &HttpCancellation,
     aborted: &dyn Fn() -> bool,
     diagnostic: bool,
     limit: usize,
@@ -406,7 +409,11 @@ fn read_response_body(
     {
         return Err(Failure::TooLarge);
     }
-    let mut reader: Box<dyn Read + '_> = Box::new(response.body_mut().as_reader());
+    let mut reader: Box<dyn Read + '_> = Box::new(
+        signal
+            .reader(response.into_body(), aborted)
+            .map_err(|_| Failure::Network)?,
+    );
     for encoding in encodings.iter().rev() {
         reader = match encoding.as_str() {
             "gzip" | "x-gzip" => Box::new(MultiGzDecoder::new(reader)),

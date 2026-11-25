@@ -1,5 +1,5 @@
 use super::is_loopback;
-use crate::{Adapter, Config, ErrorKind, Ports, ProviderError, Timeouts, Wire};
+use crate::{Adapter, Config, ErrorKind, HttpCancellation, Ports, ProviderError, Timeouts, Wire};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashSet;
@@ -135,8 +135,9 @@ pub fn probe_endpoint(
     let mut best: Option<ProbeResult> = None;
     for &dialect in dialects {
         uri.set_path(dialect.list_path());
-        let result = match adapter.probe_get(&uri, ports, timeouts) {
-            Ok(mut response) => {
+        let signal = HttpCancellation::default();
+        let result = match adapter.probe_get(&uri, ports, timeouts, &signal) {
+            Ok(response) => {
                 let status = response.status().as_u16();
                 if (300..400).contains(&status) {
                     let mut error = ProbeResult::failure(
@@ -155,8 +156,13 @@ pub fn probe_endpoint(
                     error.http_status = Some(status);
                     error
                 } else {
-                    let mut reader = response.body_mut().as_reader().take(MAX_BODY_BYTES + 1);
-                    read_models(&mut reader, dialect, status, &base_url, timeout)
+                    let mut reader = signal
+                        .reader(response.into_body(), || ports.cancelled())
+                        .map_err(|error| crate::response::read_error(&error))?
+                        .take(MAX_BODY_BYTES + 1);
+                    let result = read_models(&mut reader, dialect, status, &base_url, timeout);
+                    crate::transport::abort(ports)?;
+                    result
                 }
             }
             Err(error) if error.kind == ErrorKind::Aborted => return Err(error),

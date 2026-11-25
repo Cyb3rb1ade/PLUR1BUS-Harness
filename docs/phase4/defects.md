@@ -1890,12 +1890,14 @@ abbreviated IPv4 or IPv4-mapped loopback aliases such as `127.1` and
 
 <a id="p4d-265"></a>
 
-## P4D-265 — Observe discovery cancellation while reading (R-W-9)
+## P4D-265 — Observe discovery cancellation while reading (R-W-9a)
 
 Discovery checks cancellation before and after body and decoder reads.
-A blocking call already in progress ends at the remaining page deadline.
-TypeScript forwards an abort signal to its asynchronous transport. The
-total scan budget is 60 seconds and the maximum for a page is 15 seconds.
+The shared connector polls an in-progress connection or socket operation
+in slices of at most 100 ms. The caller samples its cancellation predicate
+at most 25 ms apart while the worker is waiting. TypeScript forwards an
+abort signal to its asynchronous transport. The total scan budget is
+60 seconds and the maximum for a page is 15 seconds.
 
 <a id="p4d-266"></a>
 

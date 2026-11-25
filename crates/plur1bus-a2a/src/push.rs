@@ -251,9 +251,7 @@ fn post(
         .body(body)
         .map_err(|_| Error::InvalidRequest)?;
     request.headers_mut().extend(headers.clone());
-    let mut response = http::direct_agent(pin, window)
-        .run(request)
-        .map_err(|_| Error::RequestFailed)?;
+    let (response, signal) = http::run(pin, window, request)?;
     let reply = Reply {
         status: response.status().as_u16(),
         location: response
@@ -271,7 +269,13 @@ fn post(
     {
         // A receiver has already selected its status. A diagnostic failure
         // must not turn an accepted delivery into a second POST.
-        let _ = http::read_json(response.body_mut(), MAX_DIAGNOSTIC, window, || true);
+        let _ = http::read_json(
+            response.into_body(),
+            &signal,
+            MAX_DIAGNOSTIC,
+            window,
+            || true,
+        );
     }
     Ok(reply)
 }

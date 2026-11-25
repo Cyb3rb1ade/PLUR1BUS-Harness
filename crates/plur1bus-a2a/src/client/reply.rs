@@ -217,7 +217,7 @@ pub(super) fn operation_result(raw: Value, operation: Operation<'_>) -> Result<V
 }
 
 pub struct Stream<'a> {
-    wire: Option<Wire>,
+    wire: Option<Wire<'a>>,
     policy: &'a dyn Policy,
     call: Call<'a>,
     id: String,
@@ -231,14 +231,14 @@ pub struct Stream<'a> {
     output_remaining: usize,
 }
 
-pub(super) struct Wire {
-    pub body: ureq::Body,
+pub(super) struct Wire<'a> {
+    pub body: Box<dyn Read + 'a>,
     pub grant: Box<dyn Authorization>,
 }
 
 impl<'a> Stream<'a> {
     pub(super) fn new(
-        wire: Wire,
+        wire: Wire<'a>,
         policy: &'a dyn Policy,
         call: Call<'a>,
         operation: Operation<'_>,
@@ -361,9 +361,15 @@ impl<'a> Stream<'a> {
             let wire = self.wire.as_mut().ok_or(Error::RequestFailed)?;
             let mut buffer = [0; 8192];
             let take = (self.cap - self.read + 1).min(buffer.len());
-            let read = wire.body.as_reader().read(&mut buffer[..take]);
+            let read = wire.body.read(&mut buffer[..take]);
             self.current()?;
-            let bytes = read.map_err(|_| Error::RequestFailed)?;
+            let bytes = read.map_err(|error| {
+                if plur1bus_providers::http_read_timed_out(&error) {
+                    Error::Deadline
+                } else {
+                    Error::RequestFailed
+                }
+            })?;
             if bytes == 0 {
                 self.events = self
                     .parser

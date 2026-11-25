@@ -10,7 +10,7 @@ use plur1bus_wire_fixtures::FakeServer;
 use serde_json::{json, Value};
 use std::{
     io,
-    net::{SocketAddr, TcpStream},
+    net::SocketAddr,
     time::{Duration, Instant},
 };
 use url::Url;
@@ -49,7 +49,7 @@ impl SocketPorts for Pin {
         addr: SocketAddr,
         deadline: Instant,
     ) -> io::Result<Box<dyn TimedStream>> {
-        TcpStream::connect_timeout(&addr, deadline.saturating_duration_since(Instant::now()))
+        plur1bus_providers::connect_pinned_tcp(addr, deadline, &|| SocketPorts::cancelled(self))
             .map(|stream| Box::new(stream) as Box<dyn TimedStream>)
     }
 }

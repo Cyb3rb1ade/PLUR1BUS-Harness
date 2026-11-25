@@ -45,7 +45,7 @@ impl SocketPorts for Loopback {
         address: SocketAddr,
         deadline: Instant,
     ) -> io::Result<Box<dyn TimedStream>> {
-        TcpStream::connect_timeout(&address, deadline.saturating_duration_since(Instant::now()))
+        plur1bus_providers::connect_pinned_tcp(address, deadline, &|| self.cancelled())
             .map(|socket| Box::new(socket) as Box<dyn TimedStream>)
     }
 }
@@ -259,10 +259,7 @@ fn an_abort_during_a_blocked_read_resolves_by_the_deadline_and_releases_the_sock
             addr: SocketAddr,
             deadline: Instant,
         ) -> io::Result<Box<dyn TimedStream>> {
-            let tcp = TcpStream::connect_timeout(
-                &addr,
-                deadline.saturating_duration_since(Instant::now()),
-            )?;
+            let tcp = plur1bus_providers::connect_pinned_tcp(addr, deadline, &|| self.cancelled())?;
             Ok(Box::new(ObserveRead {
                 tcp,
                 entered: self.entered.clone(),
@@ -304,13 +301,11 @@ fn an_abort_during_a_blocked_read_resolves_by_the_deadline_and_releases_the_sock
             cancelled.store(true, Ordering::SeqCst);
         });
         let start = Instant::now();
-        assert_eq!(
-            session.receive(Duration::from_millis(150)).unwrap_err(),
-            Error::Aborted
-        );
+        assert_eq!(session.receive(setup_budget).unwrap_err(), Error::Aborted);
         assert!(
-            start.elapsed() < Duration::from_secs(2),
-            "the port's longer timeout did not get used"
+            start.elapsed() < Duration::from_millis(500),
+            "a silent WebSocket held the session for {:?} after read started",
+            start.elapsed()
         );
     });
     assert!(ports.dropped.load(Ordering::SeqCst));

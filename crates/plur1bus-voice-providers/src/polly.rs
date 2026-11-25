@@ -26,7 +26,11 @@ pub struct Request<'a> {
 pub trait SignedRequests: Ports {
     /// Authorize the configured AWS endpoint, sign the request, and complete
     /// every read from the returned response before the same deadline.
-    fn synthesize(&self, input: &Request<'_>, deadline: Instant) -> Result<Box<dyn Read>, Error>;
+    fn synthesize(
+        &self,
+        input: &Request<'_>,
+        deadline: Instant,
+    ) -> Result<Box<dyn Read + '_>, Error>;
 
     /// Return the decoded DescribeVoices response. The host must keep each read
     /// within the deadline. The library counts JSON bytes before parsing.
@@ -34,7 +38,7 @@ pub trait SignedRequests: Ports {
         &self,
         next_token: Option<&str>,
         deadline: Instant,
-    ) -> Result<Box<dyn Read>, Error>;
+    ) -> Result<Box<dyn Read + '_>, Error>;
 }
 
 pub trait Signer: Ports {
@@ -108,7 +112,11 @@ struct Speech<'a> {
 }
 
 impl SignedRequests for Http<'_> {
-    fn synthesize(&self, input: &Request<'_>, deadline: Instant) -> Result<Box<dyn Read>, Error> {
+    fn synthesize(
+        &self,
+        input: &Request<'_>,
+        deadline: Instant,
+    ) -> Result<Box<dyn Read + '_>, Error> {
         let body = serde_json::to_vec(&Speech {
             engine: input.engine,
             language_code: input.language,
@@ -132,7 +140,7 @@ impl SignedRequests for Http<'_> {
         &self,
         next_token: Option<&str>,
         deadline: Instant,
-    ) -> Result<Box<dyn Read>, Error> {
+    ) -> Result<Box<dyn Read + '_>, Error> {
         const AWS_COMPONENT: &percent_encoding::AsciiSet = &NON_ALPHANUMERIC
             .remove(b'-')
             .remove(b'.')
@@ -154,6 +162,7 @@ const MAX_ERROR_BYTES: usize = 64 * 1024;
 
 pub(crate) fn response_error(
     response: ureq::http::Response<ureq::Body>,
+    signal: &plur1bus_providers::HttpCancellation,
     ports: &dyn Ports,
     deadline: Instant,
 ) -> Error {
@@ -168,12 +177,11 @@ pub(crate) fn response_error(
     if let Err(error) = check_encoding(response.headers()) {
         return error;
     }
-    let bytes = match read_bounded(
-        &mut decoded_reader(response),
-        ports,
-        deadline,
-        MAX_ERROR_BYTES,
-    ) {
+    let mut reader = match decoded_reader(response, signal, ports) {
+        Ok(reader) => reader,
+        Err(error) => return error,
+    };
+    let bytes = match read_bounded(&mut reader, ports, deadline, MAX_ERROR_BYTES) {
         Ok(bytes) => bytes,
         Err(error) => return error,
     };

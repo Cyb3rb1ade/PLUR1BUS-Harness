@@ -8,7 +8,7 @@ use std::{
 };
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use plur1bus_providers::{pinned_http_agent, retry_after_date_ms};
+use plur1bus_providers::{http_read_timed_out, retry_after_date_ms, HttpCancellation};
 use serde::Serialize;
 use serde_json::Value;
 use ureq::http::{HeaderValue, Request};
@@ -170,7 +170,7 @@ impl<'a> Client<'a> {
             .base
             .join("/")
             .map_err(|_| Error::UnsupportedParameter)?;
-        let response = self.request(&endpoint, Method::Get, None, false, deadline)?;
+        let (response, _) = self.request(&endpoint, Method::Get, None, false, deadline)?;
         if response.status().is_redirection() {
             Err(Error::BackendUnavailable)
         } else {
@@ -277,7 +277,7 @@ impl<'a> Client<'a> {
         let deadline = deadline.min(Instant::now() + MAX_DEADLINE);
         let retry = self.options.retry;
         for attempt in 0..retry.attempts {
-            let response = self.request(&url, method, body, true, deadline)?;
+            let (response, signal) = self.request(&url, method, body, true, deadline)?;
             let status = response.status();
             let retry_after = response
                 .headers()
@@ -287,6 +287,7 @@ impl<'a> Client<'a> {
             let success = status.is_success();
             let reader = Binary::new(
                 response,
+                &signal,
                 if success { MAX_JSON } else { MAX_ERROR },
                 self.ports,
                 deadline,
@@ -361,11 +362,11 @@ impl<'a> Client<'a> {
         }
         self.check_download_url(&url, authenticated)?;
         let deadline = deadline.min(Instant::now() + MAX_DEADLINE);
-        let response = self.request(&url, Method::Get, None, authenticated, deadline)?;
+        let (response, signal) = self.request(&url, Method::Get, None, authenticated, deadline)?;
         if !response.status().is_success() {
             return Err(classify(response.status().as_u16(), &Value::Null).code);
         }
-        Binary::new(response, limit, self.ports, deadline)
+        Binary::new(response, &signal, limit, self.ports, deadline)
     }
 
     fn check_download_url(&self, url: &Url, authenticated: bool) -> Result<()> {
@@ -396,7 +397,7 @@ impl<'a> Client<'a> {
         body: Option<Body<'_>>,
         authenticated: bool,
         deadline: Instant,
-    ) -> Result<ureq::http::Response<ureq::Body>> {
+    ) -> Result<(ureq::http::Response<ureq::Body>, HttpCancellation)> {
         check(self.ports, deadline)?;
         let pin = self
             .ports
@@ -456,15 +457,20 @@ impl<'a> Client<'a> {
                     .build(),
             )
             .build();
-        let response = pinned_http_agent(config, pin, deadline).run(request);
+        let signal = HttpCancellation::default();
+        let agent = signal.pinned_agent(config, pin, deadline);
+        let response = signal.run(&|| self.ports.cancelled(), move || agent.run(request));
         check(self.ports, deadline)?;
-        response.map_err(|error| {
-            if matches!(error, ureq::Error::Timeout(_)) {
-                Error::Timeout
-            } else {
-                Error::BackendUnavailable
-            }
-        })
+        response
+            .map_err(|_| Error::BackendUnavailable)?
+            .map_err(|error| {
+                if matches!(error, ureq::Error::Timeout(_)) {
+                    Error::Timeout
+                } else {
+                    Error::BackendUnavailable
+                }
+            })
+            .map(|response| (response, signal))
     }
 
     fn cleartext(&self, address: IpAddr) -> bool {
@@ -536,6 +542,7 @@ pub struct Binary<'a> {
 impl<'a> Binary<'a> {
     fn new(
         response: ureq::http::Response<ureq::Body>,
+        signal: &HttpCancellation,
         limit: usize,
         ports: &'a dyn Ports,
         deadline: Instant,
@@ -547,8 +554,10 @@ impl<'a> Binary<'a> {
             .is_some_and(|encoding| encoding.eq_ignore_ascii_case("gzip"));
         let body = response.into_body();
         check_content_length(body.content_length(), limit)?;
-        let reader = body.into_reader();
-        let reader: Box<dyn Read> = if gzip {
+        let reader = signal
+            .reader(body, || ports.cancelled())
+            .map_err(|_| Error::BackendUnavailable)?;
+        let reader: Box<dyn Read + 'a> = if gzip {
             Box::new(flate2::read::MultiGzDecoder::new(reader))
         } else {
             Box::new(reader)
@@ -565,10 +574,14 @@ impl<'a> Binary<'a> {
         let mut output = Vec::new();
         let outcome = self.read_to_end(&mut output);
         check(self.ports, self.deadline)?;
-        outcome.map_err(|error| match error.kind() {
-            io::ErrorKind::FileTooLarge => Error::TooLarge,
-            io::ErrorKind::TimedOut => Error::Timeout,
-            _ => Error::InvalidResponse,
+        outcome.map_err(|error| {
+            if error.kind() == io::ErrorKind::FileTooLarge {
+                Error::TooLarge
+            } else if http_read_timed_out(&error) {
+                Error::Timeout
+            } else {
+                Error::InvalidResponse
+            }
         })?;
         Ok(output)
     }

@@ -8,7 +8,7 @@ use std::{
 
 use chrono::DateTime;
 use flate2::read::{MultiGzDecoder, ZlibDecoder};
-use plur1bus_providers::pinned_http_agent;
+use plur1bus_providers::with_pinned_http_cancellation;
 use ureq::http::{HeaderValue, Request, Uri};
 use url::Url;
 
@@ -206,7 +206,6 @@ impl Port for Http<'_> {
                         .build(),
                 )
                 .build();
-            let agent = pinned_http_agent(config, pin, page.deadline);
             let mut request = Request::get(&uri)
                 .header("accept", "application/json")
                 .header("accept-encoding", "gzip, deflate, br")
@@ -223,66 +222,20 @@ impl Port for Http<'_> {
             let request = request
                 .body(())
                 .map_err(|_| Error::invalid("invalid_request"))?;
-            let response = agent.run(request);
-            active(page.deadline, cancelled)?;
-            let mut response = response.map_err(|err| match err {
-                ureq::Error::Timeout(_) => Error::network("request_timeout"),
-                ureq::Error::Io(error) => match error.kind() {
-                    io::ErrorKind::ConnectionRefused => Error::network("connection_refused"),
-                    io::ErrorKind::ConnectionReset | io::ErrorKind::BrokenPipe => {
-                        Error::network("connection_reset")
-                    }
-                    io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => {
-                        Error::network("request_timeout")
-                    }
-                    _ => Error::network("network_error"),
-                },
-                ureq::Error::Rustls(_) | ureq::Error::Tls(_) => Error::network("tls_error"),
-                _ => Error::network("network_error"),
-            })?;
+            let maximum = page.max_bytes.min(MAX_JSON_BYTES);
+            let deadline = page.deadline;
+            let response = with_pinned_http_cancellation(
+                config,
+                pin,
+                deadline,
+                cancelled,
+                move |agent, stop| load_response(&agent, request, maximum, deadline, stop),
+            );
+            active(deadline, cancelled)?;
+            let response = response.map_err(|_| Error::network("network_error"))??;
             let status = response.status();
             if status.is_success() {
-                if !response
-                    .headers()
-                    .get("content-type")
-                    .and_then(|field| field.to_str().ok())
-                    .is_some_and(json_content_type)
-                {
-                    return Err(Error::invalid("content_type"));
-                }
-                let encoding = response_encoding(response.headers())?;
-                let maximum = page.max_bytes.min(MAX_JSON_BYTES);
-                let body = read_bounded(
-                    response.body_mut().as_reader(),
-                    maximum,
-                    page.deadline,
-                    cancelled,
-                )?;
-                return match encoding.as_str() {
-                    "" | "identity" => Ok(body),
-                    "gzip" => decode(
-                        MultiGzDecoder::new(body.as_slice()),
-                        maximum,
-                        page.deadline,
-                        "bad_gzip",
-                        cancelled,
-                    ),
-                    "deflate" => decode(
-                        ZlibDecoder::new(body.as_slice()),
-                        maximum,
-                        page.deadline,
-                        "bad_deflate",
-                        cancelled,
-                    ),
-                    "br" => decode(
-                        brotli::Decompressor::new(body.as_slice(), 8192),
-                        maximum,
-                        page.deadline,
-                        "bad_brotli",
-                        cancelled,
-                    ),
-                    _ => Err(Error::invalid("content_encoding")),
-                };
+                return Ok(response.into_body());
             }
             if status.is_redirection() {
                 let location = response
@@ -317,6 +270,76 @@ impl Port for Http<'_> {
         }
         Err(Error::invalid("too_many_redirects"))
     }
+}
+
+fn load_response(
+    agent: &ureq::Agent,
+    request: Request<()>,
+    maximum: usize,
+    deadline: Instant,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<ureq::http::Response<Vec<u8>>> {
+    let response = agent.run(request);
+    active(deadline, cancelled)?;
+    let mut response = response.map_err(|err| match err {
+        ureq::Error::Timeout(_) => Error::network("request_timeout"),
+        ureq::Error::Io(error) => match error.kind() {
+            io::ErrorKind::ConnectionRefused => Error::network("connection_refused"),
+            io::ErrorKind::ConnectionReset | io::ErrorKind::BrokenPipe => {
+                Error::network("connection_reset")
+            }
+            io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => {
+                Error::network("request_timeout")
+            }
+            _ => Error::network("network_error"),
+        },
+        ureq::Error::Rustls(_) | ureq::Error::Tls(_) => Error::network("tls_error"),
+        _ => Error::network("network_error"),
+    })?;
+    if !response.status().is_success() {
+        return Ok(response.map(|_| Vec::new()));
+    }
+    if !response
+        .headers()
+        .get("content-type")
+        .and_then(|field| field.to_str().ok())
+        .is_some_and(json_content_type)
+    {
+        return Err(Error::invalid("content_type"));
+    }
+    let encoding = response_encoding(response.headers())?;
+    let body = read_bounded(
+        response.body_mut().as_reader(),
+        maximum,
+        deadline,
+        cancelled,
+    )?;
+    let decoded = match encoding.as_str() {
+        "" | "identity" => Ok(body),
+        "gzip" => decode(
+            MultiGzDecoder::new(body.as_slice()),
+            maximum,
+            deadline,
+            "bad_gzip",
+            cancelled,
+        ),
+        "deflate" => decode(
+            ZlibDecoder::new(body.as_slice()),
+            maximum,
+            deadline,
+            "bad_deflate",
+            cancelled,
+        ),
+        "br" => decode(
+            brotli::Decompressor::new(body.as_slice(), 8192),
+            maximum,
+            deadline,
+            "bad_brotli",
+            cancelled,
+        ),
+        _ => Err(Error::invalid("content_encoding")),
+    }?;
+    Ok(response.map(|_| decoded))
 }
 
 fn response_encoding(headers: &ureq::http::HeaderMap) -> Result<String> {

@@ -9,7 +9,7 @@ use std::{
 };
 
 use futures::{stream::BoxStream, StreamExt};
-use plur1bus_providers::pinned_http_agent;
+use plur1bus_providers::{http_read_timed_out, HttpCancellation};
 use rmcp::{
     model::{
         ClientJsonRpcMessage, ClientRequest, ErrorCode, ErrorData, ProtocolVersion,
@@ -105,6 +105,22 @@ struct Outbound {
     bearer: Option<String>,
     headers: Headers,
     body: Option<Vec<u8>>,
+}
+
+struct CancelOnDrop(Option<HttpCancellation>);
+
+impl CancelOnDrop {
+    fn release(mut self) {
+        self.0.take();
+    }
+}
+
+impl Drop for CancelOnDrop {
+    fn drop(&mut self) {
+        if let Some(signal) = &self.0 {
+            signal.cancel();
+        }
+    }
 }
 
 impl HttpClient {
@@ -216,8 +232,14 @@ impl HttpClient {
         self
     }
 
-    fn event_stream(&self, body: ureq::Body, deadline: Instant, limit: usize) -> SseStream {
-        let events = sse::stream(body, deadline, limit);
+    fn event_stream(
+        &self,
+        body: ureq::Body,
+        deadline: Instant,
+        limit: usize,
+        signal: &HttpCancellation,
+    ) -> SseStream {
+        let events = sse::stream(body, deadline, limit, signal.clone());
         let Some(reconnect) = self.reconnect.clone() else {
             return events;
         };
@@ -231,7 +253,11 @@ impl HttpClient {
             .boxed()
     }
 
-    fn open(&self, request: Outbound) -> Result<(Response<ureq::Body>, Instant), Error> {
+    fn open(
+        &self,
+        request: Outbound,
+        signal: &HttpCancellation,
+    ) -> Result<(Response<ureq::Body>, Instant), Error> {
         let target = checked_url(&request.uri)?;
         if target != self.endpoint {
             return Err(Error::Denied);
@@ -248,17 +274,19 @@ impl HttpClient {
             if body.len() > self.frame_limit {
                 return Err(Error::FrameLimit);
             }
-            pinned_run(
+            pinned_run_with_signal(
                 &target,
                 self.admission.as_ref(),
                 deadline,
+                signal,
                 builder.body(body).map_err(|_| Error::InvalidBody)?,
             )?
         } else {
-            pinned_run(
+            pinned_run_with_signal(
                 &target,
                 self.admission.as_ref(),
                 deadline,
+                signal,
                 builder.body(()).map_err(|_| Error::InvalidBody)?,
             )?
         };
@@ -318,9 +346,10 @@ impl HttpClient {
         request: Outbound,
         message: &ClientJsonRpcMessage,
         sse_limit: usize,
+        signal: &HttpCancellation,
     ) -> SdkResult<StreamableHttpPostResponse> {
         let session_attached = request.session_id.is_some();
-        let (mut response, deadline) = self.open(request).map_err(SdkError::Client)?;
+        let (mut response, deadline) = self.open(request, signal).map_err(SdkError::Client)?;
         let status = response.status().as_u16();
         if let Some(error) = self.challenge(&response) {
             return Err(error);
@@ -351,7 +380,7 @@ impl HttpClient {
                     Ok(StreamableHttpPostResponse::Json(reply, session))
                 }
                 Mime::Sse => Ok(StreamableHttpPostResponse::Sse(
-                    self.event_stream(response.into_body(), deadline, sse_limit),
+                    self.event_stream(response.into_body(), deadline, sse_limit, signal),
                     session,
                 )),
                 _ => Err(SdkError::UnexpectedContentType(None)),
@@ -386,8 +415,13 @@ impl HttpClient {
         Err(status_error(response.headers(), status))
     }
 
-    fn get(&self, request: Outbound, sse_limit: usize) -> SdkResult<SseStream> {
-        let (mut response, deadline) = self.open(request).map_err(SdkError::Client)?;
+    fn get(
+        &self,
+        request: Outbound,
+        sse_limit: usize,
+        signal: &HttpCancellation,
+    ) -> SdkResult<SseStream> {
+        let (mut response, deadline) = self.open(request, signal).map_err(SdkError::Client)?;
         if let Some(error) = self.challenge(&response) {
             return Err(error);
         }
@@ -395,7 +429,7 @@ impl HttpClient {
             405 => Err(SdkError::ServerDoesNotSupportSse),
             404 => Err(SdkError::SessionExpired),
             200 if media_type(response.headers()) == Mime::Sse => {
-                Ok(self.event_stream(response.into_body(), deadline, sse_limit))
+                Ok(self.event_stream(response.into_body(), deadline, sse_limit, signal))
             }
             200..=299 => Err(SdkError::UnexpectedContentType(None)),
             status => {
@@ -438,7 +472,9 @@ impl StreamableHttpClient for HttpClient {
         max_sse_event_size: usize,
     ) -> SdkResult<StreamableHttpPostResponse> {
         let client = self.clone();
-        spawn_blocking(move || {
+        let signal = HttpCancellation::default();
+        let guard = CancelOnDrop(Some(signal.clone()));
+        let result = spawn_blocking(move || {
             let body = encode::message(&message, client.include_progress, false)
                 .map_err(|_| SdkError::Client(Error::InvalidBody))?;
             client.post(
@@ -453,10 +489,13 @@ impl StreamableHttpClient for HttpClient {
                 },
                 &message,
                 max_sse_event_size.min(client.frame_limit),
+                &signal,
             )
         })
         .await
-        .map_err(|_| SdkError::Client(Error::Network))?
+        .map_err(|_| SdkError::Client(Error::Network))?;
+        guard.release();
+        result
     }
 
     async fn get_stream(
@@ -494,7 +533,9 @@ impl StreamableHttpClient for HttpClient {
                 .map_err(SdkError::Client)?;
         }
         let client = self.clone();
-        spawn_blocking(move || {
+        let signal = HttpCancellation::default();
+        let guard = CancelOnDrop(Some(signal.clone()));
+        let result = spawn_blocking(move || {
             client.get(
                 Outbound {
                     method: Method::GET,
@@ -506,10 +547,13 @@ impl StreamableHttpClient for HttpClient {
                     body: None,
                 },
                 max_sse_event_size.min(client.frame_limit),
+                &signal,
             )
         })
         .await
-        .map_err(|_| SdkError::Client(Error::Network))?
+        .map_err(|_| SdkError::Client(Error::Network))?;
+        guard.release();
+        result
     }
 
     async fn delete_session(
@@ -520,17 +564,22 @@ impl StreamableHttpClient for HttpClient {
         custom_headers: Headers,
     ) -> SdkResult<()> {
         let client = self.clone();
-        spawn_blocking(move || {
+        let signal = HttpCancellation::default();
+        let guard = CancelOnDrop(Some(signal.clone()));
+        let result = spawn_blocking(move || {
             let (mut response, deadline) = client
-                .open(Outbound {
-                    method: Method::DELETE,
-                    uri,
-                    session_id: Some(session_id),
-                    last_event_id: None,
-                    bearer: auth_header,
-                    headers: custom_headers,
-                    body: None,
-                })
+                .open(
+                    Outbound {
+                        method: Method::DELETE,
+                        uri,
+                        session_id: Some(session_id),
+                        last_event_id: None,
+                        bearer: auth_header,
+                        headers: custom_headers,
+                        body: None,
+                    },
+                    &signal,
+                )
                 .map_err(SdkError::Client)?;
             match response.status().as_u16() {
                 200..=299 | 404 | 405 => Ok(()),
@@ -541,7 +590,9 @@ impl StreamableHttpClient for HttpClient {
             }
         })
         .await
-        .map_err(|_| SdkError::Client(Error::Network))?
+        .map_err(|_| SdkError::Client(Error::Network))?;
+        guard.release();
+        result
     }
 }
 
@@ -549,6 +600,22 @@ pub(crate) fn pinned_run(
     target: &Url,
     admission: &dyn Admission,
     deadline: Instant,
+    request: Request<impl ureq::AsSendBody>,
+) -> Result<Response<ureq::Body>, Error> {
+    pinned_run_with_signal(
+        target,
+        admission,
+        deadline,
+        &HttpCancellation::default(),
+        request,
+    )
+}
+
+fn pinned_run_with_signal(
+    target: &Url,
+    admission: &dyn Admission,
+    deadline: Instant,
+    signal: &HttpCancellation,
     request: Request<impl ureq::AsSendBody>,
 ) -> Result<Response<ureq::Body>, Error> {
     let pin = admission.pin(target, deadline)?;
@@ -568,7 +635,7 @@ pub(crate) fn pinned_run(
                 .build(),
         )
         .build();
-    let result = pinned_http_agent(config, pin, deadline).run(request);
+    let result = signal.pinned_agent(config, pin, deadline).run(request);
     remaining(deadline)?;
     let response = result.map_err(wire_error)?;
     if response
@@ -694,15 +761,7 @@ fn wire_error(error: ureq::Error) -> Error {
 }
 
 fn io_error(error: &io::Error) -> Error {
-    if matches!(
-        error.kind(),
-        io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
-    ) || error.get_ref().is_some_and(|cause| {
-        matches!(
-            cause.downcast_ref::<ureq::Error>(),
-            Some(ureq::Error::Timeout(_))
-        )
-    }) {
+    if http_read_timed_out(error) {
         Error::Timeout
     } else {
         Error::Network

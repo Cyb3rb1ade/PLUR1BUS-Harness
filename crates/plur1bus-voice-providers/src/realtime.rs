@@ -51,7 +51,7 @@ pub struct Settings<'a> {
 }
 
 pub struct Session<'a> {
-    socket: Option<Socket>,
+    socket: Option<Socket<'a>>,
     vendor: Vendor,
     input_rate: u32,
     ready: bool,
@@ -490,7 +490,7 @@ impl<'a> Session<'a> {
         }
     }
 
-    fn socket(&mut self) -> Result<&mut Socket, Error> {
+    fn socket(&mut self) -> Result<&mut Socket<'a>, Error> {
         self.socket.as_mut().ok_or(Error::Closed)
     }
 
@@ -1006,6 +1006,7 @@ fn close_error(code: Option<u16>) -> Option<Error> {
 pub(crate) fn socket_error(error: websocket::Error) -> Error {
     match error {
         websocket::Error::Denied => Error::InvalidRequest,
+        websocket::Error::Aborted => Error::Aborted,
         websocket::Error::Timeout => Error::Timeout,
         websocket::Error::Capacity | websocket::Error::Protocol => Error::UpstreamProtocol,
         websocket::Error::Handshake {

@@ -15,7 +15,7 @@ slack = ["http", "websocket", "dep:indexmap"]
 signal = ["dep:serde", "dep:serde_json", "dep:regex"]
 email = ["dep:base64", "dep:chrono", "dep:encoding_rs", "dep:regex", "dep:serde"]
 buzz = ["websocket", "dep:nostr", "dep:secp256k1", "dep:serde", "dep:zeroize"]
-http = ["dep:log", "dep:serde", "dep:serde_json", "dep:ureq", "dep:url"]
+http = ["dep:log", "dep:plur1bus-providers", "dep:serde", "dep:serde_json", "dep:ureq", "dep:url"]
 websocket = ["dep:chrono", "dep:log", "dep:serde_json", "dep:tungstenite", "dep:url"]
 
 [dependencies]
@@ -26,6 +26,7 @@ indexmap = { version = "2", features = ["serde"], optional = true }
 # Match providers and engine: ureq-proto and tungstenite trace raw wire bytes.
 log = { version = "=0.4.34", features = ["max_level_debug"], optional = true }
 nostr = { version = "=0.45.5", default-features = false, features = ["std", "nip44"], optional = true }
+plur1bus-providers = { path = "../plur1bus-providers", optional = true }
 percent-encoding = { version = "2.3", optional = true }
 regex = { version = "1", optional = true }
 secp256k1 = { version = "=0.30.0", default-features = false, features = ["std"], optional = true }
@@ -40,6 +41,7 @@ zeroize = { version = "1.9", optional = true }
 
 [dev-dependencies]
 base64 = "0.22"
+plur1bus-providers = { path = "../plur1bus-providers" }
 plur1bus-wire-fixtures = { path = "../plur1bus-wire-fixtures" }
 plur1bus-wire-log = { path = "../plur1bus-wire-log" }
 serde_json.workspace = true

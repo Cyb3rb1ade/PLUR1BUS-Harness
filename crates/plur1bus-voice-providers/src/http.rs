@@ -1,5 +1,5 @@
 //! Bounded HTTP response processing for the cloud voice providers.
-use plur1bus_providers::{pinned_http_agent, retry_after_date_ms};
+use plur1bus_providers::{http_read_timed_out, retry_after_date_ms, HttpCancellation};
 use serde_json::Value;
 use std::{
     fmt,
@@ -300,18 +300,11 @@ impl<'a> Client<'a> {
         deadline: Instant,
         consume: impl FnOnce(u16, &mut dyn Read) -> Result<T, Error>,
     ) -> Result<T, Error> {
-        let mut response = self.request(endpoint, method, headers, request, deadline, None)?;
-        let gzip = response
-            .headers()
-            .get("content-encoding")
-            .is_some_and(|enc| enc.as_bytes().eq_ignore_ascii_case(b"gzip"));
+        let (response, signal) =
+            self.request(endpoint, method, headers, request, deadline, None)?;
         let status = response.status().as_u16();
-        let mut reader = response.body_mut().as_reader();
-        if gzip {
-            consume(status, &mut flate2::read::MultiGzDecoder::new(reader))
-        } else {
-            consume(status, &mut reader)
-        }
+        let mut reader = decoded_reader(response, &signal, self.ports)?;
+        consume(status, &mut reader)
     }
 
     pub(crate) fn read_chunk(
@@ -331,9 +324,10 @@ impl<'a> Client<'a> {
         request: &[u8],
         deadline: Instant,
         signer: &dyn crate::polly::Signer,
-    ) -> Result<Box<dyn Read>, Error> {
-        let response = self.request(endpoint, method, headers, request, deadline, Some(signer))?;
-        Ok(decoded_reader(response))
+    ) -> Result<Box<dyn Read + '_>, Error> {
+        let (response, signal) =
+            self.request(endpoint, method, headers, request, deadline, Some(signer))?;
+        decoded_reader(response, &signal, self.ports)
     }
 
     fn request(
@@ -344,7 +338,7 @@ impl<'a> Client<'a> {
         request: &[u8],
         deadline: Instant,
         signer: Option<&dyn crate::polly::Signer>,
-    ) -> Result<ureq::http::Response<ureq::Body>, Error> {
+    ) -> Result<(ureq::http::Response<ureq::Body>, HttpCancellation), Error> {
         let idempotent = matches!(method, "GET" | "HEAD" | "OPTIONS");
         for attempt in 0..self.retries {
             let failure = match self
@@ -378,7 +372,7 @@ impl<'a> Client<'a> {
         request: &[u8],
         deadline: Instant,
         signer: Option<&dyn crate::polly::Signer>,
-    ) -> Result<ureq::http::Response<ureq::Body>, AttemptError> {
+    ) -> Result<(ureq::http::Response<ureq::Body>, HttpCancellation), AttemptError> {
         let insecure = endpoint.scheme() == "http" && self.allow_loopback_http;
         if (endpoint.scheme() != "https" && !insecure)
             || !endpoint.username().is_empty()
@@ -413,7 +407,8 @@ impl<'a> Client<'a> {
                     .build(),
             )
             .build();
-        let agent = pinned_http_agent(config, pin, deadline);
+        let signal = HttpCancellation::default();
+        let agent = signal.pinned_agent(config, pin, deadline);
         let mut builder = Request::builder()
             .method(method)
             .uri(endpoint.as_str())
@@ -431,10 +426,10 @@ impl<'a> Client<'a> {
             builder = builder.header(name, header);
         }
         let request = builder.body(request).map_err(|_| Error::InvalidRequest)?;
-        let response = agent.run(request).map_err(|err| {
-            if self.ports.cancelled() {
-                Error::Aborted
-            } else if matches!(err, ureq::Error::Timeout(_)) {
+        let response = signal.run(&|| self.ports.cancelled(), move || agent.run(request));
+        check(self.ports, deadline)?;
+        let response = response.map_err(|_| Error::Network)?.map_err(|err| {
+            if matches!(err, ureq::Error::Timeout(_)) {
                 Error::Timeout
             } else {
                 Error::Network
@@ -450,7 +445,7 @@ impl<'a> Client<'a> {
                 .and_then(|value| retry_after_ms(value, self.ports.wall_time()));
             let explicit_refusal = matches!(status.as_u16(), 429 | 503) && hint.is_some();
             let error = if signer.is_some() {
-                let error = crate::polly::response_error(response, self.ports, deadline);
+                let error = crate::polly::response_error(response, &signal, self.ports, deadline);
                 match error {
                     Error::RateLimited => hint.map_or(error, Error::RateLimitedAfter),
                     Error::Overloaded => hint.map_or(error, Error::OverloadedAfter),
@@ -465,7 +460,7 @@ impl<'a> Client<'a> {
             });
         }
         check_encoding(response.headers())?;
-        Ok(response)
+        Ok((response, signal))
     }
 }
 
@@ -498,16 +493,22 @@ pub(crate) fn check_encoding(headers: &ureq::http::HeaderMap) -> Result<(), Erro
     Ok(())
 }
 
-pub(crate) fn decoded_reader(response: ureq::http::Response<ureq::Body>) -> Box<dyn Read> {
+pub(crate) fn decoded_reader<'a>(
+    response: ureq::http::Response<ureq::Body>,
+    signal: &HttpCancellation,
+    ports: &'a dyn Ports,
+) -> Result<Box<dyn Read + 'a>, Error> {
     let gzip = response
         .headers()
         .get("content-encoding")
         .is_some_and(|enc| enc.as_bytes().eq_ignore_ascii_case(b"gzip"));
-    let reader = response.into_body().into_reader();
+    let reader = signal
+        .reader(response.into_body(), || ports.cancelled())
+        .map_err(|_| Error::Network)?;
     if gzip {
-        Box::new(flate2::read::MultiGzDecoder::new(reader))
+        Ok(Box::new(flate2::read::MultiGzDecoder::new(reader)))
     } else {
-        Box::new(reader)
+        Ok(Box::new(reader))
     }
 }
 
@@ -576,12 +577,8 @@ fn checked_read(
             Ok(count) if count <= buffer.len() => return Ok(count),
             Ok(_) => return Err(Error::BadResponse),
             Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
-            Err(error) => {
-                return Err(match error.kind() {
-                    io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => Error::Timeout,
-                    _ => Error::BadResponse,
-                });
-            }
+            Err(error) if http_read_timed_out(&error) => return Err(Error::Timeout),
+            Err(_) => return Err(Error::BadResponse),
         }
     }
 }
@@ -598,6 +595,27 @@ mod tests {
         fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
             None
         }
+    }
+
+    #[test]
+    fn a_body_timeout_reported_by_ureq_is_not_a_bad_response() {
+        struct TimeoutReader;
+        impl Read for TimeoutReader {
+            fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
+                Err(io::Error::other(ureq::Error::Timeout(
+                    ureq::Timeout::RecvBody,
+                )))
+            }
+        }
+        assert_eq!(
+            checked_read(
+                &mut TimeoutReader,
+                &NoNetwork,
+                Instant::now() + Duration::from_secs(2),
+                &mut [0; 16],
+            ),
+            Err(Error::Timeout)
+        );
     }
 
     #[test]

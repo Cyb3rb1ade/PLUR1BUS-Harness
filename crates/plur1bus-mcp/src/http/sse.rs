@@ -1,12 +1,18 @@
 use std::{io::Read, time::Instant};
 
 use futures::stream;
+use plur1bus_providers::HttpCancellation;
 use sse_stream::{Error as SseError, Sse};
 use tokio::{sync::mpsc, task::spawn_blocking};
 
-use super::{io_error, remaining, Error, SseStream};
+use super::{io_error, remaining, CancelOnDrop, Error, SseStream};
 
-pub(super) fn stream(mut body: ureq::Body, deadline: Instant, limit: usize) -> SseStream {
+pub(super) fn stream(
+    mut body: ureq::Body,
+    deadline: Instant,
+    limit: usize,
+    signal: HttpCancellation,
+) -> SseStream {
     let (send, recv) = mpsc::channel(2);
     spawn_blocking(move || {
         let mut input = body.as_reader();
@@ -35,9 +41,11 @@ pub(super) fn stream(mut body: ureq::Body, deadline: Instant, limit: usize) -> S
             let _ = send.blocking_send(Err(SseError::Body(Box::new(error))));
         }
     });
-    Box::pin(stream::unfold(recv, |mut recv| async move {
-        recv.recv().await.map(|event| (event, recv))
-    }))
+    let guard = CancelOnDrop(Some(signal));
+    Box::pin(stream::unfold(
+        (recv, guard),
+        |(mut recv, guard)| async move { recv.recv().await.map(|event| (event, (recv, guard))) },
+    ))
 }
 
 struct Parser {

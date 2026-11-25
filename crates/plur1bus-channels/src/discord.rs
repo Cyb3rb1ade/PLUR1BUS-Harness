@@ -322,7 +322,9 @@ impl<'a> Discord<'a> {
             }
             let body = match self.http.body(&mut response, http::DIAGNOSTIC_LIMIT) {
                 Ok(body) => serde_json::from_slice::<Value>(&body).unwrap_or_default(),
-                Err(Failure::Aborted) => return Err(aborted()),
+                Err(reason @ (Failure::Aborted | Failure::TimedOut)) => {
+                    return Err(rest_transport(reason));
+                }
                 Err(_) => Value::Null,
             };
             if status == 429 {
@@ -482,9 +484,8 @@ fn rest_transport(error: Failure) -> Error {
 
 fn download_error(error: Failure) -> Error {
     match error {
-        Failure::Aborted => Error::new(Kind::Aborted, "attachment download failed"),
         Failure::TooLarge => Error::new(Kind::Protocol, "attachment exceeds size limit"),
-        _ => Error::new(Kind::Network, "attachment download failed"),
+        error => Error::new(error.network_kind(), "attachment download failed"),
     }
 }
 
