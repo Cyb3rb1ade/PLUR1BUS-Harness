@@ -127,6 +127,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn checkpoint_rejects_unknown_versions_on_write_and_on_reopen() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().canonicalize().unwrap();
+        let store = CheckpointStore::new(state.clone());
+        let grant = MaintenanceGrant::for_test(Cancel::never());
+        let future = json!({"v":2,"id":"future"});
+        let file = state.join(DIRECTORY).join(FILE);
+        assert!(matches!(store.put(&grant, None, &future, &Cancel::never()),
+            Err(EngineError::Invalid { message, .. }) if message == "reembedding checkpoint input is invalid"));
+        assert!(!file.exists());
+        fs::create_dir(state.join(DIRECTORY)).unwrap();
+        fs::write(&file, future.to_string()).unwrap();
+        assert!(matches!(store.get(),
+            Err(EngineError::Invalid { message, .. }) if message == "reembedding checkpoint is invalid"));
+    }
+
+    #[test]
     fn legacy_checkpoint_is_read_and_a_stale_writer_cannot_replace_it() {
         let root = tempfile::tempdir().unwrap();
         let state = root.path().canonicalize().unwrap();

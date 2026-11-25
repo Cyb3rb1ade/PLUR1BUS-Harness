@@ -85,10 +85,15 @@ fn golden_paths_keep_their_suffix_and_leave_unrelated_values_alone() {
     );
 }
 
+struct WorkspaceBinding {
+    current: PathBuf,
+    next: Option<PathBuf>,
+}
+
 pub struct TestHost {
     state_dir: PathBuf,
     config: EngineConfig,
-    workspaces: Mutex<BTreeMap<String, PathBuf>>,
+    workspaces: Mutex<BTreeMap<String, WorkspaceBinding>>,
     platform: PlatformCapabilities,
     pub events: Mutex<Vec<Value>>,
     pub time: std::sync::atomic::AtomicI64,
@@ -111,11 +116,22 @@ impl TestHost {
         }
     }
 
+    /// Return a final snapshot of the current binding before serving the replacement.
+    pub fn move_workspace_after_next_lookup(&self, agent: &str, next: PathBuf) {
+        self.workspaces.lock().unwrap().get_mut(agent).unwrap().next = Some(next);
+    }
+
     pub fn set_workspace(&self, agent: &str, path: PathBuf) {
         self.workspaces
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(agent.to_owned(), path);
+            .insert(
+                agent.to_owned(),
+                WorkspaceBinding {
+                    current: path,
+                    next: None,
+                },
+            );
     }
 }
 
@@ -129,12 +145,14 @@ impl HostServices for TestHost {
     }
 
     fn workspace_dir(&self, agent: &AgentId) -> Result<Option<PathBuf>, HostError> {
-        Ok(self
-            .workspaces
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .get(agent.as_str())
-            .cloned())
+        let mut workspaces = self.workspaces.lock().unwrap();
+        Ok(workspaces.get_mut(agent.as_str()).map(|binding| {
+            if let Some(next) = binding.next.take() {
+                std::mem::replace(&mut binding.current, next)
+            } else {
+                binding.current.clone()
+            }
+        }))
     }
 
     fn llm(&self) -> Option<&dyn LlmPort> {
