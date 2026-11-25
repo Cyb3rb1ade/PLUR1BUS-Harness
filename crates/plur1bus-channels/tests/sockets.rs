@@ -234,3 +234,33 @@ fn a_fragmented_message_has_its_own_limit() {
         }
     }
 }
+
+#[test]
+fn websocket_handshake_limits_the_retry_interval_to_one_hour() {
+    use std::io::{BufRead, BufReader, Write};
+    let server = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let addr = server.local_addr().unwrap();
+    let thread = std::thread::spawn(move || {
+        let (mut peer, _) = server.accept().unwrap();
+        peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        for line in BufReader::new(&peer).lines() {
+            if line.unwrap().is_empty() {
+                break;
+            }
+        }
+        peer.write_all(
+            b"HTTP/1.1 429 Too Many Requests\r\nRetry-After: 3601\r\nContent-Length: 0\r\n\r\n",
+        )
+        .unwrap();
+    });
+    let ports = Loopback(addr);
+    let url = Url::parse(&format!("ws://{addr}/gateway")).unwrap();
+    assert!(matches!(
+        Socket::connect(&url, &[], &ports, Limits::default(), true),
+        Err(Error::Handshake {
+            status: 429,
+            retry_after_ms: Some(3_600_000)
+        })
+    ));
+    thread.join().unwrap();
+}

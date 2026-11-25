@@ -1,6 +1,6 @@
 import { makeEnv, started } from "../../packages/channels-discord/test/helpers/env.ts";
 import { BOT_ID, DM_CHANNEL, DM_USER, snowflake } from "../../packages/channels-discord/test/helpers/fake-discord.ts";
-import { BOT_USER, FakeSlack, message } from "../../packages/channels-slack/test/helpers/fake-slack.ts";
+import { BOT_USER, FakeSlack, eventsApi, message } from "../../packages/channels-slack/test/helpers/fake-slack.ts";
 import { until, wire } from "../../packages/channels-slack/test/helpers/wire.ts";
 import { MemoryOffsetStore, TelegramChannel } from "../../packages/channels-telegram/src/index.ts";
 import { FAKE_TELEGRAM_TOKEN } from "../../packages/channels-telegram/test/helpers/fake-telegram.ts";
@@ -12,6 +12,9 @@ export async function discordAdmission() {
   const inputs = authors.map((author, i) => ({
     id: snowflake(100 + i), channel_id: DM_CHANNEL, author, content: "Reply", type: 0,
   }));
+  inputs.splice(inputs.length - 1, 0, {
+    id: snowflake(110), channel_id: DM_CHANNEL, author: { id: DM_USER }, content: "System event", type: 6,
+  });
   try {
     await started(env, channel);
     for (const input of inputs) env.gateway.dispatch("MESSAGE_CREATE", input);
@@ -44,6 +47,10 @@ export async function slackAdmission() {
     ...sender, channel: "D0FAKE01", ts: `170000010${i}.000200`, text: "Reply",
     eventId: `fixture-${i}`,
   }));
+  envelopes.splice(envelopes.length - 1, 0, eventsApi({
+    type: "message", channel: "D0FAKE01", channel_type: "im", user: "UHUMAN01",
+    ts: "1700000110.000200", text: "Bot profile", bot_profile: { id: "BLOCAL01" },
+  }, { eventId: "fixture-profile" }));
   try {
     await ch.start(host);
     for (const envelope of envelopes) fake.push(envelope);
@@ -58,7 +65,7 @@ export async function slackAdmission() {
 
 export async function telegramAdmission() {
   const botId = 123456789;
-  const allowlist = [42];
+  const allowlist = [42, botId];
   const delivered: string[] = [];
   const channel = new TelegramChannel({
     tokenSecret: "fixture",

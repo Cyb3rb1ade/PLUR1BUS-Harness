@@ -435,6 +435,8 @@ fn validate_rumor_sender(rumor: &UnsignedEvent, author: PublicKey) -> Result<(),
     if rumor.pubkey != author || rumor.id != Some(rumor.compute_id()) {
         return Err(Error::Crypto);
     }
+    #[cfg(test)]
+    tests::VERIFIED_SENDERS.set(tests::VERIFIED_SENDERS.get() + 1);
     Ok(())
 }
 
@@ -547,6 +549,57 @@ pub fn relay_url(raw: &str) -> Result<Url, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    thread_local! {
+        pub(super) static VERIFIED_SENDERS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    }
+
+    #[test]
+    fn receiving_a_recorded_message_checks_the_wrapper_and_verified_sender() -> Result<(), Error> {
+        struct NoRandom;
+        impl Entropy for NoRandom {
+            fn bytes(&mut self) -> Result<[u8; 32], Error> {
+                Err(Error::Entropy)
+            }
+        }
+        struct Saved(usize);
+        impl Seen for Saved {
+            fn save(&mut self, _: &[String]) -> Result<(), Error> {
+                self.0 += 1;
+                Ok(())
+            }
+        }
+        let fixture = plur1bus_wire_fixtures::load_fixture("channels", "buzz-relay");
+        let frame = &fixture["exchanges"][0]["receive"][2];
+        let raw = frame.to_string();
+        let created = frame[2]["created_at"].as_u64().ok_or(Error::Protocol)?;
+        let now = fixture["now"].as_u64().ok_or(Error::Protocol)?;
+        let own = keys(1)?;
+        let relay_url = Url::parse("wss://fixture.invalid").map_err(|_| Error::Configuration)?;
+        let mut receiver = Buzz::new(&own, &[relay_url.as_str()], &[keys(2)?.public_key()], &[])?;
+        let mut relay = Relay::new(relay_url);
+        let mut saved = Saved(0);
+        let verified = VERIFIED_SENDERS.get();
+        assert!(matches!(
+            receiver.receive(
+                &mut relay,
+                &raw,
+                created + FRESHNESS + 1,
+                &mut NoRandom,
+                &mut saved
+            )?,
+            RelayEvent::Ignored
+        ));
+        assert_eq!(saved.0, 0);
+        assert_eq!(VERIFIED_SENDERS.get(), verified);
+        assert!(matches!(
+            receiver.receive(&mut relay, &raw, now, &mut NoRandom, &mut saved)?,
+            RelayEvent::Message(_)
+        ));
+        assert_eq!(saved.0, 1);
+        assert_eq!(VERIFIED_SENDERS.get(), verified + 1);
+        Ok(())
+    }
 
     fn keys(seed: u8) -> Result<Keys, Error> {
         SecretKey::from_slice(&[seed; 32])

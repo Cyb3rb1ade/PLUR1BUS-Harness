@@ -283,3 +283,14 @@ fn imap_reduces_a_limited_search_and_checkpoints_completed_pages() {
         .collect();
     assert_eq!(server.received(), expected);
 }
+
+#[test]
+fn parsed_attachment_names_drop_leading_periods() {
+    let input = b"From: reader@example.invalid\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=...edition.txt\r\n\r\nNews";
+    let parsed = mime::parse(input, Default::default());
+    assert_eq!(parsed.attachments.len(), 1);
+    assert_eq!(
+        parsed.attachments[0].filename.as_deref(),
+        Some("edition.txt")
+    );
+}

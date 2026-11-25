@@ -1931,3 +1931,28 @@ Rust returns `too-large` when an element would exceed the parser stack limit
 of 200 open elements, excluding the document root. The TypeScript extractor can
 flatten further nesting. Rust also caps parsed elements and the table grid
 at 300,000 each.
+
+
+<a id="p4d-269"></a>
+
+## P4D-269 — Page IMAP UID searches (R-W-28)
+
+The wire library searches at most 4,096 UID numbers per request and halves
+the range after a tagged server limit response. A fresh SELECT supplies the
+initial upper bound through UIDNEXT. Without that hint, the client requests
+the UID of the last message. Empty ranges can require extra commands in
+sparse mailboxes. A page consumer advances its cursor after processing the
+whole page. The existing collecting API returns the ordered list. TypeScript
+issues an open-ended search and can receive a longer reply line.
+
+<a id="p4d-270"></a>
+
+## P4D-270 — Discord outbound message and upload restrictions (W2-N1, W2-N6)
+
+Rust checks path segments before identifying routes and rate-limit buckets.
+It rejects dot segments, doubled separators, and encoded dots or separators.
+Outgoing message objects, including webhook sends and nested message fields,
+receive an empty mention policy. Re-encoding removes duplicate JSON keys.
+File uploads require a prepared message part and an ASCII filename containing
+only letters, digits, period, dash or underscore. TypeScript sanitizes its
+filenames and uses a narrower set of webhook routes.

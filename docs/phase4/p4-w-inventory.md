@@ -194,6 +194,17 @@ Anzahl ([P4D-258](defects.md#p4d-258)). MIME begrenzt besuchte Teile über den
 ganzen Baum ([P4D-259](defects.md#p4d-259)) und HTML vor der Umwandlung nach
 UTF-8-Bytes ([P4D-260](defects.md#p4d-260)).
 
+**Flip-Pflicht (W2-N5).** Der Slack-Host prüft das Team und verwirft eigene
+Reaktionen mit der aus `auth.test` ermittelten Bot-ID. Der Discord-Host
+verwirft `MESSAGE_UPDATE`, das der Adapter ungefiltert liefert. Telegram
+prüft Chat-Allowlist und Chat-Typ vor der Verarbeitung einer Migration.
+E-Mail beschränkt zugelassene MIME-Typen und übernimmt höchstens zehn
+Anhänge. Auf Windows prüft der Host reservierte Dateinamen vor dem Speichern.
+
+Die IMAP-Suche liefert abgeschlossene UID-Abschnitte für den Postfachcursor
+([P4D-269](defects.md#p4d-269)). Der Vertrag für Discord-Pfade,
+Erwähnungen und vorbereitete Uploads steht in [P4D-270](defects.md#p4d-270).
+
 Beim Flip prüft die Konfiguration den E-Mail-Anzeigenamen mit derselben
 `PLAIN`-Regel wie TypeScript. Der Host protokolliert Discord-Identify- und
 Resume-Frames nicht. Er begrenzt die Menge der Discord-Routen pro Client und

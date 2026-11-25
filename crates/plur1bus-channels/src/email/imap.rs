@@ -32,6 +32,7 @@ struct Tagged {
     untagged: Vec<Response>,
 }
 
+#[derive(Clone, Copy)]
 struct ResponseBudget {
     metadata: usize,
     logical: usize,
@@ -86,6 +87,7 @@ pub struct Connection {
     wire: Wire,
     tag: u64,
     selection_upper: Option<u64>,
+    response_budget: ResponseBudget,
 }
 
 pub type Capabilities = BTreeSet<String>;
@@ -146,6 +148,7 @@ pub fn open(
         wire: Wire::open(ports, opt, "IMAP connection failed")?,
         tag: 0,
         selection_upper: None,
+        response_budget: ResponseBudget::default(),
     };
     let greeting = conn.response(&mut ResponseBudget::default())?;
     if bye(&greeting.text) {
@@ -171,6 +174,7 @@ pub fn open(
             wire: conn.wire.upgrade(ports, opt.host)?,
             tag: conn.tag,
             selection_upper: None,
+            response_budget: ResponseBudget::default(),
         };
     }
     let caps = conn.capabilities()?;
@@ -226,7 +230,7 @@ impl Connection {
     fn command(&mut self, command: &str, mut continuation: Option<&str>) -> Result<Tagged, Error> {
         let tag = self.begin(command)?;
         let mut untagged = Vec::new();
-        let mut budget = ResponseBudget::default();
+        let mut budget = self.response_budget;
         loop {
             let response = self.response(&mut budget)?;
             if response.text.starts_with('+') {
@@ -368,7 +372,7 @@ impl Connection {
             let reply = self.command(&format!("UID SEARCH UID {first}:{last}"), None)?;
             if reply.status != Status::Ok {
                 if reply.limited && last > first {
-                    width = (last - first + 1) / 2;
+                    width = (last - first).div_ceil(2);
                     continue;
                 }
                 return Err(Error::new(Kind::Protocol, "UID SEARCH failed"));
@@ -425,7 +429,7 @@ impl Connection {
 
     pub fn idle(&mut self, budget: Duration) -> Result<Idle, Error> {
         let tag = self.begin("IDLE")?;
-        let mut received = ResponseBudget::default();
+        let mut received = self.response_budget;
         loop {
             let frame = self.response(&mut received)?;
             if frame.text.starts_with('+') {
@@ -613,6 +617,7 @@ mod budget_tests {
             wire,
             tag: 0,
             selection_upper: None,
+            response_budget: ResponseBudget::default(),
         };
         assert_eq!(connection.uids_above(start - 1)?, expected);
         Ok(())
@@ -629,6 +634,7 @@ mod budget_tests {
             wire,
             tag: 0,
             selection_upper: None,
+            response_budget: ResponseBudget::default(),
         };
         assert_eq!(connection.fetch_raw(7)?, b"Report");
         Ok(())
@@ -643,6 +649,7 @@ mod budget_tests {
             wire,
             tag: 0,
             selection_upper: None,
+            response_budget: ResponseBudget::default(),
         };
         assert_eq!(
             connection
@@ -653,6 +660,55 @@ mod budget_tests {
         );
         assert_eq!(
             connection.capabilities().err().map(|error| error.kind),
+            Some(Kind::Network)
+        );
+    }
+
+    fn responding(input: &[u8], metadata: usize, logical: usize) -> Connection {
+        Connection {
+            wire: super::super::wire::test_stream::wire(input, std::io::ErrorKind::TimedOut),
+            tag: 0,
+            selection_upper: None,
+            response_budget: ResponseBudget { metadata, logical },
+        }
+    }
+
+    #[test]
+    fn commands_charge_their_reply_count_metadata_and_literals() {
+        let mut input = "* OK\r\n".repeat(8193);
+        input.push_str("A0001 OK done\r\n");
+        assert_eq!(
+            responding(input.as_bytes(), MAX_METADATA, MAX_LOGICAL)
+                .capabilities()
+                .err()
+                .map(|e| e.message),
+            Some("IMAP response too large")
+        );
+
+        let mut cap = responding(b"* OK first\r\n* OK second\r\nA0001 OK\r\n", 17, 128);
+        assert_eq!(
+            cap.capabilities().err().map(|e| e.message),
+            Some("line too long")
+        );
+
+        let body = b"* 1 FETCH (UID 7 BODY[] {12}\r\nLocal report)\r\nA0001 OK\r\n";
+        let mut conn = responding(body, 1024, 30);
+        assert_eq!(
+            conn.fetch_raw(7).err().map(|e| e.message),
+            Some("IMAP literal too large")
+        );
+    }
+
+    #[test]
+    fn timeout_after_a_complete_literal_closes_the_connection() {
+        let mut conn = responding(
+            b"* 1 FETCH (UID 7 BODY[] {6}\r\nReport",
+            MAX_METADATA,
+            MAX_LOGICAL,
+        );
+        assert_eq!(conn.fetch_raw(7).err().map(|e| e.kind), Some(Kind::Timeout));
+        assert_eq!(
+            conn.capabilities().err().map(|e| e.kind),
             Some(Kind::Network)
         );
     }

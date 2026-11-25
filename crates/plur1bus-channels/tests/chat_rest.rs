@@ -290,3 +290,34 @@ fn discord_projects_message_fields_at_each_supported_payload_position() {
         replay.verify(&reply["name"]);
     }
 }
+
+#[test]
+fn discord_refuses_unprepared_uploads_and_invalid_file_metadata() {
+    use plur1bus_channels::http::Kind;
+    let replay = support::Replay::start(&json!({"exchanges":[]}), &[]);
+    let (http, base) = replay.connect();
+    let clock = TestClock {
+        ms: Cell::default(),
+        waits: Default::default(),
+    };
+    let mut api = Discord::new(http, base, "test", &clock, 0);
+    let payload: &RawValue = serde_json::from_str(r#"{"content":"Edition"}"#).unwrap();
+    let mut request = Request::new("POST", "/channels/42/messages");
+    request
+        .multipart("multipart/form-data; boundary=edition", b"")
+        .unwrap();
+    assert_eq!(api.request(&request).unwrap_err().kind, Kind::Protocol);
+    for (name, bytes) in [
+        ("Local edition.txt", b"Daily".as_slice()),
+        ("daily.txt", b"--edition".as_slice()),
+    ] {
+        assert_eq!(
+            request
+                .message_file(payload, "edition", name, "text/plain", bytes)
+                .unwrap_err()
+                .kind,
+            Kind::Protocol
+        );
+    }
+    replay.verify(&json!("upload validation"));
+}

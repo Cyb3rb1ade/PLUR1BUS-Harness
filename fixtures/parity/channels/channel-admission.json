@@ -29,6 +29,15 @@
           "id": "111000000000000001"
         },
         "channel_id": "777000000000000001",
+        "content": "System event",
+        "id": "1000000000000000110",
+        "type": 6
+      },
+      {
+        "author": {
+          "id": "111000000000000001"
+        },
+        "channel_id": "777000000000000001",
         "content": "Reply",
         "id": "1000000000000000102",
         "type": 0
@@ -169,6 +178,32 @@
       },
       {
         "accepts_response_payload": false,
+        "envelope_id": "env-fixture-profile",
+        "payload": {
+          "api_app_id": "A0FAKE",
+          "event": {
+            "bot_profile": {
+              "id": "BLOCAL01"
+            },
+            "channel": "D0FAKE01",
+            "channel_type": "im",
+            "text": "Bot profile",
+            "ts": "1700000110.000200",
+            "type": "message",
+            "user": "UHUMAN01"
+          },
+          "event_id": "fixture-profile",
+          "event_time": 1700000000,
+          "team_id": "T0FAKE001",
+          "token": "verification-unused",
+          "type": "event_callback"
+        },
+        "retry_attempt": 0,
+        "retry_reason": "",
+        "type": "events_api"
+      },
+      {
+        "accepts_response_payload": false,
         "envelope_id": "env-fixture-5",
         "payload": {
           "api_app_id": "A0FAKE",
@@ -195,7 +230,8 @@
   "source": "packages/channels-{discord,slack,telegram}/src/channel.ts",
   "telegram": {
     "allowlist": [
-      "42"
+      "42",
+      "123456789"
     ],
     "botId": 123456789,
     "delivered": [
