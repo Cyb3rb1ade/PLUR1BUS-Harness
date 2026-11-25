@@ -98,6 +98,7 @@ fn primary_job(phase: &str) -> Option<&'static str> {
     }
 }
 
+#[derive(Clone, Copy)]
 pub(crate) struct RunCall<'a> {
     pub(crate) now: i64,
     pub(crate) cancel: &'a Cancel,
