@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { engineRpcSurface } from "../src/engine-contract.mjs";
-import { RPC_VERSION } from "../src/index.ts";
+import { RPC_VERSION, SCHEMA } from "../src/index.ts";
 // Freeze already published introductions without assigning an old version to future methods.
 import engineMethodVersions from "../fixtures/engine-method-versions.json" with { type: "json" };
 
@@ -27,8 +27,11 @@ describe("engine process adoption contract", () => {
         properties: { status: { $ref: "#/$defs/EngineProcessStatus" } },
       },
     });
-    for (const [name, since] of Object.entries(engineMethodVersions))
-      assert.equal((methods[name] as Record<string, unknown>)["x-since"], since, name);
+    const schemaMethods: Record<string, { "x-since"?: string }> = SCHEMA.$defs.methods;
+    for (const [name, since] of Object.entries(engineMethodVersions)) {
+      assert.ok(Object.hasOwn(schemaMethods, name), `${name} is missing from the published RPC schema`);
+      assert.equal(schemaMethods[name]?.["x-since"], since, name);
+    }
   });
 
   it("publishes engine adoption under the current RPC version at or after its introduction", () => {
