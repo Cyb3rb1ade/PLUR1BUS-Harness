@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 icu_normalizer = "=2.3.0"
+icu_properties = "=2.3.0"
 indexmap = "=2.14.2"
 jiff = { version = "=0.2.38", default-features = false, features = ["std"] }
 # ureq-proto traces serialized HTTP bytes. Compile out TRACE, including in standalone consumers.

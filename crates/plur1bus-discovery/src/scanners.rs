@@ -160,7 +160,7 @@ fn display_name(value: &Value) -> Result<Option<String>> {
     if value.is_null() {
         return Ok(None);
     }
-    let text = value.as_str().ok_or(ENTRY)?;
+    let text = checked_string(value)?;
     let sanitized = plur1bus_providers::display::sanitize(text, MAX_STRING);
     Ok((!sanitized.is_empty()).then_some(sanitized))
 }

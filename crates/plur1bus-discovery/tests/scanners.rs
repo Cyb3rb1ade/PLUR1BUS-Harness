@@ -115,7 +115,7 @@ fn each_page_receives_a_deadline_of_at_most_fifteen_seconds() {
 }
 
 #[test]
-fn model_labels_strip_controls_and_apply_a_display_limit() {
+fn model_labels_validate_bytes_and_controls_before_display_projection() {
     let fixture: Value = serde_json::from_str(include_str!(
         "../../../fixtures/parity/discovery/scanners.json"
     ))
@@ -126,9 +126,16 @@ fn model_labels_strip_controls_and_apply_a_display_limit() {
     assert_eq!(replay["data"][0]["name"], raw);
 
     for (label, expected) in [
-        (raw.as_str().unwrap().to_owned(), "ReportA".to_owned()),
-        ("a".repeat(600), "a".repeat(512)),
-        ("Line\nTwo".into(), "LineTwo".into()),
+        (raw.as_str().unwrap().to_owned(), Some("ReportA".to_owned())),
+        ("a".repeat(600), None),
+        ("Line\nTwo".into(), None),
+        ("Line\u{0085}Two".into(), None),
+        ("é".repeat(256), Some("é".repeat(256))),
+        ("é".repeat(256) + "x", None),
+        (
+            "A\u{e0041}\u{fe0f}\u{2067}\u{feff}B".into(),
+            Some("AB".to_owned()),
+        ),
     ] {
         replay["data"][0]["name"] = json!(label);
         let responses = [replay.clone()];
@@ -144,9 +151,12 @@ fn model_labels_strip_controls_and_apply_a_display_limit() {
             &mut fixture,
             deadline,
             &|| false,
-        )
-        .unwrap();
-        let observed = serde_json::to_value(output).unwrap();
-        assert_eq!(observed["entries"][0]["displayName"], expected);
+        );
+        if let Some(expected) = expected {
+            let observed = serde_json::to_value(output.unwrap()).unwrap();
+            assert_eq!(observed["entries"][0]["displayName"], expected);
+        } else {
+            assert_eq!(output.err().unwrap().reason, "invalid_entry");
+        }
     }
 }

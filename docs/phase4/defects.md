@@ -1909,9 +1909,13 @@ abort signal to its asynchronous transport. The total scan budget is
 
 ## P4D-266 — Sanitize model-server display names (R-W-25)
 
-Model scanners remove display controls using the same sanitizer as MCP and
-limit labels to 512 UTF-16 code units. Model IDs retain their own grammar.
-TypeScript may preserve invisible controls in display names.
+Model scanners first apply the TypeScript admission rule to the original
+name. A C0, DEL or C1 control character or a length above 512 UTF-8 bytes
+fails the complete scan with `invalid_entry`. Accepted names and MCP display
+fields share a Unicode projection that removes control, format, private-use,
+unassigned, line-separator, paragraph-separator and default-ignorable
+characters. Model IDs retain their own grammar. An empty projected name
+falls back to the model ID.
 
 
 <a id="p4d-267"></a>

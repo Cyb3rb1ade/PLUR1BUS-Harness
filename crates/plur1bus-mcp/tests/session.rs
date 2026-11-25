@@ -392,7 +392,7 @@ fn a_legacy_event_stream_waits_before_reopening() {
 
 #[test]
 fn listed_tools_expose_only_the_bounded_display_descriptor() {
-    let description = format!("Résumé\u{200b}{}", "x".repeat(8200));
+    let description = format!("Résumé\u{200b}\u{e0041}\u{fe0f}{}", "x".repeat(8200));
     let fixture = FakeServer::start(&json!({"transport":"http","exchanges":[
         {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,"body":{
             "jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{}},

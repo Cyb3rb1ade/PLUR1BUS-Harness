@@ -477,6 +477,31 @@ mod additional_tests {
     use ureq::http::HeaderMap;
 
     #[test]
+    fn cancellation_after_headers_precedes_http_status_handling() {
+        let fixture = plur1bus_wire_fixtures::FakeServer::start(&serde_json::json!({
+            "transport":"http","exchanges":[{"request":{"method":"GET","path":"/models"},
+                "response":{"status":429,"body":"Busy"}}]
+        }));
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .proxy(None)
+            .http_status_as_error(false)
+            .timeout_global(Some(Duration::from_secs(2)))
+            .build()
+            .into();
+        let request = Request::get(format!("http://{}/models", fixture.addr))
+            .body(())
+            .unwrap();
+        let result = load_response(
+            &agent,
+            request,
+            1024,
+            Instant::now() + Duration::from_secs(2),
+            &|| !fixture.received().is_empty(),
+        );
+        assert_eq!(result.err().unwrap().reason, "aborted");
+    }
+
+    #[test]
     fn cancellation_after_the_first_read_prevents_a_second_read() {
         use std::cell::Cell;
         struct Chunks<'a>(&'a Cell<usize>);
@@ -492,6 +517,14 @@ mod additional_tests {
             }
         }
         let calls = Cell::new(0);
+        let before = read_bounded(
+            Chunks(&calls),
+            12,
+            Instant::now() + Duration::from_secs(1),
+            &|| true,
+        );
+        assert_eq!(before, Err(Error::network("aborted")));
+        assert_eq!(calls.get(), 0);
         let result = read_bounded(
             Chunks(&calls),
             12,

@@ -406,9 +406,11 @@ während einer wartenden Verbindung bzw. zwischen Leseabschnitten.
 Der gemeinsame Connector setzt R-W-9a um ([P4D-265](defects.md#p4d-265)).
 Anzeigenamen passieren dieselbe Bereinigung wie MCP-Deskriptoren
 ([P4D-266](defects.md#p4d-266)). Die Scanner übernehmen keine
-Provider-Beschreibungen. Beim Flip deckelt der Host `contextWindow` an
-der Nutzstelle und bindet Rollen an Anbieter und Modell statt an die
-bloße Modell-ID.
+Provider-Beschreibungen. **Flip-Pflicht (W5-R5).** Bei der Zusammenführung haben
+die Selbstangaben des Servers zu `contextWindow`, `kind` und `capabilities`
+Vorrang vor der unsignierten Metadatentabelle. Der Host prüft deren
+Plausibilität und begrenzt `contextWindow` an der Nutzstelle. Er bindet Rollen
+an Anbieter und Modell.
 
 ### W6 · Web (Bibliothek von P4-30)
 

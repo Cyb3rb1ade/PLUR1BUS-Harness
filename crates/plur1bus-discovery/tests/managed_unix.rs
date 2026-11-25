@@ -62,6 +62,20 @@ fn apple_discovery_reuses_the_private_provider_socket() {
         &path,
     );
     let mut port = Managed::new(ManagedSocket::new(path).unwrap(), &host).unwrap();
+    // The transport receives a cancelled page with a healthy host and socket.
+    let interrupted = scanners::Port::get_with_cancel(
+        &mut port,
+        scanners::Page {
+            path: "/models",
+            query: Vec::new(),
+            headers: Default::default(),
+            deadline: Instant::now() + Duration::from_secs(2),
+            max_bytes: 1024,
+        },
+        &|| true,
+    );
+    assert_eq!(interrupted.err().unwrap().reason, "aborted");
+    assert!(server.received().is_empty());
     let result = scanners::scan(
         Scanner::OpenAi,
         true,

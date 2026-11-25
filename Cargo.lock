@@ -6318,6 +6318,7 @@ name = "plur1bus-providers"
 version = "0.1.0"
 dependencies = [
  "icu_normalizer",
+ "icu_properties",
  "indexmap 2.14.2",
  "jiff",
  "log",

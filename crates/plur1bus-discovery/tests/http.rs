@@ -406,7 +406,13 @@ fn remote_cleartext_requires_manual_configuration_and_no_lease() {
         fn configured_cleartext(&self, base: &Uri) -> bool {
             matches!(
                 base.host(),
-                Some("models.example.invalid" | "127.1" | "[::ffff:127.0.0.1]")
+                Some(
+                    "models.example.invalid"
+                        | "localhost"
+                        | "127.0.0.1"
+                        | "127.1"
+                        | "[::ffff:127.0.0.1]"
+                )
             )
         }
         fn now_ms(&self) -> i64 {
@@ -427,6 +433,24 @@ fn remote_cleartext_requires_manual_configuration_and_no_lease() {
             .err()
             .unwrap();
         assert_eq!(error.reason, "insecure_transport");
+    }
+    for host in ["localhost", "127.0.0.1"] {
+        let base = format!("http://{host}:11434");
+        let uri: Uri = base.parse().unwrap();
+        let origin = Url::parse(&base).unwrap();
+        let lease = Lease {
+            origin: &origin,
+            header: CredentialHeader::Bearer("fixture"),
+        };
+        for supplied in [None, Some(lease)] {
+            assert_eq!(
+                Http::new(&Configured, &uri, "fixture", supplied, false)
+                    .err()
+                    .unwrap()
+                    .reason,
+                "insecure_transport"
+            );
+        }
     }
     for raw in ["http://127.1:11434", "http://[::ffff:127.0.0.1]:11434"] {
         let uri = raw.parse().unwrap();
