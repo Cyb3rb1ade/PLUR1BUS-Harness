@@ -334,7 +334,7 @@ export function engineRpcSurface() {
       text: string,
       truncated: { type: "boolean" },
     }, ["agentId", "path", "exists", "bytes", "text", "truncated"]),
-    "Read the workspace diary over the verified Core link. The Core applies its public redaction before returning the text.",
+    "Read the workspace diary over the verified Core link. Untrusted paths and read failures are reported. The Core applies its public redaction before returning the text.",
     "1.28.0",
   );
   add(
@@ -347,7 +347,7 @@ export function engineRpcSurface() {
     },
     [],
     object({ runs: { type: "array", items: { $ref: "#/$defs/DreamRun" } }, log: string }, ["runs"]),
-    "Read imported dream runs over the verified Core link, newest first. With runId, include the private per-run log when available.",
+    "Read imported dream runs over the verified Core link, newest first. With runId, apply any supplied agent and phase filters and include the private per-run log when present. Untrusted paths and read failures are reported.",
     "1.28.0",
   );
   const schedulePlan = { $ref: "#/$defs/EngineDreamSchedulePlan" };
@@ -363,7 +363,7 @@ export function engineRpcSurface() {
     },
     ["agentId"],
     object({ schedules: { type: "array", items: { $ref: "#/$defs/DreamSchedule" } } }, ["schedules"]),
-    "Read an agent's schedules or atomically apply an edit over the verified Core link. The Core validates cron and timezone and computes the next run. A stale expected schedule returns E_CONFLICT. The first call after the Core retires its writer imports the legacy ledger.",
+    "Read an agent's schedules or atomically apply an edit over the verified Core link after engine.dreams.import. Cron and timezone have bounded lengths and reject control characters. The Core validates their syntax and computes the next run. A stale expected schedule returns E_CONFLICT.",
     "1.28.0",
   );
   add(

@@ -16,7 +16,7 @@ use serde_json::{json, Map, Value};
 use crate::contract::{Cancel, EngineError, StoreError};
 
 use super::{
-    directory::{regular_file_identity, TrustedDirectory},
+    directory::{regular_file_identity, regular_file_unlinked, TrustedDirectory},
     paths::{secure_dir, secure_file},
 };
 
@@ -27,6 +27,7 @@ pub(crate) use runs::{transition, RunCall, RunTransition, RunTransitionResult};
 const LEGACY: &str = "dreams.db";
 const NATIVE: &str = "engine.sqlite";
 const DDL: &str = include_str!("dream-ledger-v1.sql");
+const AUXILIARY_DDL_MARKER: &str = "-- BEGIN NATIVE AUXILIARY OBJECTS";
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 const OPEN: OpenFlags = OpenFlags::SQLITE_OPEN_NO_MUTEX.union(OpenFlags::SQLITE_OPEN_NOFOLLOW);
 const MAX_LOG_UNITS: usize = 262_144;
@@ -57,15 +58,41 @@ fn is_missing(error: &StoreError) -> bool {
 
 fn check_sidecars(dir: &TrustedDirectory, name: &str) -> Result<(), StoreError> {
     for suffix in ["-journal", "-wal", "-shm"] {
-        match dir.open_file(&format!("{name}{suffix}")) {
-            Ok(file) => {
-                regular_file_identity(&file)?;
-            }
-            Err(err) if is_missing(&err) => {}
-            Err(err) => return Err(err),
-        }
+        let child = format!("{name}{suffix}");
+        // Unix open_file reopens relative to the held directory descriptor.
+        // Windows has no handle-relative reopen here, so propagate the original refusal.
+        check_sidecar(|| dir.open_file(&child), cfg!(unix) && suffix == "-journal")?;
     }
     Ok(())
+}
+
+fn check_sidecar(
+    mut open: impl FnMut() -> Result<std::fs::File, StoreError>,
+    rollback_journal: bool,
+) -> Result<(), StoreError> {
+    for _ in 0..3 {
+        let Some(file) = optional_file(open())? else {
+            return Ok(());
+        };
+        match regular_file_identity(&file) {
+            Ok(_) => return Ok(()),
+            // A committing SQLite connection can unlink the open journal. Check
+            // the current pathname again before SQLite can use any replacement.
+            Err(StoreError::UntrustedPath) if rollback_journal && regular_file_unlinked(&file)? => {
+                continue
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Err(StoreError::UntrustedPath)
+}
+
+fn optional_file<T>(result: Result<T, StoreError>) -> Result<Option<T>, StoreError> {
+    match result {
+        Ok(value) => Ok(Some(value)),
+        Err(error) if is_missing(&error) => Ok(None),
+        Err(error) => Err(error),
+    }
 }
 
 fn open(dir: &TrustedDirectory, name: &str, flags: OpenFlags) -> Result<Connection, StoreError> {
@@ -75,10 +102,19 @@ fn open(dir: &TrustedDirectory, name: &str, flags: OpenFlags) -> Result<Connecti
     let db = Connection::open_with_flags(dir.path().join(name), OPEN | flags)?;
     db.busy_timeout(BUSY_TIMEOUT)?;
     db.pragma_update(None, "trusted_schema", false)?;
+    verify_open_identity(dir, name, identity)?;
+    Ok(db)
+}
+
+fn verify_open_identity(
+    dir: &TrustedDirectory,
+    name: &str,
+    identity: (u64, u64),
+) -> Result<(), StoreError> {
     if regular_file_identity(&dir.open_file(name)?)? != identity {
         return Err(StoreError::UntrustedPath);
     }
-    Ok(db)
+    Ok(())
 }
 
 fn copy(
@@ -158,6 +194,12 @@ fn initialize(
     cancel: &Cancel,
 ) -> Result<Option<Imported>, EngineError> {
     if initialized(tx)? {
+        // Earlier v1 ledgers created these objects on first write. An explicit
+        // import retry completes that schema without copying the legacy rows.
+        let (_, auxiliary_ddl) = DDL
+            .split_once(AUXILIARY_DDL_MARKER)
+            .ok_or(StoreError::Corrupt)?;
+        tx.execute_batch(auxiliary_ddl).map_err(StoreError::from)?;
         return Ok(None);
     }
     tx.execute_batch(DDL).map_err(StoreError::from)?;
@@ -257,6 +299,19 @@ pub(crate) struct ScheduleEdit {
     desired: SchedulePlan,
 }
 
+fn bounded_text(value: &str, limit: usize) -> bool {
+    !value.is_empty() && value.chars().count() <= limit && !value.chars().any(char::is_control)
+}
+
+impl ScheduleEdit {
+    fn valid(&self) -> bool {
+        matches!(self.phase.as_str(), "light" | "rem" | "deep")
+            && [&self.expected, &self.desired]
+                .into_iter()
+                .all(|plan| bounded_text(&plan.cron, 256) && bounded_text(&plan.timezone, 128))
+    }
+}
+
 pub(crate) enum ScheduleEditResult {
     Updated(Value),
     Missing,
@@ -269,6 +324,9 @@ pub(crate) fn edit_schedule(
     edit: &ScheduleEdit,
     cancel: &Cancel,
 ) -> Result<ScheduleEditResult, EngineError> {
+    if !edit.valid() {
+        return Err(StoreError::InvalidInput.into());
+    }
     with_ledger(state, true, cancel, |db, _| {
         let expected = &edit.expected;
         let desired = &edit.desired;
@@ -507,8 +565,8 @@ pub(crate) fn log(
         if query.run_id.is_some() && runs.is_empty() {
             return Ok(None);
         }
-        let log = if query.run_id.is_some() {
-            runs.first().and_then(|run| read_log_tail(dir, run))
+        let log = if let Some(run) = runs.first().filter(|_| query.run_id.is_some()) {
+            read_log_tail(dir, run)?
         } else {
             None
         };
@@ -527,19 +585,19 @@ fn read_runs(
 ) -> Result<Vec<Value>, EngineError> {
     let mut terms = Vec::new();
     let mut args = Vec::new();
+    if let Some(agent) = query.agent_id.as_ref() {
+        terms.push("agent_id = ?");
+        args.push(SqlValue::Text(agent.clone()));
+    }
+    if let Some(phase) = query.phase.as_ref() {
+        terms.push("phase = ?");
+        args.push(SqlValue::Text(phase.clone()));
+    }
     let limit = if let Some(run) = query.run_id.as_ref() {
         terms.push("run_id = ?");
         args.push(SqlValue::Text(run.clone()));
         1
     } else {
-        if let Some(agent) = query.agent_id.as_ref() {
-            terms.push("agent_id = ?");
-            args.push(SqlValue::Text(agent.clone()));
-        }
-        if let Some(phase) = query.phase.as_ref() {
-            terms.push("phase = ?");
-            args.push(SqlValue::Text(phase.clone()));
-        }
         query.limit.unwrap_or(20)
     };
     args.push(SqlValue::Integer(i64::from(limit)));
@@ -603,23 +661,35 @@ fn project_run(row: &rusqlite::Row<'_>) -> Result<Value, StoreError> {
     }))
 }
 
-fn read_log_tail(dir: &TrustedDirectory, run: &Value) -> Option<String> {
-    let recorded = Path::new(run["logPath"].as_str()?);
-    let agent = dir.open_child(run["agentId"].as_str()?).ok()?;
-    let phase = agent.open_child(run["phase"].as_str()?).ok()?;
-    let name = format!("{}.log", run["runId"].as_str()?);
-    if recorded != phase.path().join(&name) {
-        return None;
+fn read_log_tail(dir: &TrustedDirectory, run: &Value) -> Result<Option<String>, StoreError> {
+    let Some(recorded) = run["logPath"].as_str().map(Path::new) else {
+        return Ok(None);
+    };
+    let agent_id = run["agentId"].as_str().ok_or(StoreError::Corrupt)?;
+    let phase_name = run["phase"].as_str().ok_or(StoreError::Corrupt)?;
+    let run_id = run["runId"].as_str().ok_or(StoreError::Corrupt)?;
+    let name = format!("{run_id}.log");
+    if recorded != dir.path().join(agent_id).join(phase_name).join(&name) {
+        return Err(StoreError::UntrustedPath);
     }
-    let mut file = phase.open_file(&name).ok()?;
-    regular_file_identity(&file).ok()?;
-    let len = file.metadata().ok()?.len();
+    let Some(agent) = optional_file(dir.open_child(agent_id))? else {
+        return Ok(None);
+    };
+    let Some(phase) = optional_file(agent.open_child(phase_name))? else {
+        return Ok(None);
+    };
+    let Some(mut file) = optional_file(phase.open_file(&name))? else {
+        return Ok(None);
+    };
+    regular_file_identity(&file)?;
+    let len = file.metadata()?.len();
     // A UTF-16 unit needs at most three UTF-8 bytes. Leave room for the
     // leading partial UTF-8 code point when seeking into a large file.
     let size = len.min((MAX_LOG_UNITS * 3 + 3) as u64);
-    file.seek(SeekFrom::Start(len - size)).ok()?;
+    file.seek(SeekFrom::Start(len - size))?;
     let mut raw = Vec::new();
-    file.take(size).read_to_end(&mut raw).ok()?;
+    file.take(size).read_to_end(&mut raw)?;
+    phase.assert_unchanged()?;
     let text = String::from_utf8_lossy(&raw);
     let mut units = 0;
     let start = text
@@ -630,7 +700,7 @@ fn read_log_tail(dir: &TrustedDirectory, run: &Value) -> Option<String> {
             (units > MAX_LOG_UNITS).then_some(index + character.len_utf8())
         })
         .unwrap_or(0);
-    Some(text[start..].to_owned())
+    Ok(Some(text[start..].to_owned()))
 }
 
 pub(crate) fn diary(
@@ -640,23 +710,32 @@ pub(crate) fn diary(
 ) -> Result<Value, EngineError> {
     cancel.check()?;
     let path = workspace.map(|dir| dir.join(DIARY_NAME));
-    let (size, text, truncated) = workspace.and_then(read_diary).unwrap_or_default();
+    let (size, text, truncated) = workspace
+        .map(read_diary)
+        .transpose()?
+        .flatten()
+        .unwrap_or_default();
     cancel.check()?;
     Ok(json!({
         "agentId":agent,"path":path,"exists":size > 0,"bytes":size,"text":text,"truncated":truncated,
     }))
 }
 
-fn read_diary(workspace: &Path) -> Option<(u64, String, bool)> {
-    let dir = TrustedDirectory::open(workspace).ok()?;
-    let file = dir.open_file(DIARY_NAME).ok()?;
-    regular_file_identity(&file).ok()?;
-    let size = file.metadata().ok()?.len();
+type DiaryPrefix = (u64, String, bool);
+
+fn read_diary(workspace: &Path) -> Result<Option<DiaryPrefix>, StoreError> {
+    let Some(dir) = optional_file(TrustedDirectory::open(workspace))? else {
+        return Ok(None);
+    };
+    let Some(file) = optional_file(dir.open_file(DIARY_NAME))? else {
+        return Ok(None);
+    };
+    regular_file_identity(&file)?;
+    let size = file.metadata()?.len();
     let mut prefix = Vec::new();
     file.take(MAX_DIARY_BYTES as u64 + 1)
-        .read_to_end(&mut prefix)
-        .ok()?;
-    dir.assert_unchanged().ok()?;
+        .read_to_end(&mut prefix)?;
+    dir.assert_unchanged()?;
     let truncated = prefix.len() > MAX_DIARY_BYTES;
     if truncated {
         let mut end = MAX_DIARY_BYTES;
@@ -665,11 +744,11 @@ fn read_diary(workspace: &Path) -> Option<(u64, String, bool)> {
         }
         prefix.truncate(end);
     }
-    Some((
+    Ok(Some((
         size,
         String::from_utf8_lossy(&prefix).into_owned(),
         truncated,
-    ))
+    )))
 }
 
 fn read_schedules(db: &Connection, agent: &str) -> Result<Vec<Value>, StoreError> {
@@ -695,6 +774,82 @@ mod diary_tests {
     #![allow(clippy::unwrap_used, reason = "private workspace fixture")]
     use super::*;
     use std::fs;
+
+    #[test]
+    fn reopened_database_must_match_the_original_identity() {
+        let root = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+        fs::write(root.path().join(NATIVE), []).unwrap();
+        fs::write(root.path().join(LEGACY), []).unwrap();
+        let dir = TrustedDirectory::open(root.path()).unwrap();
+        let original = regular_file_identity(&dir.open_file(NATIVE).unwrap()).unwrap();
+        verify_open_identity(&dir, NATIVE, original).unwrap();
+        assert!(matches!(
+            verify_open_identity(&dir, LEGACY, original),
+            Err(StoreError::UntrustedPath)
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn removed_journals_are_reopened_with_a_bounded_identity_check() {
+        let root = tempfile::tempdir().unwrap();
+        let file = tempfile::tempfile_in(root.path()).unwrap();
+        for (journal, attempts) in [(true, 3), (false, 1)] {
+            let mut calls = 0;
+            let result = check_sidecar(
+                || {
+                    calls += 1;
+                    file.try_clone().map_err(StoreError::from)
+                },
+                journal,
+            );
+            assert!(
+                matches!(result, Err(StoreError::UntrustedPath)),
+                "{result:?}"
+            );
+            assert_eq!(calls, attempts);
+        }
+        let mut calls = 0;
+        let result = check_sidecar(
+            || {
+                calls += 1;
+                if calls == 1 {
+                    file.try_clone().map_err(StoreError::from)
+                } else {
+                    Err(StoreError::Io {
+                        kind: ErrorKind::NotFound,
+                    })
+                }
+            },
+            true,
+        );
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(calls, 2);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn replacement_journal_is_checked_for_a_single_link() {
+        let root = tempfile::tempdir().unwrap();
+        let gone = tempfile::tempfile_in(root.path()).unwrap();
+        let current = tempfile::NamedTempFile::new_in(root.path()).unwrap();
+        for hardlinked in [false, true] {
+            if hardlinked {
+                fs::hard_link(current.path(), root.path().join("second-name")).unwrap();
+            }
+            let mut opened = [&gone, current.as_file()].into_iter();
+            let result = check_sidecar(
+                || opened.next().unwrap().try_clone().map_err(StoreError::from),
+                true,
+            );
+            if hardlinked {
+                assert!(matches!(result, Err(StoreError::UntrustedPath)));
+            } else {
+                result.unwrap();
+            }
+            assert!(opened.next().is_none());
+        }
+    }
 
     #[test]
     fn diary_reports_absence_and_reads_a_utf8_prefix_with_true_file_size() {

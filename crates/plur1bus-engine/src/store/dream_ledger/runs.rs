@@ -7,8 +7,8 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::{
-    candidates, read_runs, reconcile_open_runs, with_ledger, Cancel, EngineError, LogQuery,
-    StoreError,
+    bounded_text, candidates, read_runs, reconcile_open_runs, with_ledger, Cancel, EngineError,
+    LogQuery, StoreError,
 };
 
 #[derive(Deserialize)]
@@ -85,10 +85,6 @@ impl RunTransition {
     }
 }
 
-fn bounded_text(value: &str, limit: usize) -> bool {
-    !value.is_empty() && value.chars().count() <= limit && !value.chars().any(char::is_control)
-}
-
 fn primary_job(phase: &str) -> Option<&'static str> {
     match phase {
         "light" => Some("light-dream"),
@@ -140,12 +136,6 @@ fn establish_writer(
     now: i64,
     cancel: &Cancel,
 ) -> Result<(), EngineError> {
-    db.execute_batch(
-        "CREATE TABLE IF NOT EXISTS dream_ledger_writer (
-        id INTEGER PRIMARY KEY CHECK (id=1), core TEXT NOT NULL
-    )",
-    )
-    .map_err(StoreError::from)?;
     let old: Option<String> = db
         .query_row(
             "SELECT core FROM dream_ledger_writer WHERE id=1",
@@ -318,6 +308,27 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn transition_validation_reserves_the_claim_suffix_and_bounds_the_count_map() {
+        let begin = |key: &str| {
+            serde_json::from_value::<RunTransition>(json!({
+                "kind":"begin","runId":"sample","phase":"deep","trigger":"manual",
+                "idempotencyKey":key,"claim":true
+            }))
+            .unwrap()
+        };
+        assert!(begin("sample-key").valid());
+        assert!(!begin("sample#suffix").valid());
+        for (entries, valid) in [(64, true), (65, false)] {
+            let counts: BTreeMap<_, _> = (0..entries).map(|n| (format!("count-{n}"), n)).collect();
+            let finish = serde_json::from_value::<RunTransition>(json!({
+                "kind":"finish","runId":"sample","outcome":"completed","counts":counts
+            }))
+            .unwrap();
+            assert_eq!(finish.valid(), valid);
+        }
+    }
 
     #[test]
     fn changed_core_at_commit_rolls_back_the_writer_handoff_and_run() {

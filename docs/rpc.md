@@ -615,7 +615,7 @@ Import the legacy dreaming ledger once over the verified Core link after the Cor
 
 **Served by:** engine
 
-Read the workspace diary over the verified Core link. The Core applies its public redaction before returning the text.
+Read the workspace diary over the verified Core link. Untrusted paths and read failures are reported. The Core applies its public redaction before returning the text.
 
 **params**
 
@@ -684,7 +684,7 @@ Read the workspace diary over the verified Core link. The Core applies its publi
 
 **Served by:** engine
 
-Read imported dream runs over the verified Core link, newest first. With runId, include the private per-run log when available.
+Read imported dream runs over the verified Core link, newest first. With runId, apply any supplied agent and phase filters and include the private per-run log when present. Untrusted paths and read failures are reported.
 
 **params**
 
@@ -1015,7 +1015,7 @@ Apply a phase ledger transition over the verified Core link after the legacy wri
 
 **Served by:** engine
 
-Read an agent's schedules or atomically apply an edit over the verified Core link. The Core validates cron and timezone and computes the next run. A stale expected schedule returns E_CONFLICT. The first call after the Core retires its writer imports the legacy ledger.
+Read an agent's schedules or atomically apply an edit over the verified Core link after engine.dreams.import. Cron and timezone have bounded lengths and reject control characters. The Core validates their syntax and computes the next run. A stale expected schedule returns E_CONFLICT.
 
 **params**
 
@@ -38803,12 +38803,14 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "cron": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 256
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
     },
     "timezone": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 128
+      "maxLength": 128,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
     },
     "enabled": {
       "type": "boolean"

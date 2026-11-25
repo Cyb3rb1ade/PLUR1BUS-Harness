@@ -353,7 +353,7 @@ fn process_dream_diary_resolves_only_the_workspace_from_the_verified_core() {
         json!({"legacyWriterRetired":true}),
     );
     assert_eq!(imported["result"], json!({"imported":true}), "{imported}");
-    let response = peer.call(5, "engine.dreams.diary", params);
+    let response = peer.call(5, "engine.dreams.diary", params.clone());
     assert_eq!(
         response["result"],
         json!({
@@ -361,6 +361,15 @@ fn process_dream_diary_resolves_only_the_workspace_from_the_verified_core() {
         })
     );
     assert_eq!(core.count("host.workspaceDir"), 1);
+    std::fs::remove_file(&path).unwrap();
+    let absent = peer.call(6, "engine.dreams.diary", params.clone());
+    assert_eq!(absent["result"]["exists"], false, "{absent}");
+    plur1bus_engine::store::paths::secure_dir(&path).unwrap();
+    let unusable = peer.call(7, "engine.dreams.diary", params);
+    assert_eq!(
+        unusable["error"]["data"]["reason"], "untrusted-path",
+        "{unusable}"
+    );
     drop(peer);
     engine.close_stdin();
     assert!(engine.wait_for_exit().success());
