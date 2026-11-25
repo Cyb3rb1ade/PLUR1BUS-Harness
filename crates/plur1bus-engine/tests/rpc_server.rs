@@ -1631,9 +1631,11 @@ fn begin_candidate_probe(core: &mut RawConnection, run: &str) {
 }
 
 fn candidate_request(run: &str, observations: Vec<Value>) -> Value {
-    json!({"agentId":"a1","transition":{
-        "kind":"prepare-candidates","runId":run,"observations":observations
-    }})
+    let mut request = json!({"agentId":"a1","transition":{
+        "kind":"prepare-candidates","runId":run
+    }});
+    request["transition"]["observations"] = Value::Array(observations);
+    request
 }
 
 #[test]
