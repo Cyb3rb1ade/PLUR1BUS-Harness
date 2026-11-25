@@ -460,6 +460,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ### engine server
 
+- `engine.dreams.import`: experimental, since 1.28.0
 - `engine.dreams.diary`: experimental, since 1.28.0
 - `engine.dreams.log`: experimental, since 1.28.0
 - `engine.dreams.run`: experimental, since 1.28.0
@@ -565,6 +566,48 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `legacy.secret.changed`: experimental, since 1.27.0
 
 ## Methods
+
+### `engine.dreams.import`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Import the legacy dreaming ledger once over the verified Core link after the Core has retired the writer. Read and mutation methods return E_NOT_AVAILABLE reason=dream-ledger-not-imported before this operation. An unsupported ledger version returns E_NOT_AVAILABLE reason=dream-ledger-version-unsupported.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "legacyWriterRetired"
+  ],
+  "properties": {
+    "legacyWriterRetired": {
+      "const": true
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "imported"
+  ],
+  "properties": {
+    "imported": {
+      "type": "boolean"
+    }
+  }
+}
+```
 
 ### `engine.dreams.diary`
 
@@ -785,6 +828,7 @@ Apply a phase ledger transition over the verified Core link after the legacy wri
             },
             "observations": {
               "type": "array",
+              "maxItems": 1000,
               "items": {
                 "type": "object",
                 "additionalProperties": false,
@@ -793,7 +837,8 @@ Apply a phase ledger transition over the verified Core link after the legacy wri
                 ],
                 "properties": {
                   "content": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 65536
                   },
                   "memoryId": {
                     "type": "string",

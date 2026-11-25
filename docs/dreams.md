@@ -52,7 +52,8 @@ money dimension (owner decision 2026-10-19); the ledger's legacy money column st
 
 ### Native ledger cutover
 
-The verified Core link can call `engine.dreams.schedule` and `engine.dreams.log` after retiring the legacy ledger writer.
+After retiring the legacy ledger writer, the verified Core calls `engine.dreams.import` with `legacyWriterRetired: true`.
+Before that import, the read and mutation methods return `E_NOT_AVAILABLE` with reason `dream-ledger-not-imported`.
 The log method lists recent imported runs or reads one run and the tail of its private log.
 The engine resolves per-run logs under the ledger's existing agent and phase directories and limits the tail to 262,144 UTF-16 units.
 The status method projects the durable schedules, breaker state, importance state and latest run for each phase.
@@ -60,10 +61,10 @@ The Core supplies the live scheduler counters, thresholds and diary metadata for
 The Core link can also call `engine.dreams.diary` for the workspace diary.
 The engine resolves the workspace through the host and returns at most 262,144 bytes of text on a UTF-8 boundary.
 The public Core handler owns application redaction.
-The first call imports all three ADR-009 tables into `<home>/state/dreams/engine.sqlite` in one
+The import copies all three ADR-009 tables into `<home>/state/dreams/engine.sqlite` in one
 transaction and records the row counts. It closes imported runs left open by the retired Core as
 `aborted / crashed`, releases their idempotency claims, and updates the affected schedules.
-Retries reuse that commit. The legacy database and
+Retries report `imported: false` after that commit. The legacy database and
 per-run log files are retained. The public schedule methods and scheduler still use the legacy
 ledger until the complete read/write cutover is available.
 
@@ -73,7 +74,10 @@ releases the claim, and a completed close clears the phase's accumulated corpus 
 same transaction. The Core still decides when a phase is due and dispatches its individual jobs.
 The first write by a replacement Core closes the previous instance's interrupted phase runs before
 claiming another run. Candidate preparation records the expiry and utility decisions in the same
-ledger. It returns eligible current private sources for a deep run. The authority and durable
+ledger. It accepts up to 1,000 observations with up to 64 KiB of UTF-8 content each and evaluates
+up to 1,000 shortlisted rows in stable order. It returns eligible current private sources for a
+deep run. If the reply exceeds the RPC frame, the preparation rolls back and reports `response-too-large`.
+The authority and durable
 confirmation for knowledge publication stay with the Engine promotion operation.
 
 ## Rust-engine jobs

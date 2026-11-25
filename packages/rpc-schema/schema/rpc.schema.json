@@ -8818,6 +8818,36 @@
       }
     },
     "methods": {
+      "engine.dreams.import": {
+        "x-server": "engine",
+        "x-stability": "experimental",
+        "x-since": "1.28.0",
+        "description": "Import the legacy dreaming ledger once over the verified Core link after the Core has retired the writer. Read and mutation methods return E_NOT_AVAILABLE reason=dream-ledger-not-imported before this operation. An unsupported ledger version returns E_NOT_AVAILABLE reason=dream-ledger-version-unsupported.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "legacyWriterRetired"
+          ],
+          "properties": {
+            "legacyWriterRetired": {
+              "const": true
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "imported"
+          ],
+          "properties": {
+            "imported": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
       "engine.dreams.diary": {
         "x-server": "engine",
         "x-stability": "experimental",
@@ -9007,6 +9037,7 @@
                     },
                     "observations": {
                       "type": "array",
+                      "maxItems": 1000,
                       "items": {
                         "type": "object",
                         "additionalProperties": false,
@@ -9015,7 +9046,8 @@
                         ],
                         "properties": {
                           "content": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 65536
                           },
                           "memoryId": {
                             "type": "string",

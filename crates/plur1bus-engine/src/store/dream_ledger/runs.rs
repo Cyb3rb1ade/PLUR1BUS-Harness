@@ -7,8 +7,8 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::{
-    candidates, read_runs, reconcile_open_runs, with_ledger, Cancel, EngineError, Imported,
-    LogQuery, StoreError,
+    candidates, read_runs, reconcile_open_runs, with_ledger, Cancel, EngineError, LogQuery,
+    StoreError,
 };
 
 #[derive(Deserialize)]
@@ -98,21 +98,34 @@ fn primary_job(phase: &str) -> Option<&'static str> {
     }
 }
 
+pub(crate) struct RunCall<'a> {
+    pub(crate) now: i64,
+    pub(crate) cancel: &'a Cancel,
+    pub(crate) core: uuid::Uuid,
+    pub(crate) response_bytes: usize,
+}
+
 pub(crate) fn transition(
     state: &std::path::Path,
     agent: &str,
     transition: &RunTransition,
-    now: i64,
-    cancel: &Cancel,
-    core: uuid::Uuid,
+    call: RunCall<'_>,
     check_core: impl Fn() -> Result<(), EngineError>,
-) -> Result<(RunTransitionResult, Option<Imported>), EngineError> {
-    with_ledger(state, Some(now), cancel, |db, _| {
+) -> Result<RunTransitionResult, EngineError> {
+    let RunCall {
+        now,
+        cancel,
+        core,
+        response_bytes,
+    } = call;
+    with_ledger(state, true, cancel, |db, _| {
         check_core()?;
         establish_writer(db, core, now, cancel)?;
         let result = match transition {
             RunTransition::Begin(start) => begin(db, agent, start, now, cancel)?,
-            RunTransition::PrepareCandidates(request) => prepare(db, agent, request, now, cancel)?,
+            RunTransition::PrepareCandidates(request) => {
+                prepare(db, agent, request, now, cancel, response_bytes)?
+            }
             RunTransition::Finish(result) => finish(db, agent, result, now, cancel)?,
         };
         check_core()?;
@@ -161,6 +174,7 @@ fn prepare(
     request: &candidates::Prepare,
     now: i64,
     cancel: &Cancel,
+    response_bytes: usize,
 ) -> Result<RunTransitionResult, EngineError> {
     let Some(run) = get(db, &request.run_id, cancel)?.filter(|run| run["agentId"] == agent) else {
         return Ok(RunTransitionResult::Missing);
@@ -170,7 +184,7 @@ fn prepare(
         return Ok(RunTransitionResult::Conflict);
     }
     Ok(
-        candidates::prepare(db, agent, phase, request, now, cancel)?.map_or(
+        candidates::prepare(db, agent, phase, request, now, cancel, response_bytes)?.map_or(
             RunTransitionResult::Conflict,
             RunTransitionResult::Candidates,
         ),
@@ -320,9 +334,16 @@ mod tests {
         };
         let old_run = start("old-run");
         let next_run = start("next-run");
-        transition(&path, "a1", &old_run, 1, &cancel, old, || Ok(())).unwrap();
+        let call = |now, core| RunCall {
+            now,
+            core,
+            cancel: &cancel,
+            response_bytes: usize::MAX,
+        };
+        super::super::import_legacy(&path, Some(1), &cancel, || Ok(())).unwrap();
+        transition(&path, "a1", &old_run, call(1, old), || Ok(())).unwrap();
         let calls = Cell::new(0);
-        let failed = transition(&path, "a1", &next_run, 2, &cancel, new, || {
+        let failed = transition(&path, "a1", &next_run, call(2, new), || {
             calls.set(calls.get() + 1);
             if calls.get() == 2 {
                 Err(crate::contract::HostError::Denied.into())
@@ -341,7 +362,7 @@ mod tests {
             true
         );
 
-        transition(&path, "a1", &next_run, 3, &cancel, new, || Ok(())).unwrap();
+        transition(&path, "a1", &next_run, call(3, new), || Ok(())).unwrap();
         let abandoned = get(&db, "old-run", &cancel).unwrap().unwrap();
         assert_eq!(abandoned["outcome"], "aborted");
         assert_eq!(abandoned["finishedAt"], 3);

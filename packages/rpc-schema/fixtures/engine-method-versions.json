@@ -27,6 +27,7 @@
   "engine.checkpoint": "1.7.0",
   "engine.config.normalizeEmbedding": "1.7.0",
   "engine.dreams.diary": "1.28.0",
+  "engine.dreams.import": "1.28.0",
   "engine.dreams.log": "1.28.0",
   "engine.dreams.run": "1.28.0",
   "engine.dreams.schedule": "1.28.0",

@@ -1505,7 +1505,280 @@ fn checkpoint_validates_the_id_replays_a_committed_write_and_audits_only_the_com
 }
 
 #[test]
-fn dreams_schedule_imports_the_legacy_ledger_once() {
+fn dream_reads_require_explicit_import_and_retain_the_latest_wal_rows() {
+    let _guard = process_test();
+    let home = home();
+    let engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let state = home.path().join("state/dreams");
+    plur1bus_engine::store::paths::secure_dir(&state).unwrap();
+    let legacy_path = state.join("dreams.db");
+    let native_path = state.join("engine.sqlite");
+    let legacy = rusqlite::Connection::open(&legacy_path).unwrap();
+    plur1bus_engine::store::paths::secure_file(&legacy_path).unwrap();
+    legacy
+        .execute_batch("PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0;")
+        .unwrap();
+    legacy
+        .execute_batch(include_str!("../../plur1bus-core/src/dreams/store-v1.sql"))
+        .unwrap();
+    legacy.execute_batch("PRAGMA user_version=1; INSERT INTO dream_run (run_id,agent_id,phase,job_id,idempotency_key,trigger,started_at) VALUES ('first','a1','rem','rem-dream','first','manual',42);").unwrap();
+    for filename in ["dreams.db-wal", "dreams.db-shm"] {
+        plur1bus_engine::store::paths::secure_file(&state.join(filename)).unwrap();
+    }
+
+    let mut core = core_peer(&engine, home.path());
+    let before = core.call(2, "engine.dreams.status", json!({"agentId":"a1"}));
+    let created_by_read = native_path.exists();
+    legacy.execute_batch("INSERT INTO dream_run (run_id,agent_id,phase,job_id,idempotency_key,trigger,started_at) VALUES ('second','a1','rem','rem-dream','second','manual',43);").unwrap();
+    let after = core.call(3, "engine.dreams.status", json!({"agentId":"a1"}));
+    if created_by_read {
+        let native = rusqlite::Connection::open(&native_path).unwrap();
+        let count: u32 = native
+            .query_row("SELECT count(*) FROM dream_run", [], |r| r.get(0))
+            .unwrap();
+        eprintln!("status imported a running WAL writer at {count} rows; the legacy writer has 2");
+    }
+    for reply in [before, after] {
+        assert_eq!(
+            reply["error"]["data"]["reason"], "dream-ledger-not-imported",
+            "{reply}"
+        );
+    }
+    for method in [
+        "engine.dreams.log",
+        "engine.dreams.schedule",
+        "engine.dreams.diary",
+    ] {
+        let response = core.call(4, method, json!({"agentId":"a1"}));
+        assert_eq!(
+            response["error"]["data"]["reason"], "dream-ledger-not-imported",
+            "{method}: {response}"
+        );
+    }
+    let edit = json!({"agentId":"a1","edit":{"phase":"rem",
+        "expected":{"cron":"0 3 * * *","timezone":"UTC","enabled":false,"nextRunAt":null},
+        "desired":{"cron":"0 4 * * *","timezone":"UTC","enabled":true,"nextRunAt":2400}}});
+    let begin = json!({"agentId":"a1","transition":{"kind":"begin","runId":"premature",
+        "phase":"rem","trigger":"manual","idempotencyKey":"premature","claim":true}});
+    for (method, request) in [
+        ("engine.dreams.schedule", edit),
+        ("engine.dreams.run", begin),
+    ] {
+        let response = core.call(4, method, request);
+        assert_eq!(
+            response["error"]["data"]["reason"], "dream-ledger-not-imported",
+            "{method}: {response}"
+        );
+    }
+    let not_retired = core.call(
+        5,
+        "engine.dreams.import",
+        json!({"legacyWriterRetired":false}),
+    );
+    assert_eq!(not_retired["error"]["code"], -32602, "{not_retired}");
+    assert!(!native_path.exists());
+
+    let reader = rusqlite::Connection::open_with_flags(
+        &legacy_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .unwrap();
+    let count: u32 = reader
+        .query_row("SELECT count(*) FROM dream_run", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(count, 2);
+    drop(legacy);
+    assert!(state.join("dreams.db-wal").metadata().unwrap().len() > 0);
+    let imported = core.call(
+        6,
+        "engine.dreams.import",
+        json!({"legacyWriterRetired":true}),
+    );
+    assert_eq!(imported["result"], json!({"imported":true}), "{imported}");
+    let retry = core.call(
+        7,
+        "engine.dreams.import",
+        json!({"legacyWriterRetired":true}),
+    );
+    assert_eq!(retry["result"], json!({"imported":false}), "{retry}");
+    let native = rusqlite::Connection::open(&native_path).unwrap();
+    let count: u32 = native
+        .query_row("SELECT runs FROM dream_import", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(count, 2);
+    let latest = core.call(
+        8,
+        "engine.dreams.log",
+        json!({"agentId":"a1","runId":"second"}),
+    );
+    assert!(latest.get("result").is_some(), "{latest}");
+}
+
+fn import_dream_ledger(peer: &mut RawConnection) {
+    let reply = peer.call(
+        90_000,
+        "engine.dreams.import",
+        json!({"legacyWriterRetired":true}),
+    );
+    assert_eq!(reply["result"], json!({"imported":true}), "{reply}");
+}
+
+fn begin_candidate_probe(core: &mut RawConnection, run: &str) {
+    let begun = core.call(2, "engine.dreams.run", json!({"agentId":"a1","transition":{
+        "kind":"begin","runId":run,"phase":"deep","trigger":"manual","idempotencyKey":run,"claim":true
+    }}));
+    assert_eq!(begun["result"]["claimed"], true, "{begun}");
+}
+
+fn candidate_request(run: &str, observations: Vec<Value>) -> Value {
+    json!({"agentId":"a1","transition":{
+        "kind":"prepare-candidates","runId":run,"observations":observations
+    }})
+}
+
+#[test]
+fn dream_candidate_input_limits_are_checked_before_writing() {
+    let _guard = process_test();
+    let home = home();
+    let engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut core = core_peer(&engine, home.path());
+    import_dream_ledger(&mut core);
+    let many = vec![json!({"content":"fixture"}); 1001];
+    let too_long = vec![json!({"content":"x".repeat(65_537)})];
+    let too_many_bytes = vec![json!({"content":"é".repeat(32_769)})];
+    for (run, observations) in [
+        ("many", many),
+        ("long", too_long),
+        ("bytes", too_many_bytes),
+    ] {
+        begin_candidate_probe(&mut core, run);
+        let refused = core.call(3, "engine.dreams.run", candidate_request(run, observations));
+        assert_eq!(
+            refused["error"]["code"], -32602,
+            "{run}: {}",
+            refused["error"]
+        );
+        let valid = core.call(
+            4,
+            "engine.dreams.run",
+            candidate_request(run, vec![json!({"content":"y".repeat(65_536)})]),
+        );
+        assert!(
+            valid["result"]["counts"].is_object(),
+            "{run}: {}",
+            valid["error"]
+        );
+    }
+}
+
+#[test]
+fn dream_candidate_selection_limits_accumulated_rows() {
+    let _guard = process_test();
+    let home = home();
+    let engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut core = core_peer(&engine, home.path());
+    import_dream_ledger(&mut core);
+    begin_candidate_probe(&mut core, "first-candidates");
+    let first = core.call(
+        3,
+        "engine.dreams.run",
+        candidate_request(
+            "first-candidates",
+            (0..1000)
+                .map(|index| json!({"content":format!("entry-{index}")}))
+                .collect(),
+        ),
+    );
+    assert_eq!(first["result"]["counts"]["rejected"], 1000, "{first}");
+    begin_candidate_probe(&mut core, "more-candidates");
+    let second = core.call(
+        4,
+        "engine.dreams.run",
+        candidate_request(
+            "more-candidates",
+            vec![json!({"content":"additional-entry"})],
+        ),
+    );
+    assert_eq!(second["result"]["counts"]["candidates"], 1, "{second}");
+    assert_eq!(second["result"]["counts"]["rejected"], 1000, "{second}");
+}
+
+#[test]
+fn dream_candidate_response_overflow_leaves_the_run_open_for_a_new_preparation() {
+    let _guard = process_test();
+    let home = home();
+    let engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut core = core_peer(&engine, home.path());
+    core.set_read_timeout(Duration::from_secs(10));
+    import_dream_ledger(&mut core);
+    let run = "large-response";
+    begin_candidate_probe(&mut core, run);
+    let observations = (0..1000).map(|index| json!({"content":format!("entry-{index}"),"memoryId":"x".repeat(60),"recalls":3,"uniqueQueries":3,"score":1})).collect();
+    let params = candidate_request(run, observations);
+    // The transport echoes JSON-valued IDs. Exponent notation makes the request compact,
+    // while the normalized echo leaves only enough room for the bounded error response.
+    let numbers = "1e4,".repeat(519_999);
+    let request = format!("{{\"jsonrpc\":\"2.0\",\"id\":[{numbers}1e4],\"method\":\"engine.dreams.run\",\"params\":{params}}}\n");
+    assert!(request.len() <= plur1bus_rpc::client::MAX_LINE);
+    core.send_lines(&request);
+    let refused = core.response().unwrap().unwrap();
+    assert_eq!(
+        refused["error"]["data"]["reason"], "response-too-large",
+        "{}",
+        refused["error"]
+    );
+
+    let retry = core.call(5, "engine.dreams.run", candidate_request(run, Vec::new()));
+    assert_eq!(
+        retry["result"]["counts"],
+        json!({"candidates":0,"deduped":0,"expired":0,"rejected":0}),
+        "{retry}"
+    );
+    let db = rusqlite::Connection::open(home.path().join("state/dreams/engine.sqlite")).unwrap();
+    let saved: u32 = db
+        .query_row("SELECT count(*) FROM dream_candidate", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(saved, 0);
+}
+
+#[test]
+fn dream_ledger_distinguishes_unsupported_native_and_legacy_versions() {
+    let _guard = process_test();
+    for (filename, method, params) in [
+        ("engine.sqlite", "engine.dreams.status", json!({})),
+        (
+            "dreams.db",
+            "engine.dreams.import",
+            json!({"legacyWriterRetired":true}),
+        ),
+    ] {
+        let home = home();
+        let engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+        let directory = home.path().join("state/dreams");
+        plur1bus_engine::store::paths::secure_dir(&directory).unwrap();
+        let source = directory.join(filename);
+        rusqlite::Connection::open(&source)
+            .unwrap()
+            .execute_batch("PRAGMA user_version=2;")
+            .unwrap();
+        plur1bus_engine::store::paths::secure_file(&source).unwrap();
+        let before = fs::read(&source).unwrap();
+        let mut core = core_peer(&engine, home.path());
+        let reply = core.call(2, method, params);
+        assert_eq!(
+            reply["error"]["data"]["error"], "E_NOT_AVAILABLE",
+            "{reply}"
+        );
+        assert_eq!(
+            reply["error"]["data"]["reason"], "dream-ledger-version-unsupported",
+            "{reply}"
+        );
+        assert_eq!(fs::read(&source).unwrap(), before);
+    }
+}
+
+#[test]
+fn dreams_schedule_uses_the_explicitly_imported_legacy_ledger() {
     let _guard = process_test();
     let home = home();
     let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
@@ -1543,10 +1816,16 @@ fn dreams_schedule_imports_the_legacy_ledger_once() {
         "desired":{"cron":"0 4 * * *","timezone":"UTC","enabled":true,"nextRunAt":2400}
     }});
     assert_unauthorized(&unauthorized.call(3, "engine.dreams.schedule", edit.clone()));
+    assert_unauthorized(&unauthorized.call(
+        4,
+        "engine.dreams.import",
+        json!({"legacyWriterRetired":true}),
+    ));
     let destination = state.join("engine.sqlite");
     assert!(!destination.exists());
 
     let mut core = core_peer(&engine, home.path());
+    import_dream_ledger(&mut core);
     let first = core.call(2, "engine.dreams.schedule", request.clone());
     assert_eq!(
         first["result"],
@@ -1622,7 +1901,7 @@ fn dreams_schedule_imports_the_legacy_ledger_once() {
 }
 
 #[test]
-fn dreams_schedule_rolls_back_an_incomplete_legacy_import() {
+fn dreams_import_rolls_back_an_incomplete_legacy_ledger() {
     let _guard = process_test();
     let home = home();
     let engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
@@ -1638,8 +1917,13 @@ fn dreams_schedule_rolls_back_an_incomplete_legacy_import() {
         PRAGMA user_version=1;
         INSERT INTO dream_schedule (agent_id,phase,cron,timezone) VALUES ('a1','rem','0 3 * * *','UTC');
     ").unwrap();
+    drop(legacy);
     let mut core = core_peer(&engine, home.path());
-    let failed = core.call(2, "engine.dreams.schedule", json!({"agentId":"a1"}));
+    let failed = core.call(
+        2,
+        "engine.dreams.import",
+        json!({"legacyWriterRetired":true}),
+    );
     assert!(failed.get("error").is_some(), "{failed}");
 
     let target = rusqlite::Connection::open(state.join("engine.sqlite")).unwrap();
@@ -1658,8 +1942,11 @@ fn dreams_schedule_rolls_back_an_incomplete_legacy_import() {
     );
     drop(target);
 
-    legacy.execute_batch(&ddl[candidate_ddl..]).unwrap();
-    drop(legacy);
+    rusqlite::Connection::open(&path)
+        .unwrap()
+        .execute_batch(&ddl[candidate_ddl..])
+        .unwrap();
+    import_dream_ledger(&mut core);
     let retry = core.call(3, "engine.dreams.schedule", json!({"agentId":"a1"}));
     assert_eq!(
         retry["result"]["schedules"][0]["cron"], "0 3 * * *",
@@ -1711,6 +1998,7 @@ fn dreams_log_reads_imported_rows_and_their_private_log_over_the_core_link() {
         .is_object());
     assert_unauthorized(&unauthorized.call(2, "engine.dreams.log", json!({})));
     let mut core = core_peer(&engine, home.path());
+    import_dream_ledger(&mut core);
     let page = core.call(2, "engine.dreams.log", json!({"agentId":"a1","limit":1}));
     assert_eq!(page["result"]["runs"][0]["runId"], "run-two", "{page}");
     let lookup = core.call(3, "engine.dreams.log", json!({"runId":"run-one"}));
@@ -1771,6 +2059,7 @@ fn dreams_status_projects_the_native_ledger_over_the_core_link() {
     assert!(!directory.join("engine.sqlite").exists());
 
     let mut core = core_peer(&engine, home.path());
+    import_dream_ledger(&mut core);
     let first = core.call(2, "engine.dreams.status", json!({"agentId":"a1"}));
     let result = &first["result"];
     assert_eq!(result["schemaVersion"], 1, "{first}");
@@ -1853,8 +2142,9 @@ fn dreams_import_reconciles_open_runs_and_releases_their_claims_once() {
         "flat-embedder",
         &[("PLUR1BUS_TEST_CLOCK_MS", std::path::Path::new(&now))],
     );
-    let legacy = seed_dream_ledger(home.path(), &fixture["input"]);
+    drop(seed_dream_ledger(home.path(), &fixture["input"]));
     let mut core = core_peer(&engine, home.path());
+    import_dream_ledger(&mut core);
     let query = json!({"phase":"deep"});
     let first = core.call(2, "engine.dreams.log", query.clone());
     assert_eq!(first["result"], fixture["expected"]["log"], "{first}");
@@ -1883,7 +2173,8 @@ fn dreams_import_reconciles_open_runs_and_releases_their_claims_once() {
         )
         .unwrap();
     assert_eq!(claims, 0);
-    let original_open: u32 = legacy
+    let original_open: u32 = rusqlite::Connection::open(home.path().join("state/dreams/dreams.db"))
+        .unwrap()
         .query_row(
             "SELECT count(*) FROM dream_run WHERE outcome IS NULL",
             [],
@@ -1913,6 +2204,7 @@ fn dreams_phase_transition_serializes_claims_and_scopes_receipts() {
     assert!(!home.path().join("state/dreams/engine.sqlite").exists());
 
     let mut core = core_peer(&engine, home.path());
+    import_dream_ledger(&mut core);
     let first = core.call(2, "engine.dreams.run", report.clone());
     assert_eq!(first["result"]["claimed"], true, "{first}");
     assert_eq!(first["result"]["outcome"], Value::Null);
@@ -1997,6 +2289,7 @@ fn dreams_phase_records_candidate_gates_and_replays_preparation() {
         &[("PLUR1BUS_TEST_CLOCK_MS", std::path::Path::new(&time))],
     );
     let mut core = core_peer(&engine, home.path());
+    import_dream_ledger(&mut core);
     let begun = core.call(
         2,
         "engine.dreams.run",
@@ -2117,6 +2410,7 @@ fn dreams_status_replays_the_typescript_durable_projection() {
     .unwrap();
     drop(seed_dream_ledger(home.path(), &fixture["input"]));
     let mut core = core_peer(&engine, home.path());
+    import_dream_ledger(&mut core);
     let status = core.call(2, "engine.dreams.status", json!({}));
     assert_eq!(status["result"], fixture["expected"], "{status}");
 }

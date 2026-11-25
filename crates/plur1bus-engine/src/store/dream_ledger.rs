@@ -22,7 +22,7 @@ use super::{
 
 mod candidates;
 mod runs;
-pub(crate) use runs::{transition, RunTransition, RunTransitionResult};
+pub(crate) use runs::{transition, RunCall, RunTransition, RunTransitionResult};
 
 const LEGACY: &str = "dreams.db";
 const NATIVE: &str = "engine.sqlite";
@@ -118,29 +118,47 @@ fn version(db: &Connection) -> Result<i64, StoreError> {
     Ok(db.pragma_query_value(None, "user_version", |row| row.get(0))?)
 }
 
-fn initialize(
-    tx: &Transaction<'_>,
-    dir: &TrustedDirectory,
-    now: Option<i64>,
-    cancel: &Cancel,
-) -> Result<Option<Imported>, EngineError> {
-    match version(tx)? {
+fn not_imported() -> EngineError {
+    EngineError::NotAvailable {
+        reason: "dream-ledger-not-imported".into(),
+    }
+}
+
+fn unsupported_version() -> EngineError {
+    EngineError::NotAvailable {
+        reason: "dream-ledger-version-unsupported".into(),
+    }
+}
+
+fn initialized(db: &Connection) -> Result<bool, EngineError> {
+    match version(db)? {
+        0 => Ok(false),
         1 => {
-            let complete: bool = tx
+            let complete = db
                 .query_row(
                     "SELECT EXISTS(SELECT 1 FROM dream_import WHERE id=1)",
                     [],
                     |row| row.get(0),
                 )
                 .map_err(StoreError::from)?;
-            return if complete {
-                Ok(None)
+            if complete {
+                Ok(true)
             } else {
                 Err(StoreError::Corrupt.into())
-            };
+            }
         }
-        0 => (),
-        _ => return Err(StoreError::Corrupt.into()),
+        _ => Err(unsupported_version()),
+    }
+}
+
+fn initialize(
+    tx: &Transaction<'_>,
+    dir: &TrustedDirectory,
+    now: Option<i64>,
+    cancel: &Cancel,
+) -> Result<Option<Imported>, EngineError> {
+    if initialized(tx)? {
+        return Ok(None);
     }
     tx.execute_batch(DDL).map_err(StoreError::from)?;
     let mut counts = [0; 3];
@@ -148,7 +166,7 @@ fn initialize(
         Ok(mut source) => {
             let snapshot = source.transaction().map_err(StoreError::from)?;
             if version(&snapshot)? != 1 {
-                return Err(StoreError::Corrupt.into());
+                return Err(unsupported_version());
             }
             for (count, (table, columns)) in counts.iter_mut().zip(TABLES) {
                 *count = copy(&snapshot, tx, table, columns, cancel)?;
@@ -216,15 +234,8 @@ fn reconcile_open_runs(
     Ok(())
 }
 
-/// This entry is called by the Core after it stops writing the legacy ledger.
-/// All three tables and the import record become visible in one engine commit.
-pub(crate) fn schedules(
-    state: &Path,
-    agent: &str,
-    now: Option<i64>,
-    cancel: &Cancel,
-) -> Result<(Value, Option<Imported>), EngineError> {
-    with_ledger(state, now, cancel, |db, _| {
+pub(crate) fn schedules(state: &Path, agent: &str, cancel: &Cancel) -> Result<Value, EngineError> {
+    with_ledger(state, false, cancel, |db, _| {
         Ok(json!({"schedules": read_schedules(db, agent)?}))
     })
 }
@@ -256,10 +267,9 @@ pub(crate) fn edit_schedule(
     state: &Path,
     agent: &str,
     edit: &ScheduleEdit,
-    now: Option<i64>,
     cancel: &Cancel,
-) -> Result<(ScheduleEditResult, Option<Imported>), EngineError> {
-    with_ledger(state, now, cancel, |db, _| {
+) -> Result<ScheduleEditResult, EngineError> {
+    with_ledger(state, true, cancel, |db, _| {
         let expected = &edit.expected;
         let desired = &edit.desired;
         let updated = db
@@ -308,10 +318,9 @@ pub(crate) fn edit_schedule(
 pub(crate) fn status(
     state: &Path,
     agent: Option<&str>,
-    now: Option<i64>,
     cancel: &Cancel,
-) -> Result<(Value, Option<Imported>), EngineError> {
-    with_ledger(state, now, cancel, |db, _| {
+) -> Result<Value, EngineError> {
+    with_ledger(state, false, cancel, |db, _| {
         let mut statement = db
             .prepare(
                 "SELECT DISTINCT agent_id FROM dream_schedule
@@ -395,13 +404,16 @@ fn phase_status(db: &Connection, agent: &str, cancel: &Cancel) -> Result<Vec<Val
     Ok(result)
 }
 
-fn with_ledger<T>(
+/// The Core asserts that its legacy writer has stopped before this operation.
+/// The three tables and the import record become visible in one commit.
+pub(crate) fn import_legacy(
     state: &Path,
     now: Option<i64>,
     cancel: &Cancel,
-    operation: impl FnOnce(&Connection, &TrustedDirectory) -> Result<T, EngineError>,
-) -> Result<(T, Option<Imported>), EngineError> {
+    check_core: impl Fn() -> Result<(), EngineError>,
+) -> Result<Option<Imported>, EngineError> {
     cancel.check()?;
+    check_core()?;
     secure_dir(state)?;
     let dir = TrustedDirectory::open(state)?.create_child("dreams")?;
     secure_dir(dir.path())?;
@@ -420,14 +432,60 @@ fn with_ledger<T>(
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(StoreError::from)?;
     let imported = initialize(&tx, &dir, now, cancel)?;
-    let value = operation(&tx, &dir)?;
     cancel.check()?;
     dir.assert_unchanged()?;
+    check_core()?;
     tx.commit().map_err(StoreError::from)?;
     if imported.is_some() {
         dir.sync_entries()?;
     }
-    Ok((value, imported))
+    Ok(imported)
+}
+
+fn with_ledger<T>(
+    state: &Path,
+    write: bool,
+    cancel: &Cancel,
+    operation: impl FnOnce(&Connection, &TrustedDirectory) -> Result<T, EngineError>,
+) -> Result<T, EngineError> {
+    fn open_error(error: StoreError) -> EngineError {
+        if is_missing(&error) {
+            not_imported()
+        } else {
+            error.into()
+        }
+    }
+    cancel.check()?;
+    let dir = TrustedDirectory::open(state)
+        .and_then(|root| root.open_child("dreams"))
+        .map_err(open_error)?;
+    let (flags, behavior) = if write {
+        (
+            OpenFlags::SQLITE_OPEN_READ_WRITE,
+            TransactionBehavior::Immediate,
+        )
+    } else {
+        (
+            OpenFlags::SQLITE_OPEN_READ_ONLY,
+            TransactionBehavior::Deferred,
+        )
+    };
+    let mut db = open(&dir, NATIVE, flags).map_err(open_error)?;
+    let tx = db
+        .transaction_with_behavior(behavior)
+        .map_err(StoreError::from)?;
+    if !initialized(&tx)? {
+        return Err(not_imported());
+    }
+    let value = operation(&tx, &dir)?;
+    cancel.check()?;
+    dir.assert_unchanged()?;
+    tx.commit().map_err(StoreError::from)?;
+    Ok(value)
+}
+
+pub(crate) fn require_imported(state: &Path, cancel: &Cancel) -> Result<(), EngineError> {
+    with_ledger(state, false, cancel, |_, _| Ok(()))
 }
 
 #[derive(Deserialize)]
@@ -442,10 +500,9 @@ pub(crate) struct LogQuery {
 pub(crate) fn log(
     state: &Path,
     query: &LogQuery,
-    now: Option<i64>,
     cancel: &Cancel,
-) -> Result<(Option<Value>, Option<Imported>), EngineError> {
-    with_ledger(state, now, cancel, |db, dir| {
+) -> Result<Option<Value>, EngineError> {
+    with_ledger(state, false, cancel, |db, dir| {
         let runs = read_runs(db, query, cancel)?;
         if query.run_id.is_some() && runs.is_empty() {
             return Ok(None);

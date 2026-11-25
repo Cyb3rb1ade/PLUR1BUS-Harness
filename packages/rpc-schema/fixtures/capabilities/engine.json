@@ -1,5 +1,9 @@
 {
   "methods": {
+    "engine.dreams.import": {
+      "stability": "experimental",
+      "since": "1.28.0"
+    },
     "engine.dreams.diary": {
       "stability": "experimental",
       "since": "1.28.0"

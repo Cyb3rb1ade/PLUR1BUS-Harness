@@ -315,6 +315,14 @@ export function engineRpcSurface() {
   );
 
   add(
+    "engine.dreams.import",
+    { legacyWriterRetired: { const: true } },
+    ["legacyWriterRetired"],
+    object({ imported: { type: "boolean" } }, ["imported"]),
+    "Import the legacy dreaming ledger once over the verified Core link after the Core has retired the writer. Read and mutation methods return E_NOT_AVAILABLE reason=dream-ledger-not-imported before this operation. An unsupported ledger version returns E_NOT_AVAILABLE reason=dream-ledger-version-unsupported.",
+    "1.28.0",
+  );
+  add(
     "engine.dreams.diary",
     { agentId: { $ref: "#/$defs/AgentId" } },
     ["agentId"],
