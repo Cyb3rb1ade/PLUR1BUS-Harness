@@ -150,14 +150,18 @@ fn a_telegram_response_body_can_be_cancelled_while_waiting_for_data() {
     use plur1bus_channels::http::Kind;
     use std::time::{Duration, Instant};
 
-    struct Port(SocketAddr, Instant);
-    impl HttpPorts for Port {
+    const SIGNAL_DELAY: Duration = Duration::from_millis(125);
+
+    struct Port<'a>(&'a FakeServer);
+    impl HttpPorts for Port<'_> {
         fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
-            Some(self.0)
+            Some(self.0.addr)
         }
 
         fn cancelled(&self) -> bool {
-            Instant::now() >= self.1
+            self.0
+                .first_http_chunk_at()
+                .is_some_and(|at| at.elapsed() >= SIGNAL_DELAY)
         }
     }
 
@@ -168,7 +172,7 @@ fn a_telegram_response_body_can_be_cancelled_while_waiting_for_data() {
             "response": {"status": 200, "chunksBase64": ["e30=", "IA=="], "chunkGapMs": 1100}
         }]
     }));
-    let port = Port(server.addr, Instant::now() + Duration::from_millis(125));
+    let port = Port(&server);
     let api = Telegram::new(
         Http::new(&port, true),
         Url::parse(&format!("http://{}/", server.addr)).unwrap(),
@@ -177,7 +181,8 @@ fn a_telegram_response_body_can_be_cancelled_while_waiting_for_data() {
     )
     .unwrap();
     let error = api.get_updates(None, 0).unwrap_err();
-    let elapsed = port.1.elapsed();
+    let cancel_at = server.first_http_chunk_at().unwrap() + SIGNAL_DELAY;
+    let elapsed = cancel_at.elapsed();
     assert_eq!(error.kind, Kind::Aborted);
     assert!(
         elapsed < Duration::from_millis(500),

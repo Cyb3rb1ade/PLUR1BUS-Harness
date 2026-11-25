@@ -15,7 +15,7 @@ use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// RFC 6455 §1.3.
 const WS_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -64,6 +64,7 @@ struct Script {
     lines: Option<Vec<LineExchange>>,
     received: Vec<Value>,
     upgrades: Vec<Value>,
+    first_http_chunk_at: Option<Instant>,
 }
 
 /// A running fake server; dropping it stops it.
@@ -98,6 +99,11 @@ impl FakeServer {
     /// or the JSON messages received from a WebSocket client.
     pub fn received(&self) -> Vec<Value> {
         self.worker.received()
+    }
+
+    /// When this fixture finished writing its first chunked HTTP body fragment.
+    pub fn first_http_chunk_at(&self) -> Option<Instant> {
+        self.worker.script.lock().unwrap().first_http_chunk_at
     }
 
     /// The HTTP request line and headers for each WebSocket upgrade.
@@ -143,6 +149,7 @@ impl Worker {
             lines: None,
             received: Vec::new(),
             upgrades: Vec::new(),
+            first_http_chunk_at: None,
         };
         match fixture["transport"].as_str() {
             Some("http") => {
@@ -375,7 +382,7 @@ fn connection(stream: &mut (impl Read + Write), script: &Mutex<Script>) -> io::R
             .and_then(|(_, _, queue)| queue.pop_front())
     }
     .unwrap_or_else(|| json!({ "status": 501, "body": { "fake": format!("no recorded exchange for {method} {path}") } }));
-    send_http(stream, &response)
+    send_http(stream, &response, script)
 }
 
 fn lines(
@@ -411,7 +418,7 @@ fn lines(
     Ok(())
 }
 
-fn send_http(stream: &mut impl Write, response: &Value) -> io::Result<()> {
+fn send_http(stream: &mut impl Write, response: &Value, script: &Mutex<Script>) -> io::Result<()> {
     let status = response["status"].as_u64().unwrap();
     let headers = response["headers"].as_object();
     write!(
@@ -445,6 +452,13 @@ fn send_http(stream: &mut impl Write, response: &Value) -> io::Result<()> {
             write!(stream, "{:x}\r\n", bytes.len())?;
             stream.write_all(&bytes)?;
             stream.write_all(b"\r\n")?;
+            if index == 0 {
+                script
+                    .lock()
+                    .unwrap()
+                    .first_http_chunk_at
+                    .get_or_insert_with(Instant::now);
+            }
         }
         return stream.write_all(b"0\r\n\r\n");
     }
