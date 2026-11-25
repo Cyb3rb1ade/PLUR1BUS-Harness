@@ -104,7 +104,7 @@ fn web_fetch_replays_documents_cursors_and_crawl_stations() {
             max_bytes: http::DEFAULT_BODY_BYTES,
             max_redirects: 10,
             default_max_tokens: 6_000,
-            max_extracted_tokens: 200_000,
+            max_extracted_tokens: case["maxExtractedTokens"].as_u64().unwrap_or(200_000) as usize,
         };
         for (i, step) in case["steps"].as_array().unwrap().iter().enumerate() {
             let url = origin.clone() + step["path"].as_str().unwrap();
@@ -283,6 +283,102 @@ fn cancellation_after_read_interrupts_html_extraction() {
             Some("timeout"),
             "HTTP {status}"
         );
+        assert_eq!(server.received().len(), 1);
+    }
+}
+
+#[test]
+fn the_fetch_budget_and_cancellation_reach_document_processing() {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use std::cell::Cell;
+
+    struct TestClock(Cell<Option<usize>>);
+    impl Clock for TestClock {
+        fn now_ms(&self) -> u64 {
+            if self.0.get().is_none() {
+                self.0.set(Some(0));
+            }
+            1_764_000_000_000
+        }
+        fn sleep_ms(&self, _: u64, _: &dyn Fn() -> bool) -> Result<(), pacer::Error> {
+            Ok(())
+        }
+    }
+
+    let array =
+        serde_json::to_string(&vec!["The printed edition is available today."; 128]).unwrap();
+    let levels = "<div>".repeat(201) + "Local news";
+    let article = format!("<p>{}</p>", "Archived newspapers. ".repeat(2500));
+    for (status, content_type, input, tokens, polls, expected) in [
+        (200, "text/html", levels.as_str(), 1000, 40, "timeout"),
+        (200, "application/json", array.as_str(), 1000, 40, "timeout"),
+        (
+            200,
+            "application/json",
+            array.as_str(),
+            128,
+            40,
+            "too-large",
+        ),
+        (200, "text/html", article.as_str(), 128, 40, "too-large"),
+        (
+            403,
+            "text/html",
+            article.as_str(),
+            1000,
+            40,
+            "auth-required",
+        ),
+    ] {
+        let server = FakeServer::start(&json!({
+            "transport": "http",
+            "exchanges": [{
+                "request": {"method":"GET", "path":"/edition"},
+                "response": {"status":status, "headers":{"content-type":content_type},
+                    "chunksBase64":[STANDARD.encode(input)]}
+            }]
+        }));
+        let clock = TestClock(Cell::new(None));
+        let port = Port(server.addr);
+        let docs = Docs::default();
+        let fetch = Client {
+            admission: &port,
+            crawl: None,
+            store: &docs,
+            clock: &clock,
+            user_agent: "fixture-browser",
+            max_bytes: http::DEFAULT_BODY_BYTES,
+            max_redirects: 10,
+            default_max_tokens: 100,
+            max_extracted_tokens: tokens,
+        };
+        let url = format!("http://{}/edition", server.addr);
+        let args = Args {
+            url: &url,
+            mode: Mode::Auto,
+            section: None,
+            cursor: None,
+            max_tokens: None,
+            crawl: false,
+        };
+        let ctx = Context {
+            agent_id: "reader",
+            matcher: None,
+            aborted: &|| {
+                let Some(count) = clock.0.get() else {
+                    return false;
+                };
+                clock.0.set(Some(count + 1));
+                count >= polls
+            },
+        };
+        let result = fetch.fetch(&args, &ctx, Instant::now() + Duration::from_secs(2));
+        assert_eq!(
+            result.unwrap_err().code,
+            expected,
+            "HTTP {status} {content_type} {tokens}"
+        );
+        assert!(docs.0.lock().unwrap().is_none());
         assert_eq!(server.received().len(), 1);
     }
 }

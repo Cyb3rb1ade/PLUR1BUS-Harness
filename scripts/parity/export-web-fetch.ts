@@ -27,7 +27,7 @@ class FixtureStore extends DocStore {
 }
 
 export async function recordWebFetch() {
-  const cases: { name: string; actions: Action[]; replies: Record<string, Reply> }[] = [
+  const cases: { name: string; actions: Action[]; replies: Record<string, Reply>; maxExtractedTokens?: number }[] = [
     { name: "section-and-links", actions: [{ section: "Local" }], replies: { "/page": htmlReply } },
     { name: "guarded-json-order", actions: [{}], replies: {
       "/page": { status: 200, body: '{"z":1.0,"2":"b","1":"a","z":4,"nested":{"second":false,"first":null}}', headers: { "content-type": "application/json; charset=utf-8" } },
@@ -35,6 +35,10 @@ export async function recordWebFetch() {
     { name: "raw-html", actions: [{ mode: "raw" }], replies: { "/page": htmlReply } },
     { name: "html-from-generic-type", actions: [{}], replies: {
       "/page": { status: 200, body: `<!DOCTYPE html><html>${html}</html>`, headers: { "content-type": "application/octet-stream" } },
+    } },
+    { name: "html-output-over-budget", actions: [{}], maxExtractedTokens: 128, replies: {
+      "/page": { status: 200, body: `<p>${"A printed edition. ".repeat(300)}</p>`,
+        headers: { "content-type": "text/html" } },
     } },
     { name: "rate-limit", actions: [{}], replies: {
       "/page": { status: 429, body: "Please try again later.", headers: { "retry-after": "7", "content-type": "text/plain" } },
@@ -76,6 +80,7 @@ export async function recordWebFetch() {
     if (!address || typeof address === "string") throw new Error("expected a loopback HTTP address");
     const origin = `http://127.0.0.1:${address.port}`;
     const fetch = createWebFetch({ userAgent: agent, allowPrivate: ["127.0.0.0/8"], now: () => NOW,
+      maxExtractedTokens: row.maxExtractedTokens,
       store: new FixtureStore({ now: () => NOW }),
       pacer: new HostPacer({ minIntervalMs: 0, now: () => NOW, sleep: async () => {} }),
     });
@@ -97,7 +102,9 @@ export async function recordWebFetch() {
     }
     server.close();
     await once(server, "close");
-    vectors.push({ name: row.name, transport: "http", exchanges: wire, steps });
+    vectors.push({ name: row.name, transport: "http", exchanges: wire, steps,
+      ...(row.maxExtractedTokens === undefined ? {} : { maxExtractedTokens: row.maxExtractedTokens }),
+    });
   }
   return { fetch: { source: "packages/core/src/tools/web/fetch.ts", agent, nowMs: NOW, cases: vectors } };
 }

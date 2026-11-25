@@ -5,6 +5,7 @@ use std::{
     fmt::{self, Write as _},
 };
 
+use crate::http::Failure;
 use serde::{de, Deserialize, Deserializer};
 
 enum Value {
@@ -89,12 +90,14 @@ impl<'de> de::Visitor<'de> for Parse {
     }
 }
 
-struct Output {
+struct Output<'a> {
     text: String,
     units_left: usize,
+    check: &'a dyn Fn() -> Result<(), Failure>,
+    cancelled: Option<Failure>,
 }
 
-impl fmt::Write for Output {
+impl fmt::Write for Output<'_> {
     fn write_str(&mut self, text: &str) -> fmt::Result {
         let next = self
             .units_left
@@ -106,11 +109,15 @@ impl fmt::Write for Output {
     }
 }
 
-fn indent(out: &mut Output, depth: usize) -> fmt::Result {
+fn indent(out: &mut Output<'_>, depth: usize) -> fmt::Result {
     write!(out, "\n{:width$}", "", width = depth * 2)
 }
 
-fn write(value: &Value, out: &mut Output, depth: usize) -> fmt::Result {
+fn write(value: &Value, out: &mut Output<'_>, depth: usize) -> fmt::Result {
+    if let Err(failure) = (out.check)() {
+        out.cancelled = Some(failure);
+        return Err(fmt::Error);
+    }
     match value {
         Value::Null => out.write_str("null"),
         Value::Bool(true) => out.write_str("true"),
@@ -152,15 +159,22 @@ fn write(value: &Value, out: &mut Output, depth: usize) -> fmt::Result {
     }
 }
 
-pub(super) fn pretty(input: &str, limit: usize) -> Result<Option<String>, fmt::Error> {
+pub(super) fn pretty(
+    input: &str,
+    limit: usize,
+    check: &dyn Fn() -> Result<(), Failure>,
+) -> Result<Option<String>, Failure> {
+    check()?;
     let Ok(value) = serde_json::from_str(input) else {
         return Ok(None);
     };
     let mut out = Output {
         text: String::with_capacity(input.len().min(limit)),
         units_left: limit,
+        check,
+        cancelled: None,
     };
-    write(&value, &mut out, 0)?;
+    write(&value, &mut out, 0).map_err(|_| out.cancelled.unwrap_or(Failure::TooLarge))?;
     Ok(Some(out.text))
 }
 
@@ -173,9 +187,10 @@ mod tests {
         let input = r#"{"books":[{"title":"🌱"},3]}"#;
         let expected = "{\n  \"books\": [\n    {\n      \"title\": \"🌱\"\n    },\n    3\n  ]\n}";
         let bound = expected.encode_utf16().count();
-        assert_eq!(pretty(input, bound), Ok(Some(expected.to_owned())));
-        assert!(pretty(input, bound - 1).is_err());
-        assert!(pretty(input, input.encode_utf16().count()).is_err());
-        assert_eq!(pretty("{", 0), Ok(None));
+        let check = || Ok(());
+        assert_eq!(pretty(input, bound, &check), Ok(Some(expected.to_owned())));
+        assert!(pretty(input, bound - 1, &check).is_err());
+        assert!(pretty(input, input.encode_utf16().count(), &check).is_err());
+        assert_eq!(pretty("{", 0, &check), Ok(None));
     }
 }

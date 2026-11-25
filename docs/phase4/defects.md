@@ -1754,12 +1754,18 @@ delivery when the chunk would exceed the remaining budget.
 
 ## P4D-250 — Bounded HTML formatting and extraction (R-W-15)
 
-The Rust renderer bounds each accumulated Markdown projection to four UTF-16
-units per configured extraction token plus 4,096 units of fixed lookahead.
-It accounts for formatting prefixes and table delimiters before constructing
-the expanded output, and checks the fetch deadline and cancellation while
-walking the HTML tree. The final token check still governs the returned result.
-TypeScript applies its token check after rendering.
+Rust gives retained Markdown blocks, inline buffers and table cell text a
+shared budget of four UTF-16 units per configured extraction token plus
+4,096 units of lookahead, capped at the default response body limit. It
+collapses consecutive blank lines in preformatted blocks before charging
+them where no enclosing list or quotation will prefix the lines.
+Intermediate output can still reach the budget before final whitespace
+trimming. TypeScript checks the token count after rendering.
+
+Error responses use a separate budget of 4,096 UTF-16 units for HTML
+diagnostics. Both rendering paths check the fetch deadline and caller
+cancellation. Exhausting the diagnostic budget preserves the HTTP status
+classification. Interruption propagates as a timeout.
 
 <a id="p4d-251"></a>
 
@@ -1906,3 +1912,22 @@ abort signal to its asynchronous transport. The total scan budget is
 Model scanners remove display controls using the same sanitizer as MCP and
 limit labels to 512 UTF-16 code units. Model IDs retain their own grammar.
 TypeScript may preserve invisible controls in display names.
+
+
+<a id="p4d-267"></a>
+
+## P4D-267 — Bounded per-host crawl reservations (W6-N5)
+
+Rust keeps up to 1,024 host reservations. On overflow it removes expired
+reservations first, then evicts the oldest remaining reservation by sequence
+number if needed. A subsequent visit to that evicted host starts a fresh
+reservation. TypeScript can retain more hosts when all reservations are live.
+
+<a id="p4d-268"></a>
+
+## P4D-268 — Reject HTML beyond the parser depth limit (W6-R3)
+
+Rust returns `too-large` when an element would exceed the parser stack limit
+of 200 open elements, excluding the document root. The TypeScript extractor can
+flatten further nesting. Rust also caps parsed elements and the table grid
+at 300,000 each.

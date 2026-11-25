@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { htmlToMarkdown } from "../../packages/core/src/tools/web/html.ts";
+import { estimateTokens, htmlToMarkdown } from "../../packages/core/src/tools/web/html.ts";
 import { exporterMain } from "./lib.mjs";
 
 const base = "https://pages.fixture.invalid/edition/today";
@@ -31,11 +31,18 @@ const corpus = [
 ] as const;
 
 export function recordWebHtml() {
+  const blankLines = [5000, 20000].map((lines) => {
+    const words = 79500;
+    const input = `<p>${"word word ".repeat(words)}</p><pre>x${"\n".repeat(lines)}y</pre>`;
+    const { markdown } = htmlToMarkdown(input, base);
+    return { words, lines, base, tokens: estimateTokens(markdown), suffix: markdown.slice(-14) };
+  });
   return { html: {
     source: "packages/core/src/tools/web/html.ts",
     cases: corpus.map(([name, input]) => ({
       name, input, base, expected: htmlToMarkdown(input, base),
     })),
+    blankLines,
   } };
 }
 

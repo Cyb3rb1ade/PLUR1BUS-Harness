@@ -76,6 +76,15 @@ impl Pacer {
             if state.slots.len() > MAX_PACED_HOSTS {
                 let now = clock.now_ms();
                 state.slots.retain(|_, slot| slot.until > now);
+                if state.slots.len() > MAX_PACED_HOSTS {
+                    let oldest = state
+                        .slots
+                        .values()
+                        .map(|slot| slot.id)
+                        .min()
+                        .ok_or(Error::Unavailable)?;
+                    state.slots.retain(|_, slot| slot.id != oldest);
+                }
             }
             (at, previous, current)
         };

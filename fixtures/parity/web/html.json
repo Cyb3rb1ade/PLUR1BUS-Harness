@@ -1,4 +1,20 @@
 {
+  "blankLines": [
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "lines": 5000,
+      "suffix": "\n\n```\nx\n\ny\n```",
+      "tokens": 198754,
+      "words": 79500
+    },
+    {
+      "base": "https://pages.fixture.invalid/edition/today",
+      "lines": 20000,
+      "suffix": "\n\n```\nx\n\ny\n```",
+      "tokens": 198754,
+      "words": 79500
+    }
+  ],
   "cases": [
     {
       "base": "https://pages.fixture.invalid/edition/today",

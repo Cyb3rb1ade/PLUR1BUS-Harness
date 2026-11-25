@@ -267,7 +267,7 @@ fn render(nodes: &[Element], id: usize, renderer: &Renderer<'_>) -> Result<Strin
     } else {
         &selection
     };
-    let body = renderer.join(&renderer.blocks(children)?, "\n\n")?;
+    let body = renderer.join(&renderer.blocks(children, false)?, "\n\n")?;
     let body = LONG_BREAK.as_ref().map_or_else(
         || std::borrow::Cow::Borrowed(body.as_str()),
         |pattern| pattern.replace_all(&body, "\n\n"),
@@ -284,6 +284,10 @@ pub fn extract(
     max_units: usize,
     check: &dyn Fn() -> Result<(), Failure>,
 ) -> Result<Extracted, Failure> {
+    check()?;
+    if html.len() > crate::http::DEFAULT_BODY_BYTES {
+        return Err(Failure::TooLarge);
+    }
     let nodes = tree::parse(html, check)?;
     let base = Url::parse(base_url).ok();
     let base = base.as_ref();
@@ -345,7 +349,7 @@ pub fn extract(
                     Child::Text(text) => !text.trim_matches(space).is_empty(),
                 })
             {
-                let alternative = renderer.join(&renderer.blocks(&el.children)?, "\n\n")?;
+                let alternative = renderer.join(&renderer.blocks(&el.children, false)?, "\n\n")?;
                 let separator = if text.is_empty() { "" } else { "\n\n" };
                 used = used
                     .saturating_add(separator.len())

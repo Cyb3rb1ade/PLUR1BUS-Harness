@@ -425,14 +425,18 @@ und [P4D-228](defects.md#p4d-228). Der Flip muss den Host-Port, den privaten Cur
 Robots-Cache sowie die Freigabe für Provider-Credentials anbinden.
 
 
-HTML formatting and extraction use the bounded Markdown buffer in
-[P4D-250](defects.md#p4d-250). The host must use
-`plur1bus_core::egress::guard::resolve_guarded` against all A/AAAA answers
-and enforce its port rule at each station, including robots.txt, the initial
-request and every redirect. The connection uses the same approved pin. Search
-result URLs are descriptive data and must go through that port before fetching.
-At the flip, the host also owns queue sizing for per-origin pacing and the
-memory budget for decoded character sets.
+**Flip-Pflicht (W6-R5).** Der Host muss für jeden Sprung, auch für
+robots.txt und Redirects, die Portregel festlegen und durchsetzen. Er prüft
+alle A- und AAAA-Antworten mit `plur1bus_core::egress::guard::resolve_guarded`
+und verbindet sich mit der freigegebenen Adresse. Das gilt auch für den
+ersten Abruf einer URL aus einem Suchergebnis. Der Host legt das Speicherbudget
+für die Zeichensatzdekodierung fest.
+
+Der HTML-Renderer teilt sein Budget zwischen den aktiven Textpuffern.
+Fehlerseiten haben ein eigenes Diagnoselimit. Der Pacer hält bis zu 1.024
+Host-Reservierungen. Die Grenzen und ihre Auswirkungen sind unter
+[P4D-250](defects.md#p4d-250), [P4D-267](defects.md#p4d-267) und
+[P4D-268](defects.md#p4d-268) beschrieben.
 
 ### W7 · MCP (P4-70)
 

@@ -188,8 +188,7 @@ impl Client<'_> {
         let mut markdown = match (args.mode, kind) {
             (Mode::Raw, _) | (_, Kind::Text) => input,
             (_, Kind::Json) => {
-                crate::json::pretty(&input, self.max_extracted_tokens.saturating_mul(4))
-                    .map_err(|_| Failure::TooLarge)?
+                crate::json::pretty(&input, self.max_extracted_tokens.saturating_mul(4), &check)?
                     .unwrap_or(input)
             }
             (_, Kind::Html) => {

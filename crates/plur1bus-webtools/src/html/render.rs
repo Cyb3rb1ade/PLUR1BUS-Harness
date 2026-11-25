@@ -286,6 +286,65 @@ impl Renderer<'_> {
         Ok(output.into_text())
     }
 
+    fn preformatted(&self, id: usize, preserve_newlines: bool) -> Result<String, Failure> {
+        // Locate the final content before charging buffers. Whitespace may
+        // continue across several inline elements in a preformatted block.
+        let mut offset = 0usize;
+        let mut content_end = 0usize;
+        raw_text(
+            self.nodes,
+            id,
+            &mut |piece| {
+                let trimmed = piece.trim_end_matches(space);
+                if !trimmed.is_empty() {
+                    content_end = offset + trimmed.len();
+                }
+                offset += piece.len();
+                Ok(())
+            },
+            self.check,
+        )?;
+        let mut remaining = content_end;
+        let mut output = Output::new(self);
+        let mut seen_content = false;
+        let mut consecutive_breaks = 0usize;
+        raw_text(
+            self.nodes,
+            id,
+            &mut |piece| {
+                let used = piece.len().min(remaining);
+                remaining -= used;
+                let piece = &piece[..used];
+                let piece = if !seen_content && !piece.is_empty() {
+                    seen_content = true;
+                    piece.strip_prefix('\n').unwrap_or(piece)
+                } else {
+                    piece
+                };
+                if preserve_newlines {
+                    return output.push(piece);
+                }
+                for (index, line) in piece.split_inclusive('\n').enumerate() {
+                    if index.is_multiple_of(1024) {
+                        (self.check)()?;
+                    }
+                    let text = line.strip_suffix('\n').unwrap_or(line);
+                    if !text.is_empty() {
+                        consecutive_breaks = 0;
+                        output.push(text)?;
+                    }
+                    if line.ends_with('\n') && consecutive_breaks < 2 {
+                        output.push("\n")?;
+                        consecutive_breaks += 1;
+                    }
+                }
+                Ok(())
+            },
+            self.check,
+        )?;
+        Ok(output.into_text())
+    }
+
     fn collapse(&self, text: &str) -> Result<String, Failure> {
         let mut out = String::new();
         let mut used = 0usize;
@@ -397,7 +456,11 @@ impl Renderer<'_> {
         Ok(text)
     }
 
-    pub(super) fn blocks(&self, children: &[Child]) -> Result<Vec<String>, Failure> {
+    pub(super) fn blocks(
+        &self,
+        children: &[Child],
+        preserve_newlines: bool,
+    ) -> Result<Vec<String>, Failure> {
         let mut blocks = Blocks::new(self);
         let mut buffer = Output::new(self);
         for child in children {
@@ -410,7 +473,7 @@ impl Renderer<'_> {
                 if is_heading(tag) || BLOCK.contains(&tag) {
                     blocks.push(tidy(&buffer.into_text()))?;
                     buffer = Output::new(self);
-                    blocks.extend(self.block(*id)?)?;
+                    blocks.extend(self.block(*id, preserve_newlines)?)?;
                     continue;
                 }
             }
@@ -420,12 +483,12 @@ impl Renderer<'_> {
         Ok(blocks.into_items())
     }
 
-    fn block(&self, id: usize) -> Result<Vec<String>, Failure> {
+    fn block(&self, id: usize, preserve_newlines: bool) -> Result<Vec<String>, Failure> {
         let node = &self.nodes[id];
         let tag = node.tag.as_str();
         let text = match tag {
             "ul" | "ol" => self.list(id, tag == "ol")?,
-            "table" => return self.table(id),
+            "table" => return self.table(id, preserve_newlines),
             "pre" => {
                 let first_code = node
                     .children
@@ -439,11 +502,8 @@ impl Renderer<'_> {
                     .and_then(|regex| regex.captures(class))
                     .and_then(|parts| parts.get(1))
                     .map_or("", |lang| lang.as_str());
-                let body = self.raw(id)?;
-                let body = body
-                    .strip_prefix('\n')
-                    .unwrap_or(&body)
-                    .trim_end_matches(space);
+                let body = self.preformatted(id, preserve_newlines)?;
+                let body = body.trim_end_matches(space);
                 if body.is_empty() {
                     String::new()
                 } else {
@@ -452,7 +512,7 @@ impl Renderer<'_> {
                 }
             }
             "blockquote" => {
-                let body = self.join(&self.blocks(&node.children)?, "\n\n")?;
+                let body = self.join(&self.blocks(&node.children, true)?, "\n\n")?;
                 if body.is_empty() {
                     String::new()
                 } else {
@@ -490,7 +550,7 @@ impl Renderer<'_> {
                     format!("{} {text}", "#".repeat(prefix))
                 }
             }
-            _ => return self.blocks(&node.children),
+            _ => return self.blocks(&node.children, preserve_newlines),
         };
         Ok(nonempty(text))
     }
@@ -503,7 +563,7 @@ impl Renderer<'_> {
             if self.nodes[li].tag != "li" || self.skip(li) {
                 continue;
             }
-            let body = self.join(&self.blocks(&self.nodes[li].children)?, "\n")?;
+            let body = self.join(&self.blocks(&self.nodes[li].children, true)?, "\n")?;
             if body.is_empty() {
                 continue;
             }
@@ -530,7 +590,7 @@ impl Renderer<'_> {
         Ok(output.into_text())
     }
 
-    fn table(&self, id: usize) -> Result<Vec<String>, Failure> {
+    fn table(&self, id: usize, preserve_newlines: bool) -> Result<Vec<String>, Failure> {
         let mut rows = Vec::new();
         self.rows(id, &mut rows)?;
         for &row in &rows {
@@ -540,7 +600,9 @@ impl Renderer<'_> {
                     let mut out = Blocks::new(self);
                     for row in rows {
                         for cell in self.cells(row) {
-                            out.extend(self.blocks(&self.nodes[cell].children)?)?;
+                            out.extend(
+                                self.blocks(&self.nodes[cell].children, preserve_newlines)?,
+                            )?;
                         }
                     }
                     return Ok(out.into_items());
@@ -714,7 +776,7 @@ fn nonempty(text: String) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{checked_cell_end, Blocks, Failure, Output, Renderer, MAX_TABLE_CELLS};
+    use super::{checked_cell_end, Blocks, Failure, Output, Renderer};
 
     #[test]
     fn nested_buffers_share_the_live_render_budget() -> Result<(), Failure> {
@@ -738,14 +800,42 @@ mod tests {
     }
 
     #[test]
-    fn table_reservation_checks_cells_before_allocating_a_grid() {
+    fn individual_formatting_operations_reject_growth_before_returning_a_fragment(
+    ) -> Result<(), Failure> {
+        let check = || Ok(());
+        let nodes = super::super::tree::parse(
+            "<blockquote><p>Book</p></blockquote><p><b>Book</b></p>",
+            &check,
+        )?;
+        let renderer = Renderer {
+            nodes: &nodes,
+            base: None,
+            keep: None,
+            keep_header: false,
+            max_units: 5,
+            live_units: std::cell::Cell::new(0),
+            check: &check,
+        };
+        assert_eq!(renderer.block(1, false), Err(Failure::TooLarge));
+        let bold = nodes
+            .iter()
+            .position(|el| el.tag == "b")
+            .ok_or(Failure::TooLarge)?;
         assert_eq!(
-            checked_cell_end(MAX_TABLE_CELLS - 1, 1),
-            Ok(MAX_TABLE_CELLS)
-        );
-        assert_eq!(
-            checked_cell_end(MAX_TABLE_CELLS - 1, 2),
+            renderer.inline(&super::Child::Element(bold)),
             Err(Failure::TooLarge)
         );
+        assert_eq!(renderer.collapse("Sunday  news"), Err(Failure::TooLarge));
+        assert_eq!(
+            renderer.join(&["A".into(), "book".into()], " "),
+            Err(Failure::TooLarge)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn table_reservation_checks_cells_before_allocating_a_grid() {
+        assert_eq!(checked_cell_end(299_999, 1), Ok(300_000));
+        assert_eq!(checked_cell_end(299_999, 2), Err(Failure::TooLarge));
     }
 }

@@ -273,7 +273,10 @@ fn parse_limited(
                         nodes[id].children.push(Child::Text(content));
                     }
                     at = terminator(html, end, ">");
-                } else if !VOID.contains(&tag) && stack.len() < max_depth {
+                } else if !VOID.contains(&tag) {
+                    if stack.len() > max_depth {
+                        return Err(Failure::TooLarge);
+                    }
                     stack.push(id);
                 }
             }
@@ -299,7 +302,30 @@ fn parse_limited(
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_limited, Failure};
+    use super::{parse, parse_limited, Failure};
+
+    #[test]
+    fn the_public_parser_keeps_the_configured_element_and_depth_limits() {
+        let check = || Ok(());
+        let elements = "<hr>".repeat(300_000);
+        assert_eq!(
+            parse(&elements, &check).ok().map(|nodes| nodes.len()),
+            Some(300_001)
+        );
+        assert_eq!(
+            parse(&(elements + "<hr>"), &check).err(),
+            Some(Failure::TooLarge)
+        );
+        let levels = "<div>".repeat(200);
+        assert_eq!(
+            parse(&levels, &check).ok().map(|nodes| nodes.len()),
+            Some(201)
+        );
+        assert_eq!(
+            parse(&(levels + "<div>"), &check).err(),
+            Some(Failure::TooLarge)
+        );
+    }
 
     #[test]
     fn html_element_and_nesting_caps_apply_at_the_boundary() -> Result<(), Failure> {
@@ -310,8 +336,11 @@ mod tests {
             Some(Failure::TooLarge)
         );
         let nodes = parse_limited("<div><section><p>ordinary text", &check, 4, 3)?;
-        assert!(nodes[3].children.is_empty());
-        assert!(!nodes[2].children.is_empty());
+        assert_eq!(nodes[3].children.len(), 1);
+        assert_eq!(
+            parse_limited("<div><section><p><span>ordinary text", &check, 4, 3).err(),
+            Some(Failure::TooLarge)
+        );
         Ok(())
     }
 }

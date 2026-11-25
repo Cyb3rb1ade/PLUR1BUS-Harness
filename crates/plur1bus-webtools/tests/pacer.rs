@@ -63,3 +63,25 @@ fn pacing_and_reservation_rollback_match_recorded_host_calls() {
         );
     }
 }
+
+#[test]
+fn adding_an_origin_evicts_the_oldest_slot_at_capacity() {
+    let clock = Fixture {
+        now: Cell::new(1000),
+        fail: Cell::default(),
+        sleeps: RefCell::default(),
+    };
+    let pacer = Pacer::new(1000);
+    for host in 0..1024 {
+        pacer
+            .wait(&format!("host-{host}"), 0, &clock, &|| false)
+            .unwrap();
+    }
+    assert_eq!(pacer.len(), Ok(1024));
+    pacer.wait("new-host", 0, &clock, &|| false).unwrap();
+    assert_eq!(pacer.len(), Ok(1024));
+    pacer.wait("host-0", 0, &clock, &|| false).unwrap();
+    assert!(clock.sleeps.borrow().is_empty());
+    pacer.wait("host-2", 0, &clock, &|| false).unwrap();
+    assert_eq!(clock.sleeps.into_inner(), [1000]);
+}
