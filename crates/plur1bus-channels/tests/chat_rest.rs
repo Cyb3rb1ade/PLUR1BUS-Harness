@@ -191,3 +191,102 @@ fn discord_checks_the_attachment_host_before_asking_the_egress_port() {
         .is_err());
     assert_eq!(ports.0.get(), 1);
 }
+
+#[test]
+fn discord_refuses_ambiguous_paths_before_request_admission() {
+    use plur1bus_channels::http::{Http, HttpPorts, Kind};
+    use std::{net::SocketAddr, time::Instant};
+    use url::Url;
+
+    struct Offline(Cell<usize>);
+    impl HttpPorts for Offline {
+        fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
+            self.0.set(self.0.get() + 1);
+            None
+        }
+    }
+    let ports = Offline(Cell::new(0));
+    let clock = TestClock {
+        ms: Cell::new(0),
+        waits: Default::default(),
+    };
+    let mut api = Discord::new(
+        Http::new(&ports, false),
+        Url::parse("https://fixture.invalid/").unwrap(),
+        "fixture",
+        &clock,
+        0,
+    );
+    for path in [
+        "/edition/./page",
+        "/edition/archive/../page",
+        "/edition/%2E/page",
+        "/edition//page",
+    ] {
+        assert_eq!(
+            api.request(&Request::new("GET", path)).unwrap_err().kind,
+            Kind::Protocol
+        );
+    }
+    assert_eq!(ports.0.get(), 0);
+}
+
+#[test]
+fn discord_projects_message_fields_at_each_supported_payload_position() {
+    let safe = json!({"parse":[]});
+    for (method, path, input, expected) in [
+        (
+            "PATCH",
+            "/channels/42/messages/7",
+            json!({}),
+            json!({"allowed_mentions":safe}),
+        ),
+        (
+            "PATCH",
+            "/webhooks/42/fixture/messages/7",
+            json!({}),
+            json!({"allowed_mentions":safe}),
+        ),
+        (
+            "POST",
+            "/interactions/42/fixture/callback",
+            json!({"type":4,"data":{}}),
+            json!({"type":4,"data":{"allowed_mentions":safe}}),
+        ),
+        (
+            "POST",
+            "/fixture/preview",
+            json!({"content":"Edition"}),
+            json!({"content":"Edition","allowed_mentions":safe}),
+        ),
+        (
+            "POST",
+            "/fixture/thread",
+            json!({"message":{"content":"Edition"}}),
+            json!({"message":{"content":"Edition","allowed_mentions":safe}}),
+        ),
+        (
+            "POST",
+            "/fixture/callback",
+            json!({"data":{"content":"Edition"}}),
+            json!({"data":{"content":"Edition","allowed_mentions":safe}}),
+        ),
+    ] {
+        let reply = json!({"name":path,"exchanges":[{
+            "request":{"method":method,"path":format!("/v1{path}"),"bodyText":expected.to_string(),"headers":{"authorization":"Bot test","content-type":"application/json"}},
+            "response":{"status":200,"body":{"id":"42"}}
+        }]});
+        let replay = support::Replay::start(&reply, &[]);
+        let (http, base) = replay.connect();
+        let clock = TestClock {
+            ms: Cell::default(),
+            waits: Default::default(),
+        };
+        let mut api = Discord::new(http, base, "test", &clock, 0);
+        let payload = serde_json::value::to_raw_value(&input).unwrap();
+        let mut request = Request::new(method, path);
+        request.json(&payload);
+        assert!(api.request(&request).is_ok(), "{path}");
+        replay.verify(&reply["name"]);
+    }
+}

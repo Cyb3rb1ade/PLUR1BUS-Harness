@@ -10,7 +10,7 @@ repository.workspace = true
 # Exercise each available adapter in the native workspace suite. Consumers can select one feature.
 default = ["telegram", "discord", "slack", "signal", "email", "buzz"]
 telegram = ["http", "dep:indexmap", "dep:regex", "dep:percent-encoding", "dep:sha2", "dep:subtle"]
-discord = ["http", "websocket", "dep:regex"]
+discord = ["http", "websocket", "dep:regex", "dep:indexmap"]
 slack = ["http", "websocket", "dep:indexmap"]
 signal = ["dep:serde", "dep:serde_json", "dep:regex"]
 email = ["dep:base64", "dep:chrono", "dep:encoding_rs", "dep:regex", "dep:serde"]

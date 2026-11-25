@@ -1,5 +1,6 @@
 //! Discord REST and rate-limit state. A caller serializes access to each bot's client.
 use crate::http::{self, Attachment, Error, Failure, Http, Kind};
+use indexmap::IndexMap;
 use regex::Regex;
 use serde_json::{value::RawValue, Value};
 use std::borrow::Cow;
@@ -81,9 +82,10 @@ impl<'a> Request<'a> {
         {
             return Err(Error::new(Kind::Protocol, "invalid Discord upload"));
         }
+        validate_path(self.path)?;
         let interaction = message_route(self.method, self.path)
             .ok_or_else(|| Error::new(Kind::Protocol, "invalid Discord message route"))?;
-        let payload = suppress_mentions(payload.get().as_bytes(), interaction)?;
+        let payload = suppress_mentions(payload.get().as_bytes(), Some(interaction))?;
         let marker = format!("--{boundary}");
         if bytes
             .windows(marker.len())
@@ -245,25 +247,20 @@ impl<'a> Discord<'a> {
     }
 
     pub fn request(&mut self, request: &Request<'_>) -> Result<Value, Error> {
-        let route = route_key(request.method, request.path);
-        if !matches!(request.method, "GET" | "POST" | "PATCH" | "PUT" | "DELETE")
-            || !request.path.starts_with('/')
-            || request.path.starts_with("//")
-            || request
-                .path
-                .bytes()
-                .any(|b| b.is_ascii_control() || b == b'\\' || b == b'#')
-        {
+        validate_path(request.path)?;
+        if !matches!(request.method, "GET" | "POST" | "PATCH" | "PUT" | "DELETE") {
             return Err(Error::new(Kind::Protocol, "invalid Discord request"));
         }
+        let route = route_key(request.method, request.path);
         let endpoint = http::endpoint(&self.base, request.path)?;
         let authorization = format!("Bot {}", self.token);
         let content_type = request.content_type.as_deref();
-        let body = match (message_route(request.method, request.path), content_type) {
-            (Some(interaction), Some("application/json")) => {
-                suppress_mentions(&request.body, interaction)?
-            }
-            (Some(_), Some(kind))
+        let body = match content_type {
+            Some("application/json") => Cow::Owned(suppress_mentions(
+                &request.body,
+                message_route(request.method, request.path),
+            )?),
+            Some(kind)
                 if kind.starts_with("multipart/form-data;") && !request.projected_multipart =>
             {
                 return Err(Error::new(
@@ -421,6 +418,25 @@ impl<'a> Discord<'a> {
     }
 }
 
+fn validate_path(path: &str) -> Result<(), Error> {
+    let raw = path.split('?').next().unwrap_or_default();
+    if !raw.starts_with('/')
+        || raw.contains("//")
+        || raw.split('/').any(|segment| matches!(segment, "." | ".."))
+        || raw.as_bytes().windows(3).any(|escape| {
+            [b"%2e", b"%2f", b"%5c"]
+                .iter()
+                .any(|bad| escape.eq_ignore_ascii_case(*bad))
+        })
+        || path
+            .bytes()
+            .any(|b| b.is_ascii_control() || matches!(b, b'\\' | b'#'))
+    {
+        return Err(Error::new(Kind::Protocol, "invalid Discord request"));
+    }
+    Ok(())
+}
+
 /// Return whether this route carries an interaction response with nested data.
 fn message_route(method: &str, path: &str) -> Option<bool> {
     let mut segments = path
@@ -447,26 +463,74 @@ fn message_route(method: &str, path: &str) -> Option<bool> {
     }
 }
 
-fn suppress_mentions(body: &[u8], interaction: bool) -> Result<Cow<'_, [u8]>, Error> {
-    let invalid = || Error::new(Kind::Protocol, "invalid Discord message payload");
-    let mut payload: Value = serde_json::from_slice(body).map_err(|_| invalid())?;
-    let message = if interaction {
-        if !matches!(payload["type"].as_u64(), Some(4 | 7)) {
-            return Ok(Cow::Borrowed(body));
+fn message_field(key: &str) -> bool {
+    matches!(
+        key,
+        "content"
+            | "embeds"
+            | "attachments"
+            | "components"
+            | "allowed_mentions"
+            | "message_reference"
+            | "sticker_ids"
+            | "poll"
+            | "tts"
+    )
+}
+
+fn protect_nested(value: &mut Value, force: bool) -> Result<(), Error> {
+    let Some(fields) = value.as_object_mut() else {
+        if force {
+            return Err(Error::new(
+                Kind::Protocol,
+                "invalid Discord message payload",
+            ));
         }
-        &mut payload["data"]
-    } else {
-        &mut payload
+        return Ok(());
     };
-    let fields = message.as_object_mut().ok_or_else(invalid)?;
-    let safe = serde_json::json!({"parse": []});
-    if fields.get("allowed_mentions") == Some(&safe) {
-        return Ok(Cow::Borrowed(body));
+    if force || fields.keys().any(|key| message_field(key)) {
+        fields.insert("allowed_mentions".into(), serde_json::json!({"parse":[]}));
     }
-    fields.insert("allowed_mentions".into(), safe);
-    serde_json::to_vec(&payload)
-        .map(Cow::Owned)
-        .map_err(|_| invalid())
+    for name in ["data", "message"] {
+        if let Some(child) = fields.get_mut(name) {
+            protect_nested(child, false)?;
+        }
+    }
+    Ok(())
+}
+
+fn suppress_mentions(body: &[u8], route: Option<bool>) -> Result<Vec<u8>, Error> {
+    let invalid = || Error::new(Kind::Protocol, "invalid Discord message payload");
+    if body.iter().copied().find(|b| !b.is_ascii_whitespace()) != Some(b'{') {
+        if route.is_some() {
+            return Err(invalid());
+        }
+        let value: Value = serde_json::from_slice(body).map_err(|_| invalid())?;
+        return serde_json::to_vec(&value).map_err(|_| invalid());
+    }
+    // Preserve the top-level field order on existing wire recordings, while
+    // parsing and reserializing every object so a duplicate key cannot survive.
+    let mut fields: IndexMap<String, Value> =
+        serde_json::from_slice(body).map_err(|_| invalid())?;
+    if route == Some(false) || fields.keys().any(|key| message_field(key)) {
+        let policy = serde_json::json!({"parse":[]});
+        if let Some(existing) = fields.get_mut("allowed_mentions") {
+            *existing = policy;
+        } else {
+            fields.shift_insert(0, "allowed_mentions".into(), policy);
+        }
+    }
+    let interaction =
+        route == Some(true) && matches!(fields.get("type").and_then(Value::as_u64), Some(4 | 7));
+    if interaction && !fields.contains_key("data") {
+        fields.insert("data".into(), serde_json::json!({}));
+    }
+    for name in ["data", "message"] {
+        if let Some(child) = fields.get_mut(name) {
+            protect_nested(child, name == "data" && interaction)?;
+        }
+    }
+    serde_json::to_vec(&fields).map_err(|_| invalid())
 }
 
 fn aborted() -> Error {
