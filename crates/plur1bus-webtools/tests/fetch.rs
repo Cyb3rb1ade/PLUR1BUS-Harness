@@ -311,6 +311,7 @@ fn the_fetch_budget_and_cancellation_reach_document_processing() {
     let article = format!("<p>{}</p>", "Archived newspapers. ".repeat(2500));
     for (status, content_type, input, tokens, polls, expected) in [
         (200, "text/html", levels.as_str(), 1000, 40, "timeout"),
+        (403, "text/html", levels.as_str(), 1000, 40, "timeout"),
         (200, "application/json", array.as_str(), 1000, 40, "timeout"),
         (
             200,

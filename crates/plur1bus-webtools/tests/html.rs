@@ -105,3 +105,21 @@ fn combined_noscript_alternatives_fit_one_output_budget() {
         Some(plur1bus_webtools::http::Failure::TooLarge)
     );
 }
+
+#[test]
+fn table_text_and_sibling_blocks_share_capacity() {
+    let source = "<p>Today</p><table><tr><td>Local</td><td>News</td></tr></table>";
+    let expected = "Today\n\n| Local | News |\n| --- | --- |";
+    let base = "https://example.invalid/";
+    let mask = |v: &str, _| v.to_owned();
+    assert_eq!(
+        extract(source, base, &mask, expected.len(), &|| Ok(()))
+            .unwrap()
+            .markdown,
+        expected
+    );
+    assert_eq!(
+        extract(source, base, &mask, expected.len() - 1, &|| Ok(())).err(),
+        Some(plur1bus_webtools::http::Failure::TooLarge)
+    );
+}
