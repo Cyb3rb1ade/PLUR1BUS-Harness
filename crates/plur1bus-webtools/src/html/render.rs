@@ -1,7 +1,7 @@
 //! Render the bounded readable HTML tree as Markdown data.
 
 use regex::Regex;
-use std::sync::LazyLock;
+use std::{cell::Cell, sync::LazyLock};
 use url::Url;
 
 use super::{
@@ -156,45 +156,99 @@ pub(super) fn raw_text(
     Ok(())
 }
 
-#[derive(Default)]
-struct Output {
-    text: String,
-    units: usize,
+struct Reservation<'a> {
+    live: &'a Cell<usize>,
+    held: usize,
+    limit: usize,
 }
 
-impl Output {
-    fn push(&mut self, piece: &str, renderer: &Renderer<'_>) -> Result<(), Failure> {
-        self.units = self.units.saturating_add(units(piece));
-        renderer.bound(self.units)?;
-        self.text.push_str(piece);
+impl<'a> Reservation<'a> {
+    fn new(renderer: &'a Renderer<'_>) -> Self {
+        Self {
+            live: &renderer.live_units,
+            held: 0,
+            limit: renderer.max_units,
+        }
+    }
+
+    fn reserve(&mut self, units: usize) -> Result<(), Failure> {
+        let next = self.live.get().saturating_add(units);
+        if next > self.limit {
+            return Err(Failure::TooLarge);
+        }
+        self.live.set(next);
+        self.held += units;
         Ok(())
+    }
+
+    fn release(&mut self, units: usize) {
+        self.live.set(self.live.get() - units);
+        self.held -= units;
     }
 }
 
-#[derive(Default)]
-struct Blocks {
-    items: Vec<String>,
-    units: usize,
+impl Drop for Reservation<'_> {
+    fn drop(&mut self) {
+        self.release(self.held);
+    }
 }
 
-impl Blocks {
-    fn push(&mut self, text: String, renderer: &Renderer<'_>) -> Result<(), Failure> {
+struct Output<'a> {
+    text: String,
+    memory: Reservation<'a>,
+}
+
+impl<'a> Output<'a> {
+    fn new(renderer: &'a Renderer<'_>) -> Self {
+        Self {
+            text: String::new(),
+            memory: Reservation::new(renderer),
+        }
+    }
+
+    fn push(&mut self, piece: &str) -> Result<(), Failure> {
+        self.memory.reserve(units(piece))?;
+        self.text.push_str(piece);
+        Ok(())
+    }
+
+    fn into_text(self) -> String {
+        self.text
+    }
+}
+
+struct Blocks<'a> {
+    items: Vec<String>,
+    memory: Reservation<'a>,
+}
+
+impl<'a> Blocks<'a> {
+    fn new(renderer: &'a Renderer<'_>) -> Self {
+        Self {
+            items: Vec::new(),
+            memory: Reservation::new(renderer),
+        }
+    }
+
+    fn push(&mut self, text: String) -> Result<(), Failure> {
         if !text.is_empty() {
-            self.units = self
-                .units
-                .saturating_add(units(&text))
-                .saturating_add(if self.items.is_empty() { 0 } else { 2 });
-            renderer.bound(self.units)?;
+            let separator = if self.items.is_empty() { 0 } else { 2 };
+            self.memory
+                .reserve(units(&text).saturating_add(separator))?;
             self.items.push(text);
         }
         Ok(())
     }
 
-    fn extend(&mut self, items: Vec<String>, renderer: &Renderer<'_>) -> Result<(), Failure> {
+    fn extend(&mut self, items: Vec<String>) -> Result<(), Failure> {
         for text in items {
-            self.push(text, renderer)?;
+            self.push(text)?;
         }
         Ok(())
+    }
+
+    fn into_items(self) -> Vec<String> {
+        self.items
     }
 }
 
@@ -204,6 +258,7 @@ pub(super) struct Renderer<'a> {
     pub(super) keep: Option<usize>,
     pub(super) keep_header: bool,
     pub(super) max_units: usize,
+    pub(super) live_units: Cell<usize>,
     pub(super) check: &'a dyn Fn() -> Result<(), Failure>,
 }
 
@@ -226,14 +281,9 @@ impl Renderer<'_> {
     }
 
     fn raw(&self, id: usize) -> Result<String, Failure> {
-        let mut output = Output::default();
-        raw_text(
-            self.nodes,
-            id,
-            &mut |text| output.push(text, self),
-            self.check,
-        )?;
-        Ok(output.text)
+        let mut output = Output::new(self);
+        raw_text(self.nodes, id, &mut |text| output.push(text), self.check)?;
+        Ok(output.into_text())
     }
 
     fn collapse(&self, text: &str) -> Result<String, Failure> {
@@ -284,11 +334,11 @@ impl Renderer<'_> {
     }
 
     fn inline_children(&self, id: usize) -> Result<String, Failure> {
-        let mut output = Output::default();
+        let mut output = Output::new(self);
         for child in &self.nodes[id].children {
-            output.push(&self.inline(child)?, self)?;
+            output.push(&self.inline(child)?)?;
         }
-        Ok(output.text)
+        Ok(output.into_text())
     }
 
     fn inline(&self, child: &Child) -> Result<String, Failure> {
@@ -348,8 +398,8 @@ impl Renderer<'_> {
     }
 
     pub(super) fn blocks(&self, children: &[Child]) -> Result<Vec<String>, Failure> {
-        let mut blocks = Blocks::default();
-        let mut buffer = Output::default();
+        let mut blocks = Blocks::new(self);
+        let mut buffer = Output::new(self);
         for child in children {
             (self.check)()?;
             if let Child::Element(id) = child {
@@ -358,17 +408,16 @@ impl Renderer<'_> {
                 }
                 let tag = self.nodes[*id].tag.as_str();
                 if is_heading(tag) || BLOCK.contains(&tag) {
-                    blocks.push(tidy(&buffer.text), self)?;
-                    buffer = Output::default();
-                    blocks.extend(self.block(*id)?, self)?;
+                    blocks.push(tidy(&buffer.into_text()))?;
+                    buffer = Output::new(self);
+                    blocks.extend(self.block(*id)?)?;
                     continue;
                 }
             }
-            buffer.push(&self.inline(child)?, self)?;
-            self.bound(blocks.units.saturating_add(buffer.units))?;
+            buffer.push(&self.inline(child)?)?;
         }
-        blocks.push(tidy(&buffer.text), self)?;
-        Ok(blocks.items)
+        blocks.push(tidy(&buffer.into_text()))?;
+        Ok(blocks.into_items())
     }
 
     fn block(&self, id: usize) -> Result<Vec<String>, Failure> {
@@ -447,7 +496,7 @@ impl Renderer<'_> {
     }
 
     fn list(&self, id: usize, ordered: bool) -> Result<String, Failure> {
-        let mut output = Output::default();
+        let mut output = Output::new(self);
         let mut items = 0usize;
         for li in self.nodes[id].children.iter().filter_map(as_node) {
             (self.check)()?;
@@ -468,17 +517,17 @@ impl Renderer<'_> {
             for (index, line) in body.split('\n').enumerate() {
                 (self.check)()?;
                 if !output.text.is_empty() {
-                    output.push("\n", self)?;
+                    output.push("\n")?;
                 }
                 if index == 0 {
-                    output.push(&mark, self)?;
+                    output.push(&mark)?;
                 } else if !line.is_empty() {
-                    output.push(&pad, self)?;
+                    output.push(&pad)?;
                 }
-                output.push(line, self)?;
+                output.push(line)?;
             }
         }
-        Ok(output.text)
+        Ok(output.into_text())
     }
 
     fn table(&self, id: usize) -> Result<Vec<String>, Failure> {
@@ -488,13 +537,13 @@ impl Renderer<'_> {
             for cell in self.cells(row) {
                 (self.check)()?;
                 if self.has_layout_content(cell)? {
-                    let mut out = Blocks::default();
+                    let mut out = Blocks::new(self);
                     for row in rows {
                         for cell in self.cells(row) {
-                            out.extend(self.blocks(&self.nodes[cell].children)?, self)?;
+                            out.extend(self.blocks(&self.nodes[cell].children)?)?;
                         }
                     }
-                    return Ok(out.items);
+                    return Ok(out.into_items());
                 }
             }
         }
@@ -502,6 +551,7 @@ impl Renderer<'_> {
         let mut grid = Vec::new();
         let mut width = 0;
         let mut content_units = 0usize;
+        let mut retained_grid = Reservation::new(self);
         for row in rows {
             (self.check)()?;
             let mut cells = Vec::new();
@@ -514,10 +564,10 @@ impl Renderer<'_> {
                 let first = cells.len();
                 let end = checked_cell_end(first, colspan)?;
                 let text = tidy(&self.inline_children(cell)?).replace('\n', " ");
-                content_units = content_units
-                    .saturating_add(units(&text))
-                    .saturating_add(text.bytes().filter(|byte| *byte == b'|').count());
-                self.bound(content_units)?;
+                let escaped_units =
+                    units(&text).saturating_add(text.bytes().filter(|byte| *byte == b'|').count());
+                retained_grid.reserve(escaped_units)?;
+                content_units = content_units.saturating_add(escaped_units);
                 cells.push(text.replace('|', "\\|"));
                 cells.resize(end, String::new());
                 if rowspan > 1 {
@@ -547,22 +597,24 @@ impl Renderer<'_> {
                 .saturating_add(width.saturating_mul(3))
                 .saturating_add(row_count - 1),
         )?;
+        retained_grid.reserve(width.saturating_mul(3))?;
         grid.insert(1, vec!["---".to_owned(); width]);
-        let mut table = Output::default();
+        let mut table = Output::new(self);
         for mut row in grid {
             (self.check)()?;
             row.resize(width, String::new());
             if !table.text.is_empty() {
-                table.push("\n", self)?;
+                table.push("\n")?;
             }
-            table.push("| ", self)?;
-            for (index, cell) in row.iter().enumerate() {
+            table.push("| ")?;
+            for (index, cell) in row.into_iter().enumerate() {
                 if index > 0 {
-                    table.push(" | ", self)?;
+                    table.push(" | ")?;
                 }
-                table.push(cell, self)?;
+                retained_grid.release(units(&cell));
+                table.push(&cell)?;
             }
-            table.push(" |", self)?;
+            table.push(" |")?;
         }
 
         let mut blocks = Vec::new();
@@ -576,7 +628,7 @@ impl Renderer<'_> {
                 tidy(&self.inline_children(caption)?).replace('\n', " "),
             ));
         }
-        blocks.push(table.text);
+        blocks.push(table.into_text());
         Ok(blocks)
     }
 
@@ -662,7 +714,28 @@ fn nonempty(text: String) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{checked_cell_end, Failure, MAX_TABLE_CELLS};
+    use super::{checked_cell_end, Blocks, Failure, Output, Renderer, MAX_TABLE_CELLS};
+
+    #[test]
+    fn nested_buffers_share_the_live_render_budget() -> Result<(), Failure> {
+        let renderer = Renderer {
+            nodes: &[],
+            base: None,
+            keep: None,
+            keep_header: false,
+            max_units: 10,
+            live_units: std::cell::Cell::new(0),
+            check: &|| Ok(()),
+        };
+        let mut outer = Blocks::new(&renderer);
+        outer.push("12345678".into())?;
+        let mut child = Output::new(&renderer);
+        assert_eq!(child.push("abc"), Err(Failure::TooLarge));
+        drop(outer);
+        child.push("abc")?;
+        assert_eq!(child.text, "abc");
+        Ok(())
+    }
 
     #[test]
     fn table_reservation_checks_cells_before_allocating_a_grid() {

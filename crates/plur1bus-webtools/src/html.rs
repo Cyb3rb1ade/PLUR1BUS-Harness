@@ -303,6 +303,7 @@ pub fn extract(
         keep: picked,
         keep_header: picked.is_some(),
         max_units: max_units.min(crate::http::DEFAULT_BODY_BYTES),
+        live_units: std::cell::Cell::new(0),
         check,
     };
     let mut markdown = render(&nodes, picked.unwrap_or(body_id), &renderer)?;
