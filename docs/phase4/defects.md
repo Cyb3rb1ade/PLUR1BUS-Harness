@@ -1960,3 +1960,12 @@ receive an empty mention policy. Re-encoding removes duplicate JSON keys.
 File uploads require a prepared message part and an ASCII filename containing
 only letters, digits, period, dash or underscore. TypeScript sanitizes its
 filenames and uses a narrower set of webhook routes.
+
+<a id="p4d-271"></a>
+
+## P4D-271 — Whole MCP tool result size (W7-N2)
+
+TypeScript charges content and structured data before adding provenance. The Rust
+registry also measures the final serialized UTF-8 result, including its envelope,
+unknown blocks and retained metadata. A result exactly at the configured limit
+is valid. The caller receives `ResultLimit` when the result would exceed it.

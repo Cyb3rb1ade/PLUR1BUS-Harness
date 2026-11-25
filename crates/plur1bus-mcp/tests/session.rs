@@ -408,6 +408,12 @@ fn listed_tools_expose_only_the_bounded_display_descriptor() {
         }}},
         {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,"body":{
             "jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"summary"}]}
+        }}},
+        {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,"body":{
+            "jsonrpc":"2.0","id":3,"result":{"tools":[
+                {"name":"forecast","inputSchema":{"type":"object"}},
+                {"name":"forecast\u{200b}","inputSchema":{"type":"object"}}
+            ]}
         }}}
     ]}));
     let session = Session::open_http(HttpOptions {
@@ -439,6 +445,10 @@ fn listed_tools_expose_only_the_bounded_display_descriptor() {
             deadline(),
         )
         .unwrap();
+    assert_eq!(
+        session.invoke(Call::ListTools, Instant::now() + Duration::from_secs(2)),
+        Err(plur1bus_mcp::session::Error::Protocol)
+    );
     session.close().unwrap();
     let requests = fixture.received();
     let call = STANDARD

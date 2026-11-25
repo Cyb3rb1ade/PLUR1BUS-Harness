@@ -1,5 +1,11 @@
 //! Reserve room before handing a request to the SDK, which spawns its handler.
-use std::{collections::HashMap, fmt, future::Future, io, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+    future::Future,
+    io,
+    time::Duration,
+};
 
 use rmcp::{
     model::{JsonRpcMessage, RequestId},
@@ -48,6 +54,7 @@ impl<E: std::error::Error + 'static> std::error::Error for Error<E> {
 struct Outstanding {
     replies: HashMap<RequestId, usize>,
     bytes: usize,
+    writing: HashSet<RequestId>,
 }
 
 impl Outstanding {
@@ -56,10 +63,30 @@ impl Outstanding {
     }
 }
 
+struct WriteReservation {
+    state: watch::Sender<Outstanding>,
+    id: RequestId,
+}
+
+impl Drop for WriteReservation {
+    fn drop(&mut self) {
+        let id = &self.id;
+        self.state.send_if_modified(|state| {
+            let Some(bytes) = state.replies.remove(id) else {
+                return false;
+            };
+            state.writing.remove(id);
+            state.bytes -= bytes;
+            true
+        });
+    }
+}
+
 pub(crate) struct Bounded<Role: ServiceRole, T> {
     inner: T,
     outstanding: watch::Sender<Outstanding>,
     pending: Option<RxJsonRpcMessage<Role>>,
+    honor_cancellation: bool,
     closing_budget: Duration,
     blocked_until: Option<Instant>,
     fault: Fault,
@@ -79,6 +106,7 @@ impl<Role: ServiceRole, T> Bounded<Role, T> {
             inner,
             outstanding: watch::channel(Outstanding::default()).0,
             pending: None,
+            honor_cancellation: false,
             closing_budget,
             blocked_until: None,
             fault,
@@ -87,27 +115,39 @@ impl<Role: ServiceRole, T> Bounded<Role, T> {
         }
     }
 
+    pub(crate) fn with_request_cancellation(mut self, enabled: bool) -> Self {
+        self.honor_cancellation = enabled;
+        self
+    }
+
     async fn wait_for_room(&mut self, bytes: usize) -> Option<()> {
-        if self.fault.current().is_some() {
-            return None;
-        }
         let mut state = self.outstanding.subscribe();
-        if state.borrow().has_room(bytes) {
-            self.blocked_until = None;
-            return Some(());
+        loop {
+            if self.fault.current().is_some() {
+                return None;
+            }
+            let waiting_only_for_writes = {
+                let value = state.borrow_and_update();
+                if value.has_room(bytes) {
+                    self.blocked_until = None;
+                    return Some(());
+                }
+                value.writing.len() == value.replies.len()
+            };
+            if waiting_only_for_writes {
+                let deadline = *self
+                    .blocked_until
+                    .get_or_insert_with(|| Instant::now() + self.closing_budget);
+                if timeout_at(deadline, state.changed()).await.is_err() {
+                    self.fault.trip(Cause::Backpressure);
+                    return None;
+                }
+            } else {
+                // User-facing callbacks may legitimately take longer than the writer deadline.
+                self.blocked_until = None;
+                state.changed().await.ok()?;
+            }
         }
-        let deadline = *self
-            .blocked_until
-            .get_or_insert_with(|| Instant::now() + self.closing_budget);
-        if timeout_at(deadline, state.wait_for(|state| state.has_room(bytes)))
-            .await
-            .is_err()
-        {
-            self.fault.trip(Cause::Backpressure);
-            return None;
-        }
-        self.blocked_until = None;
-        Some(())
     }
 }
 
@@ -127,39 +167,67 @@ impl<Role: ServiceRole, T: Transport<Role>> Transport<Role> for Bounded<Role, T>
         let maximum = id
             .as_ref()
             .and_then(|id| self.outstanding.borrow().replies.get(id).copied());
-        let within_budget = maximum.is_none_or(|bytes| encoded_size(&message, bytes).is_some());
+        let encoded = maximum.map(|bytes| encoded_size(&message, bytes));
+        let within_budget = !matches!(encoded, Some(None));
+        let reservation = id.zip(encoded.flatten()).map(|(id, bytes)| {
+            self.outstanding.send_modify(|state| {
+                if let Some(reserved) = state.replies.get_mut(&id) {
+                    state.bytes -= *reserved - bytes;
+                    *reserved = bytes;
+                    state.writing.insert(id.clone());
+                }
+            });
+            WriteReservation {
+                state: self.outstanding.clone(),
+                id,
+            }
+        });
         let operation =
             (within_budget && self.fault.current().is_none()).then(|| self.inner.send(message));
-        let outstanding = self.outstanding.clone();
         let fault = self.fault.clone();
 
         async move {
+            let _reservation = reservation;
             let Some(operation) = operation else {
                 fault.trip(Cause::Backpressure);
                 return Err(Error::Backpressure);
             };
-            let result = tokio::select! {
+            tokio::select! {
                 biased;
                 _ = fault.wait() => Err(Error::Backpressure),
                 result = operation => result.map_err(Error::Transport),
-            };
-            if let Some(id) = id {
-                outstanding.send_if_modified(|state| {
-                    let Some(bytes) = state.replies.remove(&id) else {
-                        return false;
-                    };
-                    state.bytes -= bytes;
-                    true
-                });
             }
-            result
         }
     }
 
     async fn receive(&mut self) -> Option<RxJsonRpcMessage<Role>> {
         if self.pending.is_none() {
-            self.wait_for_room(1).await?;
+            let writes_only = {
+                let state = self.outstanding.borrow();
+                state.replies.len() == state.writing.len()
+            };
+            if writes_only {
+                self.wait_for_room(1).await?;
+            }
             self.pending = self.inner.receive().await;
+        }
+        if self.honor_cancellation {
+            if let Some(JsonRpcMessage::Notification(notification)) = &self.pending {
+                if let Some(id) = Role::peer_cancelled_params(&notification.notification)
+                    .and_then(|params| params.request_id.as_ref())
+                {
+                    self.outstanding.send_if_modified(|state| {
+                        if state.writing.contains(id) {
+                            return false;
+                        }
+                        if let Some(bytes) = state.replies.remove(id) {
+                            state.bytes -= bytes;
+                            return true;
+                        }
+                        false
+                    });
+                }
+            }
         }
         let Some(JsonRpcMessage::Request(request)) = self.pending.as_ref() else {
             return self.pending.take();
@@ -219,7 +287,7 @@ impl io::Write for Counter {
     }
 }
 
-fn encoded_size(value: &impl Serialize, limit: usize) -> Option<usize> {
+pub(crate) fn encoded_size(value: &impl Serialize, limit: usize) -> Option<usize> {
     let mut counter = Counter { count: 0, limit };
     serde_json::to_writer(&mut counter, value).ok()?;
     Some(counter.count)
@@ -229,43 +297,43 @@ fn encoded_size(value: &impl Serialize, limit: usize) -> Option<usize> {
 mod tests {
     use super::{Outstanding, RequestId, MAX_FRAME_BYTES, MAX_REPLIES};
 
-    #[tokio::test]
-    async fn a_reply_holds_its_reservation_until_the_write_completes(
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        use super::{Bounded, Fault, Future};
-        use rmcp::{
-            model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
-            transport::Transport,
-            RoleServer,
-        };
-        use std::{collections::VecDeque, io, sync::Arc, task::Poll, time::Duration};
-        use tokio::sync::Semaphore;
+    use super::{Bounded, Fault, Future};
+    use rmcp::{
+        model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
+        transport::Transport,
+        RoleServer,
+    };
+    use std::{collections::VecDeque, io, sync::Arc, task::Poll, time::Duration};
+    use tokio::sync::Semaphore;
 
-        struct MemoryTransport {
-            incoming: VecDeque<ClientJsonRpcMessage>,
-            write_slots: Arc<Semaphore>,
-        }
-        impl Transport<RoleServer> for MemoryTransport {
-            type Error = io::Error;
+    struct MemoryTransport {
+        incoming: VecDeque<ClientJsonRpcMessage>,
+        write_slots: Arc<Semaphore>,
+    }
+    impl Transport<RoleServer> for MemoryTransport {
+        type Error = io::Error;
 
-            fn send(
-                &mut self,
-                _: ServerJsonRpcMessage,
-            ) -> impl Future<Output = Result<(), io::Error>> + Send + 'static {
-                let slots = self.write_slots.clone();
-                async move {
-                    let _permit = slots.acquire_owned().await.map_err(io::Error::other)?;
-                    Ok(())
-                }
-            }
-            async fn receive(&mut self) -> Option<ClientJsonRpcMessage> {
-                self.incoming.pop_front()
-            }
-            async fn close(&mut self) -> Result<(), io::Error> {
+        fn send(
+            &mut self,
+            _: ServerJsonRpcMessage,
+        ) -> impl Future<Output = Result<(), io::Error>> + Send + 'static {
+            let slots = self.write_slots.clone();
+            async move {
+                let _permit = slots.acquire_owned().await.map_err(io::Error::other)?;
                 Ok(())
             }
         }
+        async fn receive(&mut self) -> Option<ClientJsonRpcMessage> {
+            self.incoming.pop_front()
+        }
+        async fn close(&mut self) -> Result<(), io::Error> {
+            Ok(())
+        }
+    }
 
+    #[tokio::test]
+    async fn a_reply_holds_its_reservation_until_the_write_completes(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let write_slots = Arc::new(Semaphore::new(0));
         let message = |id| {
             serde_json::from_value(serde_json::json!({
@@ -293,11 +361,80 @@ mod tests {
             let mut read = std::pin::pin!(transport.receive());
             assert!(matches!(futures::poll!(read.as_mut()), Poll::Pending));
         }
-        assert_eq!(transport.inner.incoming.len(), 1);
+        assert!(transport.inner.incoming.is_empty());
+        assert!(transport.outstanding.borrow().bytes < 128);
         write_slots.add_permits(1);
         write.await?;
         assert!(transport.receive().await.is_some());
         assert!(fault.current().is_none());
+        Ok(())
+    }
+
+    fn memory_transport(
+        ids: &[i64],
+        frame_limit: usize,
+    ) -> Result<Bounded<RoleServer, MemoryTransport>, serde_json::Error> {
+        let incoming = ids
+            .iter()
+            .map(|id| {
+                serde_json::from_value(serde_json::json!({
+                    "jsonrpc":"2.0","id":id,"method":"ping"
+                }))
+            })
+            .collect::<Result<VecDeque<_>, _>>()?;
+        Ok(Bounded::new(
+            MemoryTransport {
+                incoming,
+                write_slots: Arc::new(Semaphore::new(1)),
+            },
+            frame_limit,
+            Duration::from_secs(1),
+            Fault::new(),
+            |_| true,
+        ))
+    }
+
+    #[tokio::test]
+    async fn duplicate_pending_ids_are_refused_but_a_completed_id_can_be_reused(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let response = || serde_json::from_str(r#"{"jsonrpc":"2.0","id":1,"result":{}}"#);
+        let mut transport = memory_transport(&[1, 1, 1], 1024)?;
+        assert!(transport.receive().await.is_some());
+        transport.send(response()?).await?;
+        assert!(transport.receive().await.is_some());
+        assert!(transport.receive().await.is_none());
+        assert_eq!(transport.fault.current(), Some(super::Cause::Backpressure));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn oversize_reply_is_refused_before_it_reaches_the_writer(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut transport = memory_transport(&[1], 24)?;
+        assert!(transport.receive().await.is_some());
+        let response = serde_json::from_str(r#"{"jsonrpc":"2.0","id":1,"result":{}}"#)?;
+        assert!(matches!(
+            transport.send(response).await,
+            Err(super::Error::Backpressure)
+        ));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn abandoned_sends_and_peer_cancel_release_only_the_owned_slot(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut transport = memory_transport(&[1, 1], 1024)?.with_request_cancellation(true);
+        assert!(transport.receive().await.is_some());
+        drop(transport.send(serde_json::from_str(
+            r#"{"jsonrpc":"2.0","id":1,"result":{}}"#,
+        )?));
+        assert!(transport.receive().await.is_some());
+        transport.inner.incoming.push_back(serde_json::from_str(
+            r#"{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":1}}"#,
+        )?);
+        assert!(transport.receive().await.is_some());
+        assert!(transport.outstanding.borrow().replies.is_empty());
+        assert_eq!(transport.outstanding.borrow().bytes, 0);
         Ok(())
     }
 
@@ -314,6 +451,7 @@ mod tests {
                 .map(|id| (RequestId::Number(id), 1))
                 .collect(),
             bytes: MAX_REPLIES,
+            ..Outstanding::default()
         };
         assert!(!full.has_room(1));
         assert!(Outstanding::default().has_room(MAX_FRAME_BYTES));

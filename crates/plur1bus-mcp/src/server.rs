@@ -413,12 +413,13 @@ impl Server {
                 .map_err(|_| Error::Invalid)?;
                 let fault = Fault::new();
                 let transport = replies::Bounded::new(
-                    transport,
+                    transport.with_write_fault(fault.clone()),
                     BODY_LIMIT,
                     frame_deadline,
                     fault.clone(),
                     |request| matches!(request, ClientRequest::PingRequest(_)),
-                );
+                )
+                .with_request_cancellation(true);
                 if *stop.borrow() {
                     return Ok(());
                 }
@@ -437,7 +438,11 @@ impl Server {
                         cancel.cancel();
                         return Err(Error::Backpressure);
                     }
-                    _ = &mut waiting => {}
+                    _ = &mut waiting => {
+                        if fault.current().is_some() {
+                            return Err(Error::Backpressure);
+                        }
+                    }
                     _ = stop.changed() => {
                         cancel.cancel();
                         let _ = tokio::time::timeout(frame_deadline, &mut waiting).await;

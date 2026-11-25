@@ -485,7 +485,13 @@ Abweichungen stehen in [P4D-208](defects.md#p4d-208) und
 Reply pressure, SSE reconnects and tool display are covered by
 [P4D-242–246](defects.md#p4d-242). The registry attaches D19 origin and trust
 from its definition and the authenticated caller, records redaction and truncation,
-and budgets tool result payloads in their source order.
+and budgets tool result payloads in their source order. The final serialized result
+is bounded as specified in [P4D-271](defects.md#p4d-271).
+
+The HTTP host must cap concurrent inbound requests per actor and connection,
+bound active tool work, and enforce its response write deadline. The library
+returns each HTTP response to the host for delivery. For stdio the host must
+also bound the runtime and cost of up to 64 concurrent peer requests (R-W-16a).
 
 At the flip the host must emit the own-server `mcp.server.call` and
 `mcp.server.denied` audit events. The stdio launcher must allowlist commands,

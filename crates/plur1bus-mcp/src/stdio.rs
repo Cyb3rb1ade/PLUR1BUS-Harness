@@ -56,6 +56,7 @@ pub struct Framed<Role, R, W> {
     limit: usize,
     timeout: Duration,
     failure: Fault,
+    write_fault: Option<crate::connection_fault::Fault>,
     include_progress: bool,
     legacy_envelope: bool,
     _role: PhantomData<fn() -> Role>,
@@ -82,6 +83,7 @@ where
             limit: limit.min(MAX_FRAME_BYTES),
             timeout,
             failure: Fault::default(),
+            write_fault: None,
             include_progress: true,
             legacy_envelope: false,
             _role: PhantomData,
@@ -96,6 +98,11 @@ where
 
     pub(crate) fn passive(mut self) -> Self {
         self.include_progress = false;
+        self
+    }
+
+    pub(crate) fn with_write_fault(mut self, fault: crate::connection_fault::Fault) -> Self {
+        self.write_fault = Some(fault);
         self
     }
 
@@ -156,6 +163,7 @@ where
         let write = Arc::clone(&self.write);
         let failure = Arc::clone(&self.failure);
         let limit = self.limit;
+        let write_fault = self.write_fault.clone();
         let include_progress = self.include_progress;
         let legacy_envelope = self.legacy_envelope;
         let deadline = Instant::now().checked_add(self.timeout);
@@ -184,6 +192,11 @@ where
             .unwrap_or(Err(Error::Timeout));
             if let Err(error) = result {
                 let _ = failure.set(error);
+                if error == Error::Timeout {
+                    if let Some(fault) = write_fault {
+                        fault.trip(crate::connection_fault::Cause::Backpressure);
+                    }
+                }
             }
             result
         }

@@ -558,11 +558,9 @@ impl Registry {
                             "provenance".into(),
                             serde_json::to_value(origin).map_err(|_| RegistryError::Invalid)?,
                         );
-                        value = bounded(&entry.def, value)?;
                     }
-                } else {
-                    value = bounded(&entry.def, value)?;
                 }
+                value = bounded(&entry.def, value)?;
                 let mut state = entry.state()?;
                 if state.retired {
                     return Err(RegistryError::NotRegistered);
@@ -631,8 +629,7 @@ fn key(def: &Definition) -> Result<Key> {
 }
 
 fn bounded(def: &Definition, value: Value) -> Result<Value> {
-    let bytes = serde_json::to_vec(&value).map_err(|_| RegistryError::ResultLimit)?;
-    if bytes.len() > def.max_result_bytes {
+    if crate::replies::encoded_size(&value, def.max_result_bytes).is_none() {
         Err(RegistryError::ResultLimit)
     } else {
         Ok(value)

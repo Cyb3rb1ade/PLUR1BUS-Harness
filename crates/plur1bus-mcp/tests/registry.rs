@@ -256,6 +256,33 @@ fn tool_results_replay_the_recorded_provenance_and_content_budget() {
         }
     }
 
+    let raw = json!({"content":[{"type":"fixture","_meta":{"label":"ordinary fixture"}}],
+                      "structuredContent":{"unit":"m"}});
+    let invoke = |limit| {
+        let registry = Registry::new(Arc::new(Replay(raw.clone())));
+        let mut definition = def(Scope::Installation);
+        definition.max_result_bytes = limit;
+        registry.register(definition).unwrap();
+        registry.invoke(
+            "fixture",
+            Caller {
+                agent_id: "fixture-agent",
+                principal: "fixture-person",
+            },
+            Call::CallTool {
+                name: "summary".into(),
+                arguments: Default::default(),
+            },
+            Instant::now() + Duration::from_secs(2),
+        )
+    };
+    let full = invoke(1024).unwrap();
+    assert_eq!(full["content"], raw["content"]);
+    assert_eq!(full["structuredContent"], raw["structuredContent"]);
+    let bytes = serde_json::to_vec(&full).unwrap().len();
+    assert_eq!(invoke(bytes), Ok(full));
+    assert_eq!(invoke(bytes - 1), Err(RegistryError::ResultLimit));
+
     let fixture: Value =
         serde_json::from_str(include_str!("../../../fixtures/parity/mcp/provenance.json")).unwrap();
     for case in fixture["cases"].as_array().unwrap() {
@@ -277,7 +304,7 @@ fn tool_results_replay_the_recorded_provenance_and_content_budget() {
             },
             Instant::now() + Duration::from_secs(2),
         );
-        assert_eq!(actual, Ok(case["observed"].clone()), "{}", input["name"]);
+        assert_eq!(actual, Err(RegistryError::ResultLimit), "{}", input["name"]);
     }
 }
 

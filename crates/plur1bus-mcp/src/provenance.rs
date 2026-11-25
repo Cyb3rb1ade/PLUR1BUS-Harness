@@ -124,3 +124,33 @@ impl Budget {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn content_projection_replays_the_typescript_provenance_vectors(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let fixture: Value =
+            serde_json::from_str(include_str!("../../../fixtures/parity/mcp/provenance.json"))?;
+        for case in fixture["cases"]
+            .as_array()
+            .ok_or("missing recorded cases")?
+        {
+            let input = &case["input"];
+            let raw = input["raw"].to_string();
+            let cleaned = raw.replace("sample-marker", "[REDACTED]");
+            let result = tool_result(
+                serde_json::from_str(&cleaned)?,
+                "fixture",
+                "summary",
+                "fixture-person",
+                serde_json::from_value(input["trust"].clone())?,
+                raw != cleaned,
+                usize::try_from(input["maxBytes"].as_u64().ok_or("missing fixture limit")?)?,
+            );
+            assert_eq!(result, case["observed"], "{}", input["name"]);
+        }
+        Ok(())
+    }
+}

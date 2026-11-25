@@ -230,6 +230,12 @@ fn http_rpc_refuses_unbounded_ids_before_forming_a_diagnostic() {
 
 #[test]
 fn stdio_session_ends_when_the_reply_sink_stays_unavailable() {
+    for count in [1, 5] {
+        assert_stalled_stdio_write(count);
+    }
+}
+
+fn assert_stalled_stdio_write(count: usize) {
     use std::{
         io,
         pin::Pin,
@@ -310,7 +316,7 @@ fn stdio_session_ends_when_the_reply_sink_stays_unavailable() {
             .write_all(b"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n")
             .await
             .unwrap();
-        for id in 1..=5 {
+        for id in 1..=count {
             let request = json!({"jsonrpc":"2.0","id":id,"method":"tools/list"});
             client_write.write_all(format!("{request}\n").as_bytes()).await.unwrap();
         }
@@ -340,6 +346,11 @@ fn tool_admission_and_modern_headers_apply_before_dispatch() {
     )
     .unwrap();
     let deadline = || Instant::now() + Duration::from_secs(2);
+    let (headers, body) = request("tools/list", &json!({}));
+    assert_eq!(
+        denied.respond(&headers, &body, deadline()).message["result"]["tools"],
+        json!([])
+    );
     let (mut headers, body) = request(
         "tools/call",
         &json!({"name":"alpha.echo","arguments":{"msg":"test"}}),

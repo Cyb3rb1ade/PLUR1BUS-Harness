@@ -223,7 +223,8 @@ impl Session {
                 timing.close,
                 reply_fault.clone(),
                 |request| matches!(request, ServerRequest::PingRequest(_)),
-            );
+            )
+            .with_request_cancellation(matches!(options.protocol, Protocol::Legacy));
             let handler = Handler::new(
                 ports,
                 timing.request,
@@ -537,7 +538,8 @@ async fn open_child(
                     timing.close,
                     reply_fault.clone(),
                     |request| matches!(request, ServerRequest::PingRequest(_)),
-                ),
+                )
+                .with_request_cancellation(matches!(protocol, Protocol::Legacy)),
                 protocol,
                 connect_limit.min(deadline.saturating_duration_since(Instant::now())),
                 handler,
