@@ -1737,10 +1737,9 @@ jobs:
           # The library itself launches its configured Chromium with the default sandbox.
           export PLUR1BUS_GOLDEN_CHROME="${PLUR1BUS_GOLDEN_CHROME:-$(command -v chrome || command -v google-chrome || command -v chromium)}"
           export PLUR1BUS_CHROMIUM_BIN="$RUNNER_TEMP/document-golden-chrome"
-          cat > "$PLUR1BUS_CHROMIUM_BIN" <<'SCRIPT'
-          #!/usr/bin/env bash
-          exec "$PLUR1BUS_GOLDEN_CHROME" --no-sandbox "$@"
-          SCRIPT
+          # Capture the binary while the runner environment is still available.
+          test -x "$PLUR1BUS_GOLDEN_CHROME"
+          printf '#!/bin/bash\nexec %q --no-sandbox "$@"\n' "$PLUR1BUS_GOLDEN_CHROME" > "$PLUR1BUS_CHROMIUM_BIN"
           chmod 700 "$PLUR1BUS_CHROMIUM_BIN"
           cargo build --locked -p plur1bus-documents --example render-goldens
           cargo test --locked -p plur1bus-documents --test native_browser -- --ignored --test-threads=1

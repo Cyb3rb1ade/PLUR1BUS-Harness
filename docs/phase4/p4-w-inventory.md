@@ -330,10 +330,9 @@ only. Refuse a configuration mismatch as an auth error.
   des Ports, bevor der Kindprozess bei ausbleibender Bestätigung beendet wird.
 
 Das Rust-Dokumentmodul rendert Markdown in alle neun Vorlagen und bindet die drei ausgelieferten Fonts
-über einen Asset-Port ein. Der Chromium-Adapter öffnet eine private Profilinstanz und begrenzt den
-DevTools-Transport auf deren Loopback-Endpunkt. Mit konfiguriertem Asset verwendet er das unveränderte
-Paged.js aus dem Workspace. R-W-9 erlaubt den blockierenden CDP-Aufruf bis zu der vom Host gesetzten
-absoluten Frist. Die statische und die Chromium-Layout-Prüfung führen die Abweichungen
+über einen Asset-Port ein. Der Chromium-Adapter verwendet ein privates Profil und eine DevTools-Pipe.
+Mit konfiguriertem Asset lädt er Paged.js aus dem Workspace. Für die Pipe gilt die frühere
+von Host-Frist und 600-Sekunden-Grenze. Beim Warten prüft sie den Abbruch. Die statische und die Chromium-Layout-Prüfung führen die Abweichungen
 [P4D-221](defects.md#p4d-221) und [P4D-222](defects.md#p4d-222).
 Der Golden-Treiber liest dieselben neun Eingaben wie `documents-golden`, vergleicht die gerenderten
 Bilder mit dessen Schwellenwerten und prüft PDF-Seitenzahlen und eingebettete Schrift. Der lokale Lauf
@@ -361,7 +360,9 @@ Windows job. It must stop the complete tree on close, timeout, cancellation
 and host failure. The job store must assign bounded IDs equivalent to
 `verify_id`. A Windows storage backend refuses reserved device names in
 every path component. Full-page bitmap dimensions need a host-side limit
-before capture.
+before capture. On startup the host must clean up its abandoned render directories
+after a hard exit. The Windows pipe and Chromium process tree still require a
+native run. The Windows runtime flip is blocked until that check passes.
 
 ### W5 · Erkennung und Katalog (P4-44)
 

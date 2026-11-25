@@ -147,6 +147,24 @@ mod tests {
     use std::{io::Cursor, sync::mpsc};
 
     #[test]
+    fn send_refuses_a_nul_before_enqueuing_the_frame() {
+        use super::{mpsc, Pipe, Transport};
+        let (_, received) = mpsc::sync_channel(1);
+        let (outgoing, frames) = mpsc::sync_channel(1);
+        let deadline = Instant::now() + Duration::from_millis(20);
+        let mut pipe = Pipe {
+            received,
+            outgoing,
+            control: Control {
+                deadline,
+                cancelled: &|| false,
+            },
+        };
+        assert_eq!(pipe.send("first\0second", deadline), Err(Error::TooLarge));
+        assert!(frames.try_recv().is_err());
+    }
+
+    #[test]
     fn pipe_framing_checks_each_message_before_copying() {
         let mut frames = Cursor::new(b"one\0four\0longer\0");
         assert_eq!(read_frame(&mut frames, 4).as_deref(), Ok("one"));

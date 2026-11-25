@@ -159,6 +159,7 @@ fn templates_declare_a_closed_resource_policy() {
     assert!(policy.contains("connect-src 'none'"));
     assert!(policy.contains("frame-src 'none'"));
     assert!(policy.contains("font-src data:"));
+    assert!(policy.contains("img-src data:"));
 }
 
 #[test]
@@ -212,4 +213,23 @@ fn escaped_attribute_like_text_remains_readable_in_authored_templates() {
             );
         }
     }
+}
+
+#[test]
+fn cv_role_is_escaped_in_the_document() {
+    use plur1bus_documents::templates::{assemble, Document, Kit, Meta, Template};
+    let html = assemble(
+        Template::Cv,
+        &Document {
+            title: "CV",
+            subtitle: "",
+            markdown: "",
+            kit: Kit::default(),
+            meta: Meta {
+                role: "Design & <Research>",
+                ..Meta::default()
+            },
+        },
+    );
+    assert!(html.contains("Design &amp; &lt;Research&gt;"));
 }

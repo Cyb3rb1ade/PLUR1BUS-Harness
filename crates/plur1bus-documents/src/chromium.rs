@@ -372,12 +372,14 @@ mod policy_tests {
         struct Inbox {
             pending: usize,
             session: &'static str,
+            reads: usize,
         }
         impl Transport for Inbox {
             fn send(&mut self, _: &str, _: Instant) -> Result<()> {
                 Ok(())
             }
             fn receive(&mut self, _: Instant) -> Result<String> {
+                self.reads += 1;
                 if self.pending > 0 {
                     self.pending -= 1;
                     Ok(
@@ -399,6 +401,7 @@ mod policy_tests {
         let mut other = Inbox {
             pending: 0,
             session: "other",
+            reads: 0,
         };
         let mut client = Client::new(&mut other, control);
         client.session = Some("fixture".into());
@@ -407,7 +410,9 @@ mod policy_tests {
             Err(Error::Protocol)
         );
 
+        assert_eq!(other.reads, 1);
         let mut busy = Inbox {
+            reads: 0,
             pending: UNRELATED_LIMIT,
             session: "fixture",
         };

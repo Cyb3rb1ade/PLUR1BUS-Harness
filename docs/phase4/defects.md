@@ -1775,8 +1775,13 @@ Rust uses the Chromium DevTools pipe and attaches to a single private target.
 It supplies the document through interception, without opening a DevTools
 listener. The content policy allows inline styles and embedded fonts and
 images. The installed Paged.js asset is read from the trusted host path and
-evaluated through the controlled session. Redirects, off-document requests,
-workers and frames are refused. Chromium starts with a cleared environment.
+evaluated through the controlled session. Fetch interception checks redirects and
+ordinary subresource requests. The document CSP blocks script execution and
+connections, including script-created workers and WebRTC. Chromium's resolver
+rules block name resolution for other connections, including preconnects.
+The review found that interception alone did not cover WebSockets, shared
+workers, STUN or preconnects. The system proxy is a separate host boundary.
+Chromium starts with a cleared environment.
 The driver caps the deadline at 600 seconds and checks cancellation while
 waiting on the pipe. On Windows the process launcher uses the configured Node
 binary to attach the Chromium pipe descriptors.
