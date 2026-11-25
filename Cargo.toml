@@ -1,5 +1,5 @@
 [workspace]
-exclude = ["apps", "fuzz", "vendor/zune-jpeg", "crates/vendor", "crates/vendor/regress"]
+exclude = ["apps", "fuzz", "vendor/zune-jpeg", "vendor/lance-linalg", "crates/vendor", "crates/vendor/regress"]
 resolver = "2"
 members = ["crates/*"]
 
@@ -67,11 +67,15 @@ lance-file = { git = "https://github.com/Cyb3rb1ade/lance", rev = "7dfd9ede65693
 lance-geo = { git = "https://github.com/Cyb3rb1ade/lance", rev = "7dfd9ede65693027db8852159587d24e157ee0c6" }
 lance-index = { git = "https://github.com/Cyb3rb1ade/lance", rev = "7dfd9ede65693027db8852159587d24e157ee0c6" }
 lance-io = { git = "https://github.com/Cyb3rb1ade/lance", rev = "7dfd9ede65693027db8852159587d24e157ee0c6" }
-lance-linalg = { git = "https://github.com/Cyb3rb1ade/lance", rev = "7dfd9ede65693027db8852159587d24e157ee0c6" }
+lance-linalg = { path = "vendor/lance-linalg" }
 lance-namespace = { git = "https://github.com/Cyb3rb1ade/lance", rev = "7dfd9ede65693027db8852159587d24e157ee0c6" }
 lance-namespace-impls = { git = "https://github.com/Cyb3rb1ade/lance", rev = "7dfd9ede65693027db8852159587d24e157ee0c6" }
 lance-table = { git = "https://github.com/Cyb3rb1ade/lance", rev = "7dfd9ede65693027db8852159587d24e157ee0c6" }
 lance-testing = { git = "https://github.com/Cyb3rb1ade/lance", rev = "7dfd9ede65693027db8852159587d24e157ee0c6" }
+
+# R-RY-6: cover Lance workspace path dependencies from the same Git source.
+[patch."https://github.com/Cyb3rb1ade/lance"]
+lance-linalg = { path = "vendor/lance-linalg" }
 
 # The Rust lint policy of docs/coding-standard.md §10 (CS-1), copied as written there. A crate inherits it only with
 # `[lints] workspace = true`; in RE-00 that is `plur1bus-engine` alone, the other crates opt in under CS-1.
