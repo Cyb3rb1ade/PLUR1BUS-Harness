@@ -106,6 +106,29 @@ fn oversized_render_is_rejected_before_starting_chromium() {
     assert_eq!(std::fs::read_dir(work.path()).unwrap().count(), 0);
 }
 
+#[cfg(windows)]
+#[test]
+#[ignore = "requires PLUR1BUS_CHROMIUM_BIN, the native acceptance runner supplies it"]
+fn cancelling_after_windows_chromium_starts_removes_the_private_profile() {
+    let binary = PathBuf::from(std::env::var_os("PLUR1BUS_CHROMIUM_BIN").unwrap());
+    let work = tempfile::tempdir().unwrap();
+    let chromium_started = || {
+        std::fs::read_dir(work.path())
+            .unwrap()
+            .flatten()
+            .any(|entry| entry.path().join("profile").is_dir())
+    };
+    let result = Chromium::new(&binary, work.path()).print_pdf(
+        "<p>Cancel this document.</p>",
+        Control {
+            deadline: Instant::now() + Duration::from_secs(30),
+            cancelled: &chromium_started,
+        },
+    );
+    assert_eq!(result, Err(Error::Cancelled));
+    assert_eq!(std::fs::read_dir(work.path()).unwrap().count(), 0);
+}
+
 #[cfg(unix)]
 #[test]
 fn cancelling_a_live_render_terminates_its_process_and_discards_the_private_home() {

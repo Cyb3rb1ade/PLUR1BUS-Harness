@@ -366,8 +366,12 @@ and host failure. The job store must assign bounded IDs equivalent to
 `verify_id`. A Windows storage backend refuses reserved device names in
 every path component. Full-page bitmap dimensions need a host-side limit
 before capture. On startup the host must clean up its abandoned render directories
-after a hard exit. The Windows pipe and Chromium process tree still require a
-native run. The Windows runtime flip is blocked until that check passes.
+after a hard exit. On Windows the Node pipe relay receives the OS system
+directory for its random source. Its Chromium child uses private profile and
+temporary directories. The native acceptance suite exercises the pipe with PDF,
+PNG, pagination and network isolation. The Windows runtime flip still requires
+a host job-object test that verifies cleanup of the entire process tree on host
+failure.
 
 ### W5 · Erkennung und Katalog (P4-44)
 

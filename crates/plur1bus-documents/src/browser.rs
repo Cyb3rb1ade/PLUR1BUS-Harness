@@ -11,7 +11,9 @@ use std::{
 
 use serde_json::Value;
 
-use crate::chromium::{Client, Control, Error, Result, Transport};
+#[cfg(windows)]
+use crate::chromium::Transport;
+use crate::chromium::{Client, Control, Error, Result};
 
 mod pipe;
 use pipe::Pipe;
@@ -115,9 +117,12 @@ impl<'a> Chromium<'a> {
             }
             run(&mut cdp)
         })();
-        if control.check().is_ok() {
-            browser.close(&mut wire, control.deadline);
-        }
+        #[cfg(windows)]
+        browser.close_relay(wire, control);
+        // Unix owns Chromium directly. Reap it before closing its DevTools
+        // pipes or removing the private profile.
+        #[cfg(not(windows))]
+        drop(browser);
         result
     }
 }
@@ -134,20 +139,26 @@ fn remove_profile(directory: tempfile::TempDir) -> Result<()> {
         match fs::remove_dir_all(&path) {
             Ok(()) => return Ok(()),
             Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
-            Err(error)
-                if Instant::now() < deadline
-                    && matches!(
-                        error.kind(),
-                        io::ErrorKind::DirectoryNotEmpty
-                            | io::ErrorKind::PermissionDenied
-                            | io::ErrorKind::ResourceBusy
-                    ) =>
-            {
+            Err(error) if Instant::now() < deadline && profile_in_use(&error) => {
                 thread::sleep(POLL.min(deadline.saturating_duration_since(Instant::now())));
             }
             Err(_) => return Err(Error::BrowserUnavailable),
         }
     }
+}
+
+fn profile_in_use(error: &io::Error) -> bool {
+    // An open handle without FILE_SHARE_DELETE reports ERROR_SHARING_VIOLATION.
+    #[cfg(windows)]
+    if error.raw_os_error() == Some(32) {
+        return true;
+    }
+    matches!(
+        error.kind(),
+        io::ErrorKind::DirectoryNotEmpty
+            | io::ErrorKind::PermissionDenied
+            | io::ErrorKind::ResourceBusy
+    )
 }
 
 fn paginate(cdp: &mut Client<'_, Pipe<'_>>, asset: &Path, control: Control<'_>) -> Result<()> {
@@ -187,8 +198,16 @@ impl BrowserProcess {
         let mut dumps = std::ffi::OsString::from("--crash-dumps-dir=");
         dumps.push(root.join("crashes"));
         let mut command = pipe_command(binary, &root)?;
+        command.env_clear();
+        // Windows needs its system directory to initialise Node's random source.
+        #[cfg(windows)]
+        {
+            let system_root = std::env::var_os("SystemRoot")
+                .filter(|root| Path::new(root).is_absolute())
+                .ok_or(Error::BrowserUnavailable)?;
+            command.env("SystemRoot", system_root);
+        }
         command
-            .env_clear()
             .args([
                 "--headless=new",
                 "--remote-debugging-pipe",
@@ -220,12 +239,20 @@ impl BrowserProcess {
             .map_err(|_| Error::BrowserUnavailable)
     }
 
-    fn close(&mut self, pipe: &mut Pipe<'_>, deadline: Instant) {
-        let deadline = deadline.min(Instant::now() + PROFILE_CLOSE_GRACE);
-        let _ = pipe.send(
-            r#"{"id":9007199254740991,"method":"Browser.close"}"#,
-            deadline,
-        );
+    #[cfg(windows)]
+    fn close_relay(&mut self, mut pipe: Pipe<'_>, control: Control<'_>) {
+        let now = Instant::now();
+        let deadline = if control.check().is_ok() {
+            let deadline = control.deadline.min(now + PROFILE_CLOSE_GRACE);
+            // Normal requests start at one. Chromium requires a signed 32-bit ID.
+            let _ = pipe.send(r#"{"id":0,"method":"Browser.close"}"#, deadline);
+            deadline
+        } else {
+            // EOF tells the relay to terminate its child even after cancellation.
+            now + Duration::from_millis(200)
+        };
+        // Release the writer before waiting so the Windows relay observes EOF.
+        drop(pipe);
         while Instant::now() < deadline {
             if !matches!(self.0.try_wait(), Ok(None)) {
                 return;
@@ -291,6 +318,29 @@ impl Drop for BrowserProcess {
 #[cfg(test)]
 mod tests {
     use super::{check_html_size, Error, MAX_HTML};
+
+    #[cfg(windows)]
+    #[test]
+    fn profile_cleanup_waits_for_a_closing_windows_handle() -> std::io::Result<()> {
+        use std::{fs::OpenOptions, os::windows::fs::OpenOptionsExt, thread, time::Duration};
+
+        let directory = tempfile::tempdir()?;
+        let profile = directory.path().to_owned();
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .share_mode(0)
+            .open(profile.join("held"))?;
+        thread::scope(|scope| {
+            scope.spawn(move || {
+                thread::sleep(Duration::from_millis(125));
+                drop(file);
+            });
+            assert!(super::remove_profile(directory).is_ok());
+        });
+        assert!(!profile.exists());
+        Ok(())
+    }
 
     #[test]
     fn html_size_is_bounded_before_the_browser_starts() {
