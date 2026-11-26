@@ -33,12 +33,20 @@ impl Pin {
 }
 
 impl Ports for Pin {
+    fn wall_time(&self) -> std::time::SystemTime {
+        std::time::UNIX_EPOCH
+    }
+
     fn pin(&self, endpoint: &Url, _: Instant) -> Option<SocketAddr> {
         self.agreed_endpoint(endpoint)
     }
 }
 
 impl SocketPorts for Pin {
+    fn wall_time(&self) -> std::time::SystemTime {
+        std::time::UNIX_EPOCH
+    }
+
     fn pin(&self, endpoint: &Url, _: Instant) -> Option<SocketAddr> {
         self.agreed_endpoint(endpoint)
     }
@@ -488,6 +496,10 @@ fn http_synthesis_applies_the_audio_limit_provided_by_the_host() {
 
     struct LimitedPin(Pin);
     impl Ports for LimitedPin {
+        fn wall_time(&self) -> std::time::SystemTime {
+            std::time::UNIX_EPOCH
+        }
+
         fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr> {
             Ports::pin(&self.0, endpoint, deadline)
         }
@@ -529,4 +541,44 @@ fn http_synthesis_applies_the_audio_limit_provided_by_the_host() {
     );
     assert_eq!(result.err(), Some(Error::StreamLimit));
     assert!(delivered <= 3);
+}
+
+#[test]
+fn an_active_audio_stream_reports_timeout_after_delivering_chunks() {
+    let mut fixture: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/parity/voice/synthesis-http-stream.json"
+    ))
+    .unwrap();
+    let response = &mut fixture["exchanges"][0]["response"];
+    response["chunksBase64"] = json!(vec![STANDARD.encode([1, 0].repeat(256)); 500]);
+    response["chunkGapMs"] = json!(4);
+    let server = FakeServer::start(&fixture);
+    let pin = Pin {
+        addr: server.addr,
+        expected_target: fixture["exchanges"][0]["request"]["path"]
+            .as_str()
+            .unwrap()
+            .into(),
+    };
+    let base = Url::parse(&format!("http://{}/v1", server.addr)).unwrap();
+    let client = Client::new(&pin).with_loopback_http();
+    let input = &fixture["input"];
+    let mut chunks = 0;
+    let result = stream_synthesis(
+        &client,
+        &base,
+        CREDENTIAL,
+        input["text"].as_str().unwrap(),
+        &options(input),
+        Duration::from_millis(750),
+        |_| {
+            chunks += 1;
+            Ok(())
+        },
+    );
+    let error = result.err().unwrap();
+    assert!(chunks > 1);
+    assert_eq!(error.code(), "timeout");
+    assert!(!error.retryable());
+    assert_eq!(server.received().len(), 1);
 }

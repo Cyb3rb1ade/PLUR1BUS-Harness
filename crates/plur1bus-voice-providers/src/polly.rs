@@ -86,6 +86,10 @@ impl<'a> Http<'a> {
 }
 
 impl Ports for Http<'_> {
+    fn wall_time(&self) -> std::time::SystemTime {
+        self.signer.wall_time()
+    }
+
     fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr> {
         self.signer.pin(endpoint, deadline)
     }
@@ -306,6 +310,9 @@ pub fn synthesize_stream<'a>(
     let mut sentences = crate::sentences::SentenceWindows::new(max_words);
     let check = || super::http::check(host, deadline);
     let mut synthesize = |sentence: String| {
+        if audio_budget.exhausted() {
+            return Err(Error::StreamLimit);
+        }
         let audio = synthesize_until(host, &sentence, options, deadline)
             .map_err(|error| audio_budget.error(error))?;
         audio_budget.charge(audio.bytes.len())?;

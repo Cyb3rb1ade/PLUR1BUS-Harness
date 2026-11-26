@@ -330,3 +330,24 @@ impl SentenceWindows {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod scan_tests {
+    use super::{Error, SentenceScan, CHECK_INTERVAL};
+    use std::cell::Cell;
+    #[test]
+    fn scan_observes_cancellation_inside_one_unbroken_delta() {
+        let visited = Cell::new(0);
+        let mut scan = SentenceScan::default();
+        let result = scan.boundary(&"a".repeat(3 * CHECK_INTERVAL), &|| {
+            visited.set(visited.get() + 1);
+            if visited.get() == 2 {
+                Err(Error::Aborted)
+            } else {
+                Ok(())
+            }
+        });
+        assert_eq!(result, Err(Error::Aborted));
+        assert_eq!(scan.offset, CHECK_INTERVAL);
+    }
+}

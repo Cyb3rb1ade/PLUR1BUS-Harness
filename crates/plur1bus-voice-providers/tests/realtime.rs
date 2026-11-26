@@ -32,6 +32,10 @@ fn assert_upgrade(server: &FakeServer, request: &serde_json::Value) {
 struct Loopback(SocketAddr, Option<String>);
 
 impl SocketPorts for Loopback {
+    fn wall_time(&self) -> std::time::SystemTime {
+        std::time::UNIX_EPOCH
+    }
+
     fn pin(&self, endpoint: &Url, _: Instant) -> Option<SocketAddr> {
         if let Some(target) = &self.1 {
             assert_eq!(target, &endpoint[url::Position::BeforePath..]);
@@ -51,6 +55,10 @@ impl SocketPorts for Loopback {
 }
 
 impl plur1bus_voice_providers::http::Ports for Loopback {
+    fn wall_time(&self) -> std::time::SystemTime {
+        std::time::UNIX_EPOCH
+    }
+
     fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr> {
         SocketPorts::pin(self, endpoint, deadline)
     }
@@ -247,6 +255,10 @@ fn an_abort_during_a_blocked_read_resolves_by_the_deadline_and_releases_the_sock
     }
 
     impl SocketPorts for AbortPort {
+        fn wall_time(&self) -> std::time::SystemTime {
+            std::time::UNIX_EPOCH
+        }
+
         fn cancelled(&self) -> bool {
             self.cancelled.load(Ordering::SeqCst)
         }
@@ -513,5 +525,54 @@ fn model_dialogues_match_recorded_transcripts_tools_usage_and_asr_timestamps() {
             .collect();
         assert_eq!(server.received(), sent);
         session.close().unwrap();
+    }
+}
+
+#[test]
+fn realtime_bounds_delivered_audio_and_uses_the_session_deadline_for_reads_and_writes() {
+    use plur1bus_voice_providers::{
+        http::{Error, StreamLimits},
+        realtime::Settings,
+    };
+    let fixture = load_fixture("voice", "grok-realtime");
+    let budget = Duration::from_secs(4);
+    let options = Options {
+        vendor: Vendor::Grok,
+        model: fixture["input"]["model"].as_str().unwrap(),
+        voice: None,
+        instructions: None,
+        tools: &[],
+        input_rate: 24000,
+    };
+    for check_read_deadline in [false, true] {
+        let server = FakeServer::start(&fixture);
+        let ports = Loopback(server.addr, None);
+        let base = Url::parse(&format!("http://{}", server.addr)).unwrap();
+        let settings = Settings {
+            stream_limits: StreamLimits {
+                max_audio_bytes: 3,
+                max_duration: if check_read_deadline {
+                    Duration::from_millis(600)
+                } else {
+                    budget
+                },
+            },
+            ..Settings::default()
+        };
+        let mut session = Session::connect_with_settings(
+            &base, CREDENTIAL, &options, settings, &ports, budget, true,
+        )
+        .unwrap();
+        assert_eq!(session.receive(budget).unwrap(), [Event::Ready]);
+        let pcm = serde_json::from_value::<Vec<u8>>(fixture["input"]["pcm"].clone()).unwrap();
+        if check_read_deadline {
+            let start = Instant::now();
+            assert_eq!(session.receive(budget).unwrap_err(), Error::Timeout);
+            assert!(start.elapsed() < Duration::from_secs(2));
+            assert_eq!(session.send_audio(&pcm), Err(Error::Timeout));
+        } else {
+            session.send_audio(&pcm).unwrap();
+            assert_eq!(session.receive(budget).unwrap_err(), Error::StreamLimit);
+        }
     }
 }

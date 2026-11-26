@@ -1065,6 +1065,10 @@ mod bounds_tests {
     struct Offline;
 
     impl SocketPorts for Offline {
+        fn wall_time(&self) -> std::time::SystemTime {
+            std::time::UNIX_EPOCH
+        }
+
         fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
             None
         }

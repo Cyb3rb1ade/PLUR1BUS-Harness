@@ -36,7 +36,7 @@ impl StreamLimits {
         (
             deadline(requested.min(self.max_duration)),
             AudioBudget {
-                remaining: self.max_audio_bytes,
+                remaining: self.max_audio_bytes.min(1024 * 1024 * 1024),
                 emitted: false,
             },
         )
@@ -49,6 +49,10 @@ pub(crate) struct AudioBudget {
 }
 
 impl AudioBudget {
+    pub(crate) fn exhausted(&self) -> bool {
+        self.remaining == 0
+    }
+
     pub(crate) fn charge(&mut self, bytes: usize) -> Result<(), Error> {
         if bytes > self.remaining {
             return Err(Error::StreamLimit);
@@ -79,9 +83,8 @@ pub trait Ports {
         StreamLimits::default()
     }
 
-    fn wall_time(&self) -> SystemTime {
-        SystemTime::now()
-    }
+    /// Host clock for absolute Retry-After dates.
+    fn wall_time(&self) -> SystemTime;
 
     /// The host can replace the blocking delay for tests or cancellable scheduling.
     fn wait_retry(&self, delay: Duration, deadline: Instant) -> Result<(), Error> {
@@ -592,6 +595,10 @@ mod tests {
     struct NoNetwork;
 
     impl Ports for NoNetwork {
+        fn wall_time(&self) -> SystemTime {
+            std::time::UNIX_EPOCH
+        }
+
         fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
             None
         }
@@ -697,5 +704,25 @@ mod guard_tests {
             headers.insert(header::CONTENT_ENCODING, HeaderValue::from_static(encoding));
             assert_eq!(check_encoding(&headers), expected);
         }
+    }
+}
+
+#[cfg(test)]
+mod stream_limit_tests {
+    use super::{Duration, Instant, StreamLimits};
+    #[test]
+    fn stream_defaults_and_host_overrides_have_finite_limits() {
+        let defaults = StreamLimits::default();
+        assert_eq!(defaults.max_audio_bytes, 64 * 1024 * 1024);
+        assert_eq!(defaults.max_duration, Duration::from_secs(600));
+        let host = StreamLimits {
+            max_audio_bytes: usize::MAX,
+            max_duration: Duration::from_millis(50),
+        };
+        let before = Instant::now();
+        let (deadline, budget) = host.start(Duration::from_secs(5));
+        assert!(deadline >= before + Duration::from_millis(50));
+        assert!(deadline <= Instant::now() + Duration::from_millis(50));
+        assert_eq!(budget.remaining, 1024 * 1024 * 1024);
     }
 }

@@ -20,9 +20,8 @@ pub trait SocketPorts: Sync {
         false
     }
 
-    fn wall_time(&self) -> SystemTime {
-        SystemTime::now()
-    }
+    /// Host clock for absolute Retry-After dates.
+    fn wall_time(&self) -> SystemTime;
 
     fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr>;
 
@@ -364,10 +363,12 @@ fn classify_handshake(error: tungstenite::Error, ports: &dyn SocketPorts) -> Err
             if value.len() > 64 || value.is_empty() {
                 return None;
             }
-            if value
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || byte == b'.')
-            {
+            let digits =
+                |part: &str| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit());
+            if value.split_once('.').map_or_else(
+                || digits(value),
+                |(whole, fraction)| digits(whole) && digits(fraction),
+            ) {
                 let seconds = value.parse::<f64>().ok()?;
                 return Some((seconds * 1000.0).round().min(3_600_000.0) as u64);
             }

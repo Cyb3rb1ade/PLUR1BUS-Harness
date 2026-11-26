@@ -7,6 +7,10 @@ use url::Url;
 pub(crate) struct Loopback(pub(crate) SocketAddr);
 
 impl SocketPorts for Loopback {
+    fn wall_time(&self) -> std::time::SystemTime {
+        std::time::UNIX_EPOCH
+    }
+
     fn pin(&self, endpoint: &Url, _: Instant) -> Option<SocketAddr> {
         (endpoint.host_str() == Some("127.0.0.1") && endpoint.port() == Some(self.0.port()))
             .then_some(self.0)

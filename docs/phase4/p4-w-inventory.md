@@ -261,6 +261,11 @@ deadline that expires during a response remains a timeout even when ureq
 wraps it in an I/O error. The realtime session releases the stream when the
 interrupted read returns.
 
+Voice HTTP and WebSocket hosts supply the clock used for Retry-After dates.
+Stream limits and reconnection responsibilities are specified in
+[P4D-249](defects.md#p4d-249). A host considering replay of a paid request
+must handle the cost ambiguity described in [P4D-248](defects.md#p4d-248).
+
 The HTTP and WebSocket synthesis streams, Polly sentence windows, retry
 schedule, and Grok/Gemini/ElevenLabs dialogues are recorded from the TypeScript
 providers. The host supplies the duplex scheduling and usage sink. Retry

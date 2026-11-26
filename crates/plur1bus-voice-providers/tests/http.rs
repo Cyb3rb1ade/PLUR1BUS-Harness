@@ -17,6 +17,10 @@ const CREDENTIAL: &str = "synthetic-voice-credential";
 struct Pin(SocketAddr);
 
 impl Ports for Pin {
+    fn wall_time(&self) -> std::time::SystemTime {
+        std::time::UNIX_EPOCH
+    }
+
     fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
         Some(self.0)
     }

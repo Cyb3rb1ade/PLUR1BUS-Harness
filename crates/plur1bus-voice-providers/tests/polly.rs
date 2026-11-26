@@ -17,6 +17,7 @@ use std::{
 use url::Url;
 
 struct Fixture {
+    limit: usize,
     pages: Vec<Value>,
     audio: Vec<u8>,
     synthesis: RefCell<Vec<Value>>,
@@ -24,6 +25,16 @@ struct Fixture {
 }
 
 impl Ports for Fixture {
+    fn wall_time(&self) -> std::time::SystemTime {
+        std::time::UNIX_EPOCH
+    }
+
+    fn stream_limits(&self) -> plur1bus_voice_providers::http::StreamLimits {
+        plur1bus_voice_providers::http::StreamLimits {
+            max_audio_bytes: self.limit,
+            ..Default::default()
+        }
+    }
     fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
         None
     }
@@ -58,6 +69,7 @@ fn signed_request_arguments_and_projection_match_recorded_typescript() {
         serde_json::from_str(include_str!("../../../fixtures/parity/voice/polly.json")).unwrap();
     let expected = &recording["expected"];
     let port = Fixture {
+        limit: 64 * 1024 * 1024,
         pages: recording["pages"].as_array().unwrap().clone(),
         audio: serde_json::from_value(expected["data"].clone()).unwrap(),
         synthesis: RefCell::new(Vec::new()),
@@ -103,6 +115,7 @@ fn text_input_is_sent_in_recorded_sentence_and_word_windows() {
         serde_json::from_str(include_str!("../../../fixtures/parity/voice/polly.json")).unwrap();
     let expected = &recording["expected"];
     let port = Fixture {
+        limit: 64 * 1024 * 1024,
         pages: Vec::new(),
         audio: serde_json::from_value(expected["data"].clone()).unwrap(),
         synthesis: RefCell::new(Vec::new()),
@@ -145,6 +158,7 @@ fn text_input_is_sent_in_recorded_sentence_and_word_windows() {
 fn unfinished_input_and_single_delta_have_independent_byte_ceilings() {
     use plur1bus_voice_providers::polly::synthesize_stream;
     let port = Fixture {
+        limit: 64 * 1024 * 1024,
         pages: Vec::new(),
         audio: Vec::new(),
         synthesis: RefCell::new(Vec::new()),
@@ -185,6 +199,10 @@ fn cancellation_is_checked_during_a_single_text_delta() {
     #[derive(Default)]
     struct CancelDuringScan(Cell<usize>);
     impl Ports for CancelDuringScan {
+        fn wall_time(&self) -> std::time::SystemTime {
+            std::time::UNIX_EPOCH
+        }
+
         fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
             None
         }
@@ -224,6 +242,7 @@ fn cancellation_is_checked_during_a_single_text_delta() {
 #[test]
 fn polly_checks_the_text_length_before_submitting_the_request() {
     let host = Fixture {
+        limit: 64 * 1024 * 1024,
         pages: Vec::new(),
         audio: vec![1, 0],
         synthesis: RefCell::new(Vec::new()),
@@ -244,6 +263,7 @@ fn polly_checks_the_text_length_before_submitting_the_request() {
 #[test]
 fn polly_describe_voices_stops_at_twenty_pages() {
     let host = Fixture {
+        limit: 64 * 1024 * 1024,
         pages: vec![json!({"Voices":[{"Id":"fixture"}],"NextToken":"next"}); 2],
         audio: Vec::new(),
         synthesis: RefCell::new(Vec::new()),
@@ -252,4 +272,34 @@ fn polly_describe_voices_stops_at_twenty_pages() {
     let results = list_voices(&host, Duration::from_secs(2)).unwrap();
     assert_eq!(results.len(), 20);
     assert_eq!(host.lists.borrow().len(), 20);
+}
+
+#[test]
+fn polly_stops_submitting_billable_sentences_when_the_audio_budget_is_spent() {
+    let host = Fixture {
+        limit: 2,
+        pages: Vec::new(),
+        audio: vec![1, 0],
+        synthesis: RefCell::new(Vec::new()),
+        lists: RefCell::new(Vec::new()),
+    };
+    let options = Options {
+        voice: "FixtureVoice",
+        ..Options::default()
+    };
+    let mut chunks = Vec::new();
+    let result = plur1bus_voice_providers::polly::synthesize_stream(
+        &host,
+        ["First sentence! Second sentence!"],
+        &options,
+        None,
+        Duration::from_secs(2),
+        |chunk| {
+            chunks.push(chunk.bytes);
+            Ok(())
+        },
+    );
+    assert_eq!(result.err().map(|err| err.code()), Some("stream_limit"));
+    assert_eq!(chunks, [vec![1, 0]]);
+    assert_eq!(host.synthesis.borrow().len(), 1);
 }

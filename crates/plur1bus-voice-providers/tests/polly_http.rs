@@ -21,6 +21,10 @@ struct Host {
 }
 
 impl Ports for Host {
+    fn wall_time(&self) -> std::time::SystemTime {
+        std::time::UNIX_EPOCH
+    }
+
     fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
         Some(self.addr)
     }

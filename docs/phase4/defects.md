@@ -1739,7 +1739,9 @@ Rust retries a body-carrying operation only after HTTP 429 or 503 with a
 valid Retry-After. A transport failure may occur after the vendor has accepted
 the input. This differs from the TypeScript HTTP client. Once audio has
 been delivered, the original error code is preserved and the error is no longer
-retryable. Deadline expiry while reading audio has code `timeout`.
+retryable. Deadline expiry while reading audio has code `timeout`. The host
+must decide whether to resubmit a paid request after a network failure before
+the first audio chunk. The provider may already have accepted the body.
 
 <a id="p4d-249"></a>
 
@@ -1748,7 +1750,11 @@ retryable. Deadline expiry while reading audio has code `timeout`.
 The port or WebSocket settings can set a total decoded audio limit and a
 maximum duration for HTTP, Polly, WebSocket synthesis, and realtime streams.
 Rust defaults to 64 MiB and at most 600 seconds. It rejects a chunk before
-delivery when the chunk would exceed the remaining budget.
+delivery when the chunk would exceed the remaining budget. Host overrides
+are capped at 1 GiB. The error code is `stream_limit`. Polly checks the
+remaining budget before submitting the next signed request. The realtime
+deadline applies to the whole session, so a host continuing a longer
+conversation must open a new session.
 
 <a id="p4d-250"></a>
 
