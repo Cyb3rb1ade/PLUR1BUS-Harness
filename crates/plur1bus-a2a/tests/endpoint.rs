@@ -729,3 +729,8 @@ fn rpc_refuses_a_registered_agent_with_opt_in_disabled() {
     assert_eq!(response.status, 404);
     assert_eq!(host.0.get(), 0);
 }
+
+#[test]
+fn the_default_endpoint_advertises_the_expected_agent_version() {
+    assert_eq!(Config::default().version, "0.1.0");
+}

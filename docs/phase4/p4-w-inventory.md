@@ -548,7 +548,10 @@ Die Push-Bibliothek prüft und pinnt jeden Redirect-Sprung über den
 Egress-Port, entfernt bei einem Origin-Wechsel beide Zugangsdaten und
 setzt Fristen, Retry/Backoff und Körpergrenzen durch
 ([P4D-262](defects.md#p4d-262)). Der Host autorisiert die Push-Konfiguration
-und plant die Zustellung. Antworten und eingehende Task-Kommandos tragen
+und plant die Zustellung. Schon beim Setzen der Konfiguration und vor jedem
+Zustellversuch einschließlich Redirects löst der Host den Namen auf, prüft
+alle Adressen gegen die Richtlinie für private Netze, Link-Local- und
+Metadatendienste und gibt nur eine zugelassene Socketadresse zurück. Antworten und eingehende Task-Kommandos tragen
 die lokale A2A-Herkunftsmarke. Beim Flip bildet der Host gemäß R-K-26
 `a2a-peer:<id>` separat von `ext:a2a:person:` und `ext:a2a:token:`.
 Die präzisierte JSON- und Kartenzulassung steht in

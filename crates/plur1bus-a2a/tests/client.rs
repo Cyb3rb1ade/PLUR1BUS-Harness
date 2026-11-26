@@ -1066,3 +1066,74 @@ fn a_peer_204_cannot_complete_a_json_rpc_call() {
         1
     );
 }
+
+#[test]
+fn default_cleartext_policy_rejects_shared_and_overlay_ips_and_https_respects_local_only() {
+    // Only the default implementation of allow_cleartext is under test here.
+    struct DefaultCleartext(PolicyFixture);
+    impl Policy for DefaultCleartext {
+        fn current(&self, peer: &Peer, execution: &Execution<'_>) -> bool {
+            self.0.current(peer, execution)
+        }
+        fn trusted_endpoint(&self, peer: &Peer) -> Option<Url> {
+            self.0.trusted_endpoint(peer)
+        }
+        fn local_only(&self, agent: &str) -> bool {
+            self.0.local_only(agent)
+        }
+        fn confirm_trust(
+            &self,
+            peer: &Peer,
+            card: &Verified,
+            execution: &Execution<'_>,
+            window: Window<'_>,
+        ) -> Result<(), Error> {
+            self.0.confirm_trust(peer, card, execution, window)
+        }
+        fn admit(
+            &self,
+            request: Hop<'_>,
+            window: Window<'_>,
+        ) -> Result<Box<dyn Authorization>, Error> {
+            self.0.admit(request, window)
+        }
+    }
+    let addr = SocketAddr::from(([127, 0, 0, 1], 18181));
+    for (scheme, ip, local_only) in [
+        ("http", "100.64.0.1", false),
+        ("http", "fd7a:115c:a1e0::1", false),
+        ("https", "192.0.2.4", true),
+    ] {
+        let registration = Peer::new(
+            "sample",
+            "fixture-rev",
+            &format!("{scheme}://{ORIGIN}:{}{DISCOVERY}", addr.port()),
+            KID,
+            public(),
+            Some("a2a/sample/bearer"),
+        )
+        .unwrap();
+        let mut policy = PolicyFixture::new(addr);
+        policy.custom_pin = Some(SocketAddr::new(ip.parse().unwrap(), addr.port()));
+        policy.local_only = local_only;
+        // A mismatched port terminates the transport locally even if admission regresses.
+        policy.offset_pin = true;
+        let policy = DefaultCleartext(policy);
+        let client = Client::new(&policy, Limits::default()).unwrap();
+        let actual = client.perform(
+            call(&registration),
+            Operation::Get {
+                task: "task-example",
+                history: None,
+            },
+            "rpc-fixture",
+        );
+        assert_eq!(error(actual), Error::Denied);
+        let records = policy.0.records.borrow();
+        assert!(records
+            .iter()
+            .any(|entry| matches!(entry, Record::Admitted(_))));
+        assert!(!records.contains(&Record::CredentialRead));
+        assert!(!records.contains(&Record::Attempted));
+    }
+}

@@ -21,7 +21,10 @@ const NOTIFICATION_TOKEN: &str = "x-a2a-notification-token";
 
 pub trait Port {
     /// Admit the exact destination and return the authorized socket within
-    /// the deadline. The library connects only to this pin.
+    /// the deadline. Apply the host's egress policy on initial delivery and on
+    /// every redirect. Resolve the hostname, reject disallowed private,
+    /// link-local and metadata addresses, and return only an approved pin.
+    /// Apply the same admission policy when the push configuration is set.
     fn admit(&self, target: &Url, window: Window<'_>) -> Option<SocketAddr>;
 
     /// Wait within the given window. False cancels pending retry work.
@@ -310,6 +313,7 @@ mod tests {
 
     struct FixturePort<'a> {
         denied: &'a Value,
+        resume: bool,
         admitted: RefCell<Vec<String>>,
         waits: RefCell<Vec<u128>>,
     }
@@ -329,7 +333,7 @@ mod tests {
 
         fn wait(&self, delay: Duration, _: Window<'_>) -> bool {
             self.waits.borrow_mut().push(delay.as_millis());
-            true
+            self.resume
         }
     }
 
@@ -341,6 +345,7 @@ mod tests {
 
         for case in fixture["cases"].as_array().unwrap() {
             let port = FixturePort {
+                resume: true,
                 denied: &case["denied"],
                 admitted: Default::default(),
                 waits: Default::default(),
@@ -403,6 +408,7 @@ mod tests {
         let config = config(&format!("http://{}/report", server.addr));
         let denied = json!([]);
         let port = FixturePort {
+            resume: true,
             denied: &denied,
             admitted: Default::default(),
             waits: Default::default(),
@@ -426,6 +432,7 @@ mod tests {
         let config = config("https://callbacks.example.invalid/report");
         let denied = json!([]);
         let port = FixturePort {
+            resume: true,
             denied: &denied,
             admitted: Default::default(),
             waits: Default::default(),
@@ -454,5 +461,160 @@ mod tests {
             Err(Error::Aborted)
         );
         assert!(port.admitted.borrow().is_empty());
+    }
+    #[test]
+    fn push_checks_each_destination_before_admission_and_each_pin_before_send() {
+        let denied = json!([]);
+        let port = FixturePort {
+            denied: &denied,
+            resume: true,
+            admitted: Default::default(),
+            waits: Default::default(),
+        };
+        let limits = Limits {
+            attempts: 1,
+            ..Limits::default()
+        };
+        for url in [
+            "ftp://callback.example/report",
+            "https://user@callback.example/report",
+            "https://:password@callback.example/report",
+            "https://callback.example/report#part",
+        ] {
+            assert_eq!(
+                deliver_with(
+                    &port,
+                    &config(url),
+                    &json!({}),
+                    window(),
+                    limits,
+                    |_, _, _, _, _| Err(Error::InvalidRequest)
+                ),
+                Err(Error::Denied)
+            );
+            assert!(port.admitted.borrow().is_empty());
+            let original = config("https://callback.example/first");
+            let result = deliver_with(
+                &port,
+                &original,
+                &json!({}),
+                window(),
+                limits,
+                |target, _, _, _, _| {
+                    assert_eq!(target, &original.url);
+                    Ok(Reply {
+                        status: 307,
+                        location: Some(url.into()),
+                    })
+                },
+            );
+            assert_eq!(result, Ok(Delivery::Exhausted));
+            assert_eq!(port.admitted.take(), [original.url.as_str()]);
+        }
+        let sends = std::cell::Cell::new(0);
+        assert_eq!(
+            deliver_with(
+                &port,
+                &config("https://127.0.0.2/report"),
+                &json!({}),
+                window(),
+                limits,
+                |_, _, _, _, _| {
+                    sends.set(sends.get() + 1);
+                    Ok(Reply {
+                        status: 200,
+                        location: None,
+                    })
+                }
+            ),
+            Ok(Delivery::Exhausted)
+        );
+        assert_eq!(sends.get(), 0);
+    }
+
+    #[test]
+    fn each_post_uses_the_earlier_deadline_and_only_bearer_authentication() {
+        let denied = json!([]);
+        let port = FixturePort {
+            denied: &denied,
+            resume: true,
+            admitted: Default::default(),
+            waits: Default::default(),
+        };
+        let mut target = config("https://callback.example/report");
+        target.authentication.as_mut().unwrap().schemes = vec!["basic".into()];
+        let limits = Limits {
+            post_timeout: Duration::from_secs(120),
+            ..Default::default()
+        };
+        for host_seconds in [5, 180] {
+            let start = Instant::now();
+            let host = Window {
+                deadline: start + Duration::from_secs(host_seconds),
+                ..window()
+            };
+            let result = deliver_with(
+                &port,
+                &target,
+                &json!({}),
+                host,
+                limits,
+                |_, _, headers, _, post| {
+                    assert!(!headers.contains_key(header::AUTHORIZATION));
+                    assert!(headers.contains_key(NOTIFICATION_TOKEN));
+                    if host_seconds == 5 {
+                        assert_eq!(post.deadline, host.deadline);
+                    } else {
+                        assert!(post.deadline >= start + Duration::from_secs(60));
+                        assert!(post.deadline <= Instant::now() + Duration::from_secs(60));
+                    }
+                    Ok(Reply {
+                        status: 204,
+                        location: None,
+                    })
+                },
+            );
+            assert_eq!(result, Ok(Delivery::Delivered));
+        }
+    }
+
+    #[test]
+    fn push_stops_before_an_unaffordable_wait_and_when_the_host_cancels_the_wait() {
+        let denied = json!([]);
+        let port = FixturePort {
+            denied: &denied,
+            resume: false,
+            admitted: Default::default(),
+            waits: Default::default(),
+        };
+        let target = config("https://callback.example/report");
+        let reject = |_: &Url, _: SocketAddr, _: &HeaderMap, _: &[u8], _: Window<'_>| {
+            Ok(Reply {
+                status: 503,
+                location: None,
+            })
+        };
+        let limits = Limits {
+            backoff: Duration::from_secs(60),
+            ..Default::default()
+        };
+        assert_eq!(
+            deliver_with(&port, &target, &json!({}), window(), limits, reject),
+            Err(Error::Deadline)
+        );
+        assert!(port.waits.borrow().is_empty());
+        assert_eq!(
+            deliver_with(
+                &port,
+                &target,
+                &json!({}),
+                window(),
+                Limits::default(),
+                reject
+            ),
+            Err(Error::Aborted)
+        );
+        assert_eq!(port.waits.take(), [100]);
+        assert_eq!(port.admitted.take().len(), 2);
     }
 }
