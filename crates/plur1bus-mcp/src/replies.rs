@@ -1,11 +1,5 @@
-//! Reserve room before handing a request to the SDK, which spawns its handler.
-use std::{
-    collections::{HashMap, HashSet},
-    fmt,
-    future::Future,
-    io,
-    time::Duration,
-};
+//! Bound incoming requests separately from completed replies waiting for the peer.
+use std::{collections::HashMap, fmt, future::Future, io, time::Duration};
 
 use rmcp::{
     model::{JsonRpcMessage, RequestId},
@@ -54,12 +48,22 @@ impl<E: std::error::Error + 'static> std::error::Error for Error<E> {
 struct Outstanding {
     replies: HashMap<RequestId, usize>,
     bytes: usize,
-    writing: HashSet<RequestId>,
+    id_bytes: usize,
+    writing: HashMap<RequestId, usize>,
 }
 
 impl Outstanding {
     fn has_room(&self, bytes: usize) -> bool {
-        self.replies.len() < MAX_REPLIES && bytes <= MAX_FRAME_BYTES - self.bytes
+        self.replies.len() < MAX_REPLIES
+            && self.bytes < MAX_FRAME_BYTES
+            && bytes <= MAX_FRAME_BYTES - self.id_bytes
+    }
+}
+
+fn id_bytes(id: &RequestId) -> usize {
+    match id {
+        RequestId::Number(_) => size_of::<i64>(),
+        RequestId::String(s) => s.len(),
     }
 }
 
@@ -72,10 +76,11 @@ impl Drop for WriteReservation {
     fn drop(&mut self) {
         let id = &self.id;
         self.state.send_if_modified(|state| {
-            let Some(bytes) = state.replies.remove(id) else {
+            let Some(bytes) = state.writing.remove(id) else {
                 return false;
             };
-            state.writing.remove(id);
+            state.replies.remove(id);
+            state.id_bytes -= id_bytes(id);
             state.bytes -= bytes;
             true
         });
@@ -87,6 +92,7 @@ pub(crate) struct Bounded<Role: ServiceRole, T> {
     outstanding: watch::Sender<Outstanding>,
     pending: Option<RxJsonRpcMessage<Role>>,
     honor_cancellation: bool,
+    legacy_initialize: fn(&TxJsonRpcMessage<Role>) -> bool,
     closing_budget: Duration,
     blocked_until: Option<Instant>,
     fault: Fault,
@@ -107,6 +113,7 @@ impl<Role: ServiceRole, T> Bounded<Role, T> {
             outstanding: watch::channel(Outstanding::default()).0,
             pending: None,
             honor_cancellation: false,
+            legacy_initialize: |_| false,
             closing_budget,
             blocked_until: None,
             fault,
@@ -132,7 +139,7 @@ impl<Role: ServiceRole, T> Bounded<Role, T> {
                     self.blocked_until = None;
                     return Some(());
                 }
-                value.writing.len() == value.replies.len()
+                value.bytes >= MAX_FRAME_BYTES || value.writing.len() == value.replies.len()
             };
             if waiting_only_for_writes {
                 let deadline = *self
@@ -151,6 +158,17 @@ impl<Role: ServiceRole, T> Bounded<Role, T> {
     }
 }
 
+impl<T> Bounded<rmcp::RoleClient, T> {
+    /// Auto negotiation can fall back to legacy initialize on this same HTTP connection.
+    pub(crate) fn detect_legacy_initialize(mut self) -> Self {
+        self.legacy_initialize = |message| {
+            matches!(message, JsonRpcMessage::Request(req)
+            if matches!(req.request, rmcp::model::ClientRequest::InitializeRequest(_)))
+        };
+        self
+    }
+}
+
 impl<Role: ServiceRole, T: Transport<Role>> Transport<Role> for Bounded<Role, T> {
     type Error = Error<T::Error>;
 
@@ -158,6 +176,7 @@ impl<Role: ServiceRole, T: Transport<Role>> Transport<Role> for Bounded<Role, T>
         &mut self,
         message: TxJsonRpcMessage<Role>,
     ) -> impl Future<Output = Result<(), Self::Error>> + Send + 'static {
+        self.honor_cancellation |= (self.legacy_initialize)(&message);
         let id = match &message {
             JsonRpcMessage::Response(reply) => Some(&reply.id),
             JsonRpcMessage::Error(reply) => reply.id.as_ref(),
@@ -171,11 +190,8 @@ impl<Role: ServiceRole, T: Transport<Role>> Transport<Role> for Bounded<Role, T>
         let within_budget = !matches!(encoded, Some(None));
         let reservation = id.zip(encoded.flatten()).map(|(id, bytes)| {
             self.outstanding.send_modify(|state| {
-                if let Some(reserved) = state.replies.get_mut(&id) {
-                    state.bytes -= *reserved - bytes;
-                    *reserved = bytes;
-                    state.writing.insert(id.clone());
-                }
+                state.bytes += bytes;
+                state.writing.insert(id.clone(), bytes);
             });
             WriteReservation {
                 state: self.outstanding.clone(),
@@ -217,11 +233,11 @@ impl<Role: ServiceRole, T: Transport<Role>> Transport<Role> for Bounded<Role, T>
                     .and_then(|params| params.request_id.as_ref())
                 {
                     self.outstanding.send_if_modified(|state| {
-                        if state.writing.contains(id) {
+                        if state.writing.contains_key(id) {
                             return false;
                         }
-                        if let Some(bytes) = state.replies.remove(id) {
-                            state.bytes -= bytes;
+                        if state.replies.remove(id).is_some() {
+                            state.id_bytes -= id_bytes(id);
                             return true;
                         }
                         false
@@ -232,8 +248,7 @@ impl<Role: ServiceRole, T: Transport<Role>> Transport<Role> for Bounded<Role, T>
         let Some(JsonRpcMessage::Request(request)) = self.pending.as_ref() else {
             return self.pending.take();
         };
-        // The ordinary handler can return any valid frame. A ping returns a
-        // fixed envelope plus the echoed ID, so it needs a much smaller slot.
+        // Record a per-reply limit. The serialized response is charged at send time.
         let bytes = if (self.is_ping)(&request.request) {
             encoded_size(&request.id, self.max_frame)
                 .unwrap_or(self.max_frame)
@@ -242,7 +257,7 @@ impl<Role: ServiceRole, T: Transport<Role>> Transport<Role> for Bounded<Role, T>
         } else {
             self.max_frame
         };
-        self.wait_for_room(bytes).await?;
+        self.wait_for_room(id_bytes(&request.id)).await?;
         let Some(JsonRpcMessage::Request(request)) = self.pending.take() else {
             return None;
         };
@@ -252,7 +267,7 @@ impl<Role: ServiceRole, T: Transport<Role>> Transport<Role> for Bounded<Role, T>
                 return false;
             }
             state.replies.insert(request.id.clone(), bytes);
-            state.bytes += bytes;
+            state.id_bytes += id_bytes(&request.id);
             admitted = true;
             true
         });
@@ -357,15 +372,14 @@ mod tests {
             r#"{"jsonrpc":"2.0","id":1,"result":{"tools":[]}}"#,
         )?));
         assert!(matches!(futures::poll!(write.as_mut()), Poll::Pending));
-        {
-            let mut read = std::pin::pin!(transport.receive());
-            assert!(matches!(futures::poll!(read.as_mut()), Poll::Pending));
-        }
-        assert!(transport.inner.incoming.is_empty());
-        assert!(transport.outstanding.borrow().bytes < 128);
+        assert!(transport.receive().await.is_some());
+        let bytes = transport.outstanding.borrow().bytes;
+        assert!((1..128).contains(&bytes));
+        assert_eq!(transport.outstanding.borrow().writing.len(), 1);
         write_slots.add_permits(1);
         write.await?;
-        assert!(transport.receive().await.is_some());
+        assert_eq!(transport.outstanding.borrow().bytes, 0);
+        assert_eq!(transport.outstanding.borrow().replies.len(), 1);
         assert!(fault.current().is_none());
         Ok(())
     }
@@ -441,10 +455,18 @@ mod tests {
     #[tokio::test]
     async fn pending_host_work_does_not_start_the_write_deadline(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut transport = memory_transport(&[1, 2], MAX_FRAME_BYTES)?;
+        let ids: Vec<_> = (1..=65).collect();
+        let mut transport = memory_transport(&ids, MAX_FRAME_BYTES)?;
         transport.is_ping = |_| false;
         transport.closing_budget = Duration::from_millis(20);
-        assert!(transport.receive().await.is_some());
+        for _ in 0..64 {
+            assert!(
+                tokio::time::timeout(Duration::from_secs(1), transport.receive())
+                    .await?
+                    .is_some()
+            );
+        }
+        assert_eq!(transport.outstanding.borrow().bytes, 0);
         assert!(
             tokio::time::timeout(Duration::from_millis(80), transport.receive())
                 .await

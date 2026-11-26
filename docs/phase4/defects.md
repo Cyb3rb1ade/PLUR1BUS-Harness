@@ -1675,12 +1675,12 @@ SMTP/IMAP error projection uses static protocol descriptions.
 
 ## P4D-242 — MCP reply backpressure (R-W-16)
 
-The Rust client and stdio server reserve capacity before giving a peer request
-to the SDK. Per connection they reserve up to 64 replies and 1 MiB of encoded
-response capacity until the corresponding writes complete. The frame limit is
-reserved when the response size is unknown. If the closing deadline runs out
-while admission is blocked, the connection fails with a separate backpressure
-error. The TypeScript transports have no corresponding reply budget.
+The client and stdio server admit up to 64 outstanding peer requests per
+connection. They account separately for retained request IDs and for completed
+replies awaiting a write. At 1 MiB of encoded unwritten replies, admission
+pauses until the writer drains. Completing or cancelling an incoming request
+releases its slot. Host computation can outlast the closing deadline. The
+host must bound the work performed for the 64 admitted requests at the flip.
 
 <a id="p4d-243"></a>
 

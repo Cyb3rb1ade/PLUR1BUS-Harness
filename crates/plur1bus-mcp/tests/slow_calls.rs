@@ -178,6 +178,17 @@ fn own_server(
     tokio::sync::watch::Sender<bool>,
     thread::JoinHandle<Result<(), plur1bus_mcp::server::Error>>,
 ) {
+    server_with_host(Arc::new(Hosted(host_delay)), frame_deadline)
+}
+
+fn server_with_host(
+    host: Arc<dyn plur1bus_mcp::server::Host>,
+    frame_deadline: Duration,
+) -> (
+    DuplexStream,
+    tokio::sync::watch::Sender<bool>,
+    thread::JoinHandle<Result<(), plur1bus_mcp::server::Error>>,
+) {
     let tool: rmcp::model::Tool =
         serde_json::from_value(json!({"name":"slow","inputSchema":{"type":"object"}})).unwrap();
     let long: rmcp::model::Tool =
@@ -185,7 +196,7 @@ fn own_server(
     let server = plur1bus_mcp::server::Server::new(
         plur1bus_mcp::server::Actor::new("probe-agent", "probe-person").unwrap(),
         vec![tool, long],
-        Arc::new(Hosted(host_delay)),
+        host,
         30_000,
     )
     .unwrap();
@@ -255,6 +266,54 @@ async fn a_long_call_completes_after_three_cancelled_calls() {
     }
     tool_call(&mut p, 200, "long").await;
     assert_eq!(result_id(&mut p).await, 200);
+    stop.send(true).unwrap();
+    assert_eq!(served.join().unwrap(), Ok(()));
+}
+
+#[tokio::test]
+async fn all_eight_host_workers_can_run_before_the_first_reply() {
+    struct Batch(Mutex<usize>, std::sync::Condvar);
+    impl plur1bus_mcp::server::Host for Batch {
+        fn admit(&self, _: &plur1bus_mcp::server::Actor, _: &str) -> bool {
+            true
+        }
+        fn call(
+            &self,
+            _: &plur1bus_mcp::server::Actor,
+            _: &str,
+            _: serde_json::Map<String, Value>,
+            _: Instant,
+            _: &dyn Fn() -> bool,
+        ) -> Result<Value, plur1bus_mcp::server::Error> {
+            let mut count = self.0.lock().unwrap();
+            *count += 1;
+            self.1.notify_all();
+            let (count, _) = self
+                .1
+                .wait_timeout_while(count, Duration::from_secs(5), |n| *n < 8)
+                .unwrap();
+            if *count < 8 {
+                return Err(plur1bus_mcp::server::Error::Invalid);
+            }
+            Ok(json!("done"))
+        }
+    }
+
+    let (client, stop, served) = server_with_host(
+        Arc::new(Batch(Mutex::new(0), std::sync::Condvar::new())),
+        Duration::from_secs(2),
+    );
+    let mut p = BufReader::new(client);
+    initialize_client(&mut p).await;
+    for id in 1..=8 {
+        tool_call(&mut p, id, "slow").await;
+    }
+    let mut ids = Vec::new();
+    for _ in 0..8 {
+        ids.push(result_id(&mut p).await);
+    }
+    ids.sort_unstable();
+    assert_eq!(ids, (1..=8).collect::<Vec<_>>());
     stop.send(true).unwrap();
     assert_eq!(served.join().unwrap(), Ok(()));
 }

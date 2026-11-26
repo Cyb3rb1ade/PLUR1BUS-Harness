@@ -224,7 +224,7 @@ impl Session {
                 reply_fault.clone(),
                 |request| matches!(request, ServerRequest::PingRequest(_)),
             )
-            .with_request_cancellation(matches!(options.protocol, Protocol::Legacy));
+            .detect_legacy_initialize();
             let handler = Handler::new(
                 ports,
                 timing.request,
