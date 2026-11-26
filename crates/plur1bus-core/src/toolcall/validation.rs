@@ -253,6 +253,106 @@ const MAX_PATTERN_INPUT_UNITS: usize = 1024;
 const MATCH_STEP_BUDGET: usize = 4_000_000;
 const MAX_DISTINCT_PATTERNS: usize = 256;
 
+// Units cover validation outside the regular-expression VM. Its instruction budget stays separate.
+const VALIDATION_WORK: usize = 262_144;
+const PATTERN_COMPILE_UNIT_COST: usize = 48;
+const WORK_EXHAUSTED: &str = "validation work budget exhausted";
+
+struct Work {
+    remaining: Option<usize>,
+}
+
+struct Exhausted;
+
+impl Work {
+    fn new(limit: usize) -> Self {
+        Self {
+            remaining: Some(limit),
+        }
+    }
+
+    fn charge(&mut self, units: usize) -> Result<(), Exhausted> {
+        self.remaining = self.remaining.and_then(|left| left.checked_sub(units));
+        self.remaining.map(|_| ()).ok_or(Exhausted)
+    }
+
+    // Account for an entire value before serializing it or emitting it in a diagnostic.
+    fn value(&mut self, value: &V, depth: usize) -> Result<(), Exhausted> {
+        if depth > MAX_VALUE_DEPTH {
+            return Err(Exhausted);
+        }
+        self.charge(1)?;
+        match value {
+            V::Str(s) => self.charge(s.units().len().div_ceil(16)),
+            V::Arr(items) => items
+                .iter()
+                .try_for_each(|item| self.value(item, depth + 1)),
+            V::Obj(obj) => obj.entries().iter().try_for_each(|(key, item)| {
+                self.charge(key.units().len().div_ceil(16))?;
+                self.value(item, depth + 1)
+            }),
+            _ => Ok(()),
+        }
+    }
+
+    fn lookup<'a>(&mut self, object: &'a Obj, key: &JsStr) -> Result<Option<&'a V>, Exhausted> {
+        for (candidate, value) in object.entries() {
+            self.charge(1 + candidate.len().min(key.len()).div_ceil(16))?;
+            if candidate == key {
+                return Ok(Some(value));
+            }
+        }
+        Ok(None)
+    }
+
+    fn equal(&mut self, a: &V, b: &V) -> Result<bool, Exhausted> {
+        self.charge(1)?;
+        match (a, b) {
+            (V::Arr(x), V::Arr(y)) if x.len() == y.len() => {
+                for (l, r) in x.iter().zip(y) {
+                    if !self.equal(l, r)? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
+            (V::Obj(x), V::Obj(y)) if x.len() == y.len() => {
+                for (k, v) in x.entries() {
+                    let Some(r) = self.lookup(y, k)? else {
+                        return Ok(false);
+                    };
+                    if !self.equal(v, r)? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
+            (V::Str(x), V::Str(y)) => {
+                self.charge(x.units().len().min(y.units().len()).div_ceil(16))?;
+                Ok(x == y)
+            }
+            _ => Ok(a.deep_equal(b)),
+        }
+    }
+}
+
+impl From<Exhausted> for Thrown {
+    fn from(_: Exhausted) -> Self {
+        Thrown::error(WORK_EXHAUSTED)
+    }
+}
+
+impl From<Exhausted> for Issue {
+    fn from(_: Exhausted) -> Self {
+        Issue::new(
+            &JsStr::default(),
+            "bounded validation work",
+            "limit exceeded",
+            WORK_EXHAUSTED,
+        )
+    }
+}
+
 /// `pointer(p, key)`: one more JSON pointer segment, `~` and `/` escaped.
 pub fn pointer(p: &JsStr, key: &JsStr) -> JsStr {
     let mut out: Vec<u16> = p.units().to_vec();
@@ -300,22 +400,29 @@ fn matches(t: &V, v: &V) -> bool {
 /// `assertSchema`: the schema vocabulary is checked before any argument is, so that a constraint this validator does not
 /// know can never pass silently. Keywords are read in the schema's own order, and the first problem is the one reported.
 pub fn assert_schema(s: &V) -> Result<(), Thrown> {
-    compile_patterns(s).map(|_| ())
+    compile_patterns(s, &mut Work::new(VALIDATION_WORK)).map(|_| ())
 }
 
 type Patterns<'a> = HashMap<&'a JsStr, regress::Regex>;
 
-fn compile_patterns(schema: &V) -> Result<Patterns<'_>, Thrown> {
+fn compile_patterns<'a>(schema: &'a V, work: &mut Work) -> Result<Patterns<'a>, Thrown> {
     let mut patterns = HashMap::new();
-    assert_at(schema, 0, &mut patterns)?;
+    assert_at(schema, 0, &mut patterns, work)?;
     Ok(patterns)
 }
 
-fn assert_at<'a>(s: &'a V, depth: usize, patterns: &mut Patterns<'a>) -> Result<(), Thrown> {
+fn assert_at<'a>(
+    s: &'a V,
+    depth: usize,
+    patterns: &mut Patterns<'a>,
+    work: &mut Work,
+) -> Result<(), Thrown> {
+    work.charge(1)?;
     let Some(o) = s.as_obj().filter(|_| depth <= MAX_SCHEMA_DEPTH) else {
         return Err(Thrown::error("invalid or overly deep tool schema"));
     };
     for (key, v) in o.entries() {
+        work.charge(1 + key.units().len())?;
         let k = key.lossy();
         let k = k.as_str();
         if !key.is(k) || !SUPPORTED.contains(&k) {
@@ -328,12 +435,12 @@ fn assert_at<'a>(s: &'a V, depth: usize, patterns: &mut Patterns<'a>) -> Result<
                     return invalid();
                 };
                 for (_, sub) in props.entries() {
-                    assert_at(sub, depth + 1, patterns)?;
+                    assert_at(sub, depth + 1, patterns, work)?;
                 }
             }
-            "items" => assert_at(v, depth + 1, patterns)?,
+            "items" => assert_at(v, depth + 1, patterns, work)?,
             "additionalProperties" => match v {
-                V::Obj(_) => assert_at(v, depth + 1, patterns)?,
+                V::Obj(_) => assert_at(v, depth + 1, patterns, work)?,
                 V::Bool(_) => {}
                 _ => return invalid(),
             },
@@ -342,7 +449,7 @@ fn assert_at<'a>(s: &'a V, depth: usize, patterns: &mut Patterns<'a>) -> Result<
                     return invalid();
                 };
                 for sub in subs {
-                    assert_at(sub, depth + 1, patterns)?;
+                    assert_at(sub, depth + 1, patterns, work)?;
                 }
             }
             "pattern" => {
@@ -357,11 +464,13 @@ fn assert_at<'a>(s: &'a V, depth: usize, patterns: &mut Patterns<'a>) -> Result<
                     if at_capacity {
                         return Err(Thrown::error("too many distinct tool schema patterns"));
                     }
+                    work.charge(PATTERN_COMPILE_UNIT_COST * (1 + pattern.units().len()))?;
                     entry.insert(unicode_regex(pattern)?);
                 }
             }
             "type" => {
                 let types = v.as_arr().unwrap_or(std::slice::from_ref(v));
+                work.charge(types.len())?;
                 if types.is_empty()
                     || types
                         .iter()
@@ -370,12 +479,14 @@ fn assert_at<'a>(s: &'a V, depth: usize, patterns: &mut Patterns<'a>) -> Result<
                     return invalid();
                 }
             }
-            "required"
+            "required" => {
+                work.charge(v.as_arr().map_or(0, |a| a.len()))?;
                 if !v
                     .as_arr()
-                    .is_some_and(|a| a.iter().all(|x| matches!(x, V::Str(_)))) =>
-            {
-                return invalid();
+                    .is_some_and(|a| a.iter().all(|x| matches!(x, V::Str(_))))
+                {
+                    return invalid();
+                }
             }
             "enum" if v.as_arr().is_none_or(|a| a.is_empty()) => return invalid(),
             "uniqueItems" | "deprecated" | "readOnly" | "writeOnly" if !matches!(v, V::Bool(_)) => {
@@ -403,19 +514,22 @@ fn js_round(x: f64) -> f64 {
 struct Checker<'a, 's> {
     known: Option<KnownSecrets<'a>>,
     patterns: &'s Patterns<'s>,
+    work: Work,
     steps_left: usize,
 }
 
 impl Checker<'_, '_> {
     fn issue(
-        &self,
+        &mut self,
         v: &V,
         path: &JsStr,
         out: &mut Vec<Issue>,
         expected: JsStr,
         message: Option<&str>,
-    ) {
+    ) -> Result<(), Issue> {
+        self.work.value(v, 0)?;
         out.push(self.issue_for(v, path, expected, message));
+        Ok(())
     }
 
     /// Show the JSON argument with known secrets masked, cut to 80 code units.
@@ -445,41 +559,57 @@ impl Checker<'_, '_> {
         out: &mut Vec<Issue>,
         depth: usize,
     ) -> Result<(), Issue> {
+        self.work.charge(16 + s.as_obj().map_or(0, Obj::len))?;
         let text = |t: String| JsStr::from(t);
         if depth > MAX_VALUE_DEPTH {
-            self.issue(v, path, out, JsStr::from("bounded JSON value"), None);
+            self.issue(v, path, out, JsStr::from("bounded JSON value"), None)?;
             return Ok(());
         }
         if let Some(t) = s.get("type") {
             let types = t.as_arr().unwrap_or(std::slice::from_ref(t));
+            self.work.charge(types.len())?;
             if !types.iter().any(|t| matches(t, v)) {
-                self.issue(v, path, out, t.to_js_string(), None);
+                self.issue(v, path, out, t.to_js_string(), None)?;
                 return Ok(());
             }
         }
-        if let Some(list) = s.get("enum").filter(|e| e.as_arr().is_some()) {
-            if !list
-                .as_arr()
-                .is_some_and(|a| a.iter().any(|e| e.deep_equal(v)))
-            {
+        if let Some(list) = s.get("enum") {
+            let mut found = false;
+            for item in list.as_arr().unwrap_or_default() {
+                if self.work.equal(item, v)? {
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                self.work.value(list, 0)?;
                 self.issue(
                     v,
                     path,
                     out,
                     text(format!("one of {}", list.stringify())),
                     None,
-                );
+                )?;
             }
         }
         if let Some(c) = s.get("const") {
-            if !c.deep_equal(v) {
-                self.issue(v, path, out, text(c.stringify()), None);
+            if !self.work.equal(c, v)? {
+                self.work.value(c, 0)?;
+                self.issue(v, path, out, text(c.stringify()), None)?;
             }
         }
         for k in ["anyOf", "oneOf", "allOf"] {
             let Some(subs) = s.get(k).and_then(V::as_arr) else {
                 continue;
             };
+            // Reserve the array walks of direct branches before allocating issues or paths.
+            if let V::Arr(items) = v {
+                for sub in subs {
+                    if sub.get("items").is_some() {
+                        self.work.charge(items.len())?;
+                    }
+                }
+            }
             let mut good = 0;
             for sub in subs {
                 let mut errors = Vec::new();
@@ -490,7 +620,7 @@ impl Checker<'_, '_> {
                 || (k == "oneOf" && good != 1)
                 || (k == "allOf" && good != subs.len())
             {
-                self.issue(v, path, out, JsStr::from(k), None);
+                self.issue(v, path, out, JsStr::from(k), None)?;
             }
         }
         let number = |key: &str| s.get(key).and_then(V::as_f64);
@@ -499,7 +629,11 @@ impl Checker<'_, '_> {
             V::Obj(o) => {
                 let props = s.get("properties").and_then(V::as_obj);
                 for key in s.get("required").and_then(V::as_arr).unwrap_or(&[]) {
-                    if let Some(key) = key.as_js().filter(|key| !o.has(key)) {
+                    let Some(key) = key.as_js() else {
+                        continue;
+                    };
+                    self.work.charge(1 + key.len().div_ceil(16))?;
+                    if self.work.lookup(o, key)?.is_none() {
                         out.push(Issue::new(
                             &pointer(path, key),
                             "required value",
@@ -510,7 +644,13 @@ impl Checker<'_, '_> {
                 }
                 let additional = s.get("additionalProperties");
                 for (key, val) in o.entries() {
-                    if let Some(sub) = props.and_then(|p| p.get_js(key)) {
+                    self.work
+                        .charge(1 + key.len().div_ceil(16) + path.len().div_ceil(16))?;
+                    let sub = match props {
+                        Some(properties) => self.work.lookup(properties, key)?,
+                        None => None,
+                    };
+                    if let Some(sub) = sub {
                         self.check(sub, val, &pointer(path, key), out, depth + 1)?;
                     } else if matches!(additional, Some(V::Bool(false))) {
                         out.push(Issue::new(
@@ -531,7 +671,7 @@ impl Checker<'_, '_> {
                         out,
                         text(format!("at least {} properties", shown(n))),
                         None,
-                    );
+                    )?;
                 }
                 if let Some(n) = number("maxProperties").filter(|n| count > *n) {
                     self.issue(
@@ -540,7 +680,7 @@ impl Checker<'_, '_> {
                         out,
                         text(format!("at most {} properties", shown(n))),
                         None,
-                    );
+                    )?;
                 }
             }
             V::Arr(a) => {
@@ -552,7 +692,7 @@ impl Checker<'_, '_> {
                         out,
                         text(format!("at least {} items", shown(n))),
                         None,
-                    );
+                    )?;
                 }
                 if let Some(n) = number("maxItems").filter(|n| count > *n) {
                     self.issue(
@@ -561,16 +701,20 @@ impl Checker<'_, '_> {
                         out,
                         text(format!("at most {} items", shown(n))),
                         None,
-                    );
+                    )?;
                 }
-                if matches!(s.get("uniqueItems"), Some(V::Bool(true)))
-                    && a.iter()
-                        .enumerate()
-                        .any(|(i, x)| a[..i].iter().any(|y| x.deep_equal(y)))
-                {
-                    self.issue(v, path, out, JsStr::from("unique items"), None);
+                if matches!(s.get("uniqueItems"), Some(V::Bool(true))) {
+                    'unique: for (i, item) in a.iter().enumerate() {
+                        for other in &a[..i] {
+                            if self.work.equal(item, other)? {
+                                self.issue(v, path, out, JsStr::from("unique items"), None)?;
+                                break 'unique;
+                            }
+                        }
+                    }
                 }
                 if let Some(items) = s.get("items").filter(|i| i.as_obj().is_some()) {
+                    self.work.charge(a.len().saturating_mul(8))?;
                     for (i, x) in a.iter().enumerate() {
                         self.check(
                             items,
@@ -583,7 +727,12 @@ impl Checker<'_, '_> {
                 }
             }
             V::Str(string) => {
-                let count = string.code_points() as f64;
+                let count = if s.get("minLength").is_some() || s.get("maxLength").is_some() {
+                    self.work.charge(string.units().len().div_ceil(16))?;
+                    string.code_points() as f64
+                } else {
+                    0.0
+                };
                 if let Some(n) = number("minLength").filter(|n| count < *n) {
                     self.issue(
                         v,
@@ -591,7 +740,7 @@ impl Checker<'_, '_> {
                         out,
                         text(format!("at least {} characters", shown(n))),
                         None,
-                    );
+                    )?;
                 }
                 let over_schema_limit = number("maxLength").filter(|n| count > *n);
                 if let Some(n) = over_schema_limit {
@@ -601,7 +750,7 @@ impl Checker<'_, '_> {
                         out,
                         text(format!("at most {} characters", shown(n))),
                         None,
-                    );
+                    )?;
                 }
                 if let Some(pattern) = s.get("pattern").and_then(V::as_js) {
                     let refused = if string.units().len() > MAX_PATTERN_INPUT_UNITS {
@@ -621,26 +770,26 @@ impl Checker<'_, '_> {
                         !matched
                     };
                     if refused {
-                        self.issue(v, path, out, JsStr::from("pattern ").plus_js(pattern), None);
+                        self.issue(v, path, out, JsStr::from("pattern ").plus_js(pattern), None)?;
                     }
                 }
             }
             V::Num(n) => {
                 let n = *n;
                 if !n.is_finite() {
-                    self.issue(v, path, out, JsStr::from("finite number"), None);
+                    self.issue(v, path, out, JsStr::from("finite number"), None)?;
                 }
                 if let Some(m) = number("minimum").filter(|m| n < *m) {
-                    self.issue(v, path, out, text(format!(">= {}", shown(m))), None);
+                    self.issue(v, path, out, text(format!(">= {}", shown(m))), None)?;
                 }
                 if let Some(m) = number("maximum").filter(|m| n > *m) {
-                    self.issue(v, path, out, text(format!("<= {}", shown(m))), None);
+                    self.issue(v, path, out, text(format!("<= {}", shown(m))), None)?;
                 }
                 if let Some(m) = number("exclusiveMinimum").filter(|m| n <= *m) {
-                    self.issue(v, path, out, text(format!("> {}", shown(m))), None);
+                    self.issue(v, path, out, text(format!("> {}", shown(m))), None)?;
                 }
                 if let Some(m) = number("exclusiveMaximum").filter(|m| n >= *m) {
-                    self.issue(v, path, out, text(format!("< {}", shown(m))), None);
+                    self.issue(v, path, out, text(format!("< {}", shown(m))), None)?;
                 }
                 if let Some(m) = number("multipleOf") {
                     if m <= 0.0 || (n / m - js_round(n / m)).abs() > 1e-10 {
@@ -650,7 +799,7 @@ impl Checker<'_, '_> {
                             out,
                             text(format!("multiple of {}", shown(m))),
                             None,
-                        );
+                        )?;
                     }
                 }
             }
@@ -692,18 +841,42 @@ pub fn validate_arguments(
     value: Option<&V>,
     known: Option<KnownSecrets<'_>>,
 ) -> Result<Vec<Issue>, Thrown> {
-    let patterns = compile_patterns(schema)?;
+    validate_with_limits(
+        schema,
+        value,
+        known,
+        Work::new(VALIDATION_WORK),
+        MATCH_STEP_BUDGET,
+    )
+}
+
+fn validate_with_limits(
+    schema: &V,
+    value: Option<&V>,
+    known: Option<KnownSecrets<'_>>,
+    mut work: Work,
+    steps_left: usize,
+) -> Result<Vec<Issue>, Thrown> {
+    let patterns = match compile_patterns(schema, &mut work) {
+        Err(_) if work.remaining.is_none() => return Ok(vec![Exhausted.into()]),
+        other => other?,
+    };
     let Some(value) = value else {
         return Ok(unsafe_value("undefined"));
     };
-    if !bounded(value, 0, &mut 0) {
+    let mut nodes = 0;
+    if !bounded(value, 0, &mut nodes) {
         return Ok(unsafe_value(value.type_of()));
+    }
+    if work.charge(nodes).is_err() {
+        return Ok(vec![Exhausted.into()]);
     }
     let mut issues = Vec::new();
     let mut checker = Checker {
         known,
         patterns: &patterns,
-        steps_left: MATCH_STEP_BUDGET,
+        work,
+        steps_left,
     };
     if let Err(exhausted) = checker.check(schema, value, &JsStr::default(), &mut issues, 0) {
         issues.push(exhausted);
@@ -973,6 +1146,106 @@ pub fn prepare_call(
 mod budget_tests {
     use super::{validate_arguments, V};
     use crate::toolcall::json::parse;
+
+    fn verify_short_pattern_budget(pattern: &str) {
+        let schema = V::obj([("pattern", V::Str(pattern.into()))]);
+        let value = V::Str("aaaa".into());
+        assert!(validate_arguments(&schema, Some(&value), None)
+            .unwrap()
+            .is_empty());
+        let issues = super::validate_with_limits(
+            &schema,
+            Some(&value),
+            None,
+            super::Work::new(super::VALIDATION_WORK),
+            3,
+        )
+        .unwrap();
+        assert_eq!(issues[0].message, "pattern match budget exhausted".into());
+    }
+
+    #[test]
+    fn grouped_repetition_obeys_the_match_budget() {
+        verify_short_pattern_budget("^(a+)+$");
+    }
+
+    #[test]
+    fn repeated_alternation_obeys_the_match_budget() {
+        verify_short_pattern_budget("^(a|aa)+$");
+    }
+
+    #[test]
+    fn validation_charges_comparisons_and_all_schema_branches() {
+        let array = V::Arr((0..128).map(|n| V::Num(n as f64)).collect());
+        for source in [
+            r#"{"uniqueItems":true}"#,
+            r#"{"anyOf":[{},{"items":{}},{"items":{}}]}"#,
+        ] {
+            let schema = parse(source).unwrap();
+            assert!(validate_arguments(&schema, Some(&array), None)
+                .unwrap()
+                .is_empty());
+            let issues = super::validate_with_limits(
+                &schema,
+                Some(&array),
+                None,
+                super::Work::new(400),
+                super::MATCH_STEP_BUDGET,
+            )
+            .unwrap();
+            assert_eq!(issues.last().unwrap().message, super::WORK_EXHAUSTED.into());
+        }
+    }
+
+    #[test]
+    fn metered_equality_preserves_object_order_independence_and_signed_zero() {
+        let schema = parse(r#"{"uniqueItems":true}"#).unwrap();
+        let duplicates = parse(r#"[{"a":[1],"b":2},{"b":2,"a":[1]}]"#).unwrap();
+        let distinct = V::Arr(vec![V::Num(0.0), V::Num(-0.0)]);
+        let issues = validate_arguments(&schema, Some(&duplicates), None).unwrap();
+        assert_eq!(issues[0].expected, "unique items".into());
+        assert!(validate_arguments(&schema, Some(&distinct), None)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn public_validation_refuses_work_above_the_default_allowance() {
+        let array = V::Arr((0..768).map(|n| V::Num(f64::from(n))).collect());
+        let items = parse(r#"{"items":{"type":"number"}}"#).unwrap();
+        let branches = V::obj([("anyOf", V::Arr(vec![items; 48]))]);
+        let unique = parse(r#"{"uniqueItems":true}"#).unwrap();
+        let patterns = (0..96)
+            .map(|n| V::obj([("pattern", V::Str(format!("{}{}", "a".repeat(96), n).into()))]))
+            .collect();
+        let compiled = V::obj([("allOf", V::Arr(patterns))]);
+        for schema in [branches, unique, compiled] {
+            let issues = validate_arguments(&schema, Some(&array), None).unwrap();
+            assert_eq!(issues.last().unwrap().message, super::WORK_EXHAUSTED.into());
+        }
+    }
+
+    #[test]
+    fn compile_cost_uses_pattern_length_and_only_charges_cache_misses() {
+        let value = V::Str("abc".into());
+        let shared = parse(r#"{"allOf":[{"pattern":"abc"},{"pattern":"abc"}]}"#).unwrap();
+        let separate = parse(r#"{"allOf":[{"pattern":"abc"},{"pattern":"a.c"}]}"#).unwrap();
+        let long = parse(r#"{"pattern":"abcdefghijk"}"#).unwrap();
+        let check = |schema| {
+            super::validate_with_limits(
+                schema,
+                Some(&value),
+                None,
+                super::Work::new(320),
+                super::MATCH_STEP_BUDGET,
+            )
+            .unwrap()
+        };
+        assert!(check(&shared).is_empty());
+        for schema in [&separate, &long] {
+            assert_eq!(check(schema)[0].message, super::WORK_EXHAUSTED.into());
+        }
+    }
 
     #[test]
     fn ordinary_items_share_the_validation_budget() {

@@ -968,6 +968,10 @@ builder, the decision service and triage are K9a.
   **K9b-D2 (K9b-R2)**: schema patterns are capped at 256 UTF-16 units and their input at 1,024 units.
   R-K-33b meters UTF-16 matching and closes the flip blocker. R-K-37 shares 4,000,000 steps across
   one argument validation and caches up to 256 distinct compiled patterns. Exceeding either limit refuses the arguments.
+  [P4D-272](defects.md#p4d-272) tracks the R-K-38 flip blocker until its PR merges. Schema and argument
+  traversal share 262,144 work units. Each previously unseen pattern costs 48 units times its UTF-16 length plus one
+  (48 × (length + 1)). The matcher keeps its own instruction allowance. A limit reached inside a branch refuses the
+  entire call, including when an earlier alternative accepted the value.
 - *Ports for the flip:* the model repair port, the secret matcher, the full-result store and the idempotency store of `results`, the
   clock (`budget::Clock`), `EmbeddingPort`, `LexicalPort` and `PriorPort` of the index, `LocalEmbedding`, `SkillSource`,
   `ExtensionFeed` and `CalibrationSource` of the live index, `skill_tools::Cancelled`, and the process's home directory and its
