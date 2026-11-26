@@ -347,6 +347,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sending_initialize_enables_release_of_cancelled_client_callbacks(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        struct Incoming(VecDeque<ServerJsonRpcMessage>);
+        impl Transport<rmcp::RoleClient> for Incoming {
+            type Error = io::Error;
+            fn send(
+                &mut self,
+                _: ClientJsonRpcMessage,
+            ) -> impl Future<Output = Result<(), io::Error>> + Send + 'static {
+                std::future::ready(Ok(()))
+            }
+            async fn receive(&mut self) -> Option<ServerJsonRpcMessage> {
+                self.0.pop_front()
+            }
+            async fn close(&mut self) -> Result<(), io::Error> {
+                Ok(())
+            }
+        }
+        let request = serde_json::from_value(
+            serde_json::json!({"jsonrpc":"2.0","method":"roots/list","id":"callback"}),
+        )?;
+        let cancel = serde_json::from_value(
+            serde_json::json!({"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":"callback"}}),
+        )?;
+        let initialize = serde_json::from_value(
+            serde_json::json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+            "protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"fixture","version":"1"}}}),
+        )?;
+        let mut client = Bounded::new(
+            Incoming([request, cancel].into()),
+            MAX_FRAME_BYTES,
+            Duration::from_secs(1),
+            Fault::new(),
+            |_| false,
+        )
+        .detect_legacy_initialize();
+        assert!(!client.honor_cancellation);
+        client.send(initialize).await?;
+        assert!(client.receive().await.is_some());
+        assert_eq!(client.outstanding.borrow().replies.len(), 1);
+        assert!(client.receive().await.is_some());
+        assert!(client.outstanding.borrow().replies.is_empty());
+        assert_eq!(client.outstanding.borrow().id_bytes, 0);
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn a_reply_holds_its_reservation_until_the_write_completes(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let write_slots = Arc::new(Semaphore::new(0));

@@ -526,3 +526,62 @@ fn tool_descriptors_replay_typescript_acceptance_and_display_bounds() {
         session.close().unwrap();
     }
 }
+
+#[test]
+fn auto_http_fallback_delivers_peer_cancellation_to_the_legacy_callback() {
+    use plur1bus_mcp::session::{ClientPorts, Error, Feature};
+    use std::sync::mpsc;
+    struct Callback(mpsc::Sender<bool>);
+    impl ClientPorts for Callback {
+        fn supports(&self, feature: Feature) -> bool {
+            matches!(feature, Feature::Roots)
+        }
+        fn invoke(
+            &self,
+            _: Feature,
+            _: Value,
+            deadline: Instant,
+            cancelled: &dyn Fn() -> bool,
+        ) -> Result<Value, Error> {
+            while !cancelled() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            self.0
+                .send(cancelled() && Instant::now() < deadline)
+                .unwrap();
+            Ok(json!({"roots":[]}))
+        }
+    }
+    let event = |v: Value| STANDARD.encode(format!("event: message\ndata: {v}\n\n"));
+    let fixture = FakeServer::start(&json!({"transport":"http","exchanges":[
+        {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,"body":{
+            "jsonrpc":"2.0","id":0,"error":{"code":-32022,"message":"legacy version","data":{"supported":["2025-11-25"]}}}}},
+        {"request":{"method":"POST","path":"/mcp"},"response":{"status":200,"headers":{"mcp-session-id":"legacy-callback"},"body":{
+            "jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{},"serverInfo":{"name":"fixture","version":"1"}}}}},
+        {"request":{"method":"POST","path":"/mcp"},"response":{"status":202,"chunksBase64":[]}},
+        {"request":{"method":"GET","path":"/mcp"},"response":{"status":200,"headers":{"content-type":"text/event-stream"},"chunkGapMs":250,
+            "chunksBase64":[event(json!({"jsonrpc":"2.0","id":71,"method":"roots/list"})), event(json!({"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":71,"reason":"user cancelled"}})),STANDARD.encode(b": end\n\n")]}},
+        {"request":{"method":"DELETE","path":"/mcp"},"response":{"status":204,"chunksBase64":[]}}
+    ]}));
+    let (signal, received) = mpsc::channel();
+    let session = Session::open_http_with_ports(
+        HttpOptions {
+            endpoint: format!("http://{}/mcp", fixture.addr),
+            admission: Arc::new(Pin(fixture.addr)),
+            bearer: None,
+            headers: Default::default(),
+            protocol: Protocol::Auto,
+            timing: Timing {
+                request: Duration::from_secs(3),
+                ..Timing::default()
+            },
+        },
+        None,
+        Some(Arc::new(Callback(signal))),
+    )
+    .unwrap();
+    assert_eq!(session.info().protocol_version, "2025-11-25");
+    let observed = received.recv_timeout(Duration::from_secs(4));
+    session.close().unwrap();
+    assert_eq!(observed, Ok(true));
+}
