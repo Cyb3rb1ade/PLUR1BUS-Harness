@@ -1538,7 +1538,11 @@ mod tests {
         let next = FakeWatch::new(with_level("error"));
         supervisor.offer(&next);
         until("re-watched", || source.source() == SourceKind::Supervisor);
-        assert_eq!(level(&source.current()), "error");
+        // `follow` makes the watch the live one and applies its snapshot after that, so the source is the supervisor a
+        // moment before the supervisor's configuration runs.
+        until("the supervisor's configuration runs", || {
+            level(&source.current()) == "error"
+        });
         assert_eq!(source.revision(), Some(next.snapshot().1));
         assert!(supervisor.attempts.lock().unwrap()[1..]
             .iter()
@@ -1569,7 +1573,9 @@ mod tests {
         let next = FakeWatch::new(with_level("error"));
         supervisor.offer(&next);
         until("re-watched", || source.source() == SourceKind::Supervisor);
-        assert_eq!(level(&source.current()), "error");
+        until("the supervisor's configuration runs", || {
+            level(&source.current()) == "error"
+        });
     }
 
     #[test]
