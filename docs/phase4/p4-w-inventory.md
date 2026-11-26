@@ -368,8 +368,10 @@ every path component. Full-page bitmap dimensions need a host-side limit
 before capture. On startup the host must clean up its abandoned render directories
 after a hard exit. On Windows the Node pipe relay receives the OS system
 directory for its random source. Its Chromium child uses private profile and
-temporary directories. The native acceptance suite exercises the pipe with PDF,
-PNG, pagination and network isolation. The Windows runtime flip still requires
+temporary directories. The relay creates the Windows local and roaming
+application-data folders inside that private home before starting Chromium.
+The native acceptance suite exercises the pipe with PDF, PNG, pagination and
+network isolation. The Windows runtime flip still requires
 a host job-object test that verifies cleanup of the entire process tree on host
 failure.
 

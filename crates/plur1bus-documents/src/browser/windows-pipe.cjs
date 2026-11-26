@@ -1,8 +1,24 @@
 const { spawn } = require("node:child_process");
+const { mkdirSync } = require("node:fs");
+const { join } = require("node:path");
 const [, root, executable, ...args] = process.argv;
+
+// Windows resolves its known folders relative to USERPROFILE. Chrome needs
+// those folders to exist to distinguish its default directory from our profile.
+const localAppData = join(root, "AppData", "Local");
+const roamingAppData = join(root, "AppData", "Roaming");
+mkdirSync(localAppData, { recursive: true });
+mkdirSync(roamingAppData, { recursive: true });
+
 const browser = spawn(executable, args, {
   stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"],
-  env: { TEMP: root, TMP: root, USERPROFILE: root, LOCALAPPDATA: root, APPDATA: root },
+  env: {
+    TEMP: root,
+    TMP: root,
+    USERPROFILE: root,
+    LOCALAPPDATA: localAppData,
+    APPDATA: roamingAppData,
+  },
   shell: false,
   windowsHide: true,
 });
