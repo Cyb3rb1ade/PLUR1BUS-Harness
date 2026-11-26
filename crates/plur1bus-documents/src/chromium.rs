@@ -353,6 +353,102 @@ mod policy_tests {
     use serde_json::json;
 
     #[test]
+    fn loading_a_document_sets_resource_policy_before_navigation() -> super::Result<()> {
+        use super::{Client, Error, Transport};
+        use serde_json::Value;
+        use std::collections::VecDeque;
+
+        #[derive(Default)]
+        struct Browser {
+            commands: Vec<Value>,
+            responses: VecDeque<String>,
+        }
+
+        impl Transport for Browser {
+            fn send(&mut self, text: &str, _: Instant) -> super::Result<()> {
+                let command: Value = serde_json::from_str(text).map_err(|_| Error::Protocol)?;
+                let result = match command["method"].as_str() {
+                    Some("Target.createTarget") => json!({"targetId":"target"}),
+                    Some("Target.attachToTarget") => json!({"sessionId":"page"}),
+                    Some("Page.navigate") => {
+                        for request_id in ["doc", "second"] {
+                            self.responses.push_back(
+                                json!({
+                                    "sessionId":"page","method":"Fetch.requestPaused","params":{
+                                        "requestId":request_id,"resourceType":"Document",
+                                        "request":{"method":"GET","url":DOCUMENT_URL}
+                                    }
+                                })
+                                .to_string(),
+                            );
+                        }
+                        json!({})
+                    }
+                    Some("Runtime.evaluate") => json!({"result":{"value":"complete"}}),
+                    _ => json!({}),
+                };
+                self.responses.push_back(
+                    json!({"id":command["id"],
+                    "sessionId":command["sessionId"],"result":result})
+                    .to_string(),
+                );
+                self.commands.push(command);
+                Ok(())
+            }
+            fn receive(&mut self, _: Instant) -> super::Result<String> {
+                self.responses.pop_front().ok_or(Error::Protocol)
+            }
+            fn wait(&mut self, _: Duration, _: Instant) -> super::Result<()> {
+                Ok(())
+            }
+        }
+
+        let mut browser = Browser::default();
+        let control = Control {
+            deadline: Instant::now() + Duration::from_secs(2),
+            cancelled: &|| false,
+        };
+        Client::new(&mut browser, control).load_document("<p>Report</p>")?;
+        let before = browser
+            .commands
+            .iter()
+            .take_while(|c| c["method"] != "Page.navigate")
+            .collect::<Vec<_>>();
+        for (method, params) in [
+            ("Browser.setDownloadBehavior", json!({"behavior":"deny"})),
+            ("Network.setBypassServiceWorker", json!({"bypass":true})),
+            (
+                "Fetch.enable",
+                json!({"patterns":[{"urlPattern":"*","requestStage":"Request"}]}),
+            ),
+        ] {
+            assert!(
+                before
+                    .iter()
+                    .any(|c| c["method"] == method && c["params"] == params),
+                "{method}"
+            );
+        }
+        let reply = browser
+            .commands
+            .iter()
+            .find(|c| c["method"] == "Fetch.fulfillRequest")
+            .ok_or(Error::Protocol)?;
+        assert_eq!(reply["params"]["requestId"], "doc");
+        assert!(browser
+            .commands
+            .iter()
+            .any(|c| c["method"] == "Fetch.failRequest" && c["params"]["requestId"] == "second"));
+        let headers = reply["params"]["responseHeaders"]
+            .as_array()
+            .ok_or(Error::Protocol)?;
+        assert!(headers.contains(
+            &json!({"name":"content-security-policy","value":crate::templates::DOCUMENT_CSP})
+        ));
+        Ok(())
+    }
+
+    #[test]
     fn cdp_frames_and_base64_have_independent_preflight_limits() {
         assert_eq!(super::parse_frame("{}", 2), Ok(json!({})));
         assert_eq!(super::parse_frame("{} ", 2), Err(super::Error::TooLarge));
@@ -443,6 +539,9 @@ mod policy_tests {
             resource(&request("data:text/html,ordinary", "Document")),
             Resource::Denied
         );
+        let mut post = request(DOCUMENT_URL, "Document");
+        post["request"]["method"] = json!("POST");
+        assert_eq!(resource(&post), Resource::Denied);
         let outsider = "https://example.invalid/resource";
         for kind in [
             "Stylesheet",

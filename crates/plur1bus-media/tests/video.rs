@@ -127,3 +127,50 @@ fn video_container_is_detected_from_the_recorded_bytes() {
         }
     }
 }
+
+#[test]
+fn process_requires_absolute_paths_and_checks_the_size_returned_by_the_codec() {
+    struct Probe(std::cell::Cell<usize>);
+    impl ProcessPort for Probe {
+        fn run(
+            &self,
+            _: Codec,
+            _: &[OsString],
+            max_stdout: usize,
+            _: Instant,
+            _: &dyn Fn() -> bool,
+        ) -> Result<Vec<u8>, Error> {
+            self.0.set(self.0.get() + 1);
+            let mut stdout = br#"{"streams":[{"codec_type":"video","width":16,"height":16,"r_frame_rate":"1/1"}],"format":{"duration":"1"}}"#.to_vec();
+            stdout.resize(max_stdout + 1, b' ');
+            Ok(stdout)
+        }
+    }
+    let host = Probe(std::cell::Cell::new(0));
+    let root = std::env::temp_dir();
+    for (input, calls) in [
+        (PathBuf::from("relative.mp4"), 0),
+        (root.join("absolute.mp4"), 1),
+    ] {
+        let request = VideoRequest {
+            paths: VideoPaths {
+                input: &input,
+                output: &root.join("output.mp4"),
+                poster: &root.join("poster.jpg"),
+            },
+            format: "mp4".parse().unwrap(),
+            prompt: None,
+        };
+        assert_eq!(
+            video::process(
+                &host,
+                &request,
+                Instant::now() + Duration::from_secs(2),
+                &|| false
+            )
+            .err(),
+            Some(Error::InvalidResponse)
+        );
+        assert_eq!(host.0.get(), calls);
+    }
+}

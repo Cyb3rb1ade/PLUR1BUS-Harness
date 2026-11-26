@@ -29,6 +29,7 @@ struct Memory {
     index: Mutex<BTreeMap<String, IndexRecord>>,
     refuse_binding_cleanup: std::cell::Cell<bool>,
     fail_manifest: bool,
+    return_unbounded_read: bool,
 }
 
 struct Guard<'a> {
@@ -72,7 +73,7 @@ impl Backend for Memory {
     ) -> Result<Option<Vec<u8>>> {
         let dir = self.visible.lock().unwrap();
         let data = dir.get(&key(space, id)).and_then(|files| files.get(name));
-        if data.is_some_and(|data| data.len() > limit) {
+        if !self.return_unbounded_read && data.is_some_and(|data| data.len() > limit) {
             return Err(Error::Storage);
         }
         Ok(data.cloned())
@@ -455,6 +456,21 @@ fn upload_publication_and_owner_cleanup_match_the_typescript_store() {
         json!(store.put_uploaded(id, &upload, now, deadline).unwrap()),
         expected["manifest"]
     );
+    let oversized = vec![0; 25 * 1024 * 1024 + 1];
+    assert_eq!(
+        store
+            .put_uploaded(
+                id,
+                &Upload {
+                    bytes: &oversized,
+                    ..upload
+                },
+                now,
+                deadline
+            )
+            .err(),
+        Some(Error::TooLarge)
+    );
     let read = store.get_uploaded(id, deadline).unwrap().unwrap();
     assert_eq!(json!(read.manifest), expected["manifest"]);
     assert_eq!(json!(STANDARD.encode(read.bytes)), expected["raw"]);
@@ -700,4 +716,25 @@ fn generated_output_matches_the_typescript_manifest_charge_and_retention() {
         Some(Error::Storage)
     );
     assert!(storage_failure.visible.lock().unwrap().is_empty());
+}
+
+#[test]
+fn output_store_checks_the_manifest_size_returned_by_its_backend() {
+    let memory = Memory {
+        return_unbounded_read: true,
+        ..Memory::default()
+    };
+    let id = "example";
+    let mut bytes = serde_json::to_vec(&json!({"schema":"media.output/1","id":id})).unwrap();
+    bytes.resize(1024 * 1024 + 1, b' ');
+    memory
+        .visible
+        .lock()
+        .unwrap()
+        .insert(id.into(), Files::from([("manifest.json".into(), bytes)]));
+    let store = OutputStore::new(&memory, Settings::default());
+    assert_eq!(
+        store.get(id, Instant::now() + Duration::from_secs(2)),
+        Err(Error::Storage)
+    );
 }

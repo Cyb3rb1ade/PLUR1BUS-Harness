@@ -174,7 +174,7 @@ fn brand_kit_accepts_hex_colours_and_refuses_other_literals() {
 
 #[test]
 fn escaped_attribute_like_text_remains_readable_in_authored_templates() {
-    use plur1bus_documents::templates::{self, Document, Kit, Meta};
+    use plur1bus_documents::templates::{self, Document, Kit, LineItem, Meta};
     let fixture: Value = serde_json::from_str(include_str!(
         "../../../fixtures/parity/documents/sanitizer.json"
     ))
@@ -189,28 +189,39 @@ fn escaped_attribute_like_text_remains_readable_in_authored_templates() {
         let actual = templates::assemble(
             template,
             &Document {
-                title: "Fixture",
-                subtitle: "",
+                title: markdown,
+                subtitle: markdown,
                 markdown,
-                meta: Meta::default(),
+                meta: Meta {
+                    title: Some(markdown),
+                    author: markdown,
+                    date: markdown,
+                    from: markdown,
+                    to: markdown,
+                    subject: markdown,
+                    salutation: markdown,
+                    closing: markdown,
+                    role: markdown,
+                    total: markdown,
+                    line_items: &[LineItem {
+                        label: markdown,
+                        amount: markdown,
+                    }],
+                },
                 kit: Kit::default(),
             },
         );
-        assert!(actual.contains(escaped), "{input}");
-        assert!(!actual.contains("<entry"));
+        let directive = format!(
+            "<meta http-equiv=\"Content-Security-Policy\" content=\"{}\">\n",
+            templates::DOCUMENT_CSP
+        );
+        let comparable = actual.replacen(&directive, "", 1);
+        let digest = format!("{:x}", Sha256::digest(comparable.as_bytes()));
+        assert_eq!(digest, case["escapedTemplateSha256"], "{input}");
         if case["expectedDivergence"] == "P4D-252" {
             assert_ne!(escaped, case["sanitized"].as_str().unwrap());
         } else {
-            let directive = format!(
-                "<meta http-equiv=\"Content-Security-Policy\" content=\"{}\">\n",
-                templates::DOCUMENT_CSP
-            );
-            let comparable = actual.replacen(&directive, "", 1);
-            assert_eq!(
-                format!("{:x}", Sha256::digest(comparable.as_bytes())),
-                case["typescriptSha256"],
-                "{input}"
-            );
+            assert_eq!(digest, case["typescriptSha256"], "{input}");
         }
     }
 }
@@ -232,4 +243,31 @@ fn cv_role_is_escaped_in_the_document() {
         },
     );
     assert!(html.contains("Design &amp; &lt;Research&gt;"));
+}
+
+#[test]
+fn screenshot_checks_frame_size_even_with_a_custom_transport() {
+    use plur1bus_documents::chromium::{Client, Control, Error, Result, Transport};
+    use std::time::{Duration, Instant};
+    struct Oversize;
+    impl Transport for Oversize {
+        fn send(&mut self, _: &str, _: Instant) -> Result<()> {
+            Ok(())
+        }
+        fn receive(&mut self, _: Instant) -> Result<String> {
+            Ok(" ".repeat(32 * 1024 * 1024 + 1))
+        }
+        fn wait(&mut self, _: Duration, _: Instant) -> Result<()> {
+            Ok(())
+        }
+    }
+    let mut host = Oversize;
+    let mut browser = Client::new(
+        &mut host,
+        Control {
+            deadline: Instant::now() + Duration::from_secs(3),
+            cancelled: &|| false,
+        },
+    );
+    assert_eq!(browser.screenshot(), Err(Error::TooLarge));
 }

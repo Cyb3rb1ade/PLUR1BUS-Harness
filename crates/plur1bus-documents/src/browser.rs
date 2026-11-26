@@ -80,7 +80,10 @@ impl<'a> Chromium<'a> {
         let control = control.capped();
         control.check()?;
         check_html_size(html.len())?;
-        if !self.binary.is_absolute() || !self.private_root.is_absolute() {
+        if !self.binary.is_absolute()
+            || !self.private_root.is_absolute()
+            || self.paged_js.is_some_and(|asset| !asset.is_absolute())
+        {
             return Err(Error::BrowserUnavailable);
         }
         let directory = tempfile::Builder::new()
@@ -99,8 +102,7 @@ impl<'a> Chromium<'a> {
         control: Control<'_>,
         run: impl FnOnce(&mut Client<'_, Pipe>) -> Result<T>,
     ) -> Result<T> {
-        let profile = directory.join("profile");
-        let mut browser = BrowserProcess::spawn(self.binary, &profile)?;
+        let mut browser = BrowserProcess::spawn(self.binary, directory)?;
         let write_end = browser.0.stdin.take().ok_or(Error::BrowserUnavailable)?;
         let read_end = browser.0.stdout.take().ok_or(Error::BrowserUnavailable)?;
         let mut wire = Pipe::start(read_end, write_end, control)?;
@@ -148,9 +150,6 @@ fn remove_profile(directory: tempfile::TempDir) -> Result<()> {
 }
 
 fn paginate(cdp: &mut Client<'_, Pipe<'_>>, asset: &Path, control: Control<'_>) -> Result<()> {
-    if !asset.is_absolute() {
-        return Err(Error::BrowserUnavailable);
-    }
     let mut script = String::from("window.PagedConfig = { auto: false };\n");
     let start = script.len();
     File::open(asset)
@@ -178,10 +177,15 @@ fn check_html_size(bytes: usize) -> Result<()> {
 struct BrowserProcess(Child);
 
 impl BrowserProcess {
-    fn spawn(binary: &Path, profile: &Path) -> Result<Self> {
+    fn spawn(binary: &Path, directory: &Path) -> Result<Self> {
         let mut profile_arg = std::ffi::OsString::from("--user-data-dir=");
-        profile_arg.push(profile);
-        let mut command = pipe_command(binary)?;
+        let root = directory
+            .canonicalize()
+            .map_err(|_| Error::BrowserUnavailable)?;
+        profile_arg.push(root.join("profile"));
+        let mut dumps = std::ffi::OsString::from("--crash-dumps-dir=");
+        dumps.push(root.join("crashes"));
+        let mut command = pipe_command(binary, &root)?;
         command
             .env_clear()
             .args([
@@ -194,8 +198,15 @@ impl BrowserProcess {
                 "--no-default-browser-check",
                 "--disable-background-networking",
                 "--disable-extensions",
+                "--disable-component-update",
+                #[cfg(target_os = "macos")]
+                "--use-mock-keychain",
+                "--disable-crash-reporter",
+                "--disable-breakpad",
+                "--disable-crashpad-for-testing",
                 "--host-resolver-rules=MAP * ~NOTFOUND",
             ])
+            .arg(dumps)
             .arg(profile_arg)
             .arg("about:blank")
             .stdin(Stdio::piped())
@@ -222,24 +233,25 @@ impl BrowserProcess {
 }
 
 #[cfg(unix)]
-fn pipe_command(binary: &Path) -> Result<Command> {
+fn pipe_command(binary: &Path, root: &Path) -> Result<Command> {
     // Only fixed descriptor actions are interpreted by the shell. The binary
     // and every argument are passed as distinct argv elements to exec.
     let mut command = Command::new("/bin/sh");
     command
         .args([
             "-c",
-            "exec /usr/bin/env -i \"$@\" 3<&0 4>&1 </dev/null >/dev/null",
+            "root=$1; shift; exec /usr/bin/env -i HOME=\"$root\" TMPDIR=\"$root\" MAC_CHROMIUM_TMPDIR=\"$root\" CFFIXED_USER_HOME=\"$root\" XDG_CONFIG_HOME=\"$root\" XDG_CACHE_HOME=\"$root\" CHROME_CONFIG_HOME=\"$root\" \"$@\" 3<&0 4>&1 </dev/null >/dev/null",
             "plur1bus-chromium",
         ])
+        .arg(root)
         .arg(binary);
     Ok(command)
 }
 
 #[cfg(windows)]
-fn pipe_command(binary: &Path) -> Result<Command> {
+fn pipe_command(binary: &Path, root: &Path) -> Result<Command> {
     // Node's native child-process launcher transfers the two Chromium pipe
-    // descriptors on Windows. The helper and Chromium both get an empty env.
+    // descriptors on Windows. Chromium receives only the private directory paths.
     let node = std::env::var_os("PLUR1BUS_NODE")
         .map(std::path::PathBuf::from)
         .filter(|path| path.is_absolute() && path.is_file())
@@ -254,12 +266,13 @@ fn pipe_command(binary: &Path) -> Result<Command> {
     let mut command = Command::new(node);
     command
         .args(["--eval", include_str!("browser/windows-pipe.cjs"), "--"])
+        .arg(root)
         .arg(binary);
     Ok(command)
 }
 
 #[cfg(not(any(unix, windows)))]
-fn pipe_command(_: &Path) -> Result<Command> {
+fn pipe_command(_: &Path, _: &Path) -> Result<Command> {
     Err(Error::BrowserUnavailable)
 }
 

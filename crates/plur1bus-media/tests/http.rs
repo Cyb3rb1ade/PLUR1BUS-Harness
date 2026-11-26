@@ -28,6 +28,7 @@ struct Host {
     address: SocketAddr,
     waits: RefCell<Vec<u64>>,
     credentials: Cell<usize>,
+    pins: Cell<usize>,
     cancelled: Arc<AtomicBool>,
 }
 
@@ -37,6 +38,7 @@ impl Host {
             address,
             waits: RefCell::new(Vec::new()),
             credentials: Cell::new(0),
+            pins: Cell::new(0),
             cancelled: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -44,6 +46,7 @@ impl Host {
 
 impl Ports for Host {
     fn pin(&self, endpoint: &Url, _: Instant) -> Option<SocketAddr> {
+        self.pins.set(self.pins.get() + 1);
         (endpoint.port() == Some(self.address.port())).then_some(self.address)
     }
 
@@ -276,4 +279,72 @@ fn struct_and_diagnostic_caps_apply_during_reading() {
             .code,
         Error::TooLarge
     );
+}
+
+#[test]
+fn downloads_check_the_host_before_pinning_and_the_pin_before_connecting() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let host = Host::local(listener.local_addr().unwrap());
+    let client = Client::new(
+        &host,
+        "https://provider.example",
+        Options {
+            download_hosts: &["assets.example"],
+            ..Options::default()
+        },
+    )
+    .unwrap();
+    let deadline = Instant::now() + Duration::from_millis(250);
+    for (domain, expected_pins) in [("unknown.example", 0), ("assets.example", 1)] {
+        let url = format!("https://{domain}:{}/file", host.address.port());
+        assert_eq!(
+            client.stream(&url, false, deadline).err(),
+            Some(Error::BackendUnavailable)
+        );
+        assert_eq!(host.pins.get(), expected_pins);
+        assert_eq!(
+            listener.accept().unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+    }
+}
+
+#[test]
+fn image_checks_declared_lengths_before_reading_or_decoding() {
+    use std::io::{BufRead, BufReader};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let host = Host::local(listener.local_addr().unwrap());
+    let server = thread::spawn(move || {
+        let (mut peer, _) = listener.accept().unwrap();
+        let mut request = BufReader::new(&peer);
+        let mut line = String::new();
+        loop {
+            line.clear();
+            if request.read_line(&mut line).unwrap() == 0 || line == "\r\n" {
+                break;
+            }
+        }
+        write!(
+            peer,
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            64 * 1024 * 1024 + 1
+        )
+        .unwrap();
+    });
+    let origin = format!("http://{}", host.address);
+    let client = Client::new(
+        &host,
+        &origin,
+        Options {
+            cleartext: Some(Cleartext::Loopback),
+            ..Options::default()
+        },
+    )
+    .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    assert_eq!(client.image(&origin, deadline).err(), Some(Error::TooLarge));
+    server.join().unwrap();
+    let over = "!".repeat((64 * 1024 * 1024_usize).div_ceil(3) * 4 + 1);
+    assert_eq!(client.image(&over, deadline).err(), Some(Error::TooLarge));
 }

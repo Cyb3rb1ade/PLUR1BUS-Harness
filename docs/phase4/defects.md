@@ -1781,7 +1781,12 @@ connections, including script-created workers and WebRTC. Chromium's resolver
 rules block name resolution for other connections, including preconnects.
 The review found that interception alone did not cover WebSockets, shared
 workers, STUN or preconnects. The system proxy is a separate host boundary.
-Chromium starts with a cleared environment.
+The launcher clears the inherited environment and assigns a fresh home, temp,
+profile and crash directory for each render. On macOS it also sets
+`MAC_CHROMIUM_TMPDIR` for Chromium and `CFFIXED_USER_HOME` for Foundation.
+The renderer disables crash reporting and component updates and uses the mock
+keychain on macOS. The driver removes the private directory after the process
+exits.
 The driver caps the deadline at 600 seconds and checks cancellation while
 waiting on the pipe. On Windows the process launcher uses the configured Node
 binary to attach the Chromium pipe descriptors.

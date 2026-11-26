@@ -1,8 +1,8 @@
 const { spawn } = require("node:child_process");
-const [, executable, ...args] = process.argv;
+const [, root, executable, ...args] = process.argv;
 const browser = spawn(executable, args, {
   stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"],
-  env: {},
+  env: { TEMP: root, TMP: root, USERPROFILE: root, LOCALAPPDATA: root, APPDATA: root },
   shell: false,
   windowsHide: true,
 });
