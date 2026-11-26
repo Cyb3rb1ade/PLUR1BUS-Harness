@@ -285,6 +285,49 @@ fn imap_reduces_a_limited_search_and_checkpoints_completed_pages() {
 }
 
 #[test]
+fn imap_returns_large_mailbox_in_order_over_the_wire() {
+    let first = 1_000_001;
+    let last = first + 19_999;
+    let mut fixture = recorded("imap-fetch");
+    let exchanges = fixture["exchanges"].as_array_mut().unwrap();
+    exchanges.truncate(8);
+    exchanges[7]["receiveChunksBase64"] = json!([STANDARD.encode(format!(
+        "* 20000 EXISTS\r\n* OK [UIDVALIDITY 1] mailbox\r\n* OK [UIDNEXT {}] next\r\nA0006 OK selected\r\n",
+        last + 1
+    ))]);
+    for (page, start) in (first..=last).step_by(4096).enumerate() {
+        let end = (start + 4095).min(last);
+        let tag = page + 7;
+        let ids = (start..=end)
+            .map(|uid| uid.to_string())
+            .collect::<Vec<_>>()
+            .join(" ");
+        let reply = format!("* SEARCH {ids}\r\nA{tag:04} OK searched\r\n");
+        assert!(reply.len() < 65_536);
+        exchanges.push(json!({
+            "sendBase64": [STANDARD.encode(format!("A{tag:04} UID SEARCH UID {start}:{end}\r\n"))],
+            "receiveChunksBase64": [STANDARD.encode(reply)]
+        }));
+    }
+    let server = FakeServer::start(&fixture);
+    let ports = Stub {
+        addr: server.addr,
+        upgrades: Cell::default(),
+    };
+    let (mut connection, _, _) = imap::open(&ports, &options(&server), "INBOX").unwrap();
+    let mut cursor = first - 1;
+    let mut received = Vec::new();
+    connection
+        .for_each_uid_page(&mut cursor, |_, uids| {
+            received.extend_from_slice(uids);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(received, (first..=last).collect::<Vec<_>>());
+    assert_eq!(cursor, last);
+}
+
+#[test]
 fn parsed_attachment_names_drop_leading_periods() {
     let input = b"From: reader@example.invalid\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=...edition.txt\r\n\r\nNews";
     let parsed = mime::parse(input, Default::default());

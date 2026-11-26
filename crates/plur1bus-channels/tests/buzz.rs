@@ -38,6 +38,61 @@ fn normalized(signed: &Event) -> Value {
 }
 
 #[test]
+fn receive_persists_only_fresh_messages_from_permitted_peers() {
+    let relay_url = "wss://fixture.invalid";
+    let own = Keys::new(SecretKey::from_slice(&[1; 32]).unwrap());
+    let permitted = Keys::new(SecretKey::from_slice(&[2; 32]).unwrap());
+    let unlisted = Keys::new(SecretKey::from_slice(&[3; 32]).unwrap());
+    let now = 1_800_000_000;
+    let mut receiver = Buzz::new(&own, &[relay_url], &[permitted.public_key()], &[]).unwrap();
+    let mut relay = Relay::new(Url::parse(relay_url).unwrap());
+    let mut random = Random(10);
+    let mut store = Store::default();
+    let announcement = receiver.announce(now, &mut random).unwrap();
+    let metadata = json!(["EVENT", "buzz-relays", announcement]).to_string();
+
+    for (author, sent_at, expected) in [
+        (&unlisted, now, false),
+        (&permitted, now - 30 * 24 * 60 * 60, false),
+        (&permitted, now, true),
+    ] {
+        let mut sender = Buzz::new(author, &[relay_url], &[own.public_key()], &[]).unwrap();
+        assert!(matches!(
+            sender
+                .receive(&mut relay, &metadata, now, &mut random, &mut Store::default())
+                .unwrap(),
+            RelayEvent::Metadata(peer) if peer == own.public_key()
+        ));
+        let outgoing = sender
+            .wrap(own.public_key(), "Fixture message", sent_at, &mut random)
+            .unwrap();
+        let raw = json!(["EVENT", "buzz-inbox", &outgoing[0]]).to_string();
+        let event = receiver
+            .receive(&mut relay, &raw, now, &mut random, &mut store)
+            .unwrap();
+        if expected {
+            let RelayEvent::Message(message) = event else {
+                panic!("expected a message from the permitted peer");
+            };
+            assert_eq!(message.sender, permitted.public_key());
+            assert_eq!(message.text, "Fixture message");
+            assert!(store.0.contains(&message.id));
+            let saved = store.0.clone();
+            assert!(matches!(
+                receiver
+                    .receive(&mut relay, &raw, now, &mut random, &mut store)
+                    .unwrap(),
+                RelayEvent::Ignored
+            ));
+            assert_eq!(store.0, saved);
+        } else {
+            assert!(matches!(event, RelayEvent::Ignored));
+            assert!(store.0.is_empty());
+        }
+    }
+}
+
+#[test]
 fn replays_buzz_subscriptions_encrypted_delivery_and_authentication() {
     let fixture = load_fixture("channels", "buzz-relay");
     let server = FakeServer::start(&fixture);
