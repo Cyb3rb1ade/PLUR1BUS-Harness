@@ -234,6 +234,10 @@ jobs:
         timeout-minutes: 25
         env:
           PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
+      - name: Windows wire libraries and native document browser
+        if: ${{ !cancelled() && runner.os == 'Windows' && needs.changes.outputs.rust == 'true' }}
+        shell: pwsh
+        run: ./scripts/ci/test-windows-wire.ps1
       - name: run Rust workspace tests
         if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         shell: bash
@@ -453,6 +457,10 @@ jobs:
         timeout-minutes: 25
         env:
           PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
+      - name: Windows wire libraries and native document browser
+        if: ${{ !cancelled() && runner.os == 'Windows' && needs.changes.outputs.rust == 'true' }}
+        shell: pwsh
+        run: ./scripts/ci/test-windows-wire.ps1
       - name: run Rust workspace tests
         if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         shell: bash

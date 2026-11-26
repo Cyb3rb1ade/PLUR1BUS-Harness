@@ -1,6 +1,6 @@
 {
   "source": ".github/workflows/ci.yml",
-  "sha256": "a7b6bce5ca7cbaca29043e734261f67eeb2e20c5c5f2037c5d77388456bb3420",
+  "sha256": "8be975cc42c26d9ed2208c100c1b69c752c96fed1d11db6d6f022637d9e1b946",
   "projection": "Job bodies omitted; trigger and root metadata retained from parsed source.",
   "workflow": {
     "name": "ci",
