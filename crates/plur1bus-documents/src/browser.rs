@@ -203,6 +203,8 @@ impl BrowserProcess {
                 "--use-mock-keychain",
                 "--disable-crash-reporter",
                 "--disable-breakpad",
+                // On Linux this testing switch crashes Chrome 141 renderers on navigation.
+                #[cfg(not(target_os = "linux"))]
                 "--disable-crashpad-for-testing",
                 "--host-resolver-rules=MAP * ~NOTFOUND",
             ])

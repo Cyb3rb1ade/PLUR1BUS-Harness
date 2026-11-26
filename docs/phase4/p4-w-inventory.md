@@ -637,3 +637,5 @@ Dokument-Goldens mit demselben Chromium für beide Renderer. Die
 gezielten Rücknahmen und ihre Testnamen liegen im Lauf-Ledger. Native
 Linux- und Windows-Checks und die unabhängigen Reviews gehören zum
 Paketnachweis im PR.
+
+Unter Ubuntu prüft derselbe CI-Job zuerst die neun Referenzbilder und dann die native PDF- und PNG-Ausgabe. Chromium 141 braucht unter Linux seinen Crashpad-Handler beim Navigieren. Die pro Renderauftrag gesetzten privaten Verzeichnisse nehmen dessen Dateien auf.
