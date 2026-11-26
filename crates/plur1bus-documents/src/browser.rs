@@ -34,6 +34,7 @@ pub struct Rendered {
 
 impl<'a> Chromium<'a> {
     /// The binary and private temporary directory are trusted host configuration.
+    /// On Unix, use a short local path with room for Chromium’s socket filenames.
     pub fn new(binary: &'a Path, private_root: &'a Path) -> Self {
         Self {
             binary,

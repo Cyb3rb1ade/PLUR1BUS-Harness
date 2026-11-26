@@ -58,7 +58,10 @@ fn main() -> io::Result<()> {
         return Err(io::Error::other("golden requests exceed 64 KiB"));
     }
     let samples: Vec<Sample> = serde_json::from_slice(&data)?;
-    let browser = Chromium::new(binary, output);
+    // Chromium creates Unix sockets under its private root. CI artifact paths can
+    // exceed the socket pathname limit even though ordinary file writes succeed.
+    let private = tempfile::tempdir()?;
+    let browser = Chromium::new(binary, private.path());
     let fonts = FontDirectory::new(fonts.clone());
     for sample in &samples {
         render(sample, &browser, &fonts, output)?;
