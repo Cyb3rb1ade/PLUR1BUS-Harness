@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** Trusted language preflight; only failures before candidate execution are infrastructure failures. */
-import { access, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
@@ -30,6 +30,18 @@ async function executable(name, path = process.env.PATH ?? "") {
   throw new IsolationUnavailable("toolchain-unavailable");
 }
 
+async function rustupProxy(program) {
+  if (program.endsWith("/rustup")) return program;
+  // rustup can install rustc as a hard link. realpath then still names rustc,
+  // whose dispatch mode depends on argv[0].
+  const manager = join(dirname(program), "rustup");
+  let installed;
+  try { installed = await stat(manager, { bigint: true }); }
+  catch (error) { if (error.code === "ENOENT") return undefined; throw error; }
+  const compiler = await stat(program, { bigint: true });
+  return compiler.dev === installed.dev && compiler.ino === installed.ino ? manager : undefined;
+}
+
 /** Build compiler/runtime environment using K2's allowlist and private caches. */
 export async function languageRuntime(language, root, options) {
   const provided = options.runtimes?.[language];
@@ -37,9 +49,10 @@ export async function languageRuntime(language, root, options) {
   if (!program) {
     const name = { typescript: process.execPath, python: "python3", rust: "rustc", go: "go" }[language];
     program = await executable(name);
-    if (language === "rust" && /rustup$/.test(program)) {
+    const manager = language === "rust" ? await rustupProxy(program) : undefined;
+    if (manager) {
       const rustup = await runOwnedCommand({
-        program,
+        program: manager,
         args: ["which", "--toolchain", await rustChannel(), "rustc"],
         cwd: root,
         env: executionEnvironment({ ...process.env, HOME: homedir() }),
