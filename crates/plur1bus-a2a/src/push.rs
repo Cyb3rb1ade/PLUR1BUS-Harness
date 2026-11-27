@@ -260,7 +260,7 @@ fn post(
         .body(body)
         .map_err(|_| Error::InvalidRequest)?;
     request.headers_mut().extend(headers.clone());
-    let (response, signal) = http::run(pin, window, request)?;
+    let (response, signal) = http::run(pin, window, request, Some(DIAGNOSTIC_TIME))?;
     let reply = Reply {
         status: response.status().as_u16(),
         location: response
@@ -489,6 +489,10 @@ mod tests {
             &task,
             window,
             Limits::default(),
+        );
+        assert!(
+            Instant::now() < window.deadline,
+            "diagnostic consumed the host deadline"
         );
         assert_eq!(result, Ok(Delivery::Delivered));
         assert_eq!(port.admitted.borrow().len(), 1);
