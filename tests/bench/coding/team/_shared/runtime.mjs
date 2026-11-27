@@ -42,6 +42,33 @@ async function rustupProxy(program) {
   return compiler.dev === installed.dev && compiler.ino === installed.ino ? manager : undefined;
 }
 
+// Resolve the trusted host installation before giving the compiler the checker's private HOME.
+// A packaged entrypoint may be a wrapper script with its own inode.
+async function selectedRustCompiler(program, root, signal) {
+  const manager = await rustupProxy(program);
+  const channel = await rustChannel();
+  const result = await runOwnedCommand({
+    program: manager ?? program,
+    args: manager ? ["which", "--toolchain", channel, "rustc"] : ["--print", "sysroot"],
+    cwd: root,
+    env: executionEnvironment({ ...process.env, HOME: homedir(), RUSTUP_TOOLCHAIN: channel }),
+    timeoutMs: 10000,
+    signal,
+  });
+  const reported = result.stdout.trim();
+  if (result.code !== 0 || result.reason || !isAbsolute(reported)) throw new IsolationUnavailable("toolchain-unavailable");
+  if (manager) return realpath(reported);
+  const installed = join(reported, "bin", "rustc");
+  try {
+    await access(installed, constants.X_OK);
+    return await realpath(installed);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    // A standalone compiler can report a sysroot without another rustc in it.
+    return program;
+  }
+}
+
 /** Build compiler/runtime environment using K2's allowlist and private caches. */
 export async function languageRuntime(language, root, options) {
   const provided = options.runtimes?.[language];
@@ -49,18 +76,7 @@ export async function languageRuntime(language, root, options) {
   if (!program) {
     const name = { typescript: process.execPath, python: "python3", rust: "rustc", go: "go" }[language];
     program = await executable(name);
-    const manager = language === "rust" ? await rustupProxy(program) : undefined;
-    if (manager) {
-      const rustup = await runOwnedCommand({
-        program: manager,
-        args: ["which", "--toolchain", await rustChannel(), "rustc"],
-        cwd: root,
-        env: executionEnvironment({ ...process.env, HOME: homedir() }),
-        timeoutMs: 10000,
-      });
-      if (rustup.code !== 0) throw new IsolationUnavailable("toolchain-unavailable");
-      program = await realpath(rustup.stdout.trim());
-    }
+    if (language === "rust") program = await selectedRustCompiler(program, root, options.signal);
   }
   const cache = join(root, "cache");
   await mkdir(cache, { recursive: true });
