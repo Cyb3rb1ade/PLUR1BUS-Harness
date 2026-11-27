@@ -82,7 +82,7 @@ test('WSL setup attempts cannot consume the job budget before retries and real t
 
 test('every job running Core builds the native sandbox launcher before its assertions', () => {
   const jobs = jobBlocks(workflow());
-  for (const name of ['unit', 'unit-os', 'core-unit-shard', 'core-unit-shard-windows']) {
+  for (const name of ['unit', 'unit-os', 'core-unit-shard', 'core-unit-shard-windows', 'core-unit-shard-macos']) {
     const block = jobs[name];
     const build = block.indexOf('cargo build --locked -p plur1bus --bin plur1bus-sandbox-limits');
     const tests = block.indexOf(name.startsWith('core-unit') ? '      - name: measured Core shard' : '      - name: unit tests with file timings');
@@ -206,25 +206,29 @@ test('every Desktop platform builds test executables before the unchanged execut
   assert.match(desktop, /^    timeout-minutes: 60$/m);
 });
 
-test('macOS gives Core its own timed step and runs both disjoint package selections on the same runner', () => {
-  const job = jobBlocks(workflow())['unit-os'];
-  const steps = job.split(/(?=^      - )/m);
-  const other = steps.find(step => step.includes('name: unit tests with file timings'));
-  const core = steps.find(step => step.includes('name: macOS Core tests with file timings'));
-  assert.ok(other && core && steps.indexOf(other) < steps.indexOf(core));
-  assert.match(other, /^          node scripts\/run-ts-tests\.mjs --filter=!@plur1bus\/core$/m);
-  assert.match(other, /matrix.os == 'windows-2025' && 35 \|\| matrix.os == 'macos-15' && 15 \|\| 25/);
-  assert.match(core, /!cancelled\(\) && runner.os == 'macOS' && needs.changes.outputs.ts-core == 'true'/);
-  assert.match(core, /^          node scripts\/run-ts-tests\.mjs --filter=@plur1bus\/core$/m);
-  assert.match(core, /^        timeout-minutes: 25$/m);
-  assert.match(core, /^          PLUR1BUS_CORE_TEST_CONCURRENCY: bounded$/m);
-  for (const step of [other, core]) {
-    assert.match(step, /export TEST_TIMING_DIR="\$GITHUB_WORKSPACE\/test-timings"/);
-    assert.match(step, /--test-reporter-destination=stdout/);
+test('macOS runs Core on three native runners within the existing deadline and verifies its own manifests', () => {
+  const jobs = jobBlocks(workflow());
+  const shard = jobs['core-unit-shard-macos'];
+  const verify = jobs['core-unit-macos'];
+  assert.ok(shard && verify, 'macOS needs separate shard and partition jobs');
+  const field = (job, key) => job.split('\n').find(line => line.trimStart().startsWith(key + ':'))?.trim();
+  for (const key of ['if', 'shard', 'PLUR1BUS_TEST_SHARD', 'PLUR1BUS_TEST_SHARD_TIMINGS']) {
+    assert.equal(field(shard, key), field(jobs['core-unit-shard-windows'], key), key);
   }
-  const runner = readFileSync(new URL('../test-package.mjs', import.meta.url), 'utf8');
-  assert.match(runner, /const TEST_TIMEOUT_MS = 120_000/);
-  assert.match(runner, /\.\.\.files\], \{ stdio: "inherit" \}/);
+  assert.equal(field(verify, 'if'), field(jobs['core-unit-windows'], 'if'));
+  assert.match(shard, /^    runs-on: macos-15$/m);
+  const measure = shard.split('      - name: measured Core shard')[1].split('      - ')[0];
+  assert.match(measure, /^        timeout-minutes: 25$/m);
+  assert.match(shard, /PLUR1BUS_CORE_TEST_CONCURRENCY: bounded/);
+  assert.match(measure, /pnpm --filter @plur1bus\/core test/);
+  assert.match(shard, /name: macos-core-unit-manifest-\$\{\{ matrix.shard \}\}/);
+  assert.match(verify, /pattern: macos-core-unit-manifest-\*/);
+  assert.match(verify, /test-shards.mjs verify --cwd=packages\/core --dir=macos-core-unit-manifests/);
+  assert.match(verify, /SHARDS: \$\{\{ needs.core-unit-shard-macos.result \}\}/);
+  assert.match(verify, /test "\$SHARDS" = success/);
+  for (const id of ['core-unit-shard-macos', 'core-unit-macos']) assert.ok(UNGATED.includes(id));
+  assert.match(jobs['unit-os'], /node scripts\/run-ts-tests.mjs --filter=!@plur1bus\/core/);
+  assert.doesNotMatch(jobs['unit-os'], /--filter=@plur1bus\/core/);
 });
 
 test('unit-os preserves every unit step while Ubuntu and Windows run Core only in their measured shards', () => {
@@ -463,7 +467,7 @@ test('a PR without the platform policy still gets a passing gate when the gated 
 
 test("Core shards prepare the pinned Rust toolchain and protected cache before native integration builds", () => {
   const jobs = jobBlocks(workflow());
-  for (const job of ["core-unit-shard", "core-unit-shard-windows"]) {
+  for (const job of ["core-unit-shard", "core-unit-shard-windows", "core-unit-shard-macos"]) {
     const block = jobs[job];
     const build = block.indexOf(
       "run: cargo build --locked -p plur1bus-tools -p plur1bus",
