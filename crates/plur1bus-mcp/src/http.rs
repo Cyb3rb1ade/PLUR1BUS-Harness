@@ -84,6 +84,7 @@ pub struct HttpClient {
     endpoint: Url,
     admission: Arc<dyn Admission>,
     timeout: Duration,
+    reply_write: Option<(Duration, Fault)>,
     frame_limit: usize,
     include_progress: bool,
     challenges: Option<Arc<dyn Observer>>,
@@ -136,6 +137,7 @@ impl HttpClient {
             endpoint: checked_url(endpoint)?,
             admission,
             timeout,
+            reply_write: None,
             frame_limit: MAX_FRAME_BYTES,
             include_progress: true,
             challenges: None,
@@ -220,6 +222,11 @@ impl HttpClient {
         {
             reply.error = ErrorData::invalid_request("MCP peer advertises a legacy version", None);
         }
+    }
+
+    pub(crate) fn with_reply_write_timeout(mut self, budget: Duration, fault: Fault) -> Self {
+        self.reply_write = Some((budget, fault));
+        self
     }
 
     pub(crate) fn passive(mut self) -> Self {
@@ -472,12 +479,21 @@ impl StreamableHttpClient for HttpClient {
         max_sse_event_size: usize,
     ) -> SdkResult<StreamableHttpPostResponse> {
         let client = self.clone();
-        let signal = HttpCancellation::default();
+        let write = matches!(
+            &message,
+            ClientJsonRpcMessage::Response(_) | ClientJsonRpcMessage::Error(_)
+        )
+        .then(|| client.reply_write.clone())
+        .flatten();
+        let signal = match &write {
+            Some((budget, _)) => HttpCancellation::default().with_write_idle_timeout(*budget),
+            None => HttpCancellation::default(),
+        };
         let guard = CancelOnDrop(Some(signal.clone()));
         let result = spawn_blocking(move || {
             let body = encode::message(&message, client.include_progress, false)
                 .map_err(|_| SdkError::Client(Error::InvalidBody))?;
-            client.post(
+            let result = client.post(
                 Outbound {
                     method: Method::POST,
                     uri,
@@ -490,7 +506,13 @@ impl StreamableHttpClient for HttpClient {
                 &message,
                 max_sse_event_size.min(client.frame_limit),
                 &signal,
-            )
+            );
+            if signal.write_stalled() {
+                if let Some((_, fault)) = write {
+                    fault.trip(crate::connection_fault::Cause::Backpressure);
+                }
+            }
+            result
         })
         .await
         .map_err(|_| SdkError::Client(Error::Network))?;
