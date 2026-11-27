@@ -127,6 +127,8 @@ fn model_labels_validate_bytes_and_controls_before_display_projection() {
 
     for (label, expected) in [
         (raw.as_str().unwrap().to_owned(), Some("ReportA".to_owned())),
+        ("a".repeat(300), Some("a".repeat(300))),
+        ("a".repeat(512), Some("a".repeat(512))),
         ("a".repeat(600), None),
         ("Line\nTwo".into(), None),
         ("Line\u{0085}Two".into(), None),
