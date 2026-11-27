@@ -585,3 +585,107 @@ fn auto_http_fallback_delivers_peer_cancellation_to_the_legacy_callback() {
     session.close().unwrap();
     assert_eq!(observed, Ok(true));
 }
+
+#[test]
+fn http_peer_collects_a_ready_reply_while_another_callback_is_pending() {
+    use plur1bus_mcp::session::{ClientPorts, Error, Feature};
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Mutex,
+    };
+
+    struct Roots {
+        entered: AtomicBool,
+        release: Mutex<mpsc::Receiver<()>>,
+    }
+    impl ClientPorts for Roots {
+        fn supports(&self, feature: Feature) -> bool {
+            matches!(feature, Feature::Roots)
+        }
+        fn invoke(
+            &self,
+            _: Feature,
+            _: Value,
+            deadline: Instant,
+            _: &dyn Fn() -> bool,
+        ) -> Result<Value, Error> {
+            let slow = !self.entered.swap(true, Ordering::AcqRel);
+            if slow {
+                self.release
+                    .lock()
+                    .unwrap()
+                    .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                    .map_err(|_| Error::Timeout)?;
+            }
+            let uri = if slow {
+                "file:///fixture/slow"
+            } else {
+                "file:///fixture/ready"
+            };
+            Ok(json!({"roots":[{"uri":uri}]}))
+        }
+    }
+
+    let event = |id| {
+        format!(
+            "event: message\ndata: {}\n\n",
+            json!({"jsonrpc":"2.0","id":id,"method":"roots/list"})
+        )
+    };
+    let post = |response| json!({"request":{"method":"POST","path":"/mcp"},"response":response});
+    let accepted = json!({"status":202,"chunksBase64":[]});
+    let fixture = FakeServer::start(&json!({"transport":"http","exchanges":[
+        post(json!({"status":200,"headers":{"mcp-session-id":"mixed-callbacks"},"body":{
+            "jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-11-25",
+            "capabilities":{},"serverInfo":{"name":"fixture","version":"1"}}}})),
+        post(accepted.clone()),
+        {"request":{"method":"GET","path":"/mcp"},"response":{"status":200,
+            "headers":{"content-type":"text/event-stream"},"chunkGapMs":1000,
+            "chunksBase64":[STANDARD.encode(event(71)+&event(72)),STANDARD.encode(b": end\n\n")]}},
+        post(accepted.clone()),post(accepted),
+        {"request":{"method":"DELETE","path":"/mcp"},"response":{"status":204}}
+    ]}));
+    let (release, gate) = mpsc::channel();
+    let close = Duration::from_millis(100);
+    let session = Session::open_http_with_ports(
+        HttpOptions {
+            endpoint: format!("http://{}/mcp", fixture.addr),
+            admission: Arc::new(Pin(fixture.addr)),
+            bearer: None,
+            headers: Default::default(),
+            protocol: Protocol::Legacy,
+            timing: Timing {
+                close,
+                request: Duration::from_secs(5),
+                ..Timing::default()
+            },
+        },
+        None,
+        Some(Arc::new(Roots {
+            entered: AtomicBool::new(false),
+            release: Mutex::new(gate),
+        })),
+    )
+    .unwrap();
+    let received = |uri: &str| {
+        fixture.received().iter().any(|r| {
+            r["body"]
+                .as_str()
+                .and_then(|s| serde_json::from_str::<Value>(s).ok())
+                .is_some_and(|v| v["result"]["roots"][0]["uri"] == uri)
+        })
+    };
+    let until_received = |uri: &str| {
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while !received(uri) {
+            assert!(Instant::now() < deadline, "missing callback at peer: {uri}");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    };
+    until_received("file:///fixture/ready");
+    std::thread::sleep(close * 2);
+    assert!(!received("file:///fixture/slow"));
+    release.send(()).unwrap();
+    until_received("file:///fixture/slow");
+    session.close().unwrap();
+}
