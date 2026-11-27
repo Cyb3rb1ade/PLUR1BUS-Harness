@@ -280,9 +280,19 @@ impl Renderer<'_> {
         Ok(items.join(separator))
     }
 
-    fn raw(&self, id: usize) -> Result<String, Failure> {
+    fn collapsed_code(&self, id: usize) -> Result<String, Failure> {
         let mut output = Output::new(self);
-        raw_text(self.nodes, id, &mut |text| output.push(text), self.check)?;
+        let mut blank = false;
+        raw_text(
+            self.nodes,
+            id,
+            &mut |text| {
+                self.fold_spaces(text, &mut blank, |c| {
+                    output.push(c.encode_utf8(&mut [0; 4]))
+                })
+            },
+            self.check,
+        )?;
         Ok(output.into_text())
     }
 
@@ -348,21 +358,32 @@ impl Renderer<'_> {
     fn collapse(&self, text: &str) -> Result<String, Failure> {
         let mut out = String::new();
         let mut used = 0usize;
-        let mut blank = false;
+        self.fold_spaces(text, &mut false, |c| {
+            used += c.len_utf16();
+            self.bound(used)?;
+            out.push(c);
+            Ok(())
+        })?;
+        Ok(out)
+    }
+
+    fn fold_spaces(
+        &self,
+        text: &str,
+        blank: &mut bool,
+        mut emit: impl FnMut(char) -> Result<(), Failure>,
+    ) -> Result<(), Failure> {
         for (index, c) in text.chars().enumerate() {
             if index.is_multiple_of(1024) {
                 (self.check)()?;
             }
             let whitespace = space(c);
-            if !whitespace || !blank {
-                let c = if whitespace { ' ' } else { c };
-                used += c.len_utf16();
-                self.bound(used)?;
-                out.push(c);
+            if !whitespace || !*blank {
+                emit(if whitespace { ' ' } else { c })?;
             }
-            blank = whitespace;
+            *blank = whitespace;
         }
-        Ok(out)
+        Ok(())
     }
 
     fn wrapped(&self, text: String, marker: &str) -> Result<String, Failure> {
@@ -416,7 +437,7 @@ impl Renderer<'_> {
             "i" | "em" => return self.wrapped(self.inline_children(id)?, "*"),
             "del" | "s" => return self.wrapped(self.inline_children(id)?, "~~"),
             "code" | "kbd" | "samp" => {
-                let text = self.collapse(&self.raw(id)?)?;
+                let text = self.collapsed_code(id)?;
                 if text.trim_matches(space).is_empty() {
                     String::new()
                 } else {
