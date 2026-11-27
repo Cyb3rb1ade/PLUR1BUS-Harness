@@ -124,7 +124,21 @@ impl CaptureWorker for CapturePipeline {
         replay: ReplayRows,
         cancel: &Cancel,
     ) -> Result<CaptureResult, EngineError> {
-        self.capture_attempt((turn, metadata), context, options, &replay, cancel, false)
+        #[cfg(test)]
+        crate::capture::isolation_probe::event(
+            &self.base_db,
+            "capture worker entered",
+            crate::capture::isolation_probe::budget(turn.cancel.remaining()),
+        );
+        let result =
+            self.capture_attempt((turn, metadata), context, options, &replay, cancel, false);
+        #[cfg(test)]
+        crate::capture::isolation_probe::event(
+            &self.base_db,
+            "capture worker returned",
+            format_args!("{result:?}"),
+        );
+        result
     }
 }
 
@@ -619,6 +633,12 @@ impl CapturePipeline {
         }
         if self.config["neo"]["enabled"] != false {
             // A record that is being recovered carries the time of its turn (RE-D163).
+            #[cfg(test)]
+            crate::capture::isolation_probe::event(
+                &self.base_db,
+                "Neo capture entered",
+                crate::capture::isolation_probe::budget(cancel.remaining()),
+            );
             let resumed_at =
                 (admission.record.recovery_attempts > 0).then_some(admission.record.at_ms);
             let result = self.neo.as_ref().map_or_else(
@@ -636,6 +656,12 @@ impl CapturePipeline {
                         cancel,
                     )
                 },
+            );
+            #[cfg(test)]
+            crate::capture::isolation_probe::event(
+                &self.base_db,
+                "Neo capture returned",
+                format_args!("{:?}", result.as_ref().err()),
             );
             *neo_started = result.is_ok();
             if let Err(error) = result {

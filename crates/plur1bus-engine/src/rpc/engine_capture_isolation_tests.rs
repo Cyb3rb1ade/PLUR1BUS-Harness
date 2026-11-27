@@ -76,7 +76,10 @@ pub(super) fn foreign_turn_is_stored(
     mut turn: TurnRecord,
     case: &str,
 ) {
-    turn.cancel = Cancel::with_deadline(std::time::Instant::now() + FOREIGN_DEADLINE);
+    let base = engine.configured_store_base().unwrap();
+    let probe = crate::capture::isolation_probe::Probe::start(base);
+    let started = std::time::Instant::now();
+    turn.cancel = Cancel::with_deadline(started + FOREIGN_DEADLINE);
     let (sent, done) = mpsc::channel();
     let engine = engine.clone();
     std::thread::spawn(move || {
@@ -90,6 +93,12 @@ pub(super) fn foreign_turn_is_stored(
         .recv_timeout(FOREIGN_DEADLINE + Duration::from_secs(60))
         .unwrap_or_else(|_| panic!("{case}: the foreign turn never finished"))
         .unwrap_or_else(|error| panic!("{case}: {error}"));
+    let elapsed = started.elapsed().as_millis();
+    eprintln!(
+        "{case}: {elapsed} ms, caller deadline {} ms, result {result}\n{}",
+        FOREIGN_DEADLINE.as_millis(),
+        probe.report()
+    );
     assert_eq!(result["stored"], 2, "{case}: {result}");
 }
 

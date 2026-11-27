@@ -727,7 +727,7 @@ jobs:
         run: cargo test --locked -p plur1bus-engine --no-run --timings
         timeout-minutes: 55
       - name: Test the native engine on Windows
-        run: cargo test --locked -p plur1bus-engine --no-fail-fast
+        run: cargo test --locked -p plur1bus-engine --no-fail-fast -- --show-output
         timeout-minutes: 50
         env:
           PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
