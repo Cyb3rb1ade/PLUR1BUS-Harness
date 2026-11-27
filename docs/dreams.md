@@ -64,9 +64,13 @@ The public Core handler owns application redaction.
 The import copies all three ADR-009 tables into `<home>/state/dreams/engine.sqlite` in one
 transaction and records the row counts. It closes imported runs left open by the retired Core as
 `aborted / crashed`, releases their idempotency claims, and updates the affected schedules.
-Retries report `imported: false` after that commit. The legacy database and
-per-run log files are retained. The public schedule methods and scheduler still use the legacy
-ledger until the complete read/write cutover is available.
+Retries report `imported: false` after that commit. After a crash during import, SQLite rolls back
+the uncommitted transaction in the existing native file. The methods report `dream-ledger-not-imported`
+until an explicit import succeeds. On Windows the Engine sequences native ledger access through
+transaction completion so one request cannot remove the SQLite rollback journal during another
+request's path validation. The legacy database and per-run log files are retained. The public
+schedule methods and scheduler still use the legacy ledger until the complete read/write cutover
+is available.
 
 For the cutover the Core can use `engine.dreams.run` to begin a phase, claim its idempotency key,
 and finish it. A second run for the same key gets an unclaimed row. A failed or aborted close
@@ -74,11 +78,13 @@ releases the claim, and a completed close clears the phase's accumulated corpus 
 same transaction. The Core still decides when a phase is due and dispatches its individual jobs.
 The first write by a replacement Core closes the previous instance's interrupted phase runs before
 claiming another run. Candidate preparation records the expiry and utility decisions in the same
-ledger. It accepts up to 1,000 observations with up to 64 KiB of UTF-8 content each and evaluates
-up to 1,000 shortlisted rows in stable order. It returns eligible current private sources for a
-deep run. If the reply exceeds the RPC frame, the preparation rolls back and reports `response-too-large`.
-The authority and durable
-confirmation for knowledge publication stay with the Engine promotion operation.
+ledger. It accepts up to 1,000 observations with up to 64 KiB of UTF-8 content each. It evaluates
+current observations first and fills the remaining evaluation budget with older shortlisted rows
+in order of first appearance and candidate ID. The total budget is 1,000 rows. When older rows
+are left unevaluated, the result includes `counts.truncated: 1`. Deep runs return eligible current
+private sources. If the reply exceeds the RPC frame, the preparation rolls back and reports
+`response-too-large`. The Engine promotion operation owns authorization and durable confirmation
+for knowledge publication.
 
 ## Rust-engine jobs
 

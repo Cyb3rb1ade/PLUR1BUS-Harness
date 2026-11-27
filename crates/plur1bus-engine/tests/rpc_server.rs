@@ -1595,6 +1595,88 @@ fn dream_run_rolls_back_when_the_core_instance_changes_before_commit() {
 }
 
 #[test]
+fn dream_windows_native_open_waits_until_the_journal_writer_has_committed() {
+    let _guard = process_test();
+    let home = home();
+    let engine = durability_fixture(home.path(), "dream-run-before-commit");
+    let mut writer = core_peer(&engine, home.path());
+    let mut reader = core_peer(&engine, home.path());
+    import_dream_ledger(&mut writer);
+    let state = home.path().join("state");
+    let hold = state.join(".fixture-hold");
+    fs::write(&hold, "").unwrap();
+    writer.send(
+        json!({"jsonrpc":"2.0","id":2,"method":"engine.dreams.run","params":{
+        "agentId":"a1","transition":{"kind":"begin","runId":"held-run","phase":"rem",
+            "trigger":"manual","idempotencyKey":"held-run","claim":true}}}),
+    );
+    wait_for_durability_step(&state);
+    assert!(state.join("dreams/engine.sqlite-journal").exists());
+
+    reader.set_read_timeout(Duration::from_secs(1));
+    reader.send(json!({"jsonrpc":"2.0","id":3,"method":"engine.dreams.log",
+        "params":{"runId":"held-run"}}));
+    let before_commit = reader.response();
+    fs::remove_file(hold).unwrap();
+    assert!(
+        before_commit.as_ref().is_err_and(|error| matches!(
+            error.kind(),
+            ErrorKind::TimedOut | ErrorKind::WouldBlock
+        )),
+        "the reader passed a held journal writer: {before_commit:?}"
+    );
+
+    let persisted = writer.response().unwrap().unwrap();
+    assert_eq!(persisted["result"]["runId"], "held-run", "{persisted}");
+    reader.set_read_timeout(Duration::from_secs(8));
+    let observed = reader.response().unwrap().unwrap();
+    assert_eq!(observed["id"], 3);
+    assert_eq!(
+        observed["result"]["runs"][0]["runId"], "held-run",
+        "{observed}"
+    );
+}
+
+#[test]
+fn dream_windows_native_open_waits_until_the_import_has_committed() {
+    let _guard = process_test();
+    let home = home();
+    let legacy = seed_dream_ledger(home.path(), &json!({"schedules":[],"runs":[]}));
+    legacy.execute_batch("BEGIN EXCLUSIVE;").unwrap();
+    let engine = durability_fixture(home.path(), "dream-run-before-commit");
+    let mut writer = core_peer(&engine, home.path());
+    let mut reader = core_peer(&engine, home.path());
+    writer.send(
+        json!({"jsonrpc":"2.0","id":2,"method":"engine.dreams.import",
+        "params":{"legacyWriterRetired":true}}),
+    );
+    let journal = home.path().join("state/dreams/engine.sqlite-journal");
+    let deadline = Instant::now() + Duration::from_secs(8);
+    while !journal.exists() {
+        assert!(Instant::now() < deadline, "import did not take its journal");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+
+    reader.set_read_timeout(Duration::from_secs(1));
+    reader.send(json!({"jsonrpc":"2.0","id":3,"method":"engine.dreams.status","params":{}}));
+    let before_commit = reader.response();
+    legacy.execute_batch("ROLLBACK").unwrap();
+    assert!(
+        before_commit.as_ref().is_err_and(|error| matches!(
+            error.kind(),
+            ErrorKind::TimedOut | ErrorKind::WouldBlock
+        )),
+        "the reader passed a held native import: {before_commit:?}"
+    );
+    let imported = writer.response().unwrap().unwrap();
+    assert_eq!(imported["result"], json!({"imported":true}), "{imported}");
+    reader.set_read_timeout(Duration::from_secs(8));
+    let observed = reader.response().unwrap().unwrap();
+    assert_eq!(observed["id"], 3);
+    assert_eq!(observed["result"]["schemaVersion"], 1, "{observed}");
+}
+
+#[test]
 fn dream_status_rechecks_native_file_identity_after_sqlite_open() {
     let _guard = process_test();
     let home = home();

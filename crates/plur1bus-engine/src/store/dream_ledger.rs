@@ -3,7 +3,8 @@
 use std::{
     io::{ErrorKind, Read, Seek, SeekFrom},
     path::Path,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    sync::{Mutex, MutexGuard, TryLockError},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use rusqlite::{
@@ -29,6 +30,7 @@ const NATIVE: &str = "engine.sqlite";
 const DDL: &str = include_str!("dream-ledger-v1.sql");
 const AUXILIARY_DDL_MARKER: &str = "-- BEGIN NATIVE AUXILIARY OBJECTS";
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+const NATIVE_ACCESS_POLL: Duration = Duration::from_millis(5);
 const OPEN: OpenFlags = OpenFlags::SQLITE_OPEN_NO_MUTEX.union(OpenFlags::SQLITE_OPEN_NOFOLLOW);
 const MAX_LOG_UNITS: usize = 262_144;
 const DIARY_NAME: &str = "DREAMS.md";
@@ -45,6 +47,30 @@ pub(crate) struct Imported {
     pub(crate) runs: i64,
     pub(crate) schedules: i64,
     pub(crate) candidates: i64,
+}
+
+fn sequence_native_access(cancel: &Cancel) -> Result<Option<MutexGuard<'static, ()>>, EngineError> {
+    if !cfg!(windows) && !crate::rpc::seams::fixture_step("dream-run-before-commit") {
+        return Ok(None);
+    }
+    // One Engine process serves one native ledger. Hold access across commit
+    // and rollback so SQLite cannot remove the journal under another RPC's
+    // identity check. The Windows path still refuses a replaced file.
+    static NATIVE_ACCESS: Mutex<()> = Mutex::new(());
+    let deadline = Instant::now() + BUSY_TIMEOUT;
+    loop {
+        cancel.check()?;
+        match NATIVE_ACCESS.try_lock() {
+            Ok(access) => return Ok(Some(access)),
+            Err(TryLockError::Poisoned(_)) => return Err(StoreError::Unavailable.into()),
+            Err(TryLockError::WouldBlock) => {}
+        }
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(StoreError::Busy.into());
+        }
+        std::thread::sleep(remaining.min(NATIVE_ACCESS_POLL));
+    }
 }
 
 fn is_missing(error: &StoreError) -> bool {
@@ -499,6 +525,7 @@ pub(crate) fn import_legacy(
     secure_dir(state)?;
     let dir = TrustedDirectory::open(state)?.create_child("dreams")?;
     secure_dir(dir.path())?;
+    let _native_access = sequence_native_access(cancel)?;
     match dir.create_file(NATIVE) {
         Ok(file) => {
             regular_file_identity(&file)?;
@@ -551,6 +578,7 @@ fn with_ledger<T>(
     let dir = TrustedDirectory::open(state)
         .and_then(|root| root.open_child("dreams"))
         .map_err(open_error)?;
+    let _native_access = sequence_native_access(cancel)?;
     let (flags, behavior) = if write {
         (
             OpenFlags::SQLITE_OPEN_READ_WRITE,
