@@ -16,6 +16,7 @@ permissions:
 jobs:
   # Conservative impact selection; main/nightly/manual runs keep the full matrix.
   changes:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -1530,6 +1531,7 @@ jobs:
         run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 packages/core/test/tools/sandbox/sandbox.test.ts
 
   host-tool-eval:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -1892,7 +1894,7 @@ jobs:
   ci-gate:
     name: ${{ (github.event.action == 'labeled' && github.event.label.name != 'ci:macos') && 'ci-gate (label no-op)' || 'ci-gate' }}
     needs: [changes, docs-hygiene, unit, core-unit-shard, core-unit, wsl, web-browser, front-door-windows]
-    if: always()
+    if: always() && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -1911,3 +1913,78 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node scripts/ci/phase4-freeze.mjs
+
+  # This isolated ref uses manual dispatch for the two-stage native soak diagnosis.
+  linux-soak:
+    if: github.event_name == 'workflow_dispatch'
+    name: Engine kill soak (${{ matrix.label }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: PR 928 merge head
+            source: ab8a737d97a103f34953041ae9c5583a98a7111f
+          - label: exact main parent
+            source: 63d74ba10a2508fdf6f2ad844e90ed12fd5bbdcf
+    defaults:
+      run:
+        working-directory: source
+    env:
+      PLUR1BUS_ENGINE_IMPL: rust
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: diagnostics
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ matrix.source }}
+          path: source
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        with:
+          version: 10.28.0
+          package_json_file: source/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.21.0
+          cache: pnpm
+          cache-dependency-path: source/pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with: { toolchain: '1.95' }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c
+        with: { workspaces: source, key: engine-linux-soak-diagnosis }
+      - name: Build release CLI and Rust Engine
+        id: build
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = '${{ matrix.source }}'
+          if [[ -n "$GH_ENGINE_READ_TOKEN" ]]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+          else
+            base='https://github.com/'
+          fi
+          git config --global --add "url.${base}.insteadOf" 'git@github.com:'
+          git config --global --add "url.${base}.insteadOf" 'ssh://git@github.com/'
+          pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus -p plur1bus-tools
+          cargo build --locked --release -p plur1bus-engine
+          cp ../diagnostics/tests/system/kill-soak.test.ts tests/system/kill-soak.test.ts
+      - name: Replay 524336146 (200 turns)
+        run: node --experimental-strip-types --test --test-timeout=600000 tests/system/kill-soak.test.ts
+        timeout-minutes: 15
+        env:
+          PLUR1BUS_BIN: target/release/plur1bus
+          PLUR1BUS_SOAK_TURNS: '200'
+          PLUR1BUS_SOAK_SEED: '524336146'
+      - name: Replay 507842615 (200 turns)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: node --experimental-strip-types --test --test-timeout=600000 tests/system/kill-soak.test.ts
+        timeout-minutes: 15
+        env:
+          PLUR1BUS_BIN: target/release/plur1bus
+          PLUR1BUS_SOAK_TURNS: '200'
+          PLUR1BUS_SOAK_SEED: '507842615'

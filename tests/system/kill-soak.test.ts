@@ -321,6 +321,29 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
           drainWaitMs, 100);
       } catch (error) {
         t.diagnostic(`journal drain not verified ${(performance.now() - lastTurnAt).toFixed(0)} ms after the last turn: ${backlogAtEnd} line(s) backlogged, budget ${drainBudgetMs.toFixed(0)} ms, wait ${drainWaitMs.toFixed(0)} ms (restart backoff ${backoffMs.toFixed(0)} ms, supervisor restart ${restartWaitMs.toFixed(0)} ms)`);
+        try {
+          const physicalLines = journalLines(h);
+          const checks = firstAid(h).checks ?? [];
+          const backlog = checks.find((check: any) => check.id === "journal.backlog");
+          const engine = checks.find((check: any) => check.id === "engine.process");
+          const child = coreChild(h);
+          t.diagnostic(`drain end: ${JSON.stringify({
+            physicalLines, coreState: child?.process?.state, corePid: child?.pid,
+            engineStatus: engine?.status, journalStatus: backlog?.status,
+            replayed: backlog?.detail?.replayed, left: backlog?.detail?.left,
+            retained: backlog?.detail?.count,
+          })}`);
+          const coreLog = readFileSync(join(h, "logs", "core.log"), "utf8");
+          const recentReplay = coreLog.split("\n")
+            .filter(line => /"msg":"journal: (replay start|replayed|replay finished|capture not handled, line kept|capture threw, line kept)"/.test(line))
+            .slice(-12).map(line => {
+              const { time, ts, msg, pid, id, reason, stored, skipped } = JSON.parse(line);
+              return { time, ts, msg, pid, id, reason, stored, skipped };
+            });
+          t.diagnostic(`recent replay metadata: ${JSON.stringify(recentReplay)}`);
+        } catch {
+          // Preserve the original acceptance failure when a process or log disappears during diagnosis.
+        }
         throw error;
       }
       const drainMs = performance.now() - lastTurnAt;
