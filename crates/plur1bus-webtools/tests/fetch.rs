@@ -456,3 +456,48 @@ fn cancelled_during_slow_admission() {
         assert_eq!(reason, "aborted");
     });
 }
+
+#[test]
+fn inline_code_charges_only_emitted_whitespace() {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    let html = format!("<p>Edition <code>local{}copy</code></p>", " ".repeat(5000));
+    let server = FakeServer::start(&json!({
+        "transport": "http", "exchanges": [{
+            "request": {"method":"GET","path":"/edition"},
+            "response":{"status":200,"headers":{"content-type":"text/html"},"chunksBase64":[STANDARD.encode(html)]}
+        }]
+    }));
+    let port = Port(server.addr);
+    let docs = Docs::default();
+    let clock = FixedClock(0);
+    let client = Client {
+        admission: &port,
+        crawl: None,
+        store: &docs,
+        clock: &clock,
+        user_agent: "fixture",
+        max_bytes: 32768,
+        max_redirects: 0,
+        default_max_tokens: 128,
+        max_extracted_tokens: 128,
+    };
+    let url = format!("http://{}/edition", server.addr);
+    let args = Args {
+        url: &url,
+        mode: Mode::Auto,
+        section: None,
+        cursor: None,
+        max_tokens: None,
+        crawl: false,
+    };
+    let ctx = Context {
+        agent_id: "review",
+        matcher: None,
+        aborted: &|| false,
+    };
+    let result = client
+        .fetch(&args, &ctx, Instant::now() + Duration::from_secs(2))
+        .unwrap();
+    assert_eq!(result["markdown"], "Edition `local copy`");
+    assert_eq!(result["sections"][0]["tokens"], 5);
+}
