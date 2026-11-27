@@ -16,6 +16,7 @@ use crate::{
 
 const MAX_BODY: usize = 1024 * 1024;
 const MAX_DIAGNOSTIC: usize = 64 * 1024;
+const DIAGNOSTIC_TIME: Duration = Duration::from_millis(50);
 const MAX_POST_TIME: Duration = Duration::from_secs(60);
 const NOTIFICATION_TOKEN: &str = "x-a2a-notification-token";
 
@@ -158,10 +159,15 @@ impl HopContext<'_> {
                 ..self.window
             };
             let response = send(&current, pin, &headers, self.body, window);
+            if response
+                .as_ref()
+                .is_ok_and(|reply| (200..300).contains(&reply.status))
+            {
+                return Ok(Some(Delivery::Delivered));
+            }
             http::check(self.window)?;
             let Ok(reply) = response else { return Ok(None) };
             match reply.status {
-                200..=299 => return Ok(Some(Delivery::Delivered)),
                 301 | 302 | 303 | 307 | 308 if hop < self.limits.redirects => {
                     let Some(next) = reply
                         .location
@@ -272,11 +278,17 @@ fn post(
     {
         // A receiver has already selected its status. A diagnostic failure
         // must not turn an accepted delivery into a second POST.
+        let deadline = window.deadline.min(Instant::now() + DIAGNOSTIC_TIME);
+        let cancelled = || (window.canceled)() || Instant::now() >= deadline;
+        let diagnostic = Window {
+            deadline,
+            canceled: &cancelled,
+        };
         let _ = http::read_json(
             response.into_body(),
             &signal,
             MAX_DIAGNOSTIC,
-            window,
+            diagnostic,
             || true,
         );
     }
@@ -425,6 +437,132 @@ mod tests {
         );
         assert_eq!(server.received().len(), 1);
         assert!(port.waits.borrow().is_empty());
+    }
+
+    #[test]
+    fn accepted_status_with_a_diagnostic_stalled_until_the_host_deadline() {
+        use std::{
+            io::{BufRead, BufReader, Read, Write},
+            net::TcpListener,
+            thread,
+        };
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let peer = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut reader = BufReader::new(&mut stream);
+            let mut length = None;
+            for line in reader.by_ref().lines() {
+                let line = line.unwrap();
+                if line.is_empty() {
+                    break;
+                }
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = Some(value.trim().parse::<usize>().unwrap());
+                }
+            }
+            let mut body = vec![0; length.unwrap()];
+            reader.read_exact(&mut body).unwrap();
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{")
+                .unwrap();
+            thread::sleep(Duration::from_secs(1));
+        });
+        let denied = json!([]);
+        let port = FixturePort {
+            denied: &denied,
+            resume: true,
+            admitted: Default::default(),
+            waits: Default::default(),
+        };
+        let window = Window {
+            deadline: Instant::now() + Duration::from_millis(300),
+            canceled: &|| false,
+        };
+        let task = json!({"kind":"task","id":"t1","contextId":"c1","status":{"state":"completed"}});
+        let result = deliver(
+            &port,
+            &config(&format!("http://cb.invalid:{}/a", addr.port())),
+            &task,
+            window,
+            Limits::default(),
+        );
+        assert_eq!(result, Ok(Delivery::Delivered));
+        assert_eq!(port.admitted.borrow().len(), 1);
+        assert!(port.waits.borrow().is_empty());
+        peer.join().unwrap();
+    }
+
+    #[test]
+    fn three_redirects_per_attempt_allow_four_posts_and_restart_at_the_original_url() {
+        let denied = json!([]);
+        let port = FixturePort {
+            denied: &denied,
+            resume: true,
+            admitted: Default::default(),
+            waits: Default::default(),
+        };
+        let result = deliver_with(
+            &port,
+            &config("http://cb.invalid/a"),
+            &json!({"id":"t1"}),
+            window(),
+            Limits::default(),
+            |target, _, _, _, _| {
+                Ok(Reply {
+                    status: 307,
+                    location: Some(format!("{}/next", target.path())),
+                })
+            },
+        );
+        assert_eq!(result, Ok(Delivery::Exhausted));
+        let paths = port.admitted.into_inner();
+        assert_eq!(paths.len(), 12);
+        for attempt in paths.chunks_exact(4) {
+            assert_eq!(
+                attempt,
+                [
+                    "http://cb.invalid/a",
+                    "http://cb.invalid/a/next",
+                    "http://cb.invalid/a/next/next",
+                    "http://cb.invalid/a/next/next/next"
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn exactly_one_mebibyte_of_task_json_reaches_the_receiver() {
+        let server = FakeServer::start(&json!({
+            "transport":"http","exchanges":[{"request":{"method":"POST","path":"/a"},
+                "response":{"status":204,"headers":{}}}]
+        }));
+        let task = json!({"text":"a".repeat(1024 * 1024 - r#"{"text":""}"#.len())});
+        let denied = json!([]);
+        let port = FixturePort {
+            denied: &denied,
+            resume: true,
+            admitted: Default::default(),
+            waits: Default::default(),
+        };
+        assert_eq!(
+            deliver(
+                &port,
+                &config(&format!("http://{}/a", server.addr)),
+                &task,
+                window(),
+                Limits::default()
+            ),
+            Ok(Delivery::Delivered)
+        );
+        let received = server.received();
+        assert_eq!(received.len(), 1);
+        let body = received[0]["body"].as_str().unwrap();
+        assert_eq!(body.len(), 1024 * 1024);
+        assert_eq!(serde_json::from_str::<Value>(body).unwrap(), task);
     }
 
     #[test]

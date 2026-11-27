@@ -1885,6 +1885,11 @@ TypeScript accepts registered HTTP peers without this separate switch.
 
 ## P4D-262 — Bound A2A push delivery (R-W-20)
 
+HTTP 2xx completes the push. Optional diagnostic reads have a separate 50 ms
+budget within the host deadline. Cancellation of that read cannot reschedule
+an accepted task. The native endpoint advertises A2A's configured version
+independently of future changes to the Rust workspace version.
+
 Rust bounds the serialized task at 1 MiB and the diagnostic response at
 64 KiB. It validates and pins each redirect target, refuses user information
 and fragments, and removes both credential headers when the origin changes.
