@@ -61,7 +61,24 @@ fn check_sidecars(dir: &TrustedDirectory, name: &str) -> Result<(), StoreError> 
         let child = format!("{name}{suffix}");
         // Unix open_file reopens relative to the held directory descriptor.
         // Windows has no handle-relative reopen here, so propagate the original refusal.
-        check_sidecar(|| dir.open_file(&child), cfg!(unix) && suffix == "-journal")?;
+        check_sidecar(
+            || {
+                let file = dir.open_file(&child)?;
+                #[cfg(unix)]
+                if name == NATIVE {
+                    let step = match suffix {
+                        "-wal" => Some("dream-wal-opened"),
+                        "-shm" => Some("dream-shm-opened"),
+                        _ => None,
+                    };
+                    if let Some(step) = step {
+                        crate::rpc::seams::pause_fixture_step(dir.path(), step)?;
+                    }
+                }
+                Ok(file)
+            },
+            cfg!(unix) && suffix == "-journal",
+        )?;
     }
     Ok(())
 }
@@ -102,6 +119,9 @@ fn open(dir: &TrustedDirectory, name: &str, flags: OpenFlags) -> Result<Connecti
     let db = Connection::open_with_flags(dir.path().join(name), OPEN | flags)?;
     db.busy_timeout(BUSY_TIMEOUT)?;
     db.pragma_update(None, "trusted_schema", false)?;
+    if name == NATIVE {
+        crate::rpc::seams::pause_fixture_step(dir.path(), "dream-native-opened")?;
+    }
     verify_open_identity(dir, name, identity)?;
     Ok(db)
 }
@@ -150,8 +170,12 @@ fn copy(
     Ok(count)
 }
 
+fn read_version(db: &Connection) -> rusqlite::Result<i64> {
+    db.pragma_query_value(None, "user_version", |row| row.get(0))
+}
+
 fn version(db: &Connection) -> Result<i64, StoreError> {
-    Ok(db.pragma_query_value(None, "user_version", |row| row.get(0))?)
+    Ok(read_version(db)?)
 }
 
 fn not_imported() -> EngineError {
@@ -166,8 +190,8 @@ fn unsupported_version() -> EngineError {
     }
 }
 
-fn initialized(db: &Connection) -> Result<bool, EngineError> {
-    match version(db)? {
+fn ledger_imported(db: &Connection, version: i64) -> Result<bool, EngineError> {
+    match version {
         0 => Ok(false),
         1 => {
             let complete = db
@@ -193,7 +217,7 @@ fn initialize(
     now: Option<i64>,
     cancel: &Cancel,
 ) -> Result<Option<Imported>, EngineError> {
-    if initialized(tx)? {
+    if ledger_imported(tx, version(tx)?)? {
         // Earlier v1 ledgers created these objects on first write. An explicit
         // import retry completes that schema without copying the legacy rows.
         let (_, auxiliary_ddl) = DDL
@@ -500,6 +524,16 @@ pub(crate) fn import_legacy(
     Ok(imported)
 }
 
+fn recover_hot_native_journal(dir: &TrustedDirectory, cancel: &Cancel) -> Result<(), EngineError> {
+    cancel.check()?;
+    // SQLite needs a writable handle to roll back an interrupted transaction.
+    // READ_WRITE omits CREATE and this path never invokes the legacy importer.
+    let recover = open(dir, NATIVE, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
+    version(&recover)?;
+    cancel.check()?;
+    Ok(())
+}
+
 fn with_ledger<T>(
     state: &Path,
     write: bool,
@@ -529,10 +563,27 @@ fn with_ledger<T>(
         )
     };
     let mut db = open(&dir, NATIVE, flags).map_err(open_error)?;
-    let tx = db
+    let mut tx = db
         .transaction_with_behavior(behavior)
         .map_err(StoreError::from)?;
-    if !initialized(&tx)? {
+    let mut version = read_version(&tx);
+    if !write
+        && matches!(
+            &version,
+            Err(rusqlite::Error::SqliteFailure(error, _))
+                if error.extended_code == rusqlite::ffi::SQLITE_READONLY_ROLLBACK
+        )
+    {
+        drop(tx);
+        drop(db);
+        recover_hot_native_journal(&dir, cancel)?;
+        db = open(&dir, NATIVE, flags).map_err(open_error)?;
+        tx = db
+            .transaction_with_behavior(behavior)
+            .map_err(StoreError::from)?;
+        version = read_version(&tx);
+    }
+    if !ledger_imported(&tx, version.map_err(StoreError::from)?)? {
         return Err(not_imported());
     }
     let value = operation(&tx, &dir)?;

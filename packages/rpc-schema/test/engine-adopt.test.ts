@@ -27,11 +27,13 @@ describe("engine process adoption contract", () => {
         properties: { status: { $ref: "#/$defs/EngineProcessStatus" } },
       },
     });
-    const schemaMethods: Record<string, { "x-since"?: string }> = schema.$defs.methods;
-    for (const [name, since] of Object.entries(engineMethodVersions)) {
-      assert.ok(Object.hasOwn(schemaMethods, name), `${name} is missing from the published RPC schema`);
-      assert.equal(schemaMethods[name]?.["x-since"], since, name);
-    }
+    const published = Object.fromEntries(
+      Object.entries(schema.$defs.methods)
+        .filter(([, method]) => method["x-server"] === "engine" || ("x-feature" in method && method["x-feature"] === "engine"))
+        .map(([name, method]) => [name, method["x-since"]]),
+    );
+    assert.deepEqual(published, engineMethodVersions);
+
   });
 
   it("publishes engine adoption under the current RPC version at or after its introduction", () => {

@@ -48,6 +48,9 @@
   );
 
 -- BEGIN NATIVE AUXILIARY OBJECTS
+  CREATE INDEX IF NOT EXISTS dream_candidate_shortlist
+    ON dream_candidate(agent_id, first_seen_at, candidate_id) WHERE state='shortlisted';
+
   CREATE TABLE IF NOT EXISTS dream_ledger_writer (
     id INTEGER PRIMARY KEY CHECK (id = 1), core TEXT NOT NULL
   );

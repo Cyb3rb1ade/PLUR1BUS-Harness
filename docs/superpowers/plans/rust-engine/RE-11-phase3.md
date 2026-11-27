@@ -60,6 +60,7 @@ shrinks, never grows, in this brief.
 
 - Keep the agent identifier in the dream scheduler's idempotency-key derivation. The native ledger enforces uniqueness across the installation, including during the transition between writers.
 - Verify the SQLite identity on the handle used by the ledger at the writer cutover. The existing check reopens the same trusted path after SQLite opens it.
+- Stop and keep the legacy Dream writer retired before sending `legacyWriterRetired: true`. Take an immediate SQLite transaction on the legacy file as a check for a writer still holding a transaction, verify the final legacy counts against the import receipt, and exercise a same-Core writer attempting to resume during cutover.
 - Exercise the JSONL tail-truncation path that publishes no new row. Include it in the source-file identity recheck before the directory sync.
 - Stage the ONNX Runtime shared library in the package-specific library directory, `/usr/lib/plur1bus/` on Linux, and verify the absolute runtime path with the packaged supervisor.
 - Separate access to the private dependency read token from steps that execute pull-request source. The Controller owns the token-handling handoff with the Owner.

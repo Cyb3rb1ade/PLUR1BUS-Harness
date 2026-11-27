@@ -125,6 +125,7 @@ pub(crate) fn transition(
             }
             RunTransition::Finish(result) => finish(db, agent, result, now, cancel)?,
         };
+        crate::rpc::seams::pause_fixture_step(state, "dream-run-before-commit")?;
         check_core()?;
         Ok(result)
     })

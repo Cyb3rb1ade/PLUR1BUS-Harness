@@ -349,16 +349,19 @@ impl TrustedDirectory {
     fn open_windows_file(&self, name: &str, write: bool) -> Result<File, StoreError> {
         use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
         use windows_sys::Win32::Storage::FileSystem::{
-            FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT,
+            FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS,
+            FILE_FLAG_OPEN_REPARSE_POINT,
         };
+        // Allow CreateFileW to return the leaf handle even for a directory,
+        // so metadata distinguishes a rejected leaf from a real access error.
         let file = OpenOptions::new()
             .read(true)
             .write(write)
-            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
             .open(self.physical.join(name))
             .map_err(io_error)?;
-        if file.metadata().map_err(io_error)?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
-        {
+        let attributes = file.metadata().map_err(io_error)?.file_attributes();
+        if attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT) != 0 {
             return Err(StoreError::UntrustedPath);
         }
         Ok(file)

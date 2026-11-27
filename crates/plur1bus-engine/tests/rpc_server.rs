@@ -1517,6 +1517,226 @@ fn checkpoint_validates_the_id_replays_a_committed_write_and_audits_only_the_com
 }
 
 #[test]
+fn checkpoint_refuses_replay_after_the_grant_is_revoked() {
+    let _guard = process_test();
+    let home = home();
+    let engine = durability_fixture(home.path(), "checkpoint-replay");
+    let mut core = core_peer(&engine, home.path());
+    let request = json!({"revision":null,"checkpoint":{"v":1,"id":"checkpoint-fixture"}});
+    let write = core.call(2, CHECKPOINT_PUT, request.clone());
+    assert!(write["result"]["revision"].is_string(), "{write}");
+    let replay = core.call(3, CHECKPOINT_PUT, request);
+    assert_eq!(
+        replay["error"]["data"]["error"], "E_NOT_AVAILABLE",
+        "{replay}"
+    );
+    assert_eq!(replay["error"]["data"]["reason"], "aborted", "{replay}");
+    let audit = fs::read_to_string(home.path().join("state/engine-maintenance.jsonl")).unwrap();
+    assert_eq!(audit.lines().count(), 1);
+}
+
+fn durability_fixture(home: &std::path::Path, step: &str) -> EngineProcess {
+    EngineProcess::start_with_seam_env(
+        home,
+        "flat-embedder",
+        &[
+            (
+                "PLUR1BUS_TEST_INTERNALS",
+                std::path::Path::new("flat-embedder"),
+            ),
+            ("PLUR1BUS_TEST_DURABILITY_STEP", std::path::Path::new(step)),
+        ],
+    )
+}
+
+fn wait_for_durability_step(dir: &std::path::Path) {
+    let deadline = Instant::now() + Duration::from_secs(8);
+    while !dir.join(".fixture-reached").exists() {
+        assert!(
+            Instant::now() < deadline,
+            "durability step did not reach its hold"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
+#[test]
+fn dream_run_rolls_back_when_the_core_instance_changes_before_commit() {
+    let _guard = process_test();
+    let home = home();
+    let engine = durability_fixture(home.path(), "dream-run-before-commit");
+    let mut core = core_peer(&engine, home.path());
+    import_dream_ledger(&mut core);
+    let state = home.path().join("state");
+    let hold = state.join(".fixture-hold");
+    fs::write(&hold, "").unwrap();
+    let request = json!({"agentId":"a1","transition":{"kind":"begin","runId":"replaced",
+        "phase":"rem","trigger":"manual","idempotencyKey":"replaced","claim":true}});
+    core.send(json!({"jsonrpc":"2.0","id":2,"method":"engine.dreams.run","params":request}));
+    wait_for_durability_step(&state);
+    let instance = uuid::Uuid::new_v4();
+    fs::write(
+        home.path().join("run/core.pid"),
+        format!("{} {instance}\n", std::process::id()),
+    )
+    .unwrap();
+    fs::remove_file(hold).unwrap();
+
+    let refused = core.response().unwrap().unwrap();
+    assert_eq!(refused["id"], 2);
+    assert_eq!(
+        refused["error"]["data"]["reason"], "host-denied",
+        "{refused}"
+    );
+    let log = core.call(3, "engine.dreams.log", json!({"agentId":"a1"}));
+    assert_eq!(log["result"]["runs"], json!([]), "{log}");
+    let retry = core.call(4, "engine.dreams.run", request);
+    assert_eq!(retry["result"]["runId"], "replaced", "{retry}");
+}
+
+#[test]
+fn dream_status_rechecks_native_file_identity_after_sqlite_open() {
+    let _guard = process_test();
+    let home = home();
+    let engine = durability_fixture(home.path(), "dream-native-opened");
+    let mut core = core_peer(&engine, home.path());
+    import_dream_ledger(&mut core);
+    let directory = home.path().join("state/dreams");
+    let hold = directory.join(".fixture-hold");
+    fs::write(&hold, "").unwrap();
+    core.send(json!({"jsonrpc":"2.0","id":2,"method":"engine.dreams.status","params":{}}));
+    wait_for_durability_step(&directory);
+    let link = directory.join("native-copy.sqlite");
+    fs::hard_link(directory.join("engine.sqlite"), &link).unwrap();
+    fs::remove_file(hold).unwrap();
+    let refused = core.response().unwrap().unwrap();
+    assert_eq!(refused["id"], 2);
+    assert_eq!(
+        refused["error"]["data"]["reason"], "untrusted-path",
+        "{refused}"
+    );
+    fs::remove_file(link).unwrap();
+    let status = core.call(3, "engine.dreams.status", json!({}));
+    assert_eq!(status["result"]["schemaVersion"], 1, "{status}");
+}
+
+#[cfg(unix)]
+#[test]
+fn dream_status_does_not_reopen_a_removed_wal_or_shm() {
+    let _guard = process_test();
+    for (step, suffix) in [("dream-wal-opened", "-wal"), ("dream-shm-opened", "-shm")] {
+        let home = home();
+        let engine = durability_fixture(home.path(), step);
+        let mut core = core_peer(&engine, home.path());
+        import_dream_ledger(&mut core);
+        let directory = home.path().join("state/dreams");
+        let sidecar = directory.join(format!("engine.sqlite{suffix}"));
+        fs::write(&sidecar, "").unwrap();
+        let hold = directory.join(".fixture-hold");
+        fs::write(&hold, "").unwrap();
+        core.send(json!({"jsonrpc":"2.0","id":2,"method":"engine.dreams.status","params":{}}));
+        wait_for_durability_step(&directory);
+        fs::remove_file(sidecar).unwrap();
+        fs::remove_file(hold).unwrap();
+        let refused = core.response().unwrap().unwrap();
+        assert_eq!(refused["id"], 2);
+        assert_eq!(
+            refused["error"]["data"]["reason"], "untrusted-path",
+            "{step}: {refused}"
+        );
+    }
+}
+
+#[test]
+fn dream_interrupted_import_reads_not_imported_first_and_can_retry() {
+    let _guard = process_test();
+    let home = home();
+    let state = home.path().join("state/dreams");
+    plur1bus_engine::store::paths::secure_dir(&state).unwrap();
+    let path = state.join("dreams.db");
+    let legacy = rusqlite::Connection::open(&path).unwrap();
+    plur1bus_engine::store::paths::secure_file(&path).unwrap();
+    legacy.execute_batch("PRAGMA journal_mode=WAL;").unwrap();
+    legacy
+        .execute_batch(include_str!("../../plur1bus-core/src/dreams/store-v1.sql"))
+        .unwrap();
+    legacy.execute_batch("PRAGMA user_version=1;
+        INSERT INTO dream_run (run_id,agent_id,phase,job_id,idempotency_key,trigger,started_at,finished_at,outcome)
+        WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c WHERE x<1000000)
+        SELECT 'r'||x,'a1','rem','rem-dream','k'||x,'manual',x,x,'completed' FROM c;").unwrap();
+    drop(legacy);
+
+    let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut core = core_peer(&engine, home.path());
+    core.send(
+        json!({"jsonrpc":"2.0","id":2,"method":"engine.dreams.import",
+        "params":{"legacyWriterRetired":true}}),
+    );
+    let native = state.join("engine.sqlite");
+    let journal = state.join("engine.sqlite-journal");
+    let deadline = Instant::now() + Duration::from_secs(60);
+    while !(journal.exists() && native.metadata().map(|m| m.len()).unwrap_or(0) > 4_000_000) {
+        assert!(Instant::now() < deadline, "import did not spill");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    engine.kill_and_wait();
+    drop(core);
+    let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut core = core_peer(&engine, home.path());
+    for (id, method, request) in [
+        (3, "engine.dreams.status", json!({})),
+        (4, "engine.dreams.log", json!({"agentId":"a1"})),
+        (5, "engine.dreams.schedule", json!({"agentId":"a1"})),
+        (
+            6,
+            "engine.dreams.run",
+            json!({"agentId":"a1","transition":{"kind":"begin",
+            "runId":"x1","phase":"rem","trigger":"manual","idempotencyKey":"x1","claim":true}}),
+        ),
+        (7, "engine.dreams.diary", json!({"agentId":"a1"})),
+    ] {
+        let response = core.call(id, method, request);
+        assert_eq!(
+            response["error"]["data"]["reason"], "dream-ledger-not-imported",
+            "{method}: {response}"
+        );
+    }
+    core.set_read_timeout(Duration::from_secs(120));
+    import_dream_ledger(&mut core);
+    let again = core.call(
+        8,
+        "engine.dreams.import",
+        json!({"legacyWriterRetired":true}),
+    );
+    assert_eq!(again["result"], json!({"imported":false}), "{again}");
+    let db =
+        rusqlite::Connection::open_with_flags(&native, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .unwrap();
+    let receipt: (i64, i64) = db
+        .query_row(
+            "SELECT runs,(SELECT count(*) FROM dream_run) FROM dream_import",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(receipt, (1_000_000, 1_000_000));
+
+    engine.connect().call("engine.shutdown", json!({})).unwrap();
+    assert!(engine.wait_for_exit().success(), "{}", engine.diagnostics());
+    assert_eq!(
+        engine
+            .stderr()
+            .lines()
+            .filter(|line| {
+                let record: Value = serde_json::from_str(line).unwrap();
+                record["event"] == "engine.dreams.ledger_imported"
+            })
+            .count(),
+        1
+    );
+}
+
+#[test]
 fn dream_reads_require_explicit_import_and_retain_the_latest_wal_rows() {
     let _guard = process_test();
     let home = home();
@@ -1582,13 +1802,11 @@ fn dream_reads_require_explicit_import_and_retain_the_latest_wal_rows() {
             "{method}: {response}"
         );
     }
-    let not_retired = core.call(
-        5,
-        "engine.dreams.import",
-        json!({"legacyWriterRetired":false}),
-    );
-    assert_eq!(not_retired["error"]["code"], -32602, "{not_retired}");
-    assert!(!native_path.exists());
+    for request in [json!({}), json!({"legacyWriterRetired":false})] {
+        let not_retired = core.call(5, "engine.dreams.import", request);
+        assert_eq!(not_retired["error"]["code"], -32602, "{not_retired}");
+        assert!(!native_path.exists());
+    }
 
     let reader = rusqlite::Connection::open_with_flags(
         &legacy_path,
@@ -1721,6 +1939,10 @@ fn dream_candidate_input_limits_are_checked_before_writing() {
         ("many", many),
         ("long", too_long),
         ("bytes", too_many_bytes),
+        (
+            "four-byte-characters",
+            vec![json!({"content":"😀".repeat(16_385)})],
+        ),
     ] {
         begin_candidate_probe(&mut core, run);
         let refused = core.call(3, "engine.dreams.run", candidate_request(run, observations));
@@ -1761,17 +1983,73 @@ fn dream_candidate_selection_limits_accumulated_rows() {
         ),
     );
     assert_eq!(first["result"]["counts"]["rejected"], 1000, "{first}");
+    assert!(
+        first["result"]["counts"].get("truncated").is_none(),
+        "{first}"
+    );
+    let ledger =
+        rusqlite::Connection::open(home.path().join("state/dreams/engine.sqlite")).unwrap();
+    ledger
+        .execute("UPDATE dream_candidate SET decision_json=NULL", [])
+        .unwrap();
     begin_candidate_probe(&mut core, "more-candidates");
     let second = core.call(
         4,
         "engine.dreams.run",
         candidate_request(
             "more-candidates",
-            vec![json!({"content":"additional-entry"})],
+            vec![json!({"content":"promote-me","memoryId":"m-new","recalls":5,"uniqueQueries":5,"score":1})],
         ),
     );
     assert_eq!(second["result"]["counts"]["candidates"], 1, "{second}");
-    assert_eq!(second["result"]["counts"]["rejected"], 1000, "{second}");
+    assert_eq!(
+        second["result"]["eligible"][0]["memoryId"], "m-new",
+        "{second}"
+    );
+    assert_eq!(second["result"]["eligible"].as_array().unwrap().len(), 1);
+    assert_eq!(second["result"]["counts"]["rejected"], 999, "{second}");
+    assert_eq!(second["result"]["counts"]["truncated"], 1, "{second}");
+    let older_decisions = || {
+        ledger
+            .prepare("SELECT decision_json IS NULL FROM dream_candidate WHERE source_run_id='first-candidates' ORDER BY first_seen_at,candidate_id")
+            .unwrap()
+            .query_map([], |row| row.get::<_, bool>(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap()
+    };
+    let expected = [vec![false; 999], vec![true]].concat();
+    assert_eq!(older_decisions(), expected);
+
+    // The extra probe row can cover the first omitted candidate on the
+    // preceding call. With two omitted candidates the bounded older query
+    // itself must select the oldest rows, before the final response ordering.
+    ledger
+        .execute("UPDATE dream_candidate SET decision_json=NULL", [])
+        .unwrap();
+    begin_candidate_probe(&mut core, "later-candidates");
+    let third = core.call(
+        5,
+        "engine.dreams.run",
+        candidate_request(
+            "later-candidates",
+            vec![json!({"content":"later entry","memoryId":"m-later","recalls":5,"uniqueQueries":5,"score":1})],
+        ),
+    );
+    assert_eq!(
+        third["result"]["eligible"][0]["memoryId"], "m-later",
+        "{third}"
+    );
+    assert_eq!(third["result"]["counts"]["truncated"], 1, "{third}");
+    assert_eq!(older_decisions(), expected);
+    let omitted: i64 = ledger
+        .query_row(
+            "SELECT count(*) FROM dream_candidate WHERE decision_json IS NULL",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(omitted, 2);
 }
 
 #[test]
@@ -2264,6 +2542,15 @@ fn dreams_log_reads_imported_rows_and_their_private_log_over_the_core_link() {
     let absent = core.call(8, "engine.dreams.log", json!({"runId":"run-one"}));
     assert!(absent["result"].get("log").is_none(), "{absent}");
     assert_eq!(absent["result"]["runs"][0]["runId"], "run-one", "{absent}");
+    let source = state.join("log-source.txt");
+    fs::write(&source, "hardlinked test log").unwrap();
+    fs::hard_link(&source, &log).unwrap();
+    let linked = core.call(12, "engine.dreams.log", json!({"runId":"run-one"}));
+    assert_eq!(
+        linked["error"]["data"]["reason"], "untrusted-path",
+        "{linked}"
+    );
+    fs::remove_file(&log).unwrap();
     plur1bus_engine::store::paths::secure_dir(&log).unwrap();
     let unusable = core.call(9, "engine.dreams.log", json!({"runId":"run-one"}));
     assert_eq!(

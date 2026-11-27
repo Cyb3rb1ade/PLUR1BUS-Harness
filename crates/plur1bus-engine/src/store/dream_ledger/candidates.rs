@@ -245,22 +245,44 @@ fn prepare_once(
         )
         .map_err(StoreError::from)?;
 
+    // Look up the current shortlist by its unique key, then fill the remaining
+    // slots in chronological order. One extra older row detects truncation.
+    let hashes = serde_json::to_string(&current.keys().collect::<Vec<_>>())
+        .map_err(|_| StoreError::InvalidInput)?;
     let mut select = db
         .prepare(
-            "SELECT candidate_id,partition,content_hash,expires_at,recalls,unique_queries,score
-         FROM dream_candidate WHERE agent_id=?1 AND state='shortlisted'
-         ORDER BY first_seen_at,candidate_id LIMIT ?2",
+            "WITH observed AS MATERIALIZED (SELECT value FROM json_each(?2)),
+                  fresh AS MATERIALIZED (
+                    SELECT candidate_id,partition,content_hash,expires_at,recalls,unique_queries,score,first_seen_at
+                    FROM observed JOIN dream_candidate ON content_hash=observed.value
+                    WHERE agent_id=?1 AND state='shortlisted' AND partition='agent-private'
+                  ),
+                  older AS (
+                    SELECT candidate_id,partition,content_hash,expires_at,recalls,unique_queries,score,first_seen_at
+                    FROM dream_candidate
+                    WHERE agent_id=?1 AND state='shortlisted'
+                      AND NOT (partition='agent-private' AND content_hash IN (SELECT value FROM observed))
+                    ORDER BY first_seen_at,candidate_id LIMIT (?3 + 1 - (SELECT count(*) FROM fresh))
+                  )
+             SELECT *,0 AS priority FROM fresh
+             UNION ALL SELECT *,1 AS priority FROM older
+             ORDER BY priority,first_seen_at,candidate_id",
         )
         .map_err(StoreError::from)?;
     let mut rows = select
-        .query(params![agent, MAX_OBSERVATIONS as i64])
+        .query(params![agent, hashes, MAX_OBSERVATIONS as i64])
         .map_err(StoreError::from)?;
     let thresholds = Thresholds::default();
     let mut prepared = Vec::new();
     let mut rejected = 0;
     let mut eligible = Vec::new();
+    let mut truncated = false;
     while let Some(row) = rows.next().map_err(StoreError::from)? {
         cancel.check()?;
+        if prepared.len() == MAX_OBSERVATIONS {
+            truncated = true;
+            break;
+        }
         let field = |index| row.get::<_, String>(index).map_err(StoreError::from);
         let id = field(0)?;
         let partition = field(1)?;
@@ -308,9 +330,13 @@ fn prepare_once(
             .execute(params![decision.to_string(), id, agent])
             .map_err(StoreError::from)?;
     }
-    Ok(json!({"counts":{
+    let mut counts = json!({
         "candidates":inserted,"deduped":request.observations.len()-inserted,"expired":expired,"rejected":rejected
-    },"eligible":eligible}))
+    });
+    if truncated {
+        counts["truncated"] = json!(1);
+    }
+    Ok(json!({"counts":counts,"eligible":eligible}))
 }
 
 #[cfg(test)]

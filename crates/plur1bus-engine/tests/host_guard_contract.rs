@@ -364,6 +364,15 @@ fn process_dream_diary_resolves_only_the_workspace_from_the_verified_core() {
     std::fs::remove_file(&path).unwrap();
     let absent = peer.call(6, "engine.dreams.diary", params.clone());
     assert_eq!(absent["result"]["exists"], false, "{absent}");
+    let source = path.with_file_name("source.md");
+    std::fs::write(&source, "hardlinked test diary").unwrap();
+    std::fs::hard_link(&source, &path).unwrap();
+    let linked = peer.call(8, "engine.dreams.diary", params.clone());
+    assert_eq!(
+        linked["error"]["data"]["reason"], "untrusted-path",
+        "{linked}"
+    );
+    std::fs::remove_file(&path).unwrap();
     plur1bus_engine::store::paths::secure_dir(&path).unwrap();
     let unusable = peer.call(7, "engine.dreams.diary", params);
     assert_eq!(

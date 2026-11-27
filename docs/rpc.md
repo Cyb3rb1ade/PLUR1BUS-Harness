@@ -740,7 +740,7 @@ Read imported dream runs over the verified Core link, newest first. With runId, 
 
 **Served by:** engine
 
-Apply a phase ledger transition over the verified Core link after the legacy writer retires. The Core admits triggers and dispatches the jobs. Candidate preparation records gate decisions for a claimed light or deep run and returns eligible current sources for deep runs.
+Apply a phase ledger transition over the verified Core link after the legacy writer retires. The Core admits triggers and dispatches the jobs. Candidate preparation records gate decisions for a claimed light or deep run and returns eligible current sources for deep runs. Observation content is limited to 64 KiB of UTF-8 bytes. Current observations are assessed before older candidates, with up to 1000 total evaluations. A counts.truncated value of 1 signals that older candidates were left unevaluated.
 
 **params**
 
@@ -986,6 +986,7 @@ Apply a phase ledger transition over the verified Core link after the legacy wri
         },
         "eligible": {
           "type": "array",
+          "maxItems": 1000,
           "items": {
             "type": "object",
             "additionalProperties": false,

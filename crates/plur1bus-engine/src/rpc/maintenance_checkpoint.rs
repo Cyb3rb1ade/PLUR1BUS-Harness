@@ -77,6 +77,13 @@ impl CheckpointStore {
             .lock()
             .map_err(|_| checkpoint_error(&StoreError::Unavailable))?;
         let (current, _) = self.read().map_err(|error| checkpoint_error(&error))?;
+        if crate::rpc::seams::fixture_step("checkpoint-replay")
+            && current.as_deref() == Some(next.as_str())
+        {
+            // The process fixture models revocation after the read, while the
+            // peer remains available to observe the worker's refusal.
+            cancel.cancel();
+        }
         grant.check(cancel)?;
         if current.as_deref() == Some(next.as_str()) {
             return Ok((next, false));
