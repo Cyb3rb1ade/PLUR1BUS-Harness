@@ -66,7 +66,7 @@ pub fn info(f: &File) -> io::Result<Info> {
     let i = winapi_util::file::information(f)?;
     let t = winapi_util::file::typ(f)?;
     let attributes = i.file_attributes();
-    let since_epoch = |t: std::io::Result<std::time::SystemTime>| {
+    let since_epoch = |t: io::Result<std::time::SystemTime>| {
         t.ok()
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
     };
