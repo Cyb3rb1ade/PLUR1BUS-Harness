@@ -1318,6 +1318,19 @@ mod budget_tests {
     use super::*;
 
     #[test]
+    fn exhausted_inner_match_cannot_satisfy_a_negative_lookaround() {
+        let input = indexing::Utf16Input::new(&[97], true);
+        let start = input.left_end();
+        let parsed =
+            crate::parse::try_parse("a".chars().map(u32::from), Default::default()).unwrap();
+        let re = crate::emit::emit(&parsed);
+        let mut matcher = MatchAttempter::new(&re, start);
+        matcher.budget = StepBudget::Metered(0);
+        assert!(!matcher.run_lookaround::<Forward>(&input, 0, start, 0, 0, true));
+        assert!(matcher.budget.exhausted());
+    }
+
+    #[test]
     fn ordinary_work_accounting_covers_each_single_character_loop_phase() {
         let text: Vec<_> = "aaaa".encode_utf16().collect();
         let input = indexing::Utf16Input::new(&text, true);
