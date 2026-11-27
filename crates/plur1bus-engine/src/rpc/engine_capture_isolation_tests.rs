@@ -94,11 +94,15 @@ pub(super) fn foreign_turn_is_stored(
         .unwrap_or_else(|_| panic!("{case}: the foreign turn never finished"))
         .unwrap_or_else(|error| panic!("{case}: {error}"));
     let elapsed = started.elapsed().as_millis();
-    eprintln!(
+    // Use the test process's stderr so successful samples appear in the CI log.
+    use std::io::Write as _;
+    writeln!(
+        std::io::stderr().lock(),
         "{case}: {elapsed} ms, caller deadline {} ms, result {result}\n{}",
         FOREIGN_DEADLINE.as_millis(),
         probe.report()
-    );
+    )
+    .unwrap();
     assert_eq!(result["stored"], 2, "{case}: {result}");
 }
 
