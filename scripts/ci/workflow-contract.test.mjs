@@ -206,11 +206,22 @@ test('every Desktop platform builds test executables before the unchanged execut
   assert.match(desktop, /^    timeout-minutes: 60$/m);
 });
 
-test('macOS unit opts into bounded Core concurrency without changing deadlines or test selection', () => {
-  const block = jobBlocks(workflow())['unit-os'];
-  assert.match(block, /PLUR1BUS_CORE_TEST_CONCURRENCY: \$\{\{ runner.os == 'macOS' && 'bounded' \|\| '' \}\}/);
-  assert.match(block, /timeout-minutes: \$\{\{ matrix.os == 'windows-2025' && 35 \|\| 25 \}\}/);
-  assert.match(block, /            pnpm test\n/);
+test('macOS gives Core its own timed step and runs both disjoint package selections on the same runner', () => {
+  const job = jobBlocks(workflow())['unit-os'];
+  const steps = job.split(/(?=^      - )/m);
+  const other = steps.find(step => step.includes('name: unit tests with file timings'));
+  const core = steps.find(step => step.includes('name: macOS Core tests with file timings'));
+  assert.ok(other && core && steps.indexOf(other) < steps.indexOf(core));
+  assert.match(other, /^          node scripts\/run-ts-tests\.mjs --filter=!@plur1bus\/core$/m);
+  assert.match(other, /matrix.os == 'windows-2025' && 35 \|\| matrix.os == 'macos-15' && 15 \|\| 25/);
+  assert.match(core, /!cancelled\(\) && runner.os == 'macOS' && needs.changes.outputs.ts-core == 'true'/);
+  assert.match(core, /^          node scripts\/run-ts-tests\.mjs --filter=@plur1bus\/core$/m);
+  assert.match(core, /^        timeout-minutes: 25$/m);
+  assert.match(core, /^          PLUR1BUS_CORE_TEST_CONCURRENCY: bounded$/m);
+  for (const step of [other, core]) {
+    assert.match(step, /export TEST_TIMING_DIR="\$GITHUB_WORKSPACE\/test-timings"/);
+    assert.match(step, /--test-reporter-destination=stdout/);
+  }
   const runner = readFileSync(new URL('../test-package.mjs', import.meta.url), 'utf8');
   assert.match(runner, /const TEST_TIMEOUT_MS = 120_000/);
   assert.match(runner, /\.\.\.files\], \{ stdio: "inherit" \}/);
@@ -218,19 +229,7 @@ test('macOS unit opts into bounded Core concurrency without changing deadlines o
 
 test('unit-os preserves every unit step while Ubuntu and Windows run Core only in their measured shards', () => {
   const jobs = jobBlocks(workflow());
-  const coreSplit = '          # The Core files run exactly once in core-unit-shard; every other package stays here.\n' +
-    '          node scripts/run-ts-tests.mjs --filter=!@plur1bus/core\n';
-  // macOS keeps the whole workspace; Windows runs Ubuntu's filtered command and leaves Core to core-unit-shard-windows.
-  const osSplit = '          if [ "$RUNNER_OS" = Windows ]; then\n' +
-    '            # The Core files run exactly once in core-unit-shard-windows; every other package stays here.\n' +
-    '            node scripts/run-ts-tests.mjs --filter=!@plur1bus/core\n' +
-    '          else\n' +
-    '            pnpm test\n' +
-    '          fi\n';
-  const timingStep = jobs['unit-os'].split(/(?=^      - )/m).find(step => step.includes('name: unit tests with file timings'));
-  assert.match(timingStep, /PLUR1BUS_CORE_TEST_CONCURRENCY: \$\{\{ runner.os == 'macOS' && 'bounded' \|\| '' \}\}/);
-  assert.match(timingStep, /timeout-minutes: \$\{\{ matrix.os == 'windows-2025' && 35 \|\| 25 \}\}/);
-  assert.ok(stepsOf(jobs.unit).includes(coreSplit));
+  assert.match(stepsOf(jobs.unit), /^          node scripts\/run-ts-tests\.mjs --filter=!@plur1bus\/core$/m);
   const rustToolchain =
     '      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)\n' +
     '        with: { toolchain: "1.95", components: "clippy, rustfmt" }\n';
@@ -243,7 +242,6 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
     '        with: { python-version: "3.13" }\n';
   assert.ok(stepsOf(jobs.unit).includes(rustToolchain));
   const expected = stepsOf(jobs.unit)
-    .replace(coreSplit, osSplit)
     .replace(rustToolchain, rustToolchain + macToolchains);
   assert.equal(stepsOf(jobs['unit-os']), expected);
   assert.match(jobs['core-unit-shard'], /pnpm --filter @plur1bus\/core test/);

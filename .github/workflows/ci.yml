@@ -159,15 +159,23 @@ jobs:
           export TEST_TIMING_DIR="$GITHUB_WORKSPACE/test-timings"
           reporter="$(node -e 'console.log(require("node:url").pathToFileURL(process.cwd() + "/scripts/release/timing-reporter.mjs").href)')"
           export NODE_OPTIONS="--test-reporter=$reporter --test-reporter-destination=stdout"
-          # The Core files run exactly once in core-unit-shard; every other package stays here.
           node scripts/run-ts-tests.mjs --filter=!@plur1bus/core
-        timeout-minutes: ${{ matrix.os == 'windows-2025' && 35 || 25 }}
+        timeout-minutes: ${{ matrix.os == 'windows-2025' && 35 || matrix.os == 'macos-15' && 15 || 25 }}
         env:
-          # macOS finds the system Chrome and would run packages/web's whole browser suite in-line (20+ min, so the step
-          # timed out before core ran). Off here by this explicit switch, never by dropping the Chrome path; the suites
-          # run in `web-browser-macos` below (docs/ci.md). Linux (no Chromium here) and Windows are unchanged.
+          # The macOS browser suites run in web-browser-macos.
           PLUR1BUS_WEB_BROWSER: ${{ runner.os == 'macOS' && 'off' || '' }}
-          PLUR1BUS_CORE_TEST_CONCURRENCY: ${{ runner.os == 'macOS' && 'bounded' || '' }}
+      - name: macOS Core tests with file timings
+        if: ${{ !cancelled() && runner.os == 'macOS' && needs.changes.outputs.ts-core == 'true' }}
+        shell: bash
+        run: |
+          export TEST_TIMING_DIR="$GITHUB_WORKSPACE/test-timings"
+          reporter="$(node -e 'console.log(require("node:url").pathToFileURL(process.cwd() + "/scripts/release/timing-reporter.mjs").href)')"
+          export NODE_OPTIONS="--test-reporter=$reporter --test-reporter-destination=stdout"
+          node scripts/run-ts-tests.mjs --filter=@plur1bus/core
+        timeout-minutes: 25
+        env:
+          PLUR1BUS_WEB_BROWSER: 'off'
+          PLUR1BUS_CORE_TEST_CONCURRENCY: bounded
       - name: slowest 20 test files
         if: always() && needs.changes.outputs.ts-core == 'true'
         run: node scripts/release/timing-summary.mjs test-timings
@@ -374,19 +382,23 @@ jobs:
           export TEST_TIMING_DIR="$GITHUB_WORKSPACE/test-timings"
           reporter="$(node -e 'console.log(require("node:url").pathToFileURL(process.cwd() + "/scripts/release/timing-reporter.mjs").href)')"
           export NODE_OPTIONS="--test-reporter=$reporter --test-reporter-destination=stdout"
-          if [ "$RUNNER_OS" = Windows ]; then
-            # The Core files run exactly once in core-unit-shard-windows; every other package stays here.
-            node scripts/run-ts-tests.mjs --filter=!@plur1bus/core
-          else
-            pnpm test
-          fi
-        timeout-minutes: ${{ matrix.os == 'windows-2025' && 35 || 25 }}
+          node scripts/run-ts-tests.mjs --filter=!@plur1bus/core
+        timeout-minutes: ${{ matrix.os == 'windows-2025' && 35 || matrix.os == 'macos-15' && 15 || 25 }}
         env:
-          # macOS finds the system Chrome and would run packages/web's whole browser suite in-line (20+ min, so the step
-          # timed out before core ran). Off here by this explicit switch, never by dropping the Chrome path; the suites
-          # run in `web-browser-macos` below (docs/ci.md). Linux (no Chromium here) and Windows are unchanged.
+          # The macOS browser suites run in web-browser-macos.
           PLUR1BUS_WEB_BROWSER: ${{ runner.os == 'macOS' && 'off' || '' }}
-          PLUR1BUS_CORE_TEST_CONCURRENCY: ${{ runner.os == 'macOS' && 'bounded' || '' }}
+      - name: macOS Core tests with file timings
+        if: ${{ !cancelled() && runner.os == 'macOS' && needs.changes.outputs.ts-core == 'true' }}
+        shell: bash
+        run: |
+          export TEST_TIMING_DIR="$GITHUB_WORKSPACE/test-timings"
+          reporter="$(node -e 'console.log(require("node:url").pathToFileURL(process.cwd() + "/scripts/release/timing-reporter.mjs").href)')"
+          export NODE_OPTIONS="--test-reporter=$reporter --test-reporter-destination=stdout"
+          node scripts/run-ts-tests.mjs --filter=@plur1bus/core
+        timeout-minutes: 25
+        env:
+          PLUR1BUS_WEB_BROWSER: 'off'
+          PLUR1BUS_CORE_TEST_CONCURRENCY: bounded
       - name: slowest 20 test files
         if: always() && needs.changes.outputs.ts-core == 'true'
         run: node scripts/release/timing-summary.mjs test-timings
