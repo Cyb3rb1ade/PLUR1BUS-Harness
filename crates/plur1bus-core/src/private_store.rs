@@ -29,6 +29,7 @@ pub(crate) fn prepare(path: &Path) -> std::io::Result<()> {
 
 /// `createSecurePath()(path, { mode: 0o600 }).applied` where no hook is given: Unix applies the mode, any other platform
 /// has nothing to apply (`false`, so a store that needs it fails closed).
+#[cfg(any(unix, test))]
 pub(crate) fn default_secure(path: &Path) -> bool {
     #[cfg(unix)]
     {

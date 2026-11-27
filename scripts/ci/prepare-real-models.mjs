@@ -50,10 +50,28 @@ export async function prepareRealModels({ directory, profiles, fetchImpl = globa
   return summaries;
 }
 
+// On a cold runner a verified first profile can consume most of the shared window.
+// Retry that preparation once only on its own deadline. The Engine re-verifies cached files.
+export async function prepareSmokeModels(options, deadline = () => AbortSignal.timeout(300_000)) {
+  for (let attempt = 0; ; attempt++) {
+    const signal = deadline();
+    let verified = false;
+    try {
+      return await prepareRealModels({ ...options, signal, onProgress(event) {
+        if (event.stage === 'verified') verified = true;
+        options.onProgress?.(event);
+      } });
+    } catch (error) {
+      if (attempt !== 0 || !verified || signal.reason?.name !== 'TimeoutError' ||
+          !['AbortError', 'TimeoutError'].includes(error.name)) throw error;
+      options.onProgress?.({ stage: 'retry-after-preparation-timeout' });
+    }
+  }
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    const summaries = await prepareRealModels({ directory: process.env.PLUR1BUS_MODELS_CACHE,
-      signal: AbortSignal.timeout(300_000),
+    const summaries = await prepareSmokeModels({ directory: process.env.PLUR1BUS_MODELS_CACHE,
       onProgress: event => process.stdout.write(`real-model preparation progress: ${JSON.stringify(event)}\n`) });
     for (const summary of summaries) process.stdout.write(`real-model artifacts verified: ${JSON.stringify(summary)}\n`);
   } catch (error) {
