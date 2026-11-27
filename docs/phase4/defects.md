@@ -1957,13 +1957,13 @@ at 300,000 each.
 
 ## P4D-269 — Page IMAP UID searches (R-W-28)
 
-The wire library searches at most 4,096 UID numbers per request and halves
-the range after a tagged server limit response. A fresh SELECT supplies the
-initial upper bound through UIDNEXT. Without that hint, the client requests
-the UID of the last message. Empty ranges can require extra commands in
-sparse mailboxes. A page consumer advances its cursor after processing the
-whole page. The existing collecting API returns the ordered list. TypeScript
-issues an open-ended search and can receive a longer reply line.
+The wire library requests UIDs by message sequence number. A single call
+delivers up to 4,096 existing messages and continues from the last UID
+accepted by the consumer. The server may request smaller pages with
+`[LIMIT]`. When an expunge invalidates a sequence position, the next call
+locates the saved UID boundary using binary search on existing messages.
+The 64 KiB response line limit applies throughout. TypeScript issues an
+open-ended search and can receive a longer reply line.
 
 <a id="p4d-270"></a>
 

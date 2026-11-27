@@ -83,10 +83,41 @@ pub enum Idle {
     Timeout,
 }
 
+#[derive(Default)]
+struct Mailbox {
+    exists: u64,
+    generation: u64,
+    // (last delivered UID, sequence number of its successor)
+    continuation: Option<(u64, u64)>,
+    scanned: bool,
+}
+
+impl Mailbox {
+    fn observe(&mut self, line: &str) {
+        let Some((number, event)) = line.strip_prefix("* ").and_then(|s| s.split_once(' ')) else {
+            return;
+        };
+        let Ok(number) = number.parse::<u32>() else {
+            return;
+        };
+        if event.eq_ignore_ascii_case("EXISTS") {
+            self.exists = number.into();
+        } else if event.eq_ignore_ascii_case("EXPUNGE") {
+            self.exists = self.exists.saturating_sub(1);
+            self.invalidate();
+        }
+    }
+
+    fn invalidate(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
+        self.continuation = None;
+    }
+}
+
 pub struct Connection {
     wire: Wire,
     tag: u64,
-    selection_upper: Option<u64>,
+    mailbox: Mailbox,
     response_budget: ResponseBudget,
 }
 
@@ -147,7 +178,7 @@ pub fn open(
     let mut conn = Connection {
         wire: Wire::open(ports, opt, "IMAP connection failed")?,
         tag: 0,
-        selection_upper: None,
+        mailbox: Mailbox::default(),
         response_budget: ResponseBudget::default(),
     };
     let greeting = conn.response(&mut ResponseBudget::default())?;
@@ -173,7 +204,7 @@ pub fn open(
         conn = Connection {
             wire: conn.wire.upgrade(ports, opt.host)?,
             tag: conn.tag,
-            selection_upper: None,
+            mailbox: Mailbox::default(),
             response_budget: ResponseBudget::default(),
         };
     }
@@ -213,6 +244,7 @@ impl Connection {
             text.push_str(&format!("{{#{}}}", literals.len()));
             literals.push(self.wire.bytes(size)?);
         }
+        self.mailbox.observe(&text);
         Ok(Response { text, literals })
     }
 
@@ -323,9 +355,11 @@ impl Connection {
         let uid_validity = uid_validity
             .filter(|value| *value < (1u64 << 53))
             .ok_or_else(|| Error::new(Kind::Protocol, "mailbox has no UIDVALIDITY"))?;
-        self.selection_upper = uid_next
-            .and_then(|next: u64| next.checked_sub(1))
-            .filter(|upper| *upper <= u64::from(u32::MAX));
+        self.mailbox.exists = u32::try_from(exists)
+            .map_err(|_| Error::new(Kind::Protocol, "invalid mailbox size"))?
+            .into();
+        self.mailbox.invalidate();
+        self.mailbox.scanned = false;
         Ok(Selection {
             uid_validity,
             uid_next,
@@ -343,8 +377,7 @@ impl Connection {
         Ok(result)
     }
 
-    /// Deliver each ordered page before advancing the caller's mailbox cursor.
-    /// If processing fails, the caller can resume from the last completed page.
+    /// Deliver at most 4,096 messages per call. Resume with the last committed UID.
     pub fn for_each_uid_page(
         &mut self,
         cursor: &mut u64,
@@ -353,38 +386,84 @@ impl Connection {
         if *cursor > u64::from(u32::MAX) {
             return Err(Error::new(Kind::Protocol, "invalid UID"));
         }
-        let upper = match self.selection_upper.take() {
-            Some(bound) => bound,
-            None => {
-                // Sequence number * selects the last message, even with sparse UIDs.
-                let last = self.ok("UID SEARCH *", "UID SEARCH failed")?;
-                let ids = search_uids(&last)?;
-                if ids.len() > 1 {
-                    return Err(Error::new(Kind::Protocol, "invalid last UID"));
-                }
-                ids.first().copied().unwrap_or_default()
-            }
+        let cached = self.mailbox.continuation.filter(|(uid, _)| uid == cursor);
+        if self.mailbox.scanned && cached.is_none_or(|(_, seq)| seq > self.mailbox.exists) {
+            self.ok("NOOP", "mailbox refresh failed")?;
+        }
+        self.mailbox.scanned = true;
+        let upper = self.mailbox.exists;
+        let mut first = match self.mailbox.continuation {
+            Some((uid, seq)) if uid == *cursor => seq,
+            _ => self.first_sequence_after(*cursor, upper)?,
         };
+        let stop = upper.min(first + UID_PAGE - 1);
         let mut width = UID_PAGE;
-        while *cursor < upper {
-            let first = *cursor + 1;
-            let last = (*cursor + width).min(upper);
-            let reply = self.command(&format!("UID SEARCH UID {first}:{last}"), None)?;
-            if reply.status != Status::Ok {
-                if reply.limited && last > first {
-                    width = (last - first).div_ceil(2);
-                    continue;
-                }
-                return Err(Error::new(Kind::Protocol, "UID SEARCH failed"));
+        while first <= stop {
+            let last = stop.min(first + width - 1);
+            let Some(ids) = self.sequence_page(first, last)? else {
+                width = (last - first + 1).div_ceil(2);
+                continue;
+            };
+            let newest = *ids
+                .last()
+                .ok_or_else(|| Error::new(Kind::Protocol, "missing UID"))?;
+            if ids[0] <= *cursor {
+                return Err(Error::new(Kind::Protocol, "unexpected UID order"));
             }
-            let uids = search_uids(&reply)?;
-            if uids.iter().any(|uid| !(first..=last).contains(uid)) {
-                return Err(Error::new(Kind::Protocol, "UID outside requested range"));
+            let generation = self.mailbox.generation;
+            process(self, &ids)?;
+            *cursor = newest;
+            if self.mailbox.generation != generation {
+                return Ok(());
             }
-            process(self, &uids)?;
-            *cursor = last;
+            first = last + 1;
+            self.mailbox.continuation = Some((newest, first));
         }
         Ok(())
+    }
+
+    // UIDs increase with sequence number. Locate a persisted cursor even if its
+    // message was expunged. Subsequent pages on this selection use the cached sequence.
+    fn first_sequence_after(&mut self, cursor: u64, upper: u64) -> Result<u64, Error> {
+        if upper == 0 || cursor == 0 || self.sequence_uid(1)? > cursor {
+            return Ok(1);
+        }
+        let mut low = 2;
+        let mut high = upper + 1;
+        while low < high {
+            let mid = low + (high - low) / 2;
+            if self.sequence_uid(mid)? > cursor {
+                high = mid;
+            } else {
+                low = mid + 1;
+            }
+        }
+        Ok(low)
+    }
+
+    fn sequence_uid(&mut self, sequence: u64) -> Result<u64, Error> {
+        self.sequence_page(sequence, sequence)?
+            .and_then(|ids| ids.first().copied())
+            .ok_or_else(|| Error::new(Kind::Protocol, "missing UID"))
+    }
+
+    fn sequence_page(&mut self, first: u64, last: u64) -> Result<Option<Vec<u64>>, Error> {
+        let generation = self.mailbox.generation;
+        let reply = self.command(&format!("UID SEARCH {first}:{last}"), None)?;
+        if self.mailbox.generation != generation {
+            return Err(Error::new(Kind::State, "mailbox changed during search"));
+        }
+        if reply.status != Status::Ok {
+            if reply.limited && last > first {
+                return Ok(None);
+            }
+            return Err(Error::new(Kind::Protocol, "UID SEARCH failed"));
+        }
+        let ids = search_uids(&reply)?;
+        if ids.len() as u64 != last - first + 1 {
+            return Err(Error::new(Kind::Protocol, "unexpected UID count"));
+        }
+        Ok(Some(ids))
     }
 
     pub fn fetch_size(&mut self, uid: u64) -> Result<u64, Error> {
@@ -600,14 +679,14 @@ mod budget_tests {
     fn search_returns_twenty_thousand_uids_from_bounded_pages() -> Result<(), Error> {
         let start = 1_000_001;
         let expected: Vec<u64> = (start..start + 20_000).collect();
-        let mut replies = format!("* SEARCH {}\r\nA0001 OK last uid\r\n", start + 19_999);
+        let mut replies = String::new();
         for (index, page) in expected.chunks(4096).enumerate() {
             replies.push_str("* SEARCH");
             for uid in page {
                 replies.push(' ');
                 replies.push_str(&uid.to_string());
             }
-            replies.push_str(&format!("\r\nA{:04} OK searched\r\n", index + 2));
+            replies.push_str(&format!("\r\nA{:04} OK searched\r\n", index + 1));
         }
         let wire = super::super::wire::test_stream::wire(
             replies.as_bytes(),
@@ -616,10 +695,16 @@ mod budget_tests {
         let mut connection = Connection {
             wire,
             tag: 0,
-            selection_upper: None,
+            mailbox: Mailbox::default(),
             response_budget: ResponseBudget::default(),
         };
-        assert_eq!(connection.uids_above(start - 1)?, expected);
+        connection.mailbox.exists = 20_000;
+        let mut cursor = 0;
+        for expected_page in expected.chunks(4096) {
+            let actual = connection.uids_above(cursor)?;
+            assert_eq!(actual, expected_page);
+            cursor = actual[actual.len() - 1];
+        }
         Ok(())
     }
 
@@ -633,7 +718,7 @@ mod budget_tests {
         let mut connection = Connection {
             wire,
             tag: 0,
-            selection_upper: None,
+            mailbox: Mailbox::default(),
             response_budget: ResponseBudget::default(),
         };
         assert_eq!(connection.fetch_raw(7)?, b"Report");
@@ -648,7 +733,7 @@ mod budget_tests {
         let mut connection = Connection {
             wire,
             tag: 0,
-            selection_upper: None,
+            mailbox: Mailbox::default(),
             response_budget: ResponseBudget::default(),
         };
         assert_eq!(
@@ -668,7 +753,7 @@ mod budget_tests {
         Connection {
             wire: super::super::wire::test_stream::wire(input, std::io::ErrorKind::TimedOut),
             tag: 0,
-            selection_upper: None,
+            mailbox: Mailbox::default(),
             response_budget: ResponseBudget { metadata, logical },
         }
     }

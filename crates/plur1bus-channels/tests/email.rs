@@ -122,9 +122,9 @@ fn imap_replays_size_literal_and_uid_operations_over_starttls() {
     for name in ["imap-fetch", "imap-no-starttls"] {
         let mut fixture = recorded(name);
         if name == "imap-fetch" {
-            // R-W-28 changes only the SEARCH interval in this TypeScript recording.
+            // R-W-28a changes only the SEARCH sequence set in this TypeScript recording.
             let expected = STANDARD.encode("A0007 UID SEARCH UID 1:*\r\n");
-            let replacement = STANDARD.encode("A0007 UID SEARCH UID 1:1\r\n");
+            let replacement = STANDARD.encode("A0007 UID SEARCH 1:1\r\n");
             let commands = fixture["exchanges"]
                 .as_array_mut()
                 .unwrap()
@@ -222,24 +222,14 @@ fn imap_reduces_a_limited_search_and_checkpoints_completed_pages() {
         STANDARD.encode("* 3 EXISTS\r\n* OK [UIDVALIDITY 1] mailbox\r\nA0006 OK selected\r\n")
     ]);
     for (tag, command, result) in [
-        (7, "UID SEARCH *", "* SEARCH 8\r\nA0007 OK last"),
         (
-            8,
-            "UID SEARCH UID 1:8",
-            "A0008 NO [LIMIT] narrower search required",
+            7,
+            "UID SEARCH 1:3",
+            "A0007 NO [LiMiT] narrower search required",
         ),
-        (
-            9,
-            "UID SEARCH UID 1:4",
-            "* SEARCH 4 2 2\r\nA0009 OK first page",
-        ),
-        (
-            10,
-            "UID SEARCH UID 5:8",
-            "* SEARCH 8\r\nA0010 OK second page",
-        ),
-        (11, "UID SEARCH *", "* SEARCH 8\r\nA0011 OK last"),
-        (12, "UID SEARCH UID 5:8", "* SEARCH 8\r\nA0012 OK resumed"),
+        (8, "UID SEARCH 1:2", "* sEaRcH 4 2 2\r\nA0008 OK first page"),
+        (9, "UID SEARCH 3:3", "* SEARCH 8\r\nA0009 OK second page"),
+        (10, "UID SEARCH 3:3", "* SEARCH 8\r\nA0010 OK resumed"),
     ] {
         exchanges.push(json!({
             "sendBase64":[STANDARD.encode(format!("A{tag:04} {command}\r\n"))],
@@ -295,9 +285,15 @@ fn imap_returns_large_mailbox_in_order_over_the_wire() {
         "* 20000 EXISTS\r\n* OK [UIDVALIDITY 1] mailbox\r\n* OK [UIDNEXT {}] next\r\nA0006 OK selected\r\n",
         last + 1
     ))]);
+    exchanges.push(json!({
+        "sendBase64": [STANDARD.encode("A0007 UID SEARCH 1:1\r\n")],
+        "receiveChunksBase64": [STANDARD.encode(format!("* SEARCH {first}\r\nA0007 OK located\r\n"))]
+    }));
     for (page, start) in (first..=last).step_by(4096).enumerate() {
         let end = (start + 4095).min(last);
-        let tag = page + 7;
+        let tag = page + 8;
+        let begin = start - first + 1;
+        let finish = end - first + 1;
         let ids = (start..=end)
             .map(|uid| uid.to_string())
             .collect::<Vec<_>>()
@@ -305,7 +301,7 @@ fn imap_returns_large_mailbox_in_order_over_the_wire() {
         let reply = format!("* SEARCH {ids}\r\nA{tag:04} OK searched\r\n");
         assert!(reply.len() < 65_536);
         exchanges.push(json!({
-            "sendBase64": [STANDARD.encode(format!("A{tag:04} UID SEARCH UID {start}:{end}\r\n"))],
+            "sendBase64": [STANDARD.encode(format!("A{tag:04} UID SEARCH {begin}:{finish}\r\n"))],
             "receiveChunksBase64": [STANDARD.encode(reply)]
         }));
     }
@@ -317,14 +313,90 @@ fn imap_returns_large_mailbox_in_order_over_the_wire() {
     let (mut connection, _, _) = imap::open(&ports, &options(&server), "INBOX").unwrap();
     let mut cursor = first - 1;
     let mut received = Vec::new();
-    connection
-        .for_each_uid_page(&mut cursor, |_, uids| {
-            received.extend_from_slice(uids);
-            Ok(())
-        })
-        .unwrap();
+    for page_length in [4096, 4096, 4096, 4096, 3616] {
+        let page = connection.uids_above(cursor).unwrap();
+        assert_eq!(page.len(), page_length);
+        cursor = *page.last().unwrap();
+        received.extend(page);
+    }
     assert_eq!(received, (first..=last).collect::<Vec<_>>());
     assert_eq!(cursor, last);
+}
+
+#[test]
+fn sparse_mailbox_and_mixed_case() {
+    // Same single message and cursor as the reviewer probe, with one expected sequence search.
+    let mut fixture = recorded("imap-fetch");
+    let exchanges = fixture["exchanges"].as_array_mut().unwrap();
+    exchanges.truncate(8);
+    exchanges[7]["receiveChunksBase64"] = json!([STANDARD.encode(
+        "* 1 EXISTS\r\n* OK [UIDVALIDITY 1]\r\n* OK [UIDNEXT 16385]\r\nA0006 OK selected\r\n"
+    )]);
+    exchanges.push(json!({
+        "sendBase64": [STANDARD.encode("A0007 UID SEARCH 1:1\r\n")],
+        "receiveChunksBase64": [STANDARD.encode("* sEaRcH 16384\r\nA0007 OK done\r\n")]
+    }));
+    let server = FakeServer::start(&fixture);
+    let ports = Stub {
+        addr: server.addr,
+        upgrades: Cell::default(),
+    };
+    let (mut mail, _, _) = imap::open(&ports, &options(&server), "INBOX").unwrap();
+    let mut cursor = 0;
+    let mut pages = Vec::new();
+    mail.for_each_uid_page(&mut cursor, |_, ids| {
+        pages.push(ids.to_vec());
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(pages, [vec![16384]]);
+    assert_eq!(cursor, 16384);
+}
+
+#[test]
+fn imap_relocates_a_saved_uid_after_expunge_and_finds_new_mail() {
+    let mut fixture = recorded("imap-fetch");
+    let exchanges = fixture["exchanges"].as_array_mut().unwrap();
+    exchanges.truncate(8);
+    exchanges[7]["receiveChunksBase64"] =
+        json!([STANDARD.encode("* 3 EXISTS\r\n* OK [UIDVALIDITY 1]\r\nA0006 OK selected\r\n")]);
+    for (index, (command, reply)) in [
+        ("UID SEARCH 1:1", "* SEARCH 2\r\n"),
+        ("UID SEARCH 3:3", "* 1 EXPUNGE\r\n* SEARCH 10\r\n"),
+        ("NOOP", ""),
+        ("UID SEARCH 1:1", "* SEARCH 8\r\n"),
+        ("UID SEARCH 1:2", "* SEARCH 8 10\r\n"),
+        ("NOOP", "* 3 EXISTS\r\n"),
+        ("UID SEARCH 3:3", "* SEARCH 20\r\n"),
+    ]
+    .iter()
+    .enumerate()
+    {
+        let tag = index + 7;
+        exchanges.push(json!({
+            "sendBase64": [STANDARD.encode(format!("A{tag:04} {command}\r\n"))],
+            "receiveChunksBase64": [STANDARD.encode(format!("{reply}A{tag:04} OK done\r\n"))]
+        }));
+    }
+    let server = FakeServer::start(&fixture);
+    let ports = Stub {
+        addr: server.addr,
+        upgrades: Cell::default(),
+    };
+    let (mut mail, _, _) = imap::open(&ports, &options(&server), "INBOX").unwrap();
+    let mut cursor = 4;
+    let mut pages = Vec::new();
+    let error = mail
+        .for_each_uid_page(&mut cursor, |_, ids| {
+            pages.push(ids.to_vec());
+            Ok(())
+        })
+        .unwrap_err();
+    assert_eq!(error.kind, plur1bus_channels::email::Kind::State);
+    assert_eq!(cursor, 4);
+    assert!(pages.is_empty());
+    assert_eq!(mail.uids_above(cursor).unwrap(), [8, 10]);
+    assert_eq!(mail.uids_above(10).unwrap(), [20]);
 }
 
 #[test]

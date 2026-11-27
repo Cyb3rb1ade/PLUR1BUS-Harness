@@ -201,7 +201,8 @@ prüft Chat-Allowlist und Chat-Typ vor der Verarbeitung einer Migration.
 E-Mail beschränkt zugelassene MIME-Typen und übernimmt höchstens zehn
 Anhänge. Auf Windows prüft der Host reservierte Dateinamen vor dem Speichern.
 
-Die IMAP-Suche liefert abgeschlossene UID-Abschnitte für den Postfachcursor
+Die IMAP-Suche liefert je Aufruf höchstens 4.096 vorhandene Nachrichten.
+Nach erfolgreicher Verarbeitung setzt der Host mit der letzten UID fort
 ([P4D-269](defects.md#p4d-269)). Der Vertrag für Discord-Pfade,
 Erwähnungen und vorbereitete Uploads steht in [P4D-270](defects.md#p4d-270).
 
