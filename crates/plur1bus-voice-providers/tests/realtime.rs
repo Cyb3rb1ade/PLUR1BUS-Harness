@@ -575,10 +575,119 @@ fn realtime_bounds_delivered_audio_and_uses_the_session_deadline_for_reads_and_w
             let start = Instant::now();
             assert_eq!(session.receive(budget).unwrap_err(), Error::Timeout);
             assert!(start.elapsed() < Duration::from_secs(2));
-            assert_eq!(session.send_audio(&pcm), Err(Error::Timeout));
+            assert_eq!(session.send_audio(&pcm), Err(Error::Closed));
         } else {
             session.send_audio(&pcm).unwrap();
             assert_eq!(session.receive(budget).unwrap_err(), Error::StreamLimit);
         }
+    }
+}
+
+#[test]
+fn realtime_session_deadline_releases_the_socket_before_returning_timeout() {
+    use plur1bus_voice_providers::{
+        http::{Error, StreamLimits},
+        realtime::Settings,
+    };
+    use std::io::{Read, Write};
+    use std::sync::atomic::AtomicBool;
+    use std::sync::{atomic::Ordering, Arc};
+    struct Watched(TcpStream, Arc<AtomicBool>);
+    impl Read for Watched {
+        fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+            self.0.read(bytes)
+        }
+    }
+    impl Write for Watched {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.0.write(bytes)
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            self.0.flush()
+        }
+    }
+    impl TimedStream for Watched {
+        fn peer_addr(&self) -> io::Result<SocketAddr> {
+            self.0.peer_addr()
+        }
+        fn set_deadline(&mut self, deadline: Instant) -> io::Result<()> {
+            self.0.set_deadline(deadline)
+        }
+    }
+    impl Drop for Watched {
+        fn drop(&mut self) {
+            self.1.store(true, Ordering::SeqCst);
+        }
+    }
+    struct Trace(SocketAddr, Arc<AtomicBool>);
+    impl SocketPorts for Trace {
+        fn wall_time(&self) -> std::time::SystemTime {
+            std::time::SystemTime::UNIX_EPOCH
+        }
+        fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Url, Option<SocketAddr>> {
+            let addr = self.0;
+            Arc::new(move |_, _, _| Some(addr))
+        }
+        fn dial(
+            &self,
+            _: &Url,
+            pin: SocketAddr,
+            deadline: Instant,
+        ) -> io::Result<Box<dyn TimedStream>> {
+            let tcp = TcpStream::connect_timeout(
+                &pin,
+                deadline.saturating_duration_since(Instant::now()),
+            )?;
+            Ok(Box::new(Watched(tcp, Arc::clone(&self.1))))
+        }
+    }
+    for short_read_first in [false, true] {
+        // Same Grok Ready frame, silent peer and 480 ms session as the reviewer probe.
+        let mut fixture = load_fixture("voice", "grok-realtime");
+        fixture["exchanges"].as_array_mut().unwrap().truncate(1);
+        let server = FakeServer::start(&fixture);
+        let url = Url::parse(&format!("http://{}", server.addr)).unwrap();
+        let closed = Arc::new(AtomicBool::new(false));
+        let trace = Trace(server.addr, Arc::clone(&closed));
+        let options = Options {
+            vendor: Vendor::Grok,
+            model: "m",
+            voice: None,
+            instructions: None,
+            tools: &[],
+            input_rate: 16000,
+        };
+        let settings = Settings {
+            stream_limits: StreamLimits {
+                max_duration: Duration::from_millis(480),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let budget = Duration::from_secs(3);
+        let mut session = Session::connect_with_settings(
+            &url,
+            "MARKER-KEY-7f3a",
+            &options,
+            settings,
+            &trace,
+            budget,
+            true,
+        )
+        .unwrap();
+        assert_eq!(session.receive(budget).unwrap(), [Event::Ready]);
+        if short_read_first {
+            assert_eq!(
+                session.receive(Duration::from_millis(15)).unwrap_err(),
+                Error::Timeout
+            );
+            assert!(!closed.load(Ordering::SeqCst));
+        }
+        assert_eq!(session.receive(budget).unwrap_err(), Error::Timeout);
+        assert!(
+            closed.load(Ordering::SeqCst),
+            "session still owns the transport"
+        );
+        assert_eq!(session.receive(budget).unwrap_err(), Error::Closed);
     }
 }

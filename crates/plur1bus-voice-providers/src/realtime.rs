@@ -416,6 +416,7 @@ impl<'a> Session<'a> {
         loop {
             let remaining = deadline.saturating_duration_since(Instant::now());
             if remaining.is_zero() {
+                self.require_open()?;
                 return Err(self.audio_budget.error(Error::Timeout));
             }
             let reply = self.socket()?.receive_until(deadline).map_err(socket_error);
@@ -423,6 +424,8 @@ impl<'a> Session<'a> {
                 self.finish_until(1000, "aborted", deadline);
                 return Err(Error::Aborted);
             }
+            // A receive budget may expire independently of the terminal session deadline.
+            self.require_open()?;
             let reply = match reply {
                 Err(Error::UpstreamProtocol) => {
                     self.finish_until(1002, "protocol error", deadline);

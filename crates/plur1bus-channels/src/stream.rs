@@ -24,11 +24,13 @@ impl TimedStream for TcpStream {
     }
 }
 
+#[cfg(feature = "email")]
 pub(crate) struct DeadlineStream {
     pub(crate) io: Box<dyn TimedStream>,
     pub(crate) deadline: Instant,
 }
 
+#[cfg(feature = "email")]
 impl Read for DeadlineStream {
     fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
         self.io.set_deadline(self.deadline)?;
@@ -36,6 +38,7 @@ impl Read for DeadlineStream {
     }
 }
 
+#[cfg(feature = "email")]
 impl Write for DeadlineStream {
     fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
         self.io.set_deadline(self.deadline)?;
