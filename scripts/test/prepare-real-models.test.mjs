@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { prepareRealModels } from '../ci/prepare-real-models.mjs';
+import { prepareRealModels, prepareSmokeModels } from '../ci/prepare-real-models.mjs';
 
 // Tiny invented bytes exercise the pinned Engine's real downloader, never ONNX or model output.
 function fixture() {
@@ -138,4 +138,48 @@ test('fragmented artifact streams keep progress bounded while every original byt
     assert.deepEqual(await readFile(target(directory, profile, artifact)),
       f.responses.get(`https://huggingface.co/${profile.model}/resolve/${profile.revision}/${artifact.path}`));
   }
+});
+
+test('smoke retries one deadline after a verified profile and checks the cached bytes again', async t => {
+  const directory = await cache(t), f = fixture(), events = [];
+  const controller = new AbortController();
+  let attempts = 0;
+  const deadline = () => ++attempts === 1 ? controller.signal : new AbortController().signal;
+  const result = await prepareSmokeModels({ directory, profiles: f.profiles,
+    fetchImpl: async (...args) => {
+      if (attempts === 1 && events.some(e => e.profile === 1 && e.stage === 'verified')) {
+        controller.abort(new DOMException('deadline', 'TimeoutError'));
+        throw controller.signal.reason;
+      }
+      return f.fetchImpl(...args);
+    }, onProgress: e => events.push(e) }, deadline);
+  assert.equal(attempts, 2);
+  assert.equal(events.filter(e => e.stage === 'retry-after-preparation-timeout').length, 1);
+  assert.deepEqual(result.map(s => [s.downloaded, s.reused]), [[0, 2], [2, 0]]);
+});
+
+test('smoke keeps integrity failures fatal even after an earlier verified profile', async t => {
+  const directory = await cache(t), f = fixture();
+  let attempts = 0, verified = false;
+  await assert.rejects(prepareSmokeModels({ directory, profiles: f.profiles,
+    fetchImpl: (...args) => verified ? new Response('corrupt') : f.fetchImpl(...args),
+    onProgress: e => { if (e.stage === 'verified') verified = true; } },
+    () => { attempts++; return new AbortController().signal; }), /size mismatch/);
+  assert.equal(attempts, 1);
+});
+
+test('two preparation deadlines terminate smoke before a third attempt', async t => {
+  const directory = await cache(t), f = fixture();
+  let controller, attempts = 0, firstVerified = false;
+  await assert.rejects(prepareSmokeModels({ directory, profiles: f.profiles,
+    fetchImpl: (...args) => {
+      if (firstVerified) {
+        controller.abort(new DOMException('deadline', 'TimeoutError'));
+        throw controller.signal.reason;
+      }
+      return f.fetchImpl(...args);
+    }, onProgress: e => { if (e.profile === 1 && e.stage === 'verified') firstVerified = true; } },
+    () => { attempts++; controller = new AbortController(); return controller.signal; }),
+  { name: 'TimeoutError' });
+  assert.equal(attempts, 2);
 });

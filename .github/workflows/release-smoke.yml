@@ -58,7 +58,7 @@ jobs:
         env:
           PLUR1BUS_CI_RECALL_HARD_MS: '3000'
       - name: prepare and verify pinned real-model artifacts
-        timeout-minutes: 6
+        timeout-minutes: 11
         run: node scripts/ci/prepare-real-models.mjs
         env:
           PLUR1BUS_MODELS_CACHE: ${{ runner.temp }}/release-real-models
