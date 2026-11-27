@@ -33,6 +33,8 @@ struct State {
     held: bool,
     /// Callers waiting for the gate.
     waiting: usize,
+    #[cfg(test)]
+    wait_entries: usize,
 }
 
 /// Host-bound lifecycle. Closing rejects new work and drains already admitted operations.
@@ -74,6 +76,11 @@ impl OperationContext {
     #[cfg(any(test, feature = "testkit"))]
     pub fn mutation_waiters(&self) -> usize {
         self.lock().waiting
+    }
+    /// Total admissions to the mutation wait in this test context.
+    #[cfg(test)]
+    pub(super) fn mutation_wait_entries(&self) -> usize {
+        self.lock().wait_entries
     }
     fn lock(&self) -> MutexGuard<'_, State> {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
@@ -142,6 +149,10 @@ impl OperationContext {
                 return Err(busy());
             }
             state.waiting += 1;
+            #[cfg(test)]
+            {
+                state.wait_entries += 1;
+            }
         } else if state.closed {
             return Err(error(MemoryOpErrorCode::Storage));
         } else {
