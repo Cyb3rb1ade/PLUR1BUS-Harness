@@ -727,7 +727,21 @@ jobs:
         run: cargo test --locked -p plur1bus-engine --no-run --timings
         timeout-minutes: 55
       - name: Test the native engine on Windows
-        run: cargo test --locked -p plur1bus-engine --no-fail-fast
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The caller deadlines in these tests measure owner isolation. Do not
+          # let unrelated Rust tests contend for the same Windows filesystem.
+          isolation=(
+            'rpc::engine::capture_tests::isolation::'
+            'rpc::engine::capture_tests::a_slow_owners_startup_recovery_never_refuses_another_owners_turn'
+          )
+          remainder=()
+          for filter in "${isolation[@]}"; do remainder+=(--skip "$filter"); done
+          status=0
+          cargo test --locked -p plur1bus-engine --lib -- "${isolation[@]}" --test-threads=1 || status=$?
+          cargo test --locked -p plur1bus-engine --no-fail-fast -- "${remainder[@]}" || status=$?
+          exit "$status"
         timeout-minutes: 50
         env:
           PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers

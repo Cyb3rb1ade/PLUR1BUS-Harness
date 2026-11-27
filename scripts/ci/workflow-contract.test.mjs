@@ -259,7 +259,13 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
   assert.equal(JSON.parse(readFileSync(hashPath, "utf8")).sha256, actualHash);
   assert.match(windowsEngine, /^    runs-on: windows-2025$/m);
   assert.match(windowsEngine, /cargo test --locked -p plur1bus-engine --no-run --timings\n        timeout-minutes: 55\n/);
-  assert.match(windowsEngine, /cargo test --locked -p plur1bus-engine --no-fail-fast\n        timeout-minutes: 50\n/);
+  const windowsExecution = stepsOf(windowsEngine).split(/(?=^      - )/m)
+    .find(step => step.includes('name: Test the native engine on Windows'));
+  assert.match(windowsExecution, /isolation=\(\n +['"]rpc::engine::capture_tests::isolation::['"]\n +['"]rpc::engine::capture_tests::a_slow_owners_startup_recovery_never_refuses_another_owners_turn['"]\n +\)/);
+  assert.match(windowsExecution, /for filter in "\$\{isolation\[@\]\}"; do remainder\+=\(--skip "\$filter"\); done/);
+  assert.match(windowsExecution, /cargo test --locked -p plur1bus-engine --lib -- "\$\{isolation\[@\]\}" --test-threads=1 \|\| status=\$\?/);
+  assert.match(windowsExecution, /cargo test --locked -p plur1bus-engine --no-fail-fast -- "\$\{remainder\[@\]\}" \|\| status=\$\?/);
+  assert.match(windowsExecution, /exit "\$status"\n        timeout-minutes: 50\n/);
   assert.match(jobs['core-unit-shard'], /pnpm --filter @plur1bus\/core test/);
   assert.match(jobs['core-unit'], /core-unit-shard/);
   const field = (block, re) => re.exec(block)[0];
