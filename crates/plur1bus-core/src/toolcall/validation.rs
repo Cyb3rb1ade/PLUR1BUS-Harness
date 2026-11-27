@@ -850,6 +850,14 @@ pub fn validate_arguments(
     )
 }
 
+// A valid schema can exhaust the compilation allowance before arguments are read.
+fn validation_patterns<'a>(schema: &'a V, work: &mut Work) -> Result<Option<Patterns<'a>>, Thrown> {
+    match compile_patterns(schema, work) {
+        Err(_) if work.remaining.is_none() => Ok(None),
+        other => other.map(Some),
+    }
+}
+
 fn validate_with_limits(
     schema: &V,
     value: Option<&V>,
@@ -857,9 +865,8 @@ fn validate_with_limits(
     mut work: Work,
     steps_left: usize,
 ) -> Result<Vec<Issue>, Thrown> {
-    let patterns = match compile_patterns(schema, &mut work) {
-        Err(_) if work.remaining.is_none() => return Ok(vec![Exhausted.into()]),
-        other => other?,
+    let Some(patterns) = validation_patterns(schema, &mut work)? else {
+        return Ok(vec![Exhausted.into()]);
     };
     let Some(value) = value else {
         return Ok(unsafe_value("undefined"));
@@ -1089,7 +1096,17 @@ pub fn prepare_call(
     model_family: Option<&str>,
     known: Option<KnownSecrets<'_>>,
 ) -> Result<PreparedCall, Thrown> {
-    assert_schema(schema)?;
+    if validation_patterns(schema, &mut Work::new(VALIDATION_WORK))?.is_none() {
+        // Changing arguments cannot reduce schema compilation work.
+        return Ok(PreparedCall {
+            repairs: Vec::new(),
+            repair_rounds: 0,
+            outcome: Err(InvalidCall {
+                message: format!("Invalid arguments for {name}"),
+                issues: vec![Exhausted.into()],
+            }),
+        });
+    }
     let model_family = model_family.unwrap_or("unknown");
     let allowed = lookup_quirks(model_family, None).malformed_arguments;
     let mut repairs = Vec::new();
@@ -1207,6 +1224,44 @@ mod budget_tests {
         assert!(validate_arguments(&schema, Some(&distinct), None)
             .unwrap()
             .is_empty());
+    }
+
+    #[test]
+    fn standard_validation_budgets_are_exact() {
+        assert_eq!(super::VALIDATION_WORK, 262_144);
+        assert_eq!(super::MATCH_STEP_BUDGET, 4_000_000);
+    }
+
+    #[test]
+    fn field_issue_precedes_work_exhaustion() {
+        let schema =
+            parse(r#"{"properties":{"label":{"type":"string"},"books":{"uniqueItems":true}}}"#)
+                .unwrap();
+        let books = V::Arr((0..768).map(|n| V::Num(f64::from(n))).collect());
+        let value = V::obj([("label", V::Num(1.0)), ("books", books)]);
+        let issues = validate_arguments(&schema, Some(&value), None).unwrap();
+        assert_eq!(issues.len(), 2);
+        assert_eq!(issues[0].path, "/label".into());
+        assert_eq!(issues[0].message, "expected string".into());
+        assert_eq!(issues[1].path, "".into());
+        assert_eq!(issues[1].message, super::WORK_EXHAUSTED.into());
+    }
+
+    #[test]
+    fn ordinary_literal_patterns_have_the_same_compile_budget_result_at_both_entries() {
+        let rules = (0..96)
+            .map(|i| V::obj([("pattern", V::s(&format!("{}{}", "a".repeat(96), i)))]))
+            .collect();
+        let schema = V::obj([("allOf", V::Arr(rules))]);
+        let direct = validate_arguments(&schema, Some(&V::Null), None).unwrap();
+        assert_eq!(direct.len(), 1);
+        assert_eq!(direct[0].message, super::WORK_EXHAUSTED.into());
+        let call =
+            super::prepare_call("review", &schema, Some(&V::Null), None, None, None).unwrap();
+        assert_eq!(call.repair_rounds, 0);
+        assert!(call.repairs.is_empty());
+        let invalid = call.outcome.err().unwrap();
+        assert_eq!(invalid.issues, direct);
     }
 
     #[test]
