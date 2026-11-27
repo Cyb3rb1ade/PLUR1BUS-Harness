@@ -184,7 +184,7 @@ fn paginate(cdp: &mut Client<'_, Pipe<'_>>, asset: &Path, control: Control<'_>) 
     }
     if (rules.size) {
         const style = document.createElement("style");
-        style.textContent = [...rules].join("\\n");
+        style.textContent = [...rules].join("\n");
         document.head.append(style);
     }
     return window.PagedPolyfill.preview().then(flow => flow.total);
