@@ -350,10 +350,12 @@ Uint8Array-Referenzen. Die Adapter und die Veröffentlichung erhalten
 Bildreferenzen, Masken und Videos getrennt von den Anfrageparametern.
 Der Video-Prozessport verwendet absolute, private Staging-Pfade und begrenzt
 stdout beim Lesen. Bei Abbruch oder Fristüberschreitung beendet der Host den
-Prozess. Der Renderer schließt Chromium und überprüft, ob das private Profil
-entfernt wurde. Wenn das Betriebssystem das Löschen beim Schließen der letzten
-Dateihandles vorübergehend verweigert, wiederholt der Renderer es bis zu einer
-Sekunde auf dem eigenen temporären Verzeichnis.
+Prozess. Bei Abbruch kehrt der Renderer binnen 500 ms zurück. Ein Worker beendet den
+Browser und versucht bis zu einer Sekunde, das private Profil zu entfernen.
+Eine gesperrte Besitzmarke kennzeichnet das aktive Profil. Beim nächsten Start
+versucht der Renderer, zurückgebliebene Profile mit freigegebener Marke zu
+entfernen. Fehler bei der Bereinigung meldet er zusätzlich über
+`with_cleanup_reporter` (standardmäßig auf stderr).
 
 
 Native Chromium attachment and the independent CSP and interception policy

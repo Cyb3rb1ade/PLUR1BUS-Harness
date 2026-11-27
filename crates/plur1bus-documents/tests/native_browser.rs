@@ -82,6 +82,10 @@ fn renders_with_the_shipped_paged_js_asset() {
         cancelled: &|| false,
     }).unwrap();
     assert!(pdf.starts_with(b"%PDF-"));
+    // Chromium writes one uncompressed page dictionary per printed page.
+    let page = regex::bytes::Regex::new(r"/Type\s*/Page\b").unwrap();
+    assert_eq!(page.find_iter(&pdf).count(), 2, "explicit page break");
+
     assert_eq!(std::fs::read_dir(work.path()).unwrap().count(), 0);
 }
 
@@ -112,20 +116,61 @@ fn oversized_render_is_rejected_before_starting_chromium() {
 fn cancelling_after_windows_chromium_starts_removes_the_private_profile() {
     let binary = PathBuf::from(std::env::var_os("PLUR1BUS_CHROMIUM_BIN").unwrap());
     let work = tempfile::tempdir().unwrap();
-    let chromium_started = || {
-        std::fs::read_dir(work.path())
-            .unwrap()
-            .flatten()
-            .any(|entry| entry.path().join("profile").is_dir())
+    use std::{
+        cell::{Cell, RefCell},
+        fs::OpenOptions,
+        os::windows::fs::OpenOptionsExt,
+        sync::{mpsc, Arc},
     };
-    let result = Chromium::new(&binary, work.path()).print_pdf(
-        "<p>Cancel this document.</p>",
-        Control {
-            deadline: Instant::now() + Duration::from_secs(30),
-            cancelled: &chromium_started,
-        },
-    );
+    let held = RefCell::new(None);
+    let cancelled_at = Cell::new(None);
+    let (reported, diagnostic) = mpsc::channel();
+    let reporter = Arc::new(move |kind| {
+        let _ = reported.send(kind);
+    });
+    let chromium_started = || {
+        if held.borrow().is_some() {
+            return true;
+        }
+        for entry in std::fs::read_dir(work.path()).unwrap().flatten() {
+            if entry.path().join("profile").is_dir() {
+                let lock = OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .share_mode(0)
+                    .open(entry.path().join("held-until-next-render"))
+                    .unwrap();
+                held.replace(Some(lock));
+                cancelled_at.set(Some(Instant::now()));
+                return true;
+            }
+        }
+        false
+    };
+    let result = Chromium::new(&binary, work.path())
+        .with_cleanup_reporter(reporter)
+        .print_pdf(
+            "<p>Cancel this document.</p>",
+            Control {
+                deadline: Instant::now() + Duration::from_secs(30),
+                cancelled: &chromium_started,
+            },
+        );
     assert_eq!(result, Err(Error::Cancelled));
+    assert!(cancelled_at.get().unwrap().elapsed() < Duration::from_millis(500));
+    diagnostic.recv_timeout(Duration::from_secs(5)).unwrap();
+    drop(held.take());
+    let next = Chromium::new(&binary, work.path())
+        .print_pdf(
+            "<p>Next render</p>",
+            Control {
+                deadline: Instant::now() + Duration::from_secs(30),
+                cancelled: &|| false,
+            },
+        )
+        .unwrap();
+    assert!(next.starts_with(b"%PDF-"));
+
     assert_eq!(std::fs::read_dir(work.path()).unwrap().count(), 0);
 }
 
@@ -188,6 +233,10 @@ exec /bin/sleep 4
         assert!(args.iter().any(
             |arg| arg.strip_prefix(flag).map(Path::new) == Some(home.join(directory).as_path())
         ));
+    }
+    let cleanup_deadline = Instant::now() + Duration::from_secs(2);
+    while fs::read_dir(&root).unwrap().count() > 0 && Instant::now() < cleanup_deadline {
+        std::thread::sleep(Duration::from_millis(10));
     }
     assert!(!Command::new("/bin/kill")
         .args(["-0", pid])

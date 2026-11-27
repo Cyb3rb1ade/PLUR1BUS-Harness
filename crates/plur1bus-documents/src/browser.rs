@@ -1,20 +1,23 @@
 //! Launch the configured Chromium binary in a private profile and connect to DevTools over private pipes.
 
 use std::{
-    fs::{self, File},
+    fs::File,
     io::{self, Read as _},
     path::Path,
     process::{Child, Command, Stdio},
-    thread,
-    time::{Duration, Instant},
+    sync::Arc,
+    time::Duration,
 };
 
 use serde_json::Value;
+#[cfg(windows)]
+use std::{thread, time::Instant};
 
 #[cfg(windows)]
 use crate::chromium::Transport;
 use crate::chromium::{Client, Control, Error, Result};
 
+mod cleanup;
 mod pipe;
 use pipe::Pipe;
 
@@ -27,6 +30,7 @@ pub struct Chromium<'a> {
     binary: &'a Path,
     private_root: &'a Path,
     paged_js: Option<&'a Path>,
+    cleanup_reporter: cleanup::Reporter,
 }
 
 pub struct Rendered {
@@ -42,7 +46,23 @@ impl<'a> Chromium<'a> {
             binary,
             private_root,
             paged_js: None,
+            cleanup_reporter: Arc::new(|kind| {
+                use std::io::Write as _;
+                let _ = writeln!(
+                    io::stderr().lock(),
+                    "Chromium profile cleanup failed ({kind:?})"
+                );
+            }),
         }
+    }
+
+    /// Reports private-profile cleanup failures, including failures after cancellation.
+    pub fn with_cleanup_reporter(
+        mut self,
+        report: Arc<dyn Fn(io::ErrorKind) + Send + Sync>,
+    ) -> Self {
+        self.cleanup_reporter = report;
+        self
     }
 
     /// The application may supply its shipped Paged.js asset for paginated layout.
@@ -89,23 +109,23 @@ impl<'a> Chromium<'a> {
         {
             return Err(Error::BrowserUnavailable);
         }
-        let directory = tempfile::Builder::new()
-            .prefix("plur1bus-doc-")
-            .tempdir_in(self.private_root)
-            .map_err(|_| Error::BrowserUnavailable)?;
-        let result = self.with_profile(directory.path(), html, control, run);
-        let cleanup = remove_profile(directory);
-        result.and_then(|value| cleanup.map(|()| value))
+        let profile =
+            cleanup::Profile::create(self.private_root, Arc::clone(&self.cleanup_reporter))?;
+        let mut child = BrowserProcess::spawn(self.binary, profile.path());
+        let result = match &mut child {
+            Ok(browser) => self.with_profile(browser, html, control, run),
+            Err(error) => Err(*error),
+        };
+        profile.finish(child.ok(), result, control)
     }
 
     fn with_profile<T>(
         &self,
-        directory: &Path,
+        browser: &mut BrowserProcess,
         html: &str,
         control: Control<'_>,
         run: impl FnOnce(&mut Client<'_, Pipe>) -> Result<T>,
     ) -> Result<T> {
-        let mut browser = BrowserProcess::spawn(self.binary, directory)?;
         let write_end = browser.0.stdin.take().ok_or(Error::BrowserUnavailable)?;
         let read_end = browser.0.stdout.take().ok_or(Error::BrowserUnavailable)?;
         let mut wire = Pipe::start(read_end, write_end, control)?;
@@ -119,31 +139,7 @@ impl<'a> Chromium<'a> {
         })();
         #[cfg(windows)]
         browser.close_relay(wire, control);
-        // Unix owns Chromium directly. Reap it before closing its DevTools
-        // pipes or removing the private profile.
-        #[cfg(not(windows))]
-        drop(browser);
         result
-    }
-}
-
-fn remove_profile(directory: tempfile::TempDir) -> Result<()> {
-    let path = directory.path().to_owned();
-    if directory.close().is_ok() {
-        return Ok(());
-    }
-    // Chromium can close its final file handles during recursive removal.
-    // Retry only the private directory this launch created.
-    let deadline = Instant::now() + PROFILE_CLOSE_GRACE;
-    loop {
-        match fs::remove_dir_all(&path) {
-            Ok(()) => return Ok(()),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
-            Err(error) if Instant::now() < deadline && profile_in_use(&error) => {
-                thread::sleep(POLL.min(deadline.saturating_duration_since(Instant::now())));
-            }
-            Err(_) => return Err(Error::BrowserUnavailable),
-        }
     }
 }
 
@@ -171,7 +167,29 @@ fn paginate(cdp: &mut Client<'_, Pipe<'_>>, asset: &Path, control: Control<'_>) 
         return Err(Error::TooLarge);
     }
     control.check()?;
-    script.push_str("\n;window.PagedPolyfill.preview().then(flow => flow.total)");
+    // Paged.js reads break rules from stylesheets. Expose effective inline
+    // breaks to its parser before it clones and divides the document.
+    script.push_str(r#"
+;(() => {
+    const rules = new Set();
+    for (const node of document.querySelectorAll("[style]")) {
+        for (const property of ["break-before", "break-after"]) {
+            if (!node.style.getPropertyValue(property)) continue;
+            const value = getComputedStyle(node).getPropertyValue(property);
+            if (!["page", "left", "right", "recto", "verso", "avoid", "avoid-page"].includes(value)) continue;
+            const attribute = "data-plur1bus-" + property;
+            node.setAttribute(attribute, value);
+            rules.add("[" + attribute + "='" + value + "']{" + property + ":" + value + "}");
+        }
+    }
+    if (rules.size) {
+        const style = document.createElement("style");
+        style.textContent = [...rules].join("\\n");
+        document.head.append(style);
+    }
+    return window.PagedPolyfill.preview().then(flow => flow.total);
+})()
+"#);
     let pages = cdp.evaluate(&script, true)?;
     if pages.as_u64().filter(|pages| *pages > 0).is_none() {
         return Err(Error::InvalidOutput);
@@ -242,17 +260,17 @@ impl BrowserProcess {
     #[cfg(windows)]
     fn close_relay(&mut self, mut pipe: Pipe<'_>, control: Control<'_>) {
         let now = Instant::now();
-        let deadline = if control.check().is_ok() {
+        if control.check().is_ok() {
             let deadline = control.deadline.min(now + PROFILE_CLOSE_GRACE);
-            // Normal requests start at one. Chromium requires a signed 32-bit ID.
             let _ = pipe.send(r#"{"id":0,"method":"Browser.close"}"#, deadline);
-            deadline
-        } else {
-            // EOF tells the relay to terminate its child even after cancellation.
-            now + Duration::from_millis(200)
-        };
-        // Release the writer before waiting so the Windows relay observes EOF.
+        }
+        // EOF tells the relay to terminate Chromium. The cleanup worker owns the wait.
         drop(pipe);
+    }
+
+    #[cfg(windows)]
+    fn wait_for_relay(&mut self) {
+        let deadline = Instant::now() + PROFILE_CLOSE_GRACE;
         while Instant::now() < deadline {
             if !matches!(self.0.try_wait(), Ok(None)) {
                 return;
@@ -336,7 +354,7 @@ mod tests {
                 thread::sleep(Duration::from_millis(125));
                 drop(file);
             });
-            assert!(super::remove_profile(directory).is_ok());
+            assert!(super::cleanup::remove_with_retry(directory.path()).is_ok());
         });
         assert!(!profile.exists());
         Ok(())
