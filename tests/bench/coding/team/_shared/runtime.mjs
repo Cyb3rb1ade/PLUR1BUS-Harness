@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** Trusted language preflight; only failures before candidate execution are infrastructure failures. */
-import { access, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
@@ -30,6 +30,45 @@ async function executable(name, path = process.env.PATH ?? "") {
   throw new IsolationUnavailable("toolchain-unavailable");
 }
 
+async function rustupProxy(program) {
+  if (program.endsWith("/rustup")) return program;
+  // rustup can install rustc as a hard link. realpath then still names rustc,
+  // whose dispatch mode depends on argv[0].
+  const manager = join(dirname(program), "rustup");
+  let installed;
+  try { installed = await stat(manager, { bigint: true }); }
+  catch (error) { if (error.code === "ENOENT") return undefined; throw error; }
+  const compiler = await stat(program, { bigint: true });
+  return compiler.dev === installed.dev && compiler.ino === installed.ino ? manager : undefined;
+}
+
+// Resolve the trusted host installation before giving the compiler the checker's private HOME.
+// A packaged entrypoint may be a wrapper script with its own inode.
+async function selectedRustCompiler(program, root, signal) {
+  const manager = await rustupProxy(program);
+  const channel = await rustChannel();
+  const result = await runOwnedCommand({
+    program: manager ?? program,
+    args: manager ? ["which", "--toolchain", channel, "rustc"] : ["--print", "sysroot"],
+    cwd: root,
+    env: executionEnvironment({ ...process.env, HOME: homedir(), RUSTUP_TOOLCHAIN: channel }),
+    timeoutMs: 10000,
+    signal,
+  });
+  const reported = result.stdout.trim();
+  if (result.code !== 0 || result.reason || !isAbsolute(reported)) throw new IsolationUnavailable("toolchain-unavailable");
+  if (manager) return realpath(reported);
+  const installed = join(reported, "bin", "rustc");
+  try {
+    await access(installed, constants.X_OK);
+    return await realpath(installed);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    // A standalone compiler can report a sysroot without another rustc in it.
+    return program;
+  }
+}
+
 /** Build compiler/runtime environment using K2's allowlist and private caches. */
 export async function languageRuntime(language, root, options) {
   const provided = options.runtimes?.[language];
@@ -37,17 +76,7 @@ export async function languageRuntime(language, root, options) {
   if (!program) {
     const name = { typescript: process.execPath, python: "python3", rust: "rustc", go: "go" }[language];
     program = await executable(name);
-    if (language === "rust" && /rustup$/.test(program)) {
-      const rustup = await runOwnedCommand({
-        program,
-        args: ["which", "--toolchain", await rustChannel(), "rustc"],
-        cwd: root,
-        env: executionEnvironment({ ...process.env, HOME: homedir() }),
-        timeoutMs: 10000,
-      });
-      if (rustup.code !== 0) throw new IsolationUnavailable("toolchain-unavailable");
-      program = await realpath(rustup.stdout.trim());
-    }
+    if (language === "rust") program = await selectedRustCompiler(program, root, options.signal);
   }
   const cache = join(root, "cache");
   await mkdir(cache, { recursive: true });

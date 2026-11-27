@@ -1,10 +1,10 @@
 # CI: affected suites and runner policy
 
-The macOS unit job opts into `PLUR1BUS_CORE_TEST_CONCURRENCY=bounded` for the
+Each macOS Core shard opts into `PLUR1BUS_CORE_TEST_CONCURRENCY=bounded` for the
 Core package. It runs at most two test files concurrently, capped by available
 CPUs and a nominal 4 GiB per process after reserving 4 GiB for the guest. Smaller
 machines and all other packages keep one file at a time. This changes no file
-selection, test assertion, per-test timeout or the 25-minute unit-step deadline.
+selection, test assertion, per-test timeout or the 25-minute Core test deadline.
 Local runs remain serial unless explicitly opted in.
 
 
@@ -70,7 +70,7 @@ Everything else in `ci.yml` is deliberately outside the gate and not in its `nee
 `unit-os` (`unit (macos-15)` and `unit (windows-2025)`: slow, and the macOS leg has a known failing package; since the
 Actions concurrency change below it only runs under the full-platform policy), the Windows Core shards
 `core-unit-shard-windows` (`core unit shard i/3 (windows-2025)`) and their partition check `core-unit-windows`, which
-follow the same policy,
+follow the same policy, the corresponding macOS jobs `core-unit-shard-macos` and `core-unit-macos`,
 `python-host` (including the experimental `windows-11-arm` leg), `system`, `service`, `sandbox`, `release-scripts`,
 `documents-golden`, `host-tool-eval` (the deterministic host tool/policy scenarios of D106 P4, fake OS ports, no live model), `core-parity` (P4-02: the TS-core transcript self-test in `tests/core-parity/` and the `scripts/parity/module-map.mjs --check` freshness check; runs when the TS core changes and stays out of the gate; P4-10 ruling A3: on the nightly schedule and on manual runs it also builds `core.js` and the `plur1bus-core` release binary and runs the front door's parity acceptance `tests/core-parity/p4-10-parity.ts --g1 --floor`, about 25 minutes, with its JSON report as the `p4-10-parity` artifact, never on a pull request; the freshness check is deliberately not part of `docs:check`, and `MODULE-MAP.md` carries no line counts, so it changes only when a file is added, removed or renamed or a rule changes), the build and shards of the browser suite (their verdict is in `web-browser`) and the advisory
 `perf-startup` and `perf-budgets` jobs. They still run for their selected suites and show up as checks; a red one is a
@@ -108,7 +108,7 @@ preflight for a genuine measurement after P1–P5 integration. No after measurem
 
 `gate.test.mjs` exercises result combinations, and `workflow-contract.test.mjs` evaluates the actual job-level boolean
 conditions against the skip policy, proves the gate's `needs` are exactly the gated jobs and every other job is on the
-`UNGATED` list, proves `unit-os` preserves the unit steps with full TypeScript coverage on macOS while Ubuntu and Windows exclude only the separately sharded Core package (the Windows shards use the Ubuntu partition, follow the full-platform policy and stay outside the gate), and evaluates the gate's job name for every event. Matrix
+`UNGATED` list, proves `unit-os` preserves the unit steps with every platform excluding its separately sharded Core package (the Windows shards use the Ubuntu partition, follow the full-platform policy and stay outside the gate), and evaluates the gate's job name for every event. Matrix
 failures of gated jobs remain failures. Performance jobs still run their existing diagnostic commands and
 known-gap behavior; no numerical budget is promoted from advisory to a hard assertion.
 
@@ -149,6 +149,7 @@ Legs of `ci.yml` that follow this policy (everything else in the file, including
 | Job | Non-Linux legs that wait for the policy | Always on a selected push |
 | --- | --- | --- |
 | `unit-os` | `unit (macos-15)`, `unit (windows-2025)`: the whole job is conditional (`needs.changes.outputs.macos == 'true'`), because all its legs are non-Linux | none (the Linux leg is `unit`) |
+| `core-unit-shard-macos`, `core-unit-macos` | `core unit shard i/3 (macos-15)` and its partition check, conditional like the Windows shards | none |
 | `core-unit-shard-windows`, `core-unit-windows` | `core unit shard i/3 (windows-2025)` and its partition check: conditional like `unit-os`, whose Windows leg leaves Core to them | none (the Linux shards are `core-unit-shard`) |
 | `system` | `macos-15` | `ubuntu-24.04` |
 | `service` | `macos-15`, `windows-2025` | `ubuntu-24.04` |
@@ -309,8 +310,9 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `docs-hygiene` | Gated. Hygiene, source quality, i18n, doc links and `pnpm docs:check` (generated documents), for every selected run |
 | `unit` | Gated (ubuntu-24.04). Toolchain, fixture drift, lint, offline TypeScript tests outside Core, Rust fmt/clippy/tests |
 | `core-unit-shard`, `core-unit` | Gated. Three measured Ubuntu Core shards plus the exact-partition check; missing manifests, failure and cancellation block |
-| `unit-os` | Not gated; only under the full-platform policy. The same steps as `unit` on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)`: full offline TypeScript workspace tests on macOS, every package but Core on Windows |
+| `unit-os` | Not gated; only under the full-platform policy. The same steps as `unit` on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)`: offline TypeScript tests for every package except the separately sharded Core on both platforms |
 | `front-door-windows` | Gated when selected (output `front-door`; every full run). On `windows-2025`: the Rust tests of `plur1bus-core` (the whole `front_door` scenario binary), `plur1bus-audit`, `plur1bus-tools` and `plur1bus-rpc` (also `--features server`), the supervisor's core-slot spec, the `core` command and 1staid's legacy-core kill in `plur1bus`, and the TypeScript seam (`module-api` `front-door-link`, `core` `core-front-door` and `bin-entry`). Linux and macOS run the same tests in `unit` |
+| `core-unit-shard-macos`, `core-unit-macos` | Advisory under the full-platform policy. Three timed macOS Core shards and an independent exact-partition check. |
 | `core-unit-shard-windows`, `core-unit-windows` | Not gated; only under the full-platform policy. Core on `windows-2025` in the three measured Ubuntu shards (`core unit shard i/3 (windows-2025)`) plus their exact-partition check |
 | `web-browser-macos` | Not gated (since 2026-10-28). Runs for proceed + web + macos and reports its own check |
 | `web-browser` | Gated. Aggregate over `web-browser-build` and the four `web-browser shard i/4` jobs plus the exact-partition check |
@@ -564,7 +566,9 @@ To collect file timings locally, set `TEST_TIMING_DIR` and `NODE_OPTIONS` to the
 
 ## macOS browser suites
 
-`packages/web/test/browser-runtime.ts` also looks for the system Chrome (`/Applications/Google Chrome.app`), which every macOS runner has. `unit (macos-15)` therefore ran the whole browser suite in-line (`--test-concurrency=1`, 20+ minutes against 85 seconds on Linux, where no Chromium is found), and the 25-minute `pnpm test` step timed out inside `packages/web`: `packages/core`, which runs last, never started. Observed on main runs 39295005315 and 39345213479; the macOS state of core is unknown until a run reaches it.
+`packages/web/test/browser-runtime.ts` also looks for the system Chrome (`/Applications/Google Chrome.app`), which every macOS runner has. `unit (macos-15)` therefore ran the whole browser suite in-line (`--test-concurrency=1`, 20+ minutes against 85 seconds on Linux, where no Chromium is found), and the 25-minute `pnpm test` step timed out inside `packages/web`: `packages/core`, which runs last, never started. Observed on main runs 39295005315 and 39345213479.
+
+The macOS unit job runs packages outside Core in its 15-minute step. On [the previous head](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/45953447387/job/140354506008), a combined step exhausted its deadline. A subsequent standalone Core step also reached 25 minutes. Three hosted macOS runners now run the same measured file partitions as Windows. Each shard has 25 minutes for tests and 40 minutes including build and setup. The five-minute Ubuntu job `core-unit-macos` checks the three macOS manifests and the result of the shard jobs. Their artifact prefix is `macos-core-unit-manifest-`.
 
 The fix is an explicit, documented switch, not a removed browser path: `PLUR1BUS_WEB_BROWSER=off` makes every browser suite of `packages/web` report `skipped` with the reason `browser suites off (PLUR1BUS_WEB_BROWSER=off); they run in the web-browser job`. The `unit-os` job sets it on macOS only (the identical Linux `unit` steps leave it empty) (`runner.os == 'macOS'`); Linux and Windows are unchanged. Combined with `PLUR1BUS_WEB_E2E_REQUIRED=1` it is a startup failure, so required mode can never be switched off. The switch is tested in `packages/web/test/browser-required.test.ts`.
 

@@ -82,7 +82,7 @@ test('WSL setup attempts cannot consume the job budget before retries and real t
 
 test('every job running Core builds the native sandbox launcher before its assertions', () => {
   const jobs = jobBlocks(workflow());
-  for (const name of ['unit', 'unit-os', 'core-unit-shard', 'core-unit-shard-windows']) {
+  for (const name of ['unit', 'unit-os', 'core-unit-shard', 'core-unit-shard-windows', 'core-unit-shard-macos']) {
     const block = jobs[name];
     const build = block.indexOf('cargo build --locked -p plur1bus --bin plur1bus-sandbox-limits');
     const tests = block.indexOf(name.startsWith('core-unit') ? '      - name: measured Core shard' : '      - name: unit tests with file timings');
@@ -206,31 +206,34 @@ test('every Desktop platform builds test executables before the unchanged execut
   assert.match(desktop, /^    timeout-minutes: 60$/m);
 });
 
-test('macOS unit opts into bounded Core concurrency without changing deadlines or test selection', () => {
-  const block = jobBlocks(workflow())['unit-os'];
-  assert.match(block, /PLUR1BUS_CORE_TEST_CONCURRENCY: \$\{\{ runner.os == 'macOS' && 'bounded' \|\| '' \}\}/);
-  assert.match(block, /timeout-minutes: \$\{\{ matrix.os == 'windows-2025' && 35 \|\| 25 \}\}/);
-  assert.match(block, /            pnpm test\n/);
-  const runner = readFileSync(new URL('../test-package.mjs', import.meta.url), 'utf8');
-  assert.match(runner, /const TEST_TIMEOUT_MS = 120_000/);
-  assert.match(runner, /\.\.\.files\], \{ stdio: "inherit" \}/);
+test('macOS runs Core on three native runners within the existing deadline and verifies its own manifests', () => {
+  const jobs = jobBlocks(workflow());
+  const shard = jobs['core-unit-shard-macos'];
+  const verify = jobs['core-unit-macos'];
+  assert.ok(shard && verify, 'macOS needs separate shard and partition jobs');
+  const field = (job, key) => job.split('\n').find(line => line.trimStart().startsWith(key + ':'))?.trim();
+  for (const key of ['if', 'shard', 'PLUR1BUS_TEST_SHARD', 'PLUR1BUS_TEST_SHARD_TIMINGS']) {
+    assert.equal(field(shard, key), field(jobs['core-unit-shard-windows'], key), key);
+  }
+  assert.equal(field(verify, 'if'), field(jobs['core-unit-windows'], 'if'));
+  assert.match(shard, /^    runs-on: macos-15$/m);
+  const measure = shard.split('      - name: measured Core shard')[1].split('      - ')[0];
+  assert.match(measure, /^        timeout-minutes: 25$/m);
+  assert.match(shard, /PLUR1BUS_CORE_TEST_CONCURRENCY: bounded/);
+  assert.match(measure, /pnpm --filter @plur1bus\/core test/);
+  assert.match(shard, /name: macos-core-unit-manifest-\$\{\{ matrix.shard \}\}/);
+  assert.match(verify, /pattern: macos-core-unit-manifest-\*/);
+  assert.match(verify, /test-shards.mjs verify --cwd=packages\/core --dir=macos-core-unit-manifests/);
+  assert.match(verify, /SHARDS: \$\{\{ needs.core-unit-shard-macos.result \}\}/);
+  assert.match(verify, /test "\$SHARDS" = success/);
+  for (const id of ['core-unit-shard-macos', 'core-unit-macos']) assert.ok(UNGATED.includes(id));
+  assert.match(jobs['unit-os'], /node scripts\/run-ts-tests.mjs --filter=!@plur1bus\/core/);
+  assert.doesNotMatch(jobs['unit-os'], /--filter=@plur1bus\/core/);
 });
 
 test('unit-os preserves every unit step while Ubuntu and Windows run Core only in their measured shards', () => {
   const jobs = jobBlocks(workflow());
-  const coreSplit = '          # The Core files run exactly once in core-unit-shard; every other package stays here.\n' +
-    '          node scripts/run-ts-tests.mjs --filter=!@plur1bus/core\n';
-  // macOS keeps the whole workspace; Windows runs Ubuntu's filtered command and leaves Core to core-unit-shard-windows.
-  const osSplit = '          if [ "$RUNNER_OS" = Windows ]; then\n' +
-    '            # The Core files run exactly once in core-unit-shard-windows; every other package stays here.\n' +
-    '            node scripts/run-ts-tests.mjs --filter=!@plur1bus/core\n' +
-    '          else\n' +
-    '            pnpm test\n' +
-    '          fi\n';
-  const timingStep = jobs['unit-os'].split(/(?=^      - )/m).find(step => step.includes('name: unit tests with file timings'));
-  assert.match(timingStep, /PLUR1BUS_CORE_TEST_CONCURRENCY: \$\{\{ runner.os == 'macOS' && 'bounded' \|\| '' \}\}/);
-  assert.match(timingStep, /timeout-minutes: \$\{\{ matrix.os == 'windows-2025' && 35 \|\| 25 \}\}/);
-  assert.ok(stepsOf(jobs.unit).includes(coreSplit));
+  assert.match(stepsOf(jobs.unit), /^          node scripts\/run-ts-tests\.mjs --filter=!@plur1bus\/core$/m);
   const rustToolchain =
     '      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)\n' +
     '        with: { toolchain: "1.95", components: "clippy, rustfmt" }\n';
@@ -243,7 +246,6 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
     '        with: { python-version: "3.13" }\n';
   assert.ok(stepsOf(jobs.unit).includes(rustToolchain));
   const expected = stepsOf(jobs.unit)
-    .replace(coreSplit, osSplit)
     .replace(rustToolchain, rustToolchain + macToolchains);
   assert.equal(stepsOf(jobs['unit-os']), expected);
   assert.match(jobs['core-unit-shard'], /pnpm --filter @plur1bus\/core test/);
@@ -465,7 +467,7 @@ test('a PR without the platform policy still gets a passing gate when the gated 
 
 test("Core shards prepare the pinned Rust toolchain and protected cache before native integration builds", () => {
   const jobs = jobBlocks(workflow());
-  for (const job of ["core-unit-shard", "core-unit-shard-windows"]) {
+  for (const job of ["core-unit-shard", "core-unit-shard-windows", "core-unit-shard-macos"]) {
     const block = jobs[job];
     const build = block.indexOf(
       "run: cargo build --locked -p plur1bus-tools -p plur1bus",

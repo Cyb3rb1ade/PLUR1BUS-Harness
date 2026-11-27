@@ -159,15 +159,11 @@ jobs:
           export TEST_TIMING_DIR="$GITHUB_WORKSPACE/test-timings"
           reporter="$(node -e 'console.log(require("node:url").pathToFileURL(process.cwd() + "/scripts/release/timing-reporter.mjs").href)')"
           export NODE_OPTIONS="--test-reporter=$reporter --test-reporter-destination=stdout"
-          # The Core files run exactly once in core-unit-shard; every other package stays here.
           node scripts/run-ts-tests.mjs --filter=!@plur1bus/core
-        timeout-minutes: ${{ matrix.os == 'windows-2025' && 35 || 25 }}
+        timeout-minutes: ${{ matrix.os == 'windows-2025' && 35 || matrix.os == 'macos-15' && 15 || 25 }}
         env:
-          # macOS finds the system Chrome and would run packages/web's whole browser suite in-line (20+ min, so the step
-          # timed out before core ran). Off here by this explicit switch, never by dropping the Chrome path; the suites
-          # run in `web-browser-macos` below (docs/ci.md). Linux (no Chromium here) and Windows are unchanged.
+          # The macOS browser suites run in web-browser-macos.
           PLUR1BUS_WEB_BROWSER: ${{ runner.os == 'macOS' && 'off' || '' }}
-          PLUR1BUS_CORE_TEST_CONCURRENCY: ${{ runner.os == 'macOS' && 'bounded' || '' }}
       - name: slowest 20 test files
         if: always() && needs.changes.outputs.ts-core == 'true'
         run: node scripts/release/timing-summary.mjs test-timings
@@ -255,7 +251,7 @@ jobs:
   # Not gated: macOS (Core qualification remains unproven) and Windows (slow) legs, named as before, `unit (macos-15)` etc.
   # Every leg here is non-Linux, so the whole job follows the full-platform policy (`changes.macos`: push to main, schedule,
   # dispatch, label `ci:macos`, platform-sensitive paths; docs/ci.md) instead of excluding matrix entries (an all-excluded
-  # matrix is not used). The Linux leg is `unit` above. Windows runs Core in `core-unit-shard-windows` below, as Ubuntu does.
+  # matrix is not used). The Linux leg is `unit` above. Each platform runs Core in its own three measured shards below.
   unit-os:
     name: unit (${{ (matrix.os == 'macos-15' && vars.MACOS_SELF_HOSTED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && 'macOS VM' || matrix.os }})
     needs: changes
@@ -374,19 +370,11 @@ jobs:
           export TEST_TIMING_DIR="$GITHUB_WORKSPACE/test-timings"
           reporter="$(node -e 'console.log(require("node:url").pathToFileURL(process.cwd() + "/scripts/release/timing-reporter.mjs").href)')"
           export NODE_OPTIONS="--test-reporter=$reporter --test-reporter-destination=stdout"
-          if [ "$RUNNER_OS" = Windows ]; then
-            # The Core files run exactly once in core-unit-shard-windows; every other package stays here.
-            node scripts/run-ts-tests.mjs --filter=!@plur1bus/core
-          else
-            pnpm test
-          fi
-        timeout-minutes: ${{ matrix.os == 'windows-2025' && 35 || 25 }}
+          node scripts/run-ts-tests.mjs --filter=!@plur1bus/core
+        timeout-minutes: ${{ matrix.os == 'windows-2025' && 35 || matrix.os == 'macos-15' && 15 || 25 }}
         env:
-          # macOS finds the system Chrome and would run packages/web's whole browser suite in-line (20+ min, so the step
-          # timed out before core ran). Off here by this explicit switch, never by dropping the Chrome path; the suites
-          # run in `web-browser-macos` below (docs/ci.md). Linux (no Chromium here) and Windows are unchanged.
+          # The macOS browser suites run in web-browser-macos.
           PLUR1BUS_WEB_BROWSER: ${{ runner.os == 'macOS' && 'off' || '' }}
-          PLUR1BUS_CORE_TEST_CONCURRENCY: ${{ runner.os == 'macOS' && 'bounded' || '' }}
       - name: slowest 20 test files
         if: always() && needs.changes.outputs.ts-core == 'true'
         run: node scripts/release/timing-summary.mjs test-timings
@@ -672,6 +660,109 @@ jobs:
         if: always()
         env:
           SHARDS: ${{ needs.core-unit-shard-windows.result }}
+        run: test "$SHARDS" = success
+
+  # R-CI-1: hosted macOS shards use the Windows partition and verify macOS coverage independently.
+  core-unit-shard-macos:
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true' && needs.changes.outputs.ts-core == 'true' && needs.changes.outputs.macos == 'true'
+    name: core unit shard ${{ matrix.shard }}/3 (macos-15)
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    runs-on: macos-15
+    timeout-minutes: 40
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      PLUR1BUS_CORE_TEST_CONCURRENCY: bounded
+      PLUR1BUS_WEB_BROWSER: "off"
+      PLUR1BUS_TEST_SHARD: ${{ matrix.shard }}/3
+      PLUR1BUS_TEST_SHARD_TIMINGS: ${{ github.workspace }}/.github/ci/core-test-timings.json
+      PLUR1BUS_TEST_SHARD_MANIFEST: ${{ github.workspace }}/macos-core-unit-manifest-${{ matrix.shard }}.json
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Job-local CMake for macOS native builds
+        run: bash scripts/ci/setup-macos-cmake.sh
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      # PT-2 checker self-tests compile their authored Rust/Go/Python fixtures.
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
+        with: { toolchain: "1.95", components: "clippy, rustfmt" }
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version: "1.27.1", cache: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.13" }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-on-failure: false
+      - name: frozen dependencies (engine credential scoped to this step)
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile
+      - run: pnpm gen && pnpm build
+      - name: build native sandbox launcher for Core assertions
+        run: cargo build --locked -p plur1bus --bin plur1bus-sandbox-limits
+      - name: native binaries for tools-service integration
+        run: cargo build --locked -p plur1bus-tools -p plur1bus
+      - name: measured Core shard
+        timeout-minutes: 25
+        shell: bash
+        run: |
+          export TEST_TIMING_DIR="$GITHUB_WORKSPACE/core-test-timings"
+          reporter="$(node -e 'console.log(require("node:url").pathToFileURL(process.cwd() + "/scripts/release/timing-reporter.mjs").href)')"
+          export NODE_OPTIONS="--test-reporter=$reporter --test-reporter-destination=stdout"
+          pnpm --filter @plur1bus/core test
+      - name: slowest Core files in this shard
+        if: always()
+        run: node scripts/release/timing-summary.mjs core-test-timings
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: macos-core-unit-manifest-${{ matrix.shard }}
+          path: macos-core-unit-manifest-${{ matrix.shard }}.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: core-test-timings-macos-15-${{ matrix.shard }}
+          path: core-test-timings/
+          if-no-files-found: error
+
+  # Not gated, like the shards it checks: every Core file ran in exactly one macOS shard, and every shard succeeded.
+  core-unit-macos:
+    needs: [changes, core-unit-shard-macos]
+    if: always() && needs.changes.outputs.proceed == 'true' && needs.changes.outputs.ts-core == 'true' && needs.changes.outputs.macos == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0 }
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: macos-core-unit-manifest-*
+          path: macos-core-unit-manifests
+      - name: every Core test file ran in exactly one macOS shard
+        run: node scripts/ci/test-shards.mjs verify --cwd=packages/core --dir=macos-core-unit-manifests
+      - name: every macOS Core shard succeeded
+        if: always()
+        env:
+          SHARDS: ${{ needs.core-unit-shard-macos.result }}
         run: test "$SHARDS" = success
 
   engine-parity:
