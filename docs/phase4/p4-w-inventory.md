@@ -645,3 +645,16 @@ Linux- und Windows-Checks und die unabhängigen Reviews gehören zum
 Paketnachweis im PR.
 
 Unter Ubuntu prüft derselbe CI-Job zuerst die neun Referenzbilder und dann die native PDF- und PNG-Ausgabe. Chromium 141 braucht unter Linux seinen Crashpad-Handler beim Navigieren. Die pro Renderauftrag gesetzten privaten Verzeichnisse nehmen dessen Dateien auf.
+
+#### R-W-9b · Abbruch bei der Adressprüfung
+
+Kanal-HTTP, WebSocket, Discovery und Web-Fetch beziehen vom Host einen gemeinsam
+besessenen Resolver. Das Abrufen des Handles kopiert ausschließlich lokalen Zustand.
+Der Resolver erhält das konkrete Ziel, die absolute Frist und ein Abbruchsignal.
+Die Bibliothek prüft den Abbruch während der Auflösung alle 20 ms und bei der
+Rückkehr des Ports vor jeder Fehlereinordnung. Der Worker darf nur eine
+Adressentscheidung liefern. Ausschließlich der wartende Aufrufer darf diese
+prüfen und danach einen Socket öffnen. Prozessweit dürfen höchstens 16
+Auflösungen gleichzeitig laufen. Eine verlassene Auflösung behält ihren Platz
+bis zu ihrem tatsächlichen Ende. Bei voller Belegung wird der nächste Auftrag
+ohne Warteschlange abgewiesen.

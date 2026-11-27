@@ -36,11 +36,15 @@ impl SocketPorts for Loopback {
         std::time::UNIX_EPOCH
     }
 
-    fn pin(&self, endpoint: &Url, _: Instant) -> Option<SocketAddr> {
-        if let Some(target) = &self.1 {
-            assert_eq!(target, &endpoint[url::Position::BeforePath..]);
-        }
-        Some(self.0)
+    fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Url, Option<SocketAddr>> {
+        let expected = self.1.clone();
+        let address = self.0;
+        std::sync::Arc::new(move |endpoint, _, _| {
+            if let Some(target) = &expected {
+                assert_eq!(target, &endpoint[url::Position::BeforePath..]);
+            }
+            Some(address)
+        })
     }
 
     fn dial(
@@ -60,7 +64,7 @@ impl plur1bus_voice_providers::http::Ports for Loopback {
     }
 
     fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr> {
-        SocketPorts::pin(self, endpoint, deadline)
+        (self.resolver())(endpoint, deadline, &false.into())
     }
 }
 
@@ -262,8 +266,10 @@ fn an_abort_during_a_blocked_read_resolves_by_the_deadline_and_releases_the_sock
         fn cancelled(&self) -> bool {
             self.cancelled.load(Ordering::SeqCst)
         }
-        fn pin(&self, endpoint: &Url, _: Instant) -> Option<SocketAddr> {
-            Some(SocketAddr::from(([127, 0, 0, 1], endpoint.port()?)))
+        fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Url, Option<SocketAddr>> {
+            Arc::new(move |endpoint, _, _| {
+                Some(SocketAddr::from(([127, 0, 0, 1], endpoint.port()?)))
+            })
         }
         fn dial(
             &self,

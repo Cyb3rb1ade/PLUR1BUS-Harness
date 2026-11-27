@@ -2,6 +2,7 @@
 //!
 //! The manifest compiles out dependency TRACE records, which can contain paths and bodies.
 //! Hosts register their logger through the shared wire log boundary (R-W-11).
+use plur1bus_providers::resolution::ResolutionError;
 use plur1bus_providers::{http_read_timed_out, HttpCancellation};
 use serde::Serialize;
 use std::fmt;
@@ -16,7 +17,7 @@ pub(crate) const DIAGNOSTIC_LIMIT: usize = 64 * 1024;
 
 pub trait HttpPorts {
     /// Verify policy and resolve with a bounded deadline. Returning no address denies the request.
-    fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr>;
+    fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Url, Option<SocketAddr>>;
     fn cancelled(&self) -> bool {
         false
     }
@@ -150,7 +151,18 @@ impl<'a> Http<'a> {
         {
             return Err(Failure::Denied);
         }
-        let pin = self.ports.pin(endpoint, deadline).ok_or(Failure::Denied)?;
+        let pin = plur1bus_providers::resolution::resolve(
+            self.ports.resolver(),
+            endpoint.clone(),
+            deadline,
+            &|| self.cancelled(),
+        )
+        .map_err(|error| match error {
+            ResolutionError::Aborted => Failure::Aborted,
+            ResolutionError::Deadline => Failure::TimedOut,
+            ResolutionError::Busy | ResolutionError::Unavailable => Failure::Denied,
+        })?
+        .ok_or(Failure::Denied)?;
         if Some(pin.port()) != endpoint.port_or_known_default()
             || literal.is_some_and(|ip| ip != pin.ip())
             || (plain && !pin.ip().is_loopback())
@@ -333,8 +345,9 @@ mod tests {
 
     struct Port(SocketAddr);
     impl HttpPorts for Port {
-        fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
-            Some(self.0)
+        fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Url, Option<SocketAddr>> {
+            let address = self.0;
+            std::sync::Arc::new(move |_, _, _| Some(address))
         }
     }
 

@@ -1,5 +1,6 @@
 //! Origin-pinned HTTP page transport using the shared provider connector.
 
+use plur1bus_providers::resolution::ResolutionError;
 use std::{
     io::{self, Read},
     net::{IpAddr, SocketAddr},
@@ -21,7 +22,7 @@ const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
 
 pub trait Admission {
     /// Resolve and admit one address. The connector dials only this pin.
-    fn pin(&self, uri: &Uri, deadline: Instant) -> Result<SocketAddr>;
+    fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Uri, Result<SocketAddr>>;
     /// Verify this exact HTTP base came from explicit user configuration.
     fn configured_cleartext(&self, _base: &Uri) -> bool {
         false
@@ -189,7 +190,20 @@ impl Port for Http<'_> {
                 .map_err(|_| Error::invalid("invalid_request"))?;
             let (_, host, port) = origin(&uri)?;
             active(page.deadline, cancelled)?;
-            let pin = self.host.pin(&uri, page.deadline)?;
+            let pin = plur1bus_providers::resolution::resolve(
+                self.host.resolver(),
+                uri.clone(),
+                page.deadline,
+                cancelled,
+            )
+            .map_err(|error| {
+                Error::network(match error {
+                    ResolutionError::Aborted => "aborted",
+                    ResolutionError::Deadline => "request_timeout",
+                    ResolutionError::Busy => "resolver_busy",
+                    ResolutionError::Unavailable => "resolver_unavailable",
+                })
+            })??;
             check_pin(pin, host, port, self.loopback)?;
             let remaining = active(page.deadline, cancelled)?;
             let config = ureq::Agent::config_builder()

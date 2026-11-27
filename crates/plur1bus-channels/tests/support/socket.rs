@@ -11,9 +11,12 @@ impl SocketPorts for Loopback {
         std::time::UNIX_EPOCH
     }
 
-    fn pin(&self, endpoint: &Url, _: Instant) -> Option<SocketAddr> {
-        (endpoint.host_str() == Some("127.0.0.1") && endpoint.port() == Some(self.0.port()))
-            .then_some(self.0)
+    fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Url, Option<SocketAddr>> {
+        let address = self.0;
+        std::sync::Arc::new(move |endpoint, _, _| {
+            (endpoint.host_str() == Some("127.0.0.1") && endpoint.port() == Some(address.port()))
+                .then_some(address)
+        })
     }
 
     fn dial(

@@ -1069,8 +1069,8 @@ mod bounds_tests {
             std::time::UNIX_EPOCH
         }
 
-        fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
-            None
+        fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Url, Option<SocketAddr>> {
+            std::sync::Arc::new(move |_, _, _| None)
         }
         fn dial(&self, _: &Url, _: SocketAddr, _: Instant) -> io::Result<Box<dyn TimedStream>> {
             Err(io::Error::other("offline fixture"))

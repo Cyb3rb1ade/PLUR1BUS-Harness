@@ -20,20 +20,28 @@ use url::Url;
 
 struct Pin {
     address: SocketAddr,
-    seen: Mutex<Vec<String>>,
+    seen: std::sync::Arc<Mutex<Vec<String>>>,
 }
 
 impl Admission for Pin {
-    fn pin(&self, target: &Url, _: Instant) -> Result<SocketAddr, Failure> {
-        self.seen.lock().unwrap().push(path(target));
-        Ok(self.address)
+    fn resolver(
+        &self,
+    ) -> plur1bus_providers::resolution::Resolver<Url, Result<SocketAddr, Failure>> {
+        let seen = self.seen.clone();
+        let address = self.address;
+        std::sync::Arc::new(move |target, _, _| {
+            seen.lock().unwrap().push(path(target));
+            Ok(address)
+        })
     }
 }
 
 struct Deny;
 impl Admission for Deny {
-    fn pin(&self, _: &Url, _: Instant) -> Result<SocketAddr, Failure> {
-        Err(Failure::EgressDenied)
+    fn resolver(
+        &self,
+    ) -> plur1bus_providers::resolution::Resolver<Url, Result<SocketAddr, Failure>> {
+        std::sync::Arc::new(move |_, _, _| Err(Failure::EgressDenied))
     }
 }
 
@@ -93,7 +101,7 @@ fn guarded_web_requests_replay_typescript_over_the_pinned_connector() {
         let server = FakeServer::start(case);
         let pin = Pin {
             address: server.addr,
-            seen: Mutex::new(Vec::new()),
+            seen: Default::default(),
         };
         let mut url = Url::parse(&format!(
             "http://{}{}",
@@ -153,8 +161,12 @@ fn guarded_web_requests_replay_typescript_over_the_pinned_connector() {
 fn a_cancelled_request_does_not_call_admission() {
     struct Unreachable;
     impl Admission for Unreachable {
-        fn pin(&self, _: &Url, _: Instant) -> Result<SocketAddr, Failure> {
-            unreachable!("an expired request must not resolve");
+        fn resolver(
+            &self,
+        ) -> plur1bus_providers::resolution::Resolver<Url, Result<SocketAddr, Failure>> {
+            std::sync::Arc::new(move |_, _, _| {
+                unreachable!("an expired request must not resolve");
+            })
         }
     }
     let headers = HeaderMap::new();
@@ -186,7 +198,7 @@ fn a_partial_page_cannot_extend_the_original_body_deadline() {
     let server = FakeServer::start(&case);
     let pin = Pin {
         address: server.addr,
-        seen: Mutex::default(),
+        seen: Default::default(),
     };
     let headers = HeaderMap::new();
     let options = Options::get(
@@ -219,7 +231,7 @@ fn cancellation_during_a_body_read_preempts_the_original_deadline() {
         let server = FakeServer::start(&case);
         let pin = Pin {
             address: server.addr,
-            seen: Mutex::default(),
+            seen: Default::default(),
         };
         let headers = HeaderMap::new();
         let reading_body = Cell::new(false);
@@ -284,7 +296,7 @@ fn diagnostic_prefix_is_capped_even_when_the_caller_requests_more() {
         let server = FakeServer::start(&case);
         let pin = Pin {
             address: server.addr,
-            seen: Mutex::default(),
+            seen: Default::default(),
         };
         let headers = HeaderMap::new();
         let mut options = Options::get(
@@ -316,7 +328,7 @@ fn the_port_must_attest_the_requested_socket() {
     let separate = FakeServer::start(&case);
     let pin = Pin {
         address: separate.addr,
-        seen: Mutex::default(),
+        seen: Default::default(),
     };
     let headers = HeaderMap::new();
     let options = Options::get(
@@ -349,7 +361,7 @@ fn cancellation_after_headers_also_closes_bodyless_responses_and_redirects() {
     }));
     let pin = Pin {
         address: server.addr,
-        seen: Mutex::new(Vec::new()),
+        seen: Default::default(),
     };
     for (method, path, total) in [
         (ureq::http::Method::HEAD, "/empty", 1),

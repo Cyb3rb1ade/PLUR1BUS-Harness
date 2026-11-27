@@ -20,8 +20,9 @@ use url::Url;
 
 struct Fixture(SocketAddr);
 impl Admission for Fixture {
-    fn pin(&self, _uri: &Uri, _deadline: Instant) -> Result<SocketAddr> {
-        Ok(self.0)
+    fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Uri, Result<SocketAddr>> {
+        let address = self.0;
+        std::sync::Arc::new(move |_uri, _, _| Ok(address))
     }
 
     fn now_ms(&self) -> i64 {
@@ -95,13 +96,16 @@ struct WireHost {
 }
 
 impl Admission for WireHost {
-    fn pin(&self, uri: &Uri, _deadline: Instant) -> Result<SocketAddr> {
-        assert_eq!(
-            uri.host(),
-            Some("127.0.0.1"),
-            "the fixture authorizes its own listener"
-        );
-        Ok(self.address)
+    fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Uri, Result<SocketAddr>> {
+        let address = self.address;
+        std::sync::Arc::new(move |uri, _, _| {
+            assert_eq!(
+                uri.host(),
+                Some("127.0.0.1"),
+                "the fixture authorizes its own listener"
+            );
+            Ok(address)
+        })
     }
 
     fn now_ms(&self) -> i64 {
@@ -170,8 +174,10 @@ fn replay_recorded_scanner_http_with_real_parser_and_pinned_transport() {
 fn scanner_credentials_must_belong_to_the_configured_origin() {
     struct NoNetwork;
     impl Admission for NoNetwork {
-        fn pin(&self, _: &Uri, _: Instant) -> Result<SocketAddr> {
-            panic!("transport construction must not resolve an address");
+        fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Uri, Result<SocketAddr>> {
+            std::sync::Arc::new(move |_, _, _| {
+                panic!("transport construction must not resolve an address");
+            })
         }
 
         fn now_ms(&self) -> i64 {
@@ -400,8 +406,10 @@ fn scanner_cancellation_interrupts_a_wait_for_headers_or_body() {
 fn remote_cleartext_requires_manual_configuration_and_no_lease() {
     struct Configured;
     impl Admission for Configured {
-        fn pin(&self, _: &Uri, _: Instant) -> Result<SocketAddr> {
-            panic!("configuration checks must run before network admission");
+        fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Uri, Result<SocketAddr>> {
+            std::sync::Arc::new(move |_, _, _| {
+                panic!("configuration checks must run before network admission");
+            })
         }
         fn configured_cleartext(&self, base: &Uri) -> bool {
             matches!(
@@ -459,4 +467,54 @@ fn remote_cleartext_requires_manual_configuration_and_no_lease() {
             .unwrap();
         assert_eq!(error.reason, "insecure_transport");
     }
+}
+
+// The independent review fixture now shares its resolver with the worker. The input and delay are unchanged.
+#[test]
+fn cancelled_during_slow_admission() {
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    };
+    struct Slow(mpsc::Sender<()>);
+    impl Admission for Slow {
+        fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Uri, Result<SocketAddr>> {
+            let entered = self.0.clone();
+            std::sync::Arc::new(move |_, _, _| {
+                let _ = entered.send(());
+                std::thread::sleep(Duration::from_millis(750));
+                Err(Error::network("fixture_pin"))
+            })
+        }
+        fn now_ms(&self) -> i64 {
+            0
+        }
+    }
+    let (entered, rx) = mpsc::channel();
+    let port = Slow(entered);
+    let stopped = AtomicBool::new(false);
+    std::thread::scope(|scope| {
+        let flag = &stopped;
+        let waiter = scope.spawn(move || {
+            rx.recv_timeout(Duration::from_secs(2)).unwrap();
+            let at = Instant::now();
+            flag.store(true, Ordering::Release);
+            at
+        });
+        let uri: Uri = "http://127.0.0.1:47861".parse().unwrap();
+        let mut http = Http::new(&port, &uri, "independent", None, true).unwrap();
+        let result = scanners::scan(
+            Scanner::OpenAi,
+            false,
+            &mut http,
+            Instant::now() + Duration::from_secs(3),
+            &|| stopped.load(Ordering::Acquire),
+        );
+        let reason = result.err().unwrap().reason;
+        let end = Instant::now();
+        let elapsed = end.duration_since(waiter.join().unwrap());
+        eprintln!("address cancellation {elapsed:?}");
+        assert!(elapsed < Duration::from_millis(500));
+        assert_eq!(reason, "aborted");
+    });
 }

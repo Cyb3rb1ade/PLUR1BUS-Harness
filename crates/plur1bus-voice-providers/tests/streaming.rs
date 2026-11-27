@@ -18,6 +18,7 @@ use url::Url;
 const CREDENTIAL: &str = "synthetic-voice-credential";
 const BUDGET: Duration = Duration::from_secs(5);
 
+#[derive(Clone)]
 struct Pin {
     addr: SocketAddr,
     expected_target: String,
@@ -47,8 +48,9 @@ impl SocketPorts for Pin {
         std::time::UNIX_EPOCH
     }
 
-    fn pin(&self, endpoint: &Url, _: Instant) -> Option<SocketAddr> {
-        self.agreed_endpoint(endpoint)
+    fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Url, Option<SocketAddr>> {
+        let host = self.clone();
+        std::sync::Arc::new(move |endpoint, _, _| host.agreed_endpoint(endpoint))
     }
 
     fn dial(

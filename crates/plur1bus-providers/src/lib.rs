@@ -10,6 +10,7 @@ mod ordered;
 pub mod provenance;
 pub mod reasoning;
 mod request;
+pub mod resolution;
 mod response;
 pub mod router;
 mod sse;

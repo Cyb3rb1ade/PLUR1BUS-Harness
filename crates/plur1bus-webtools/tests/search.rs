@@ -35,8 +35,11 @@ impl log::Log for Records {
 
 struct Port(SocketAddr);
 impl Admission for Port {
-    fn pin(&self, _: &Url, _: Instant) -> Result<SocketAddr, Failure> {
-        Ok(self.0)
+    fn resolver(
+        &self,
+    ) -> plur1bus_providers::resolution::Resolver<Url, Result<SocketAddr, Failure>> {
+        let address = self.0;
+        Arc::new(move |_, _, _| Ok(address))
     }
 }
 

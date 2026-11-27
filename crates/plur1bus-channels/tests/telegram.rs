@@ -58,8 +58,9 @@ fn mismatched_pins_and_cancelled_requests_never_reach_loopback() {
         cancel: bool,
     }
     impl HttpPorts for Untrusted {
-        fn pin(&self, _: &Url, _: std::time::Instant) -> Option<SocketAddr> {
-            Some(self.pin)
+        fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Url, Option<SocketAddr>> {
+            let address = self.pin;
+            std::sync::Arc::new(move |_, _, _| Some(address))
         }
         fn cancelled(&self) -> bool {
             self.cancel
@@ -148,14 +149,15 @@ fn webhook_checks_authentication_and_size_before_delivery() {
 #[test]
 fn a_telegram_response_body_can_be_cancelled_while_waiting_for_data() {
     use plur1bus_channels::http::Kind;
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     const SIGNAL_DELAY: Duration = Duration::from_millis(125);
 
     struct Port<'a>(&'a FakeServer);
     impl HttpPorts for Port<'_> {
-        fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
-            Some(self.0.addr)
+        fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Url, Option<SocketAddr>> {
+            let address = self.0.addr;
+            std::sync::Arc::new(move |_, _, _| Some(address))
         }
 
         fn cancelled(&self) -> bool {

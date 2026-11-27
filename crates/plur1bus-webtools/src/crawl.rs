@@ -121,8 +121,10 @@ impl Crawl<'_> {
 }
 
 impl Admission for Crawl<'_> {
-    fn pin(&self, target: &Url, deadline: Instant) -> Result<SocketAddr, Failure> {
-        self.egress.pin(target, deadline)
+    fn resolver(
+        &self,
+    ) -> plur1bus_providers::resolution::Resolver<Url, Result<SocketAddr, Failure>> {
+        self.egress.resolver()
     }
 
     fn before_redirect(&self, target: &Url, deadline: Instant) -> Result<(), Failure> {

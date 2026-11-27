@@ -1,5 +1,6 @@
 //! Blocking WebSocket handshake and framing over a host-authorized stream.
 pub use crate::stream::TimedStream;
+use plur1bus_providers::resolution::ResolutionError;
 use std::fmt;
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr};
@@ -23,7 +24,7 @@ pub trait SocketPorts: Sync {
     /// Host clock for absolute Retry-After dates.
     fn wall_time(&self) -> SystemTime;
 
-    fn pin(&self, endpoint: &Url, deadline: Instant) -> Option<SocketAddr>;
+    fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Url, Option<SocketAddr>>;
 
     /// Connect only to the pin. Complete and verify TLS for the original hostname before
     /// returning a stream for a WSS endpoint. Check cancellation during TCP and TLS setup
@@ -234,7 +235,19 @@ impl<'a> Socket<'a> {
             return Err(Error::Aborted);
         }
         let deadline = Instant::now() + limits.handshake.min(MAX_TIMEOUT);
-        let pin = ports.pin(url, deadline).ok_or(Error::Denied)?;
+        let pin = plur1bus_providers::resolution::resolve(
+            ports.resolver(),
+            url.clone(),
+            deadline,
+            &|| ports.cancelled(),
+        )
+        .map_err(|error| match error {
+            ResolutionError::Aborted => Error::Aborted,
+            ResolutionError::Deadline => Error::Timeout,
+            ResolutionError::Busy => Error::Capacity,
+            ResolutionError::Unavailable => Error::Denied,
+        })?
+        .ok_or(Error::Denied)?;
         if Some(pin.port()) != url.port_or_known_default()
             || literal.is_some_and(|ip| ip != pin.ip())
             || (plaintext && !pin.ip().is_loopback())

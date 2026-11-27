@@ -1,5 +1,6 @@
 //! One deadline and one admitted socket per hop of a web request.
 
+use plur1bus_providers::resolution::ResolutionError;
 use std::{
     io::{self, Read},
     net::{IpAddr, SocketAddr},
@@ -18,6 +19,7 @@ const MAX_ENCODING_LAYERS: usize = 4;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Failure {
+    Aborted,
     InvalidUrl,
     PrivateAddress,
     EgressDenied,
@@ -34,6 +36,7 @@ pub enum Failure {
 impl Failure {
     pub const fn code(self) -> &'static str {
         match self {
+            Self::Aborted => "aborted",
             Self::InvalidUrl => "invalid-url",
             Self::PrivateAddress => "private-address",
             Self::EgressDenied => "egress-denied",
@@ -54,7 +57,7 @@ type Result<T> = std::result::Result<T, Failure>;
 pub trait Admission {
     /// Apply the host's URL policy, guarded resolver and address classification
     /// before making any connection. Return one approved address for this URL.
-    fn pin(&self, target: &Url, deadline: Instant) -> Result<SocketAddr>;
+    fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Url, Result<SocketAddr>>;
 
     /// Optional crawl policy for the next URL, before its DNS or HTTP request.
     fn before_redirect(&self, _target: &Url, _deadline: Instant) -> Result<()> {
@@ -255,7 +258,17 @@ pub fn request(
     let mut redirects = Vec::new();
     loop {
         remaining(options.deadline, aborted)?;
-        let pin = admission.pin(&url, options.deadline)?;
+        let pin = plur1bus_providers::resolution::resolve(
+            admission.resolver(),
+            url.clone(),
+            options.deadline,
+            aborted,
+        )
+        .map_err(|error| match error {
+            ResolutionError::Aborted => Failure::Aborted,
+            ResolutionError::Deadline => Failure::Timeout,
+            ResolutionError::Busy | ResolutionError::Unavailable => Failure::EgressDenied,
+        })??;
         if !pin_matches(&url, pin) {
             return Err(Failure::EgressDenied);
         }

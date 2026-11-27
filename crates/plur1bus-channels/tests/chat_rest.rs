@@ -159,15 +159,17 @@ fn discord_outbound_disables_mentions_in_the_message_payload() {
 fn discord_checks_the_attachment_host_before_asking_the_egress_port() {
     use plur1bus_channels::http::{Http, HttpPorts};
     use std::net::SocketAddr;
-    use std::time::Instant;
     use url::Url;
 
     #[derive(Default)]
-    struct Deny(Cell<usize>);
+    struct Deny(std::sync::Arc<std::sync::atomic::AtomicUsize>);
     impl HttpPorts for Deny {
-        fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
-            self.0.set(self.0.get() + 1);
-            None
+        fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Url, Option<SocketAddr>> {
+            let calls = self.0.clone();
+            std::sync::Arc::new(move |_, _, _| {
+                calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                None
+            })
         }
     }
     let ports = Deny::default();
@@ -185,27 +187,30 @@ fn discord_checks_the_attachment_host_before_asking_the_egress_port() {
     assert!(client
         .download("https://storage.example.invalid/report", &[], 16)
         .is_err());
-    assert_eq!(ports.0.get(), 0);
+    assert_eq!(ports.0.load(std::sync::atomic::Ordering::Relaxed), 0);
     assert!(client
         .download("https://cdn.discordapp.com/report", &[], 16)
         .is_err());
-    assert_eq!(ports.0.get(), 1);
+    assert_eq!(ports.0.load(std::sync::atomic::Ordering::Relaxed), 1);
 }
 
 #[test]
 fn discord_refuses_ambiguous_paths_before_request_admission() {
     use plur1bus_channels::http::{Http, HttpPorts, Kind};
-    use std::{net::SocketAddr, time::Instant};
+    use std::net::SocketAddr;
     use url::Url;
 
-    struct Offline(Cell<usize>);
+    struct Offline(std::sync::Arc<std::sync::atomic::AtomicUsize>);
     impl HttpPorts for Offline {
-        fn pin(&self, _: &Url, _: Instant) -> Option<SocketAddr> {
-            self.0.set(self.0.get() + 1);
-            None
+        fn resolver(&self) -> plur1bus_providers::resolution::Resolver<Url, Option<SocketAddr>> {
+            let calls = self.0.clone();
+            std::sync::Arc::new(move |_, _, _| {
+                calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                None
+            })
         }
     }
-    let ports = Offline(Cell::new(0));
+    let ports = Offline(Default::default());
     let clock = TestClock {
         ms: Cell::new(0),
         waits: Default::default(),
@@ -228,7 +233,7 @@ fn discord_refuses_ambiguous_paths_before_request_admission() {
             Kind::Protocol
         );
     }
-    assert_eq!(ports.0.get(), 0);
+    assert_eq!(ports.0.load(std::sync::atomic::Ordering::Relaxed), 0);
 }
 
 #[test]

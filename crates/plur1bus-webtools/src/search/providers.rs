@@ -588,8 +588,11 @@ mod policy_tests {
     }
 
     impl Admission for Fixture {
-        fn pin(&self, _: &Url, _: Instant) -> std::result::Result<SocketAddr, Failure> {
-            Err(Failure::EgressDenied)
+        fn resolver(
+            &self,
+        ) -> plur1bus_providers::resolution::Resolver<Url, std::result::Result<SocketAddr, Failure>>
+        {
+            std::sync::Arc::new(move |_, _, _| Err(Failure::EgressDenied))
         }
     }
 

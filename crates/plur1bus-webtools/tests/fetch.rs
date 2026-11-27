@@ -20,8 +20,11 @@ use url::Url;
 
 struct Port(SocketAddr);
 impl Admission for Port {
-    fn pin(&self, _: &Url, _: Instant) -> Result<SocketAddr, Failure> {
-        Ok(self.0)
+    fn resolver(
+        &self,
+    ) -> plur1bus_providers::resolution::Resolver<Url, Result<SocketAddr, Failure>> {
+        let address = self.0;
+        Arc::new(move |_, _, _| Ok(address))
     }
 }
 
@@ -382,4 +385,74 @@ fn the_fetch_budget_and_cancellation_reach_document_processing() {
         assert!(docs.0.lock().unwrap().is_none());
         assert_eq!(server.received().len(), 1);
     }
+}
+
+// The independent review fixture now shares its resolver with the worker. The input and delay are unchanged.
+#[test]
+fn cancelled_during_slow_admission() {
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    };
+    struct Slow(mpsc::Sender<()>);
+    impl Admission for Slow {
+        fn resolver(
+            &self,
+        ) -> plur1bus_providers::resolution::Resolver<Url, Result<SocketAddr, Failure>> {
+            let entered = self.0.clone();
+            Arc::new(move |_, _, _| {
+                let _ = entered.send(());
+                std::thread::sleep(Duration::from_millis(750));
+                Err(Failure::EgressDenied)
+            })
+        }
+    }
+    let (entered, rx) = mpsc::channel();
+    let port = Slow(entered);
+    let stopped = AtomicBool::new(false);
+    std::thread::scope(|scope| {
+        let flag = &stopped;
+        let waiter = scope.spawn(move || {
+            rx.recv_timeout(Duration::from_secs(2)).unwrap();
+            let at = Instant::now();
+            flag.store(true, Ordering::Release);
+            at
+        });
+        let docs = Docs::default();
+        let clock = FixedClock(0);
+        let client = Client {
+            admission: &port,
+            crawl: None,
+            store: &docs,
+            clock: &clock,
+            user_agent: "fixture",
+            max_bytes: 32768,
+            max_redirects: 0,
+            default_max_tokens: 128,
+            max_extracted_tokens: 128,
+        };
+        let args = Args {
+            url: "http://127.0.0.1:1/edition",
+            mode: Mode::Auto,
+            section: None,
+            cursor: None,
+            max_tokens: None,
+            crawl: false,
+        };
+        let context = Context {
+            agent_id: "review",
+            matcher: None,
+            aborted: &|| stopped.load(Ordering::Acquire),
+        };
+        let reason = client
+            .fetch(&args, &context, Instant::now() + Duration::from_secs(3))
+            .err()
+            .unwrap()
+            .code;
+        let end = Instant::now();
+        let elapsed = end.duration_since(waiter.join().unwrap());
+        eprintln!("address cancellation {elapsed:?}");
+        assert!(elapsed < Duration::from_millis(500));
+        assert_eq!(reason, "aborted");
+    });
 }
