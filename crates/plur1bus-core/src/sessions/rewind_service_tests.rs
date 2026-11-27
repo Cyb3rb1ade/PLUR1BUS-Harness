@@ -9,7 +9,7 @@ use super::rewind::{
 };
 use super::rewind_checkpoints::{ProjectBinding, TurnApprover};
 use super::rewind_git::{Cancel, RewindError};
-use super::rewind_support::{audit_pair, clock, store_with};
+use super::rewind_test_store::{audit_pair, clock, store_with};
 use super::{
     CreateSessionInput, EventRecord, EventType, ReasoningChange, RewindTarget, RewindTrigger,
     SessionKind, SessionStore,
