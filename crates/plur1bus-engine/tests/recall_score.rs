@@ -75,3 +75,56 @@ fn boosters_keep_their_relative_weight_on_the_new_scale() {
         assert!((new - scale * old).abs() < 1e-12, "{old} {new}");
     }
 }
+
+#[test]
+fn calibration_requires_the_pinned_profile_dimensions_and_dtype() {
+    let profile = serde_json::to_value(e5_identity()).unwrap();
+    let request = json!({"scoreScale":"cosine"});
+    for (field, value) in [
+        ("provider", json!("other-provider")),
+        ("model", json!("other-model")),
+        ("dimension", json!(768)),
+        ("dtype", json!("float16")),
+    ] {
+        let mut different = profile.clone();
+        different[field] = value;
+        let different = identity_from_value(&different).unwrap();
+        assert!(
+            ScoreScale::configured(&request, &different).is_err(),
+            "{field}"
+        );
+    }
+}
+
+#[test]
+fn explicit_scales_keep_the_cosine_boundaries_and_legacy_threshold() {
+    let identity = e5_identity();
+    let legacy = json!({"scoreScale":"legacy","cosineMinScore":0.9});
+    assert_eq!(
+        ScoreScale::configured(&legacy, &identity).unwrap(),
+        ScoreScale::Legacy
+    );
+    assert_eq!(
+        ScoreScale::configured(&legacy, &identity)
+            .unwrap()
+            .threshold(0.3),
+        0.3
+    );
+    assert!(ScoreScale::configured(&json!({"scoreScale":"unknown"}), &identity).is_err());
+
+    for floor in [-1.0, 1.0] {
+        let recall = json!({"scoreScale":"cosine","cosineMinScore":floor});
+        assert_eq!(
+            ScoreScale::configured(&recall, &identity)
+                .unwrap()
+                .threshold(0.3),
+            floor
+        );
+    }
+    for floor in [-1.001, 1.001] {
+        let recall = json!({"scoreScale":"cosine","cosineMinScore":floor});
+        assert!(ScoreScale::configured(&recall, &identity).is_err());
+    }
+    assert_eq!(cosine_from_squared_l2(-0.001), 1.0);
+    assert_eq!(cosine_from_squared_l2(4.001), -1.0);
+}

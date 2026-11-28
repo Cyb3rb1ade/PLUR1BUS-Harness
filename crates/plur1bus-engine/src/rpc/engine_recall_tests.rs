@@ -617,8 +617,7 @@ fn an_unreadable_registry_answers_degraded_without_data() {
     assert!(!result.to_string().contains(&row.id));
 }
 
-#[test]
-fn warm_reranking_never_receives_a_forgotten_legacy_copy() {
+fn record_flat_reranker(engine: &mut ProcessEngine) -> Arc<Mutex<Vec<String>>> {
     use crate::embedding::{RerankError, Reranker};
 
     struct Recorder(Arc<Mutex<Vec<String>>>);
@@ -640,19 +639,6 @@ fn warm_reranking_never_receives_a_forgotten_legacy_copy() {
             }])
         }
     }
-    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
-    let root = scratch.path();
-    let mut engine =
-        ProcessEngine::new(legacy_host(root, &json!({})), Some(Seam::FlatEmbedder)).unwrap();
-    let (_, row) = seeded(root, &engine);
-    let mut kept = row.clone();
-    kept.id = "66666666-6666-4666-8666-666666666666".into();
-    kept.text = "A legacy card that was never forgotten.".into();
-    let mut second = kept.clone();
-    second.id = "77777777-7777-4777-8777-777777777777".into();
-    second.text = "A second live legacy card.".into();
-    legacy_copy(root, &engine, &[row.clone(), kept.clone(), second]);
-    forget(&engine, &row.id);
     let identity = engine.embedding().identities().remove(0);
     let space = identity.space.clone().unwrap();
     let width = space.dimension.as_u64().unwrap() as usize;
@@ -667,6 +653,25 @@ fn warm_reranking_never_receives_a_forgotten_legacy_copy() {
         )
         .unwrap(),
     );
+    seen
+}
+
+#[test]
+fn warm_reranking_never_receives_a_forgotten_legacy_copy() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let mut engine =
+        ProcessEngine::new(legacy_host(root, &json!({})), Some(Seam::FlatEmbedder)).unwrap();
+    let (_, row) = seeded(root, &engine);
+    let mut kept = row.clone();
+    kept.id = "66666666-6666-4666-8666-666666666666".into();
+    kept.text = "A legacy card that was never forgotten.".into();
+    let mut second = kept.clone();
+    second.id = "77777777-7777-4777-8777-777777777777".into();
+    second.text = "A second live legacy card.".into();
+    legacy_copy(root, &engine, &[row.clone(), kept.clone(), second]);
+    forget(&engine, &row.id);
+    let seen = record_flat_reranker(&mut engine);
     let mut warm = params("synthetic project archive", "user");
     warm["query"]["warmOnly"] = json!(true);
     warm["options"]["reranker"] = json!("on");
@@ -837,19 +842,49 @@ fn a_configured_cosine_floor_filters_the_native_recall_pipeline() {
                 "recall":{"scoreScale":scale,"cosineMinScore":0.8,"canonicalFirst":false}
             }),
         );
-        let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+        let mut engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
         let (store, relevant) = seeded(root, &engine);
         let mut weaker = relevant.clone();
         weaker.id = "22222222-2222-4222-8222-222222222222".into();
         weaker.text = "Another archived review, about a different topic.".into();
         weaker.vector[0] = 0.6;
         weaker.vector[1] = 0.8;
-        store.upsert(std::slice::from_ref(&weaker)).unwrap();
+        let mut non_unit = relevant.clone();
+        non_unit.id = "44444444-4444-4444-8444-444444444444".into();
+        non_unit.text = "A fixture card with an off-scale stored vector.".into();
+        non_unit.vector[0] = 1.1;
+        store.upsert(&[weaker.clone(), non_unit.clone()]).unwrap();
         let answer = recall(&engine, &params("synthetic project archive", "user"));
         assert_eq!(answer["degraded"], Value::Null, "{answer}");
         let text = memories(&answer);
         assert!(text.contains(&relevant.id), "{text}");
         assert_eq!(text.contains(&weaker.id), keeps_weaker, "{scale}: {text}");
+        assert_eq!(text.contains(&non_unit.id), keeps_weaker, "{scale}: {text}");
+
+        // Warm recall invokes the reranker only when at least two candidates qualify.
+        let mut second = relevant.clone();
+        second.id = "33333333-3333-4333-8333-333333333333".into();
+        second.text = "A separate fixture decision in the synthetic project archive.".into();
+        store.upsert(std::slice::from_ref(&second)).unwrap();
+        let seen = record_flat_reranker(&mut engine);
+        let mut warm = params("synthetic project archive", "user");
+        warm["query"]["warmOnly"] = json!(true);
+        warm["options"]["reranker"] = json!("on");
+        let warm_reply = recall(&engine, &warm);
+        assert_eq!(warm_reply["degraded"], Value::Null, "{warm_reply}");
+        let seen = seen.lock().unwrap();
+        assert!(seen.contains(&relevant.text), "{scale}: {seen:?}");
+        assert!(seen.contains(&second.text), "{scale}: {seen:?}");
+        assert_eq!(
+            seen.contains(&non_unit.text),
+            keeps_weaker,
+            "{scale}: {seen:?}"
+        );
+        assert_eq!(
+            seen.contains(&weaker.text),
+            keeps_weaker,
+            "{scale}: {seen:?}"
+        );
     }
 }
 
