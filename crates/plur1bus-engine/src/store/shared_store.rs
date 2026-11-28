@@ -226,7 +226,7 @@ impl Store {
         let batch = row::values_to_batch(&plain, &values, self.schema.clone())?;
         let table = self.table.clone();
         let schema = self.schema.clone();
-        self.executor.run(async move {
+        self.maintain_lexical(self.executor.run(async move {
             let batches = arrow_array::RecordBatchIterator::new(vec![Ok(batch)], schema);
             let mut merge = table.merge_insert(&["id"]);
             merge
@@ -237,6 +237,6 @@ impl Store {
                 .await
                 .map_err(backend_error)?;
             Ok(())
-        })
+        }))
     }
 }

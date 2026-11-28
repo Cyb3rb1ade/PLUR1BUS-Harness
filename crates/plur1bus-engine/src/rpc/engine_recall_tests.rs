@@ -619,27 +619,6 @@ fn an_unreadable_registry_answers_degraded_without_data() {
 
 #[test]
 fn warm_reranking_never_receives_a_forgotten_legacy_copy() {
-    use crate::embedding::{RerankError, Reranker};
-
-    struct Recorder(Arc<Mutex<Vec<String>>>);
-    impl Reranker for Recorder {
-        fn empty_result_is_valid(&self) -> bool {
-            false
-        }
-        fn rerank(
-            &self,
-            _: &str,
-            docs: &[String],
-            _: usize,
-            _: &Cancel,
-        ) -> Result<Vec<RerankHit>, RerankError> {
-            self.0.lock().unwrap().extend_from_slice(docs);
-            Ok(vec![RerankHit {
-                index: 0.into(),
-                score: 1.into(),
-            }])
-        }
-    }
     let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let root = scratch.path();
     let mut engine =
@@ -660,7 +639,7 @@ fn warm_reranking_never_receives_a_forgotten_legacy_copy() {
     engine.embedding = Arc::new(
         Service::new(
             Seam::FlatEmbedder.embedder(width, &space).unwrap(),
-            Some(Box::new(Recorder(seen.clone()))),
+            Some(Box::new(RecallRerankRecorder(seen.clone()))),
             identity,
             None,
             ServiceOptions::default(),
@@ -823,4 +802,99 @@ fn the_prompt_trace_does_not_count_a_masked_card() {
         text[start..].split("/>").next().unwrap().to_owned()
     };
     assert_eq!(summary(true), summary(false));
+}
+
+#[test]
+fn hybrid_sources_survive_an_empty_vector_pool_in_normal_recall() {
+    let temp = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let host = host_with(
+        temp.path(),
+        &json!({"autoRecallMinScore":1.01,"recall":{"hybridEnabled":true}}),
+    );
+    let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+    let (_store, row) = seeded(temp.path(), &engine);
+    for query in [row.id.as_str(), "archive"] {
+        let answer = recall(&engine, &params(query, "user"));
+        assert!(
+            block(&answer, "memories")["text"]
+                .as_str()
+                .unwrap()
+                .contains(&row.id),
+            "{answer}"
+        );
+    }
+}
+
+struct RecallRerankRecorder(Arc<Mutex<Vec<String>>>);
+impl embedding::Reranker for RecallRerankRecorder {
+    fn empty_result_is_valid(&self) -> bool {
+        false
+    }
+    fn rerank(
+        &self,
+        _: &str,
+        docs: &[String],
+        _: usize,
+        _: &Cancel,
+    ) -> Result<Vec<RerankHit>, embedding::RerankError> {
+        self.0.lock().unwrap().extend_from_slice(docs);
+        Ok(vec![RerankHit {
+            index: 0.into(),
+            score: 1.into(),
+        }])
+    }
+}
+
+#[test]
+fn the_acl_runs_on_the_fused_pool_before_the_reranker() {
+    let temp = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = temp.path();
+    let host = host_with(
+        root,
+        &json!({"autoRecallMinScore":1.01,"recall":{"hybridEnabled":true,"dedup":false}}),
+    );
+    let mut engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+    let (store, mut first) = seeded(root, &engine);
+    first.text = "Fusioncheck: a turbine is commissioned.".into();
+    let mut second = first.clone();
+    second.id = "88888888-8888-4888-8888-888888888888".into();
+    second.text = "Fusioncheck: the station uses solar power.".into();
+    let mut foreign = first.clone();
+    foreign.id = "99999999-9999-4999-8999-999999999999".into();
+    foreign.scope = "workspace".into();
+    foreign.workspace_key = format!("workspace:v1:{}", "d".repeat(64));
+    foreign.text = "Fusioncheck: restricted foreign workspace information.".into();
+    store
+        .upsert(&[first.clone(), second.clone(), foreign.clone()])
+        .unwrap();
+
+    let identity = engine.embedding().identities().remove(0);
+    let space = identity.space.clone().unwrap();
+    let width = space.dimension.as_u64().unwrap() as usize;
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    engine.embedding = Arc::new(
+        Service::new(
+            Seam::FlatEmbedder.embedder(width, &space).unwrap(),
+            Some(Box::new(RecallRerankRecorder(seen.clone()))),
+            identity,
+            None,
+            ServiceOptions::default(),
+        )
+        .unwrap(),
+    );
+    let mut input = params("Fusioncheck", "user");
+    input["options"]["reranker"] = json!("on");
+    let result = recall(&engine, &input);
+    assert_eq!(result["degraded"], Value::Null);
+    let seen = seen.lock().unwrap();
+    assert!(
+        seen.contains(&first.text) && seen.contains(&second.text),
+        "{seen:?}"
+    );
+    assert!(
+        !seen.iter().any(|text| text.contains("restricted foreign")),
+        "{seen:?}"
+    );
+    let hidden = recall(&engine, &params(&foreign.id, "user"));
+    assert!(!memories(&hidden).contains(&foreign.id));
 }

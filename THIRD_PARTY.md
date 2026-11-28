@@ -6,7 +6,7 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: 4b3c965dc05fc91562b22243aae37c326a24d3c5e8c6a83821bec84f9f3730f0
-Cargo.lock: f1f09eaedb70833fd41e95e5d9f87879ab8b8527c0604ea4a9df4ca8be6e58a7
+Cargo.lock: 5cb3b1eca14f730ee5713b8716279e4a276398fd364c884e690a85685b2011e0
 apps/desktop/Cargo.lock: b03303bdf16ec6ab57ae3fd0c4d9f6756e9a4c36be1b3ab7a940d365d546f992
 ```
 
@@ -334,6 +334,7 @@ apps/desktop/Cargo.lock: b03303bdf16ec6ab57ae3fd0c4d9f6756e9a4c36be1b3ab7a940d36
 | cargo | foreign-types | 0.5.0 | MIT/Apache-2.0 | Steven Fackler <sfackler@gmail.com> |
 | cargo | form_urlencoded | 1.2.3 | MIT OR Apache-2.0 | The rust-url developers |
 | cargo | fraction | 0.15.4 | MIT OR Apache-2.0 | dnsl48 <dnsl48@gmail.com> |
+| cargo | frostem | 1.20260804.0 | BSD-3-Clause | Xuanwo <github@xuanwo.io> |
 | cargo | fs4 | 0.8.4 | MIT OR Apache-2.0 | Dan Burkert <dan@danburkert.com>, Al Liu <scygliu1@gmail.com> |
 | cargo | fsst | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
 | cargo | fst | 0.4.7 | Unlicense/MIT | Andrew Gallant <jamslam@gmail.com> |
@@ -1013,6 +1014,7 @@ apps/desktop/Cargo.lock: b03303bdf16ec6ab57ae3fd0c4d9f6756e9a4c36be1b3ab7a940d36
 | cargo | uds_windows | 1.2.1 | MIT | Azure IoT Edge Devs, Harald Hoyer <harald@redhat.com> |
 | cargo | unarray | 0.1.4 | MIT OR Apache-2.0 |  |
 | cargo | unicase | 2.10.0 | MIT OR Apache-2.0 | Sean McArthur <sean@seanmonstar.com> |
+| cargo | unicode-casefold | 0.2.0 | MIT/Apache-2.0 | Chris Wong <lambda.fairy@gmail.com> |
 | cargo | unicode-ident | 1.0.26 | (MIT OR Apache-2.0) AND Unicode-3.0 | David Tolnay <dtolnay@gmail.com> |
 | cargo | unicode-normalization-alignments | 0.1.12 | MIT/Apache-2.0 | Anthony MOI <m.anthony.moi@gmail.com> |
 | cargo | unicode-segmentation | 1.13.3 | MIT OR Apache-2.0 | kwantam <kwantam@gmail.com>, Manish Goregaokar <manishsmail@gmail.com> |

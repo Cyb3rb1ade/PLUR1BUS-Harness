@@ -2776,6 +2776,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "frostem"
+version = "1.20260804.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d0ae10cfccbae085dd8612669ccc116fe88bd5dfe39d202a8fa68c24c1e546f"
+
+[[package]]
 name = "fs4"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5920,6 +5926,7 @@ dependencies = [
  "clap",
  "fancy-regex 0.17.0",
  "flate2",
+ "frostem",
  "futures",
  "getrandom 0.3.4",
  "hmac 0.12.1",
@@ -5954,6 +5961,8 @@ dependencies = [
  "tokenizers",
  "tokio",
  "typify",
+ "unicode-casefold",
+ "unicode-segmentation",
  "ureq",
  "url",
  "uuid",
@@ -8718,6 +8727,12 @@ name = "unicase"
 version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "357cc3acc6a036009fd6c973ed009037c732d60d0b4f6c673e9041497482a28f"
+
+[[package]]
+name = "unicode-casefold"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7f66b1c8f8caa2ab31dc6d3f35386f16efdab89668f93411e565ac368908e8f"
 
 [[package]]
 name = "unicode-ident"

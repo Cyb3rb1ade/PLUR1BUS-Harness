@@ -469,6 +469,7 @@ fn pipeline<'a>(
             canonical_max_items: 2,
         },
         flags: StageFlags {
+            hybrid: false,
             canonical: p["canonicalEnabled"].as_bool().unwrap_or(false),
             associative: p["associativeEnabled"].as_bool().unwrap_or(false),
             defer_final_cap: true,

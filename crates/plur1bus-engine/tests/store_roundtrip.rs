@@ -633,3 +633,197 @@ fn typed_lance_reads_preserve_adjacent_float64_values_exactly() {
         );
     }
 }
+
+#[test]
+fn an_exact_id_query_finds_the_row_without_a_vector_hit() {
+    let (_temp, store) = writable();
+    let mut row = appended_rows(&store).remove(0);
+    row.source_url = "https://archive.fixture.invalid/scan-2.txt".into();
+    store.upsert(std::slice::from_ref(&row)).unwrap();
+    let filter = RowFilter::default();
+    let found = store.exact_recall(&row.id, &filter, 1).unwrap();
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].id, row.id);
+    assert_eq!(
+        store.exact_recall(&row.source_url, &filter, 1).unwrap()[0].id,
+        row.id
+    );
+    assert!(store
+        .exact_recall("scan-2.txt", &filter, 5)
+        .unwrap()
+        .is_empty());
+
+    assert!(store
+        .exact_recall("absent' OR true --", &filter, 5)
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn a_rare_token_is_found_lexically_and_forgotten_terms_leave_the_table() {
+    let (temp, store) = writable();
+    let mut row = appended_rows(&store).remove(0);
+    row.text = "Turbinenkalibrierung".into();
+    row.status = "active".into();
+    store.ensure_text_index().unwrap();
+    store.upsert(std::slice::from_ref(&row)).unwrap();
+    assert_eq!(
+        store.lexical_ids("Turbinenkalibrierung", 5).unwrap(),
+        [row.id.clone()]
+    );
+    assert_eq!(node(&[temp.path().to_str().unwrap(), "13"])["count"], 13);
+    store.delete(&[&row.id]).unwrap();
+    assert!(store
+        .lexical_ids("Turbinenkalibrierung", 5)
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn node_edits_and_tombstones_are_repaired_even_without_an_updated_at_change() {
+    let (temp, store) = writable();
+    let mut row = appended_rows(&store).remove(0);
+    row.text = "Turbinenkalibrierung".into();
+    row.status = "active".into();
+    store.upsert(std::slice::from_ref(&row)).unwrap();
+    store.ensure_text_index().unwrap();
+    drop(store);
+    for change in ["edit", "delete"] {
+        node(&[
+            temp.path().to_str().unwrap(),
+            "--lexical-update",
+            &row.id,
+            change,
+        ]);
+        let store = Store::open(temp.path(), OpenMode::ReadWrite, Some(&identity())).unwrap();
+        assert!(store
+            .lexical_ids("Turbinenkalibrierung", 5)
+            .unwrap()
+            .is_empty());
+        let expected: Vec<_> = (change == "edit")
+            .then_some(row.id.clone())
+            .into_iter()
+            .collect();
+        assert_eq!(
+            store.lexical_ids("Isotopenkalibrierung", 5).unwrap(),
+            expected
+        );
+    }
+}
+
+#[test]
+fn a_restored_store_without_a_lexical_table_rebuilds_from_current_text() {
+    let (temp, store) = writable();
+    let mut row = appended_rows(&store).remove(0);
+    row.text = "Oszillographenprüfung".into();
+    row.status = "active".into();
+    store.upsert(std::slice::from_ref(&row)).unwrap();
+    store.ensure_text_index().unwrap();
+    drop(store);
+    std::fs::remove_dir_all(temp.path().join("_lexical.lance")).unwrap();
+    let store = Store::open(temp.path(), OpenMode::ReadWrite, Some(&identity())).unwrap();
+    store.ensure_text_index().unwrap();
+    assert_eq!(
+        store.lexical_ids("Oszillographenprüfung", 10).unwrap(),
+        [row.id]
+    );
+}
+
+#[test]
+fn open_restores_a_missing_fts_index_without_a_memories_change() {
+    let (temp, store) = writable();
+    let mut row = appended_rows(&store).remove(0);
+    row.status = "active".into();
+    row.text = "Oszillographenprüfung".into();
+    store.upsert(std::slice::from_ref(&row)).unwrap();
+    store.ensure_text_index().unwrap();
+    drop(store);
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .unwrap();
+    let table = runtime.block_on(async {
+        let table = lancedb::connect(temp.path().to_str().unwrap())
+            .read_consistency_interval(std::time::Duration::ZERO)
+            .execute()
+            .await
+            .unwrap()
+            .open_table("_lexical")
+            .execute()
+            .await
+            .unwrap();
+        let removed = table.list_indices().await.unwrap().remove(0);
+        table.drop_index(&removed.name).await.unwrap();
+        assert_eq!(table.list_indices().await.unwrap().len(), 1);
+        table
+    });
+    let marker = temp.path().join("lexical-state.json");
+    let before = std::fs::read(&marker).unwrap();
+    let read_only = Store::open(temp.path(), OpenMode::ReadOnly, Some(&identity())).unwrap();
+    assert_eq!(read_only.get(&row.id).unwrap().unwrap().id, row.id);
+    drop(read_only);
+    runtime.block_on(async {
+        assert_eq!(table.list_indices().await.unwrap().len(), 1);
+    });
+    assert_eq!(std::fs::read(&marker).unwrap(), before);
+
+    let store = Store::open(temp.path(), OpenMode::ReadWrite, Some(&identity())).unwrap();
+    runtime.block_on(async {
+        let indices = table.list_indices().await.unwrap();
+        for expected in ["de", "en"] {
+            assert!(indices.iter().any(|index| index.columns == [expected]));
+        }
+    });
+    assert_eq!(std::fs::read(marker).unwrap(), before);
+    assert_eq!(store.lexical_ids(&row.text, 10).unwrap(), [row.id]);
+}
+
+#[test]
+fn an_analyzer_id_change_rebuilds_the_terms_even_at_the_same_memories_version() {
+    let (temp, store) = writable();
+    let mut row = appended_rows(&store).remove(0);
+    row.status = "active".into();
+    row.text = "Ultraschallmessung".into();
+    store.upsert(std::slice::from_ref(&row)).unwrap();
+    store.ensure_text_index().unwrap();
+    drop(store);
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        let table = lancedb::connect(temp.path().to_str().unwrap())
+            .execute()
+            .await
+            .unwrap()
+            .open_table("_lexical")
+            .execute()
+            .await
+            .unwrap();
+        table
+            .update()
+            .only_if(format!("id = '{}'", row.id))
+            .column("analyzer_id", "'previous'")
+            .column("de", "'staleterm'")
+            .column("en", "'staleterm'")
+            .execute()
+            .await
+            .unwrap();
+    });
+    let watermark = temp.path().join("lexical-state.json");
+    let mut marker: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&watermark).unwrap()).unwrap();
+    marker["analyzerId"] = "previous".into();
+    std::fs::write(&watermark, serde_json::to_vec(&marker).unwrap()).unwrap();
+
+    let store = Store::open(temp.path(), OpenMode::ReadWrite, Some(&identity())).unwrap();
+    assert_eq!(
+        store.lexical_ids("Ultraschallmessung", 5).unwrap(),
+        [row.id]
+    );
+    assert!(store.lexical_ids("staleterm", 5).unwrap().is_empty());
+}

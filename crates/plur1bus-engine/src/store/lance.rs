@@ -28,6 +28,8 @@ mod daily_decay;
 /// Bounded fragment statistics and compaction (RE-D161).
 #[path = "fragment_optimize.rs"]
 pub mod fragment_optimize;
+#[path = "lexical.rs"]
+mod lexical;
 #[path = "memory_read.rs"]
 mod memory_read;
 #[path = "shared_store.rs"]
@@ -251,7 +253,7 @@ impl Store {
                 return Err(StoreError::Corrupt);
             }
         }
-        Ok(Self {
+        let store = Self {
             path: path.clone(),
             table,
             identity,
@@ -263,7 +265,11 @@ impl Store {
             executor,
             directory,
             pinned_roots: Vec::new(),
-        })
+        };
+        if mode == OpenMode::ReadWrite && path.join("_lexical.lance").exists() {
+            store.sync_lexical_index(true)?;
+        }
+        Ok(store)
     }
 
     /// Create a new physical agent store using the pinned Node SDK's default table options.
@@ -676,7 +682,7 @@ impl Store {
             gc_predicate(scope), row.version_number, row.memory_strength, row.updated_at
         );
         let table = self.table.clone();
-        self.executor.run(async move {
+        self.maintain_lexical(self.executor.run(async move {
             let result = table
                 .update()
                 .only_if(predicate)
@@ -685,7 +691,7 @@ impl Store {
                 .await
                 .map_err(backend_error)?;
             usize::try_from(result.rows_updated).map_err(|_| StoreError::Corrupt)
-        })
+        }))
     }
 
     fn scan_where(&self, filter: String, limit: usize) -> Result<Vec<MemoryRow>, StoreError> {
@@ -826,6 +832,35 @@ impl Store {
             Ok(())
         }
     }
+    fn maintain_lexical<T>(&self, result: Result<T, StoreError>) -> Result<T, StoreError> {
+        let value = result?;
+        if self.path.join("_lexical.lance").exists() {
+            self.ensure_text_index()?;
+        }
+        Ok(value)
+    }
+
+    /// Lookup a complete memory ID, source URL or source turn in the current time window.
+    pub fn exact_recall(
+        &self,
+        query: &str,
+        scope: &RowFilter,
+        limit: usize,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        let query = query.trim();
+        if query.is_empty() || query.len() > 4096 || limit == 0 {
+            return Ok(Vec::new());
+        }
+        let literal = super::filter::sql_string(query);
+        let terms = ["id", "sourceUrl", "sourceTurnId", "reminderKey"]
+            .into_iter()
+            .filter(|column| self.schema.field_with_name(column).is_ok())
+            .map(|column| format!("{column} = {literal}"))
+            .collect::<Vec<_>>()
+            .join(" OR ");
+        self.scan_where(format!("({}) AND ({terms})", scope.to_sql()), limit)
+    }
+
     /// Search using Lance's default metric and safely rendered predicates.
     pub fn search(
         &self,
@@ -920,7 +955,7 @@ impl Store {
         let batch = row::to_batch(rows, self.schema.clone())?;
         let table = self.table.clone();
         let schema = self.schema.clone();
-        self.executor.run(async move {
+        self.maintain_lexical(self.executor.run(async move {
             let batches = arrow_array::RecordBatchIterator::new(vec![Ok(batch)], schema);
             let mut merge = table.merge_insert(&["id"]);
             merge
@@ -931,7 +966,7 @@ impl Store {
                 .await
                 .map_err(backend_error)?;
             Ok(())
-        })
+        }))
     }
     /// Patch selected columns without dropping the row's other persisted values.
     pub fn patch(&self, id: &str, patch: &RowPatch) -> Result<(), StoreError> {
@@ -964,14 +999,14 @@ impl Store {
             return Ok(0);
         }
         let table = self.table.clone();
-        self.executor.run(async move {
+        self.maintain_lexical(self.executor.run(async move {
             let mut update = table.update().only_if(predicate);
             for (column, value) in values {
                 update = update.column(column, value);
             }
             let result = update.execute().await.map_err(backend_error)?;
             usize::try_from(result.rows_updated).map_err(|_| StoreError::Corrupt)
-        })
+        }))
     }
 
     /// Delete these IDs and report how many committed rows matched. As Node's `MemoryDB.delete`
@@ -994,7 +1029,7 @@ impl Store {
             })
             .collect::<Vec<_>>();
         let table = self.table.clone();
-        self.executor.run(async move {
+        self.maintain_lexical(self.executor.run(async move {
             let mut deleted = 0;
             for filter in filters {
                 deleted += table
@@ -1004,7 +1039,7 @@ impl Store {
                 table.delete(&filter).await.map_err(backend_error)?;
             }
             Ok(deleted)
-        })
+        }))
     }
 
     /// Remove only a still-private row of the capture turn named by its durable plan.
@@ -1029,6 +1064,7 @@ impl Store {
             table.delete(&filter).await.map_err(backend_error)?;
             Ok(())
         })?;
+        self.maintain_lexical(Ok(()))?;
         if self.get(id)?.is_some() {
             return Err(StoreError::Corrupt);
         }
@@ -1067,14 +1103,14 @@ impl Store {
              AND (memoryClass IS NULL OR memoryClass != 'core')"
         );
         let table = self.table.clone();
-        self.executor.run(async move {
+        self.maintain_lexical(self.executor.run(async move {
             let count = table
                 .count_rows(Some(filter.clone()))
                 .await
                 .map_err(backend_error)?;
             table.delete(&filter).await.map_err(backend_error)?;
             Ok(count)
-        })
+        }))
     }
     /// Share the pin's five-minute purge throttle across handles for the same physical database.
     pub fn purge_expired_throttled(&self, now: i64) -> Result<usize, StoreError> {

@@ -21,6 +21,7 @@ pub mod dedupe;
 pub mod filter;
 /// Provider ACL, rerank, budget, dedupe and the final ACL re-assert.
 pub mod finalise;
+pub mod fusion;
 /// Associative spread and Lance hydration relevance.
 pub mod graph;
 /// Counter-mode hash vectors shared with the stage recorder.

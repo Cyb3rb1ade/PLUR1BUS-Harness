@@ -37,9 +37,16 @@ mod recall_render;
 mod recall_render_boundaries;
 #[path = "../recall_rerank.rs"]
 mod recall_rerank;
+#[path = "../recall_sources.rs"]
+mod recall_sources;
 #[path = "../recall_stages.rs"]
 mod recall_stages;
 #[path = "../recall_stats_render.rs"]
 mod recall_stats_render;
 #[path = "../recall_tombstone_mask.rs"]
 mod recall_tombstone_mask;
+#[path = "../text_analyzer.rs"]
+mod text_analyzer;
+
+#[path = "../lexical_bakeoff.rs"]
+mod lexical_bakeoff;

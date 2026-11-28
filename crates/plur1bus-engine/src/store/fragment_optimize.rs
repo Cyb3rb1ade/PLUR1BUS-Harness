@@ -185,6 +185,14 @@ impl Store {
         if self.writable().is_err() {
             return OptimizeRun::Failed;
         }
+        let lexical_path = if self.path.join("_lexical.lance").exists() {
+            let Ok(path) = self.lexical_path() else {
+                return OptimizeRun::Failed;
+            };
+            Some(path)
+        } else {
+            None
+        };
         let table = self.table.clone();
         let cancel = cancel.clone();
         let plan = plan.clone();
@@ -199,24 +207,32 @@ impl Store {
                         .saturating_duration_since(Instant::now())
                         .max(ATTEMPT_FLOOR);
                 let work = async {
-                    table
-                        .optimize(lancedb::table::OptimizeAction::Compact {
-                            options: Default::default(),
-                            remap_options: None,
-                        })
-                        .await?;
-                    table
-                        .optimize(lancedb::table::OptimizeAction::Prune {
-                            older_than: Some(older_than),
-                            delete_unverified: None,
-                            error_if_tagged_old_versions: None,
-                        })
-                        .await?;
-                    table
-                        .optimize(lancedb::table::OptimizeAction::Index(
-                            lancedb::table::OptimizeOptions::default(),
-                        ))
-                        .await?;
+                    let lexical = if let Some(path) = &lexical_path {
+                        let db = lancedb::connect(path).execute().await?;
+                        Some(db.open_table("_lexical").execute().await?)
+                    } else {
+                        None
+                    };
+                    for table in std::iter::once(&table).chain(lexical.as_ref()) {
+                        table
+                            .optimize(lancedb::table::OptimizeAction::Compact {
+                                options: Default::default(),
+                                remap_options: None,
+                            })
+                            .await?;
+                        table
+                            .optimize(lancedb::table::OptimizeAction::Prune {
+                                older_than: Some(older_than),
+                                delete_unverified: None,
+                                error_if_tagged_old_versions: None,
+                            })
+                            .await?;
+                        table
+                            .optimize(lancedb::table::OptimizeAction::Index(
+                                lancedb::table::OptimizeOptions::default(),
+                            ))
+                            .await?;
+                    }
                     Ok::<(), lancedb::Error>(())
                 };
                 let error = match bounded(work, &cancel, attempt_deadline).await {

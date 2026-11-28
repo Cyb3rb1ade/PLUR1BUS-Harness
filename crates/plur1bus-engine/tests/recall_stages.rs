@@ -383,6 +383,7 @@ fn limits_of(scenario: &Value) -> StageLimits {
 
 fn flags_of(scenario: &Value) -> StageFlags {
     StageFlags {
+        hybrid: false,
         canonical: scenario["knowledge"].is_object(),
         associative: scenario["associativeEnabled"].as_bool().unwrap(),
         defer_final_cap: scenario["deferFinalCap"].as_bool().unwrap(),

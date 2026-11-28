@@ -96,6 +96,9 @@ testkit = []
 real-models = []
 
 [dependencies]
+frostem = { version = "=1.20260804.0", default-features = false, features = ["english", "german"] }
+unicode-casefold = "=0.2.0"
+unicode-segmentation = "1"
 serde.workspace = true
 serde_json.workspace = true
 clap.workspace = true

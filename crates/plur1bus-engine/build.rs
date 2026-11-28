@@ -407,6 +407,7 @@ fn main() {
         "schema/engine-contract.schema.json",
         "schema/engine-config.schema.json",
         "schema/native-neo-n1.schema.json",
+        "schema/native-recall-hybrid.schema.json",
         "schema/DRIFT.json",
         "schema/input-limits.json",
     ] {
@@ -459,6 +460,11 @@ fn main() {
     {
         install_field(&mut config, &format!("neo.{name}"), field.clone());
     }
+    install_field(
+        &mut config,
+        "recall.hybridEnabled",
+        read("schema/native-recall-hybrid.schema.json"),
+    );
     generate(config, true, "engine_config.rs");
     let limits = read("schema/input-limits.json");
     let constants = limits.as_object().expect("input limits").iter().map(|(name, value)| {
