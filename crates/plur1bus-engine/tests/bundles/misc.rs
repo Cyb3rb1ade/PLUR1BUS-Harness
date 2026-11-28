@@ -109,3 +109,5 @@ fn every_test_file_is_built() {
         "mounted or named, but no such file: {missing:?}"
     );
 }
+#[path = "../group_reasoning_filter.rs"]
+mod group_reasoning_filter;

@@ -16,6 +16,7 @@ pub mod config;
 pub mod context;
 pub mod contract;
 pub mod embedding;
+pub mod group_reasoning_filter;
 pub mod jobs;
 pub mod media;
 pub mod neo;
