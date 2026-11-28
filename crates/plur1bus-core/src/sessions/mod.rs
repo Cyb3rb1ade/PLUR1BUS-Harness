@@ -56,8 +56,10 @@ mod maintenance_vectors;
 mod rewind_git_tests;
 #[cfg(test)]
 mod rewind_service_tests;
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod rewind_support;
+#[cfg(test)]
+mod rewind_test_store;
 #[cfg(test)]
 mod rewind_tests;
 #[cfg(test)]

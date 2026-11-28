@@ -671,7 +671,7 @@ impl PathFs for RealFs {
                 append: flags.append,
                 create_new: flags.create,
             };
-            super::fs_windows::open_leaf(&below(d, leaf), how).map_err(|e| win_error(&e))
+            super::fs_windows::open_leaf(below(d, leaf), how).map_err(|e| win_error(&e))
         }
     }
 
@@ -853,7 +853,7 @@ impl PathFs for RealFs {
         }
         #[cfg(not(unix))]
         {
-            let i = super::fs_windows::lstat(&below(d, leaf)).map_err(|e| win_error(&e))?;
+            let i = super::fs_windows::lstat(below(d, leaf)).map_err(|e| win_error(&e))?;
             Ok(entry_meta(win_stat(&i), 0))
         }
     }

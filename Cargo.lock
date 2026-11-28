@@ -4412,7 +4412,6 @@ dependencies = [
 [[package]]
 name = "lance-linalg"
 version = "2.0.0"
-source = "git+https://github.com/Cyb3rb1ade/lance?rev=7dfd9ede65693027db8852159587d24e157ee0c6#7dfd9ede65693027db8852159587d24e157ee0c6"
 dependencies = [
  "arrow-array",
  "arrow-buffer",

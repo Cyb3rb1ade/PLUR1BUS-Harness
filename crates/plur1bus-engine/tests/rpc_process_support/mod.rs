@@ -341,6 +341,10 @@ impl RawConnection {
             lines.push_str(&request.to_string());
             lines.push('\n');
         }
+        self.send_lines(&lines);
+    }
+
+    pub fn send_lines(&mut self, lines: &str) {
         let stream = self.reader.get_mut();
         stream.write_all(lines.as_bytes()).unwrap();
         stream.flush().unwrap();

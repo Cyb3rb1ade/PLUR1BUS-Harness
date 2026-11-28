@@ -14,6 +14,7 @@ on:
       - Cargo.lock
       - rust-toolchain.toml
       - crates/**
+      - vendor/lance-linalg/**
       - packages/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -30,6 +31,7 @@ on:
       - Cargo.lock
       - rust-toolchain.toml
       - crates/**
+      - vendor/lance-linalg/**
       - packages/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -77,9 +79,11 @@ jobs:
             --provenance=false --sbom=false \
             .
           docker image inspect --format '{{.Id}}' "$IMAGE" | tee image-id.txt
+          LC_ALL=C lscpu | awk -F: '/^(Vendor ID|Model name|CPU family|Model):/ { print }' > image-build-cpu.txt
           docker image inspect --format '{{range .RootFS.Layers}}{{println .}}{{end}}' "$IMAGE" > image-layers.txt
           docker run --rm --entrypoint sh "$IMAGE" -c 'cd /opt/plur1bus/core && find . -print0 | LC_ALL=C sort -z | xargs -0 stat -c "%n %F %a %u:%g %Y %s" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum' > core-files.txt
           docker run --rm --entrypoint sh "$IMAGE" -c 'stat -c "%n %F %a %u:%g %Y %s" /usr/local/bin/plur1bus && sha256sum /usr/local/bin/plur1bus' > cli-file.txt
+          docker run --rm --entrypoint sh "$IMAGE" -c 'stat -c "%n %F %a %u:%g %Y %s" /usr/local/bin/plur1bus-engine && sha256sum /usr/local/bin/plur1bus-engine' > engine-file.txt
       - name: smoke test
         run: scripts/container-smoke.sh "$IMAGE"
         timeout-minutes: 12
@@ -98,6 +102,8 @@ jobs:
             image-layers.txt
             core-files.txt
             cli-file.txt
+            engine-file.txt
+            image-build-cpu.txt
       - name: size
         run: |
           set -euo pipefail
@@ -114,11 +120,9 @@ jobs:
           if [ "$gz_mb" -gt "$SIZE_TARGET_MB" ]; then echo "::warning::compressed image ${gz_mb} MB exceeds the ${SIZE_TARGET_MB} MB target"; fi
 
   reproducible:
-    # Informational until a green run shows a stable digest on the runner: a second, cache-less build from the same commit
-    # must give the same image id (base images by digest, --locked/--frozen-lockfile, SOURCE_DATE_EPOCH, rewrite-timestamp).
+    # The second runner reproduces the full image, including the native engine. Both builds pin their inputs.
     needs: build
     runs-on: ubuntu-24.04
-    continue-on-error: true
     timeout-minutes: 60
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
@@ -140,6 +144,10 @@ jobs:
           second="$(docker image inspect --format '{{.Id}}' "$IMAGE")"
           first="$(cat image-id.txt)"
           echo "first : $first"; echo "second: $second"
+          echo "First build CPU:"
+          cat image-build-cpu.txt
+          echo "Second build CPU:"
+          LC_ALL=C lscpu | awk -F: '/^(Vendor ID|Model name|CPU family|Model):/ { print }'
           if [ "$first" != "$second" ]; then
             docker image inspect --format '{{range .RootFS.Layers}}{{println .}}{{end}}' "$IMAGE" > second-layers.txt
             echo "layers that differ (first vs second):"; diff image-layers.txt second-layers.txt || true
@@ -147,6 +155,8 @@ jobs:
             echo "files of /opt/plur1bus/core that differ (first vs second):"; diff core-files.txt second-core-files.txt | head -100 || true
             docker run --rm --entrypoint sh "$IMAGE" -c 'stat -c "%n %F %a %u:%g %Y %s" /usr/local/bin/plur1bus && sha256sum /usr/local/bin/plur1bus' > second-cli-file.txt
             echo "CLI metadata and checksum (first vs second):"; diff cli-file.txt second-cli-file.txt || true
+            docker run --rm --entrypoint sh "$IMAGE" -c 'stat -c "%n %F %a %u:%g %Y %s" /usr/local/bin/plur1bus-engine && sha256sum /usr/local/bin/plur1bus-engine' > second-engine-file.txt
+            echo "Engine metadata and checksum (first vs second):"; diff engine-file.txt second-engine-file.txt || true
             docker history --no-trunc --format '{{.Size}}\t{{.CreatedBy}}' "$IMAGE" | cut -c1-140
           fi
           [ "$first" = "$second" ] || { echo "::warning::the two builds differ (not bit-reproducible yet)"; exit 1; }

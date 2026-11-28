@@ -185,9 +185,10 @@ fn a_held_gate_costs_one_wait_per_run_not_one_per_id() {
         elapsed >= wait,
         "the first id waited for the gate: {elapsed:?}"
     );
-    assert!(
-        elapsed < 2 * wait,
-        "one gate wait per run, took {elapsed:?}"
+    assert_eq!(
+        fixture.gate.mutation_wait_entries(),
+        1,
+        "one gate wait per run"
     );
     assert_eq!(errors(&report), json!(all("busy")));
     drop(held);

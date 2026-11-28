@@ -259,6 +259,9 @@ fn method_fixture(name: &str, f: &Value) {
             EngineAdminReembeddingCheckpointPutResult,
         >(name, f),
         "engine.dreams.diary" => pair::<EngineDreamsDiaryParams, EngineDreamsDiaryResult>(name, f),
+        "engine.dreams.import" => {
+            pair::<EngineDreamsImportParams, EngineDreamsImportResult>(name, f)
+        }
         "engine.dreams.log" => pair::<EngineDreamsLogParams, EngineDreamsLogResult>(name, f),
         "engine.dreams.run" => pair::<EngineDreamsRunParams, EngineDreamsRunResult>(name, f),
         "engine.dreams.schedule" => {
