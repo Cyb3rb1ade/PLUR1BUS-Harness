@@ -197,7 +197,16 @@ impl CapturePipeline {
     }
 
     fn store(&self, context: &RequestContext) -> Result<Arc<Store>, EngineError> {
-        let store = self.stores.get(context.agent_id.as_str())?;
+        #[cfg(test)]
+        crate::capture::isolation_probe::event(&self.base_db, "Lance pool requested", "");
+        let store = self.stores.get(context.agent_id.as_str());
+        #[cfg(test)]
+        crate::capture::isolation_probe::event(
+            &self.base_db,
+            "Lance pool returned",
+            format_args!("{:?}", store.as_ref().err()),
+        );
+        let store = store?;
         let expected = self.embedder.identity();
         if let Some(actual) = store.identity() {
             if identity_id(actual)? != identity_id(expected)? {

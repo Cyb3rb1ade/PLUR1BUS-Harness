@@ -127,7 +127,11 @@ impl StorePool {
         create_missing: bool,
     ) -> Result<Arc<Store>, StoreError> {
         let path = self.agent_path(agent_id)?;
+        #[cfg(test)]
+        crate::capture::isolation_probe::event(&self.base, "Lance pool mutex requested", "");
         let mut cache = self.cache.lock().map_err(|_| StoreError::Unavailable)?;
+        #[cfg(test)]
+        crate::capture::isolation_probe::event(&self.base, "Lance pool mutex acquired", "");
         self.check_base(&mut cache)?;
         cache.clock = cache.clock.saturating_add(1);
         let used = cache.clock;

@@ -6,7 +6,7 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: 4b3c965dc05fc91562b22243aae37c326a24d3c5e8c6a83821bec84f9f3730f0
-Cargo.lock: f6234c3f606fff6ef5ccf57e515331ce9fefe365fee916c742dc9fd21a14b116
+Cargo.lock: ece655cc373c303a98fb7cbb9c360ed8bcf359862e1c4d689556933a77ba0c7d
 apps/desktop/Cargo.lock: b03303bdf16ec6ab57ae3fd0c4d9f6756e9a4c36be1b3ab7a940d365d546f992
 ```
 
@@ -506,7 +506,7 @@ apps/desktop/Cargo.lock: b03303bdf16ec6ab57ae3fd0c4d9f6756e9a4c36be1b3ab7a940d36
 | cargo | lance-geo | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
 | cargo | lance-index | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
 | cargo | lance-io | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
-| cargo | lance-linalg | 2.0.0 | Apache-2.0 |  |
+| cargo | lance-linalg | 2.0.0 | Apache-2.0 | The Lance Authors |
 | cargo | lance-namespace-impls | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |
 | cargo | lance-namespace-reqwest-client | 0.4.5 | Apache-2.0 | OpenAPI Generator team and contributors |
 | cargo | lance-namespace | 2.0.0 | Apache-2.0 | Lance Devs <dev@lance.org> |

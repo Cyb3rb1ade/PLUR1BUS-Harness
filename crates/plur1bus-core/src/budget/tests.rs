@@ -253,7 +253,7 @@ fn the_store_is_migrated_persists_across_reopen_and_is_owner_only() {
     let r = rig();
     r.svc.record_usage(&ev("a1", "m-small", 7, 3)).unwrap();
     r.svc.set_time_zone("Europe/Berlin").unwrap();
-    let (path, clock) = (r.path.clone(), r.clock.clone());
+    let clock = r.clock;
     let dir = r.dir;
     drop(r.svc);
     // The mode bits are a Unix fact; on Windows the file inherits the ACL of the state directory.
@@ -261,11 +261,11 @@ fn the_store_is_migrated_persists_across_reopen_and_is_owner_only() {
     {
         use std::os::unix::fs::PermissionsExt;
         assert_eq!(
-            std::fs::metadata(&path).unwrap().permissions().mode() & 0o077,
+            std::fs::metadata(&r.path).unwrap().permissions().mode() & 0o077,
             0
         );
         assert_eq!(
-            std::fs::metadata(path.parent().unwrap())
+            std::fs::metadata(r.path.parent().unwrap())
                 .unwrap()
                 .permissions()
                 .mode()

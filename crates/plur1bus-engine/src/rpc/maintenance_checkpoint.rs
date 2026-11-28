@@ -48,7 +48,7 @@ impl CheckpointStore {
             return Err(StoreError::Corrupt);
         }
         let checkpoint: Value = serde_json::from_slice(&bytes).map_err(|_| StoreError::Corrupt)?;
-        if checkpoint["v"].as_u64() != Some(1) {
+        if !valid_checkpoint(&checkpoint) {
             return Err(StoreError::Corrupt);
         }
         Ok((Some(revision(&bytes)), checkpoint))
@@ -65,21 +65,32 @@ impl CheckpointStore {
         expected: Option<&str>,
         checkpoint: &Value,
         cancel: &Cancel,
-    ) -> Result<Value, EngineError> {
+    ) -> Result<(String, bool), EngineError> {
         let bytes = serde_json::to_vec(checkpoint)
             .map_err(|_| checkpoint_error(&StoreError::InvalidInput))?;
-        if checkpoint["v"].as_u64() != Some(1) || bytes.len() as u64 > LIMIT {
+        if !valid_checkpoint(checkpoint) || bytes.len() as u64 > LIMIT {
             return Err(checkpoint_error(&StoreError::InvalidInput));
         }
+        let next = revision(&bytes);
         let _writer = self
             .writer
             .lock()
             .map_err(|_| checkpoint_error(&StoreError::Unavailable))?;
         let (current, _) = self.read().map_err(|error| checkpoint_error(&error))?;
+        if crate::rpc::seams::fixture_step("checkpoint-replay")
+            && current.as_deref() == Some(next.as_str())
+        {
+            // The process fixture models revocation after the read, while the
+            // peer remains available to observe the worker's refusal.
+            cancel.cancel();
+        }
+        grant.check(cancel)?;
+        if current.as_deref() == Some(next.as_str()) {
+            return Ok((next, false));
+        }
         if current.as_deref() != expected {
             return Err(checkpoint_error(&StoreError::Busy));
         }
-        grant.check(cancel)?;
         let anchor =
             TrustedDirectory::open(&self.state).map_err(|error| checkpoint_error(&error))?;
         let directory = anchor
@@ -92,8 +103,12 @@ impl CheckpointStore {
             .map_err(|error| checkpoint_error(&error))?;
         grant.check(cancel)?;
         atomic_write(&path, &bytes).map_err(|_| checkpoint_error(&StoreError::Unavailable))?;
-        Ok(json!({"revision": revision(&bytes)}))
+        Ok((next, true))
     }
+}
+
+fn valid_checkpoint(value: &Value) -> bool {
+    value["v"].as_u64() == Some(1) && value["id"].is_string()
 }
 
 fn revision(bytes: &[u8]) -> String {
@@ -119,6 +134,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn checkpoint_rejects_unknown_versions_on_write_and_on_reopen() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().canonicalize().unwrap();
+        let store = CheckpointStore::new(state.clone());
+        let grant = MaintenanceGrant::for_test(Cancel::never());
+        let future = json!({"v":2,"id":"future"});
+        let file = state.join(DIRECTORY).join(FILE);
+        assert!(matches!(store.put(&grant, None, &future, &Cancel::never()),
+            Err(EngineError::Invalid { message, .. }) if message == "reembedding checkpoint input is invalid"));
+        assert!(!file.exists());
+        fs::create_dir(state.join(DIRECTORY)).unwrap();
+        fs::write(&file, future.to_string()).unwrap();
+        assert!(matches!(store.get(),
+            Err(EngineError::Invalid { message, .. }) if message == "reembedding checkpoint is invalid"));
+    }
+
+    #[test]
     fn legacy_checkpoint_is_read_and_a_stale_writer_cannot_replace_it() {
         let root = tempfile::tempdir().unwrap();
         let state = root.path().canonicalize().unwrap();
@@ -137,6 +169,7 @@ mod tests {
         assert!(store.put(&grant, old_revision, &old, &cancel).is_err());
         let reopened = CheckpointStore::new(state).get().unwrap();
         assert_eq!(reopened["checkpoint"], changed);
-        assert_eq!(reopened["revision"], written["revision"]);
+        assert!(written.1);
+        assert_eq!(reopened["revision"], written.0);
     }
 }
