@@ -102,7 +102,7 @@ pub(super) fn send(
     check(window)?;
     // From here the write may reach the peer even when there is no reply.
     grant.mark_attempted();
-    let (response, signal) = run(pin, window, request)?;
+    let (response, signal) = run(pin, window, request, None)?;
     if response
         .headers()
         .get_all(header::CONTENT_ENCODING)
@@ -118,12 +118,14 @@ pub(crate) fn run(
     pin: SocketAddr,
     window: Window<'_>,
     request: Request<&[u8]>,
+    body_timeout: Option<std::time::Duration>,
 ) -> Result<(Response<ureq::Body>, HttpCancellation), Error> {
     let transport_deadline = window.deadline;
     let config = ureq::config::Config::builder()
         .proxy(None)
         .max_redirects(0)
         .max_idle_connections(0)
+        .timeout_recv_body(body_timeout)
         .max_response_header_size(16 * 1024)
         .http_status_as_error(false)
         .timeout_global(Some(
