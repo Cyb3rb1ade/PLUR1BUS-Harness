@@ -168,19 +168,17 @@ pub(crate) use unix::UnixConnector;
 
 #[cfg(unix)]
 mod unix {
-    use crate::transport::{await_connect, socket_error, SocketDeadline, SocketTransport};
+    use crate::transport::{
+        await_connect, socket_error, HttpCancellation, SocketDeadline, SocketTransport,
+    };
     use std::os::fd::OwnedFd;
     use std::os::unix::net::UnixStream;
     use std::path::PathBuf;
-    use std::sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    };
     use std::time::{Duration, Instant};
     use ureq::unversioned::transport::{ConnectionDetails, Connector};
 
     #[derive(Debug)]
-    pub(crate) struct UnixConnector(pub PathBuf, pub SocketDeadline, pub Arc<AtomicBool>);
+    pub(crate) struct UnixConnector(pub PathBuf, pub SocketDeadline, pub HttpCancellation);
 
     impl Connector for UnixConnector {
         type Out = SocketTransport;
@@ -197,7 +195,7 @@ mod unix {
             await_connect(
                 &mut stream,
                 deadline,
-                &|| self.2.load(Ordering::Acquire),
+                &|| self.2.cancelled(),
                 |stream| match stream.take_error()? {
                     Some(error) => Err(error),
                     None => stream.peer_addr().map(|_| ()),
@@ -206,9 +204,12 @@ mod unix {
             .map_err(|error| socket_error(error, timeout))?;
             let stream: UnixStream = stream.into();
             stream.set_nonblocking(false)?;
-            let mut transport = SocketTransport::new(OwnedFd::from(stream).into(), details, self.1);
-            transport.cancelled = Some(self.2.clone());
-            Ok(Some(transport))
+            Ok(Some(SocketTransport::new(
+                OwnedFd::from(stream).into(),
+                details,
+                self.1,
+                Some(self.2.clone()),
+            )?))
         }
     }
 }

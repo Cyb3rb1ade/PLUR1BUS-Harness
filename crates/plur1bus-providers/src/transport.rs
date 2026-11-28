@@ -7,10 +7,10 @@ use serde_json::Value;
 use socket2::Socket;
 use std::fmt;
 use std::io::{self, Read, Write};
-use std::net::{IpAddr, SocketAddr, TcpStream};
+use std::net::{IpAddr, Shutdown, SocketAddr, TcpStream};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    mpsc, Arc,
+    mpsc, Arc, Mutex, Weak,
 };
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
@@ -157,8 +157,7 @@ impl Resolver for Pin {
 struct PinnedTcp {
     address: SocketAddr,
     deadline: SocketDeadline,
-    cancelled: Option<Arc<AtomicBool>>,
-    write_idle: Option<WriteIdle>,
+    signal: Option<HttpCancellation>,
 }
 
 impl Connector for PinnedTcp {
@@ -171,18 +170,18 @@ impl Connector for PinnedTcp {
     ) -> std::result::Result<Option<Self::Out>, ureq::Error> {
         let timeout = self.deadline.bound(details.timeout)?;
         let deadline = (Instant::now() + *timeout.after).min(self.deadline.0);
-        let stream = match self.cancelled.as_deref() {
-            Some(cancelled) => connect_pinned_tcp(self.address, deadline, &|| {
-                cancelled.load(Ordering::Acquire)
-            }),
+        let stream = match &self.signal {
+            Some(signal) => connect_pinned_tcp(self.address, deadline, &|| signal.cancelled()),
             None => TcpStream::connect_timeout(&self.address, *timeout.after),
         }
         .map_err(|error| socket_error(error, timeout))?;
         stream.set_nodelay(details.config.no_delay())?;
-        let mut transport = SocketTransport::new(stream.into(), details, self.deadline);
-        transport.cancelled = self.cancelled.clone();
-        transport.write_idle = self.write_idle.clone();
-        Ok(Some(transport))
+        Ok(Some(SocketTransport::new(
+            stream.into(),
+            details,
+            self.deadline,
+            self.signal.clone(),
+        )?))
     }
 }
 
@@ -204,8 +203,7 @@ fn pinned_agent(
     let connector = PinnedTcp {
         address: pin,
         deadline: SocketDeadline(deadline),
-        cancelled: signal.map(|s| s.flag.clone()),
-        write_idle: signal.and_then(|s| s.write_idle.clone()),
+        signal: signal.cloned(),
     }
     .chain(RustlsConnector::default());
     ureq::Agent::with_parts(config, connector, Pin(pin))
@@ -230,8 +228,14 @@ pub fn with_pinned_http_cancellation<T: Send>(
 /// wire exchange and stays cancelled once triggered.
 #[derive(Clone, Debug, Default)]
 pub struct HttpCancellation {
-    flag: Arc<AtomicBool>,
+    state: Arc<CancellationState>,
     write_idle: Option<WriteIdle>,
+}
+
+#[derive(Debug, Default)]
+struct CancellationState {
+    cancelled: AtomicBool,
+    sockets: Mutex<Vec<Weak<Socket>>>,
 }
 
 #[derive(Clone, Debug)]
@@ -266,11 +270,27 @@ impl HttpCancellation {
     }
 
     pub fn cancelled(&self) -> bool {
-        self.flag.load(Ordering::Acquire)
+        self.state.cancelled.load(Ordering::Acquire)
     }
 
     pub fn cancel(&self) {
-        self.flag.store(true, Ordering::Release);
+        let mut sockets = self.state.sockets.lock().unwrap_or_else(|e| e.into_inner());
+        self.state.cancelled.store(true, Ordering::Release);
+        for connected in sockets.drain(..).filter_map(|weak| weak.upgrade()) {
+            let _ = connected.shutdown(Shutdown::Both);
+        }
+    }
+
+    fn register(&self, connected: &Arc<Socket>) -> io::Result<()> {
+        let mut sockets = self.state.sockets.lock().unwrap_or_else(|e| e.into_inner());
+        if self.cancelled() {
+            return Err(io::ErrorKind::ConnectionAborted.into());
+        }
+        // An agent can open more than one connection with this signal. Only live sockets
+        // need waking, and registration must not extend a connection's lifetime.
+        sockets.retain(|socket| socket.strong_count() != 0);
+        sockets.push(Arc::downgrade(connected));
+        Ok(())
     }
 
     /// Read a streaming HTTP body on demand while sampling cancellation on
@@ -506,11 +526,10 @@ impl SocketDeadline {
 
 #[derive(Debug)]
 pub(crate) struct SocketTransport {
-    socket: Socket,
+    socket: Arc<Socket>,
     buffers: LazyBuffers,
     deadline: SocketDeadline,
-    pub(crate) cancelled: Option<Arc<AtomicBool>>,
-    write_idle: Option<WriteIdle>,
+    signal: Option<HttpCancellation>,
 }
 
 impl SocketTransport {
@@ -518,17 +537,21 @@ impl SocketTransport {
         socket: Socket,
         details: &ConnectionDetails<'_>,
         deadline: SocketDeadline,
-    ) -> Self {
-        Self {
+        signal: Option<HttpCancellation>,
+    ) -> io::Result<Self> {
+        let socket = Arc::new(socket);
+        if let Some(signal) = &signal {
+            signal.register(&socket)?;
+        }
+        Ok(Self {
             socket,
             buffers: LazyBuffers::new(
                 details.config.input_buffer_size(),
                 details.config.output_buffer_size(),
             ),
             deadline,
-            cancelled: None,
-            write_idle: None,
-        }
+            signal,
+        })
     }
 }
 
@@ -548,11 +571,11 @@ impl Transport for SocketTransport {
             &self.buffers.output()[..amount],
             deadline,
             timeout,
-            self.cancelled.as_deref(),
-            self.write_idle.as_ref(),
+            self.signal.as_ref().map(|s| &s.state.cancelled),
+            self.signal.as_ref().and_then(|s| s.write_idle.as_ref()),
             |data, slice| {
                 self.socket.set_write_timeout(Some(slice))?;
-                self.socket.write(data)
+                self.socket.as_ref().write(data)
             },
         )
     }
@@ -561,12 +584,20 @@ impl Transport for SocketTransport {
         let timeout = self.deadline.bound(timeout)?;
         let deadline = (Instant::now() + *timeout.after).min(self.deadline.0);
         let amount = loop {
-            let slice = io_budget(deadline, self.cancelled.as_deref())
+            let slice = io_budget(deadline, self.signal.as_ref().map(|s| &s.state.cancelled))
                 .map_err(|error| socket_error(error, timeout))?;
             self.socket.set_read_timeout(Some(slice))?;
-            match self.socket.read(self.buffers.input_append_buf()) {
+            let read = self.socket.as_ref().read(self.buffers.input_append_buf());
+            if self
+                .signal
+                .as_ref()
+                .is_some_and(HttpCancellation::cancelled)
+            {
+                return Err(io::Error::from(io::ErrorKind::ConnectionAborted).into());
+            }
+            match read {
                 Ok(amount) => break amount,
-                Err(error) if self.cancelled.is_some() && io_would_wait(&error) => {}
+                Err(error) if self.signal.is_some() && io_would_wait(&error) => {}
                 Err(error) => return Err(socket_error(error, timeout)),
             }
         };
@@ -1155,7 +1186,7 @@ impl Adapter {
         #[cfg(unix)]
         if let Some(socket) = &self.managed {
             let connector =
-                local::UnixConnector(socket.path().to_owned(), deadline, signal.flag.clone())
+                local::UnixConnector(socket.path().to_owned(), deadline, signal.clone())
                     .chain(idle);
             return Ok((
                 ureq::Agent::with_parts(config, connector, Pin(pin)),
@@ -1165,8 +1196,7 @@ impl Adapter {
         let connector = PinnedTcp {
             address: pin,
             deadline,
-            cancelled: Some(signal.flag.clone()),
-            write_idle: signal.write_idle.clone(),
+            signal: Some(signal.clone()),
         }
         .chain(RustlsConnector::default())
         .chain(idle);
@@ -1310,6 +1340,43 @@ fn io_failure(error: &ureq::Error, ports: &dyn Ports, phase: TimeoutPhase) -> Pr
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cancelling_an_http_exchange_closes_its_connected_socket() {
+        use std::io::{BufRead, BufReader};
+        use std::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let peer = listener.local_addr().unwrap();
+        thread::scope(|scope| {
+            let server = scope.spawn(move || {
+                let (mut socket, _) = listener.accept().unwrap();
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                let mut input = BufReader::new(&socket);
+                let mut line = String::new();
+                loop {
+                    line.clear();
+                    assert_ne!(input.read_line(&mut line).unwrap(), 0);
+                    if line == "\r\n" {
+                        break;
+                    }
+                }
+                socket
+                    .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\n")
+                    .unwrap();
+                socket.read(&mut [0])
+            });
+            let signal = HttpCancellation::default();
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let agent = signal.pinned_agent(ureq::Agent::config_builder().build(), peer, deadline);
+            let response = agent.get(format!("http://{peer}/")).call().unwrap();
+            signal.cancel();
+            assert_eq!(server.join().unwrap().unwrap(), 0);
+            drop(response);
+        });
+    }
 
     struct FixturePort(SocketAddr, Duration);
 
@@ -1464,11 +1531,10 @@ mod tests {
         // needed: an expired call must return Global before touching the socket.
         let socket = Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None).unwrap();
         let mut transport = SocketTransport {
-            socket,
+            socket: Arc::new(socket),
             buffers: LazyBuffers::new(32, 32),
             deadline: SocketDeadline(Instant::now() - Duration::from_secs(1)),
-            cancelled: None,
-            write_idle: None,
+            signal: None,
         };
         let phase = NextTimeout {
             after: Duration::from_secs(10).into(),
