@@ -116,7 +116,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | `packages/providers` | 53 | 63 | 0 | 52 | 0 | 0 | 0 | 1 | 0 |
 | `packages/remote-access` | 20 | 26 | 0 | 0 | 0 | 0 | 0 | 20 | 0 |
 | `packages/remote-fs` | 7 | 7 | 0 | 0 | 0 | 0 | 0 | 7 | 0 |
-| `packages/rpc-schema` | 4 | 29 | 0 | 0 | 0 | 0 | 0 | 4 | 0 |
+| `packages/rpc-schema` | 4 | 30 | 0 | 0 | 0 | 0 | 0 | 4 | 0 |
 | `packages/voice-providers` | 25 | 27 | 0 | 25 | 0 | 0 | 0 | 0 | 0 |
 | `packages/webmcp` | 6 | 4 | 0 | 0 | 0 | 0 | 0 | 6 | 0 |
 
@@ -124,14 +124,14 @@ A test file with no mode carries a reason instead (test support, a package that 
 
 | Mode | Test files |
 |---|---:|
-| `V` | 555 |
+| `V` | 556 |
 | `T` | 903 |
 | `S` | 0 |
 | `W` | 414 |
 | `B` | 167 |
 | no mode, with a reason | 129 |
 | unassigned owner | 0 |
-| **all** | **1644** |
+| **all** | **1645** |
 
 Test files for mode S are the suites of `tests/system/` (29, table at the end): they run on both legs of `PLUR1BUS_CORE_IMPL`.
 
@@ -1763,6 +1763,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/rpc-schema/test/duplicate-keys.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/engine-adopt.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/engine-job-scope.test.ts` | V | 508 contract fixtures, gate G1 |
+| `packages/rpc-schema/test/engine-recall-compare.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/engine.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/explicit-values.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/extensions-auth.test.ts` | V | 508 contract fixtures, gate G1 |
