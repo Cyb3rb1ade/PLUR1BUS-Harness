@@ -2093,6 +2093,8 @@ table! {
     Result "engine.capture.wait" EngineCaptureWaitResult,
     Params "engine.capture" EngineCaptureParams,
     Result "engine.capture" EngineCaptureResult,
+    Params "engine.recall.compare" EngineRecallCompareParams,
+    Result "engine.recall.compare" EngineRecallCompareResult,
     Params "engine.recall" EngineRecallParams,
     Result "engine.recall" EngineRecallResult,
     Params "engine.shutdown" EngineShutdownParams,

@@ -104,9 +104,34 @@ impl RecallOutcome {
     }
 }
 
+/// Content-free selection captured after merge and the final committed-deletion check.
+#[derive(Default)]
+pub(crate) struct DiagnosticSelection {
+    pub candidate_count: usize,
+    pub canonical_count: usize,
+    pub ordered_ids: Vec<String>,
+    pub soft_limited: bool,
+}
+
 /// Run real namespace selection, then pure rendering. All scoped workers have settled on return.
 /// Required store errors fail closed; only a typed cancellation becomes a partial successful result.
-pub fn run(mut request: RuntimeRequest<'_>) -> Result<RecallOutcome, EngineError> {
+pub fn run(request: RuntimeRequest<'_>) -> Result<RecallOutcome, EngineError> {
+    run_inner(request, None)
+}
+
+pub(crate) fn run_diagnostic(
+    mut request: RuntimeRequest<'_>,
+    selection: &mut DiagnosticSelection,
+) -> Result<RecallOutcome, EngineError> {
+    request.ledger = None;
+    request.pipeline.flags.persist_knowledge = false;
+    run_inner(request, Some(selection))
+}
+
+fn run_inner(
+    mut request: RuntimeRequest<'_>,
+    selection: Option<&mut DiagnosticSelection>,
+) -> Result<RecallOutcome, EngineError> {
     if request.render.context != AclSubject::from_context(request.pipeline.context) {
         return Err(EngineError::Invalid {
             field: "principal".into(),
@@ -198,6 +223,18 @@ pub fn run(mut request: RuntimeRequest<'_>) -> Result<RecallOutcome, EngineError
         }
         request.render.selected.memories = kept;
     }
+    let mut selection = selection;
+    if let Some(selection) = selection.as_deref_mut() {
+        selection.candidate_count = pipeline.candidate_count();
+        selection.canonical_count = request.render.selected.canonical.len();
+        selection.ordered_ids = request
+            .render
+            .selected
+            .memories
+            .iter()
+            .filter_map(|hit| hit.entry["id"].as_str().map(str::to_owned))
+            .collect();
+    }
     request.render.config["recall"]["globalInjectMaxChars"] = json!(budget.cap_chars);
     if let Some(source) = request.pattern_source {
         request.render.patterns.clear();
@@ -223,8 +260,11 @@ pub fn run(mut request: RuntimeRequest<'_>) -> Result<RecallOutcome, EngineError
         render::render_context(&request.render, request.neo).map_err(|_| malformed())?;
     control.timer.end("render");
     control.checkpoint(false);
-    let degraded =
-        degradation(control.stopped().or_else(|| pipeline.stopped())).or(selected.result.degraded);
+    let stop = control.stopped().or_else(|| pipeline.stopped());
+    if let Some(selection) = selection {
+        selection.soft_limited = stop == Some(super::control::Stop::SoftBudget);
+    }
+    let degraded = degradation(stop).or(selected.result.degraded);
     let ledger_error = if control.cancel.is_cancelled() {
         rendered.effects = RenderEffects::default();
         None

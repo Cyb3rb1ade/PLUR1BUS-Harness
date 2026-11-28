@@ -312,6 +312,27 @@ impl Service {
         }
     }
 
+    pub(super) fn embed_uncached(
+        &self,
+        texts: &[String],
+        kind: EmbedKind,
+        cancel: &Cancel,
+    ) -> Result<Vec<Vec<f32>>, EngineError> {
+        self.open()?;
+        cancel.check()?;
+        let mut vectors = Vec::with_capacity(texts.len());
+        for batch in texts.chunks(self.options.embedding_batch_size) {
+            vectors.extend(super::batch::embed_checked(
+                self.provider.as_ref(),
+                batch,
+                kind,
+                self.width,
+                cancel,
+            )?);
+        }
+        Ok(vectors)
+    }
+
     /// The host transport envelope; no listener or token is created by this engine module.
     pub fn serve_identity_envelope(&self) -> Result<EmbeddingEnvelopeIdentity, EngineError> {
         self.open()?;

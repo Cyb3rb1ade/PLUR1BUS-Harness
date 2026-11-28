@@ -478,6 +478,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `engine.status`: experimental, since 1.7.0
 - `engine.shutdown`: experimental, since 1.7.0
 - `engine.recall`: experimental, since 1.7.0
+- `engine.recall.compare`: experimental, since 1.28.0
 - `engine.capture`: experimental, since 1.7.0
 - `engine.capture.wait`: experimental, since 1.7.0
 - `engine.capture.abort`: experimental, since 1.7.0
@@ -2214,6 +2215,114 @@ The recall operation on the memory-engine RPC endpoint.
 ```json
 {
   "$ref": "#/$defs/EngineContractRecallResultData"
+}
+```
+
+### `engine.recall.compare`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Compare three candidate pool sizes in the native Recall pipeline. Requires the verified Core link and the caller’s bound agent and workspace. Returns IDs and counts without recall or learning writes.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "query"
+  ],
+  "properties": {
+    "query": {
+      "$ref": "#/$defs/EngineContractRecallQueryData"
+    },
+    "options": {
+      "$ref": "#/$defs/EngineContractRecallOptionsData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cases"
+  ],
+  "properties": {
+    "cases": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidatePool",
+          "candidateCount",
+          "canonicalCount",
+          "elapsedMs",
+          "orderedIds",
+          "difference",
+          "degradation"
+        ],
+        "properties": {
+          "candidatePool": {
+            "type": "integer",
+            "enum": [
+              40,
+              50,
+              100
+            ]
+          },
+          "candidateCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Initial authorized candidates summed across the scanned tables."
+          },
+          "canonicalCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "elapsedMs": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Monotonic time for this pool in milliseconds. Zero when no pool is searched."
+          },
+          "orderedIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100
+          },
+          "difference": {
+            "enum": [
+              "baseline",
+              "same-order",
+              "rank-order-changed",
+              "selected-ids-changed",
+              "incomplete-comparison",
+              "no-store",
+              "memory-disabled"
+            ]
+          },
+          "degradation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
 }
 ```
 

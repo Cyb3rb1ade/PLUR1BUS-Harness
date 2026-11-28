@@ -72,6 +72,10 @@
       "stability": "experimental",
       "since": "1.7.0"
     },
+    "engine.recall.compare": {
+      "stability": "experimental",
+      "since": "1.28.0"
+    },
     "engine.capture": {
       "stability": "experimental",
       "since": "1.7.0"

@@ -386,6 +386,9 @@ fn method_fixture(name: &str, f: &Value) {
         }
         "engine.capture.wait" => pair::<EngineCaptureWaitParams, EngineCaptureWaitResult>(name, f),
         "engine.capture" => pair::<EngineCaptureParams, EngineCaptureResult>(name, f),
+        "engine.recall.compare" => {
+            pair::<EngineRecallCompareParams, EngineRecallCompareResult>(name, f)
+        }
         "engine.recall" => pair::<EngineRecallParams, EngineRecallResult>(name, f),
         "engine.shutdown" => pair::<EngineShutdownParams, EngineShutdownResult>(name, f),
         "engine.status" => pair::<EngineStatusParams, EngineStatusResult>(name, f),
