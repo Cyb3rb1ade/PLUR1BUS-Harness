@@ -1214,20 +1214,23 @@ fn every_first_write_into_a_fresh_store_base_leaves_the_current_marker() {
         let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
         let mut peer = core_peer(&engine, home.path());
         let reply = peer.call(2, method, params);
-        // A capture is accepted at once and written asynchronously.
-        let deadline = Instant::now() + Duration::from_secs(10);
-        let listing = loop {
-            let listing: Vec<String> = fs::read_dir(&base)
-                .map(|d| {
-                    d.map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
-                        .collect()
-                })
-                .unwrap_or_default();
-            if listing.iter().any(|n| n.starts_with(entry)) || Instant::now() > deadline {
-                break listing;
-            }
-            std::thread::sleep(Duration::from_millis(50));
-        };
+        if method == "engine.capture" {
+            // Admission creates the lease before the write settles. Observe the
+            // terminal RPC result before examining the completed store and stopping.
+            let id = reply["result"]["id"].as_str().expect("capture receipt");
+            peer.set_read_timeout(Duration::from_secs(10));
+            let settled = call_skipping_events(
+                &mut peer,
+                5,
+                "engine.capture.wait",
+                &json!({"id":id,"timeoutMs":9_000}),
+            );
+            assert!(settled["result"]["stored"].is_u64(), "{name}: {settled}");
+        }
+        let listing: Vec<String> = fs::read_dir(&base)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
         assert!(
             listing.iter().any(|n| n.starts_with(entry)),
             "{name}: expected {entry} in {listing:?}; {reply}"

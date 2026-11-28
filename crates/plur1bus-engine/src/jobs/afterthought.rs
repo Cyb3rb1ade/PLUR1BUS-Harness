@@ -20,7 +20,9 @@ use crate::{
     store::{directory::TrustedDirectory, kernel_lease},
     text::js::{js_trim, JsString},
 };
-use quiet_window::{eligible, quiet, CHUNK_CHARS, MAX_REQUEST, MAX_SUMMARY, RECENT_CHARS};
+use quiet_window::{
+    eligible, quiet, CHUNK_CHARS, MAX_DELAY, MAX_REQUEST, MAX_SUMMARY, MIN_DELAY, RECENT_CHARS,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -60,11 +62,36 @@ struct State {
 struct Session {
     session_id: String,
     completed_at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    schedule: Option<Schedule>,
     reflected_revision: String,
     reflected_cursor: String,
     reflected_at: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     delivery_intent: Option<Intent>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Schedule {
+    generation: String,
+    due_at: i64,
+}
+
+impl Schedule {
+    fn draw(generation: String, completed_at: i64) -> Result<Self, StoreError> {
+        let random = getrandom::u64().map_err(|_| StoreError::Unavailable)?;
+        let range = (MAX_DELAY - MIN_DELAY + 1) as u64;
+        let offset = ((u128::from(random) * u128::from(range)) >> 64) as i64;
+        let due_at = completed_at
+            .checked_add(MIN_DELAY + offset)
+            .ok_or(StoreError::InvalidInput)?;
+        Ok(Self { generation, due_at })
+    }
+
+    fn ready(&self, completed_at: i64, now: i64) -> bool {
+        eligible(completed_at, now) && now >= self.due_at
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -114,25 +141,12 @@ impl JobBody for Afterthought {
         {
             return Ok(report(JobOutcome::Skipped, "disabled"));
         }
-        let Some(route) = JobCompletion::resolve(
-            authority,
-            self.completion.as_deref(),
-            host.clone(),
-            &config,
-            "afterthought",
-            settings,
-        ) else {
-            return Ok(report(JobOutcome::Skipped, "no_llm_route"));
-        };
         let zone = settings["timezone"]
             .as_str()
             .or(config["timezone"].as_str())
             .and_then(|zone| zone.parse().ok())
             .unwrap_or(chrono_tz::UTC);
         let now = context.now_ms;
-        if quiet(now, zone) {
-            return Ok(report(JobOutcome::Skipped, "quiet_hours"));
-        }
         let journal =
             match CaptureJournal::open(&self.root, host.clone(), self.scope.policy.clone()) {
                 Ok(journal) => journal,
@@ -157,12 +171,9 @@ impl JobBody for Afterthought {
             &check,
             |turns, _, _| Ok(turns),
         )?;
-        let Some(last) = turns.first().filter(|turn| turn.role == "assistant") else {
+        let Some(last) = turns.first() else {
             return Ok(report(JobOutcome::Skipped, "no_candidate"));
         };
-        if !eligible(last.timestamp, now) {
-            return Ok(report(JobOutcome::Skipped, "outside_idle_window"));
-        }
         let binding = private_key(authority.request()).ok_or(StoreError::InvalidInput)?;
         let dir = TrustedDirectory::open(&self.base)?
             .create_child("_reflection")?
@@ -184,18 +195,117 @@ impl JobBody for Afterthought {
         }
         let session_key = format!("{:x}", Sha256::digest(last.session.to_json().as_bytes()));
         let revision = revision(&turns, last);
+        let persist = |state: &State,
+                       previous: Option<&[u8]>,
+                       due_at: Option<i64>|
+         -> Result<Vec<u8>, EngineError> {
+            let bytes = serde_json::to_vec(state).map_err(|_| StoreError::Corrupt)?;
+            if bytes.len() > MAX_STATE {
+                return Err(StoreError::Unavailable.into());
+            }
+            let _mutation = self.scope.operations.mutation()?;
+            job_turns::with_conversation_turns(
+                &journal,
+                authority,
+                host.now_ms(),
+                cancel,
+                &check,
+                |current, _, check| {
+                    if current.first().is_none_or(|item| {
+                        item != last || revision != self::revision(&current, item)
+                    }) {
+                        return Err(StoreError::Unavailable.into());
+                    }
+                    io::replace(&dir, FILE, previous, &bytes, MAX_STATE, cancel, &|| {
+                        check()?;
+                        lease.check(&dir)?;
+                        if let Some(due_at) = due_at {
+                            let current_time = host.now_ms();
+                            if current_time < due_at
+                                || !eligible(last.timestamp, current_time)
+                                || quiet(current_time, zone)
+                            {
+                                return Err(StoreError::Unavailable.into());
+                            }
+                        }
+                        Ok(())
+                    })
+                },
+            )?;
+            Ok(bytes)
+        };
+        let mut before = before;
+        if last.role != "assistant" {
+            if let Some(session) = state.sessions.get_mut(&session_key) {
+                if session.schedule.take().is_some() {
+                    persist(&state, before.as_deref(), None)?;
+                }
+            }
+            return Ok(report(JobOutcome::Skipped, "no_candidate"));
+        }
+        if !(0..=MAX_DELAY).contains(&now.saturating_sub(last.timestamp)) {
+            return Ok(report(JobOutcome::Skipped, "outside_idle_window"));
+        }
         let old = state.sessions.get(&session_key);
         if old.is_some_and(|old| old.reflected_revision == revision) {
             return Ok(if old.is_some_and(|old| old.delivery_intent.is_some()) {
-                report(JobOutcome::Incomplete, "delivery_pending")
+                report(JobOutcome::Skipped, "delivery_pending")
             } else {
                 report(JobOutcome::Skipped, "already_reflected")
             });
         }
+        if old
+            .and_then(|old| old.schedule.as_ref())
+            .is_none_or(|schedule| schedule.generation != revision)
+        {
+            let session = state
+                .sessions
+                .entry(session_key.clone())
+                .or_insert_with(|| Session {
+                    session_id: last.session.to_utf8_lossy(),
+                    completed_at: last.timestamp,
+                    schedule: None,
+                    reflected_revision: String::new(),
+                    reflected_cursor: String::new(),
+                    reflected_at: 0,
+                    delivery_intent: None,
+                });
+            session.completed_at = last.timestamp;
+            session.schedule = Some(Schedule::draw(revision.clone(), last.timestamp)?);
+            trim_state(&mut state);
+            before = Some(persist(&state, before.as_deref(), None)?);
+        }
+        let old = state
+            .sessions
+            .get(&session_key)
+            .ok_or(StoreError::Corrupt)?;
+        let schedule = old.schedule.as_ref().ok_or(StoreError::Corrupt)?;
+        if !(MIN_DELAY..=MAX_DELAY).contains(&schedule.due_at.saturating_sub(last.timestamp)) {
+            return Err(StoreError::Corrupt.into());
+        }
+        if old.delivery_intent.is_some() {
+            return Ok(report(JobOutcome::Skipped, "delivery_pending"));
+        }
+        if !schedule.ready(last.timestamp, now) {
+            return Ok(report(JobOutcome::Skipped, "not_due"));
+        }
+        if quiet(now, zone) {
+            return Ok(report(JobOutcome::Skipped, "quiet_hours"));
+        }
+        let Some(route) = JobCompletion::resolve(
+            authority,
+            self.completion.as_deref(),
+            host.clone(),
+            &config,
+            "afterthought",
+            settings,
+        ) else {
+            return Ok(report(JobOutcome::Skipped, "no_llm_route"));
+        };
         let fresh = || -> Result<(), EngineError> {
             check()?;
             let now = host.now_ms();
-            if !eligible(last.timestamp, now) || quiet(now, zone) {
+            if !schedule.ready(last.timestamp, now) || quiet(now, zone) {
                 return Err(StoreError::Unavailable.into());
             }
             job_turns::with_conversation_turns(
@@ -215,7 +325,7 @@ impl JobBody for Afterthought {
             )
         };
         fresh()?;
-        let cursor = old.map(|old| old.reflected_cursor.as_str());
+        let cursor = Some(old.reflected_cursor.as_str());
         let input = transcript(&turns, last, cursor);
         let Some(text) = reflect(&route, &input, cancel, &fresh)? else {
             return Ok(report(JobOutcome::Incomplete, "invalid_reflection"));
@@ -225,9 +335,6 @@ impl JobBody for Afterthought {
         let day = now.div_euclid(86_400_000);
         if text.send && state.last_prepared_day.is_some_and(|last| last >= day) {
             return Ok(report(JobOutcome::Skipped, "daily_cap"));
-        }
-        if text.send && old.is_some_and(|old| old.delivery_intent.is_some()) {
-            return Ok(report(JobOutcome::Incomplete, "delivery_pending"));
         }
         let intent = text.send.then(|| Intent {
             idempotency_key: format!("afterthought:{revision}"),
@@ -239,59 +346,18 @@ impl JobBody for Afterthought {
         if pending {
             state.last_prepared_day = Some(day);
         }
-        let previous_intent = state
+        fresh()?;
+        let due_at = schedule.due_at;
+        let current = state
             .sessions
             .get_mut(&session_key)
-            .and_then(|session| session.delivery_intent.take());
-        state.sessions.insert(
-            session_key,
-            Session {
-                session_id: last.session.to_utf8_lossy(),
-                completed_at: last.timestamp,
-                reflected_revision: revision.clone(),
-                reflected_cursor: last.id.to_utf8_lossy(),
-                reflected_at: now,
-                delivery_intent: intent.or(previous_intent),
-            },
-        );
+            .ok_or(StoreError::Corrupt)?;
+        current.reflected_revision = revision.clone();
+        current.reflected_cursor = last.id.to_utf8_lossy();
+        current.reflected_at = now;
+        current.delivery_intent = intent;
         trim_state(&mut state);
-        let bytes = serde_json::to_vec(&state).map_err(|_| StoreError::Corrupt)?;
-        if bytes.len() > MAX_STATE {
-            return Err(StoreError::Unavailable.into());
-        }
-        let _mutation = self.scope.operations.mutation()?;
-        job_turns::with_conversation_turns(
-            &journal,
-            authority,
-            now,
-            cancel,
-            &check,
-            |current, _, check| {
-                if current
-                    .first()
-                    .is_none_or(|item| item != last || revision != self::revision(&current, item))
-                {
-                    return Err(StoreError::Unavailable.into());
-                }
-                let check_output = || {
-                    check()?;
-                    lease.check(&dir)?;
-                    if !eligible(last.timestamp, host.now_ms()) || quiet(host.now_ms(), zone) {
-                        return Err(StoreError::Unavailable.into());
-                    }
-                    Ok(())
-                };
-                io::replace(
-                    &dir,
-                    FILE,
-                    before.as_deref(),
-                    &bytes,
-                    MAX_STATE,
-                    cancel,
-                    &check_output,
-                )
-            },
-        )?;
+        persist(&state, before.as_deref(), Some(due_at))?;
         if pending {
             context.note_count("deliveryPending", 1)?;
             Ok(report(JobOutcome::Incomplete, "delivery_pending"))
@@ -470,6 +536,7 @@ mod tests {
                     let session = Session {
                         session_id: id.clone(),
                         completed_at: day,
+                        schedule: None,
                         reflected_revision: format!("revision-{day}"),
                         reflected_cursor: format!("turn-{day}"),
                         reflected_at: day,
