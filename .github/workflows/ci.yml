@@ -727,10 +727,48 @@ jobs:
         run: cargo test --locked -p plur1bus-engine --no-run --timings
         timeout-minutes: 55
       - name: Test the native engine on Windows
-        run: cargo test --locked -p plur1bus-engine --no-fail-fast
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The caller deadlines in these tests measure owner isolation. Do not
+          # let unrelated Rust tests contend for the same Windows filesystem.
+          isolation=(
+            'rpc::engine::capture_tests::isolation::'
+            'rpc::engine::capture_tests::a_slow_owners_startup_recovery_never_refuses_another_owners_turn'
+          )
+          remainder=()
+          for filter in "${isolation[@]}"; do remainder+=(--skip "$filter"); done
+          status=0
+          cargo test --locked -p plur1bus-engine --lib -- "${isolation[@]}" --test-threads=1 || status=$?
+          cargo test --locked -p plur1bus-engine --no-fail-fast -- "${remainder[@]}" || status=$?
+          exit "$status"
         timeout-minutes: 50
         env:
           PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
+      - name: Verify Windows detects the missing flush identity check (A-R23)
+        if: github.event.pull_request.number == 928
+        shell: bash
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          file=crates/plur1bus-engine/src/store/directory.rs
+          trap 'git restore -- "$file"' EXIT
+          node --input-type=module - "$file" <<'JS'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const path = process.argv[2];
+          const source = readFileSync(path, 'utf8');
+          const condition = 'if regular_file_identity(&file)? != identity {';
+          if (source.split(condition).length !== 2) throw Error('Windows identity check changed');
+          writeFileSync(path, source.replace(condition, 'if !cfg!(test) && regular_file_identity(&file)? != identity {'));
+          JS
+          log="$RUNNER_TEMP/engine-flush-identity-test.log"
+          if cargo test --locked -p plur1bus-engine --lib windows_flush_checks_the_expected_file_identity > "$log" 2>&1; then
+            cat "$log"
+            exit 1
+          fi
+          cat "$log"
+          grep -F 'two distinct files must have different identities' "$log"
+          grep -F 'test result: FAILED. 0 passed; 1 failed;' "$log"
       - name: Upload engine build timings
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -1186,7 +1224,10 @@ jobs:
         with: { toolchain: "1.95" }
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - run: cargo build --release -p plur1bus -p plur1bus-tools
-      - run: cargo build --release -p plur1bus -p plur1bus-tools && cargo test --release -p plur1bus --test service
+      - name: compile service tests
+        run: cargo test --release -p plur1bus --test service --no-run
+      - name: run service tests
+        run: cargo test --release -p plur1bus --test service
         timeout-minutes: 5
       - name: user service manager
         id: manager

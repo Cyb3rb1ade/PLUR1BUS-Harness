@@ -88,12 +88,8 @@ fn rows(root: &Path, agent: &str) -> Vec<MemoryRow> {
         .unwrap()
 }
 
-/// Count explicit Engine file and directory syncs for a warmed, owner-bound capture.
+/// Preserve the explicit durability barriers for a warmed, owner-bound capture.
 #[test]
-#[allow(
-    clippy::print_stderr,
-    reason = "the opt-in measurement reports its observed counts"
-)]
 fn capture_reports_its_explicit_durability_barriers() {
     let scratch = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
     let root = scratch.path();
@@ -105,9 +101,15 @@ fn capture_reports_its_explicit_durability_barriers() {
     let probe = crate::store::durability_probe::Probe::start(root);
     let result = capture(&engine, user_turn(root, "owner-a", "sync-probe-measured"));
     assert!(result["stored"].as_u64().unwrap() > 0, "{result}");
-    let counts = probe.counts();
-    assert!(counts.get("atomic-file").is_some_and(|count| *count > 0));
-    eprintln!("warmed Rust capture, explicit syncs: {counts:?}");
+    #[cfg(unix)]
+    let expected = [
+        ("atomic-file", 9),
+        ("atomic-directory", 9),
+        ("trusted-directory", 1),
+    ];
+    #[cfg(windows)]
+    let expected = [("atomic-file", 9)];
+    assert_eq!(probe.counts(), expected.into_iter().collect());
 }
 
 /// Wait until the background recovery pass that follows the composition has finished
@@ -115,6 +117,9 @@ fn capture_reports_its_explicit_durability_barriers() {
 fn recovery_settled(engine: &ProcessEngine) {
     assert!(engine.capture.recovered_for_test(Duration::from_secs(180)));
 }
+
+#[path = "engine_publication_recovery_tests.rs"]
+mod publication_recovery;
 
 #[path = "engine_capture_isolation_tests.rs"]
 mod isolation;

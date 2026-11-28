@@ -99,15 +99,14 @@ impl Reembedding {
                 Ok(coordinator)
             }
             Err(error) => {
-                self.audit_refused(grant, method, id)?;
+                self.audit_request(grant, method, id)?;
                 Err(error)
             }
         }
     }
 
-    /// The coordinator's own audit envelope for a call it never saw (composition failure, an
-    /// unreadable request): method, Core link and only a valid migration ID, as `admit` does.
-    fn audit_refused(
+    /// Match the coordinator's audit envelope for calls handled before or outside the coordinator.
+    fn audit_request(
         &self,
         grant: &MaintenanceGrant,
         method: MaintenanceMethod,
@@ -155,7 +154,7 @@ impl Reembedding {
         let id = request.get("id").and_then(Value::as_str);
         let coordinator = self.coordinator(grant, MaintenanceMethod::Plan, id, cancel)?;
         let Ok(raw) = parse_json(&request.to_string()) else {
-            self.audit_refused(grant, MaintenanceMethod::Plan, id)?;
+            self.audit_request(grant, MaintenanceMethod::Plan, id)?;
             return Err(invalid());
         };
         let planned = coordinator
@@ -259,8 +258,7 @@ impl Reembedding {
         )
     }
 
-    pub(super) fn checkpoint_get(&self, grant: &MaintenanceGrant) -> Result<Value, EngineError> {
-        self.audit_refused(grant, MaintenanceMethod::CheckpointGet, None)?;
+    pub(super) fn checkpoint_get(&self) -> Result<Value, EngineError> {
         self.checkpoint.get()
     }
 
@@ -271,12 +269,15 @@ impl Reembedding {
         checkpoint: &Value,
         cancel: &Cancel,
     ) -> Result<Value, EngineError> {
-        self.audit_refused(
-            grant,
-            MaintenanceMethod::CheckpointPut,
-            checkpoint["id"].as_str(),
-        )?;
-        self.checkpoint.put(grant, expected, checkpoint, cancel)
+        let (revision, committed) = self.checkpoint.put(grant, expected, checkpoint, cancel)?;
+        if committed {
+            self.audit_request(
+                grant,
+                MaintenanceMethod::CheckpointPut,
+                checkpoint["id"].as_str(),
+            )?;
+        }
+        Ok(json!({"revision":revision}))
     }
 }
 

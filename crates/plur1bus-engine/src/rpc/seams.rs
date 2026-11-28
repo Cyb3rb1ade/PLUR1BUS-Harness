@@ -113,6 +113,45 @@ pub(super) fn permission_denied_accept_from_env() -> Result<bool, SeamError> {
     }
 }
 
+/// Select one fixed durability test step for an explicitly authorized child.
+pub(crate) fn fixture_step(step: &str) -> bool {
+    env::var_os("PLUR1BUS_TEST_DURABILITY_STEP").as_deref() == Some(OsStr::new(step))
+        && matches!(from_env(), Ok(Some(_)))
+}
+
+/// Send a ready marker and wait for the test to release it, within a wall-clock bound.
+pub(crate) fn pause_fixture_step(
+    directory: &std::path::Path,
+    step: &str,
+) -> Result<(), crate::contract::StoreError> {
+    use std::{
+        fs,
+        io::ErrorKind,
+        time::{Duration, Instant},
+    };
+    if !fixture_step(step) {
+        return Ok(());
+    }
+    let hold = directory.join(".fixture-hold");
+    if !hold.exists() {
+        return Ok(());
+    }
+    fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(directory.join(".fixture-reached"))?;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while hold.exists() {
+        if Instant::now() >= deadline {
+            return Err(crate::contract::StoreError::Io {
+                kind: ErrorKind::TimedOut,
+            });
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

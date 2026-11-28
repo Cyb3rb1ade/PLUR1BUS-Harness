@@ -1,6 +1,6 @@
 //! Test support for the rewind half: a recording Git port over the real `git`, a repository fixture in a temporary directory
 //! with an isolated Git environment (`HOME` and the global and system configuration pointed away, so no test reads or writes
-//! the configuration or a repository of the person running it), the clock, the ids, the audit sink and an approval double.
+//! the configuration or a repository of the person running it), and an approval double.
 //!
 //! Tests that run `git` skip, and say so, when no `git` is installed.
 #![cfg(test)]
@@ -9,39 +9,16 @@ use super::rewind_checkpoints::{
     ApprovalAnswer, ApprovalAsk, CheckpointDeps, ProjectBinding, RestoreApproval, RewindCheckpoints,
 };
 use super::rewind_git::{Cancel, GitFailure, GitProcess, RewindError, SystemGit};
-use super::{
-    BeginOptions, Clock, CreateSessionInput, IdSource, SessionKind, SessionRecord, SessionStore,
-};
+use super::rewind_test_store::{audit_pair, clock, store_with, TestClock, TestIds};
+use super::{BeginOptions, CreateSessionInput, SessionKind, SessionRecord, SessionStore};
 use crate::policy::fs_paths::RealFs;
-use crate::rbac::audit::{AuditEvent, AuditSink};
+use crate::rbac::audit::AuditEvent;
 use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
-
-pub(crate) struct TestClock(pub AtomicI64);
-impl Clock for TestClock {
-    fn now(&self) -> i64 {
-        self.0.load(Ordering::SeqCst)
-    }
-}
-
-pub(crate) struct TestIds(pub AtomicU64);
-impl IdSource for TestIds {
-    fn next_id(&self) -> String {
-        (self.0.fetch_add(1, Ordering::SeqCst) + 1).to_string()
-    }
-}
-
-pub(crate) fn clock(at: i64) -> Arc<TestClock> {
-    Arc::new(TestClock(AtomicI64::new(at)))
-}
-
-pub(crate) fn store_with(clock: Arc<TestClock>) -> SessionStore {
-    SessionStore::open_memory(clock, Arc::new(TestIds(AtomicU64::new(0)))).unwrap()
-}
 
 /// Whether a `git` is installed; a test that needs one prints a skip line and returns when it is not.
 pub(crate) fn have_git() -> bool {
@@ -142,25 +119,6 @@ impl GitProcess for Recording {
         env.push(("GIT_COMMITTER_DATE".into(), DATE.into()));
         self.inner.run(args, &env, cancel)
     }
-}
-
-/// An audit sink that keeps its events.
-pub(crate) struct MemAudit(pub Rc<RefCell<Vec<AuditEvent>>>);
-impl AuditSink for MemAudit {
-    fn append(&mut self, event: &AuditEvent) -> Result<(), String> {
-        self.0.borrow_mut().push(event.clone());
-        Ok(())
-    }
-}
-
-pub(crate) fn audit_pair() -> (SharedAudit, Rc<RefCell<Vec<AuditEvent>>>) {
-    let events = Rc::new(RefCell::new(Vec::new()));
-    (
-        Rc::new(RefCell::new(
-            Box::new(MemAudit(events.clone())) as Box<dyn AuditSink>
-        )),
-        events,
-    )
 }
 
 /// A repository in a temporary directory, with a committed `HEAD`.

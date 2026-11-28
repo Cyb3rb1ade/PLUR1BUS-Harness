@@ -167,7 +167,7 @@ impl MaintenanceOps for ProcessMaintenance {
         grant: &MaintenanceGrant,
         cancel: &Cancel,
     ) -> Result<Value, EngineError> {
-        self.reembedding(grant, cancel)?.checkpoint_get(grant)
+        self.reembedding(grant, cancel)?.checkpoint_get()
     }
 
     fn checkpoint_put(

@@ -4,21 +4,28 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createMigrationDriver, MigrationError, type MigrationDriver } from "../../src/embedding-migrate/driver.ts";
-import { createStateStore } from "../../src/embedding-migrate/state.ts";
+import { createStateStore, type StateStore } from "../../src/embedding-migrate/state.ts";
 import { createFakeEngine, fp, type FakeOptions } from "./fake-engine.ts";
 
 interface Rig { fake: ReturnType<typeof createFakeEngine>; driver: MigrationDriver; sleeps: number[]; dir: string; mk: () => MigrationDriver; advance: (ms: number) => void; done: () => void }
-function rig(o: FakeOptions & { onSleep?: (n: number, d: MigrationDriver) => void } = {}): Rig {
+function rig(o: FakeOptions & {
+  onSleep?: (n: number, d: MigrationDriver) => void;
+  wrapStore?: (store: ReturnType<typeof createStateStore>) => StateStore;
+} = {}): Rig {
   const dir = mkdtempSync(path.join(tmpdir(), "p1-reembed-drv-"));
   let clock = 1_000; // one clock for the driver and the engine (the confirmation expiry)
   const fake = createFakeEngine({ now: () => clock, ...o });
   const sleeps: number[] = [];
   let driver!: MigrationDriver;
   let n = 0;
-  const mk = () => (driver = createMigrationDriver({
-    newId: () => `m${++n}`, engine: fake.engine, store: createStateStore(dir), switchPort: fake.switchPort, now: () => clock,
-    sleep: async (ms) => { sleeps.push(ms); o.onSleep?.(sleeps.length, driver); },
-  }));
+  const mk = () => {
+    const local = createStateStore(dir);
+    driver = createMigrationDriver({
+      newId: () => `m${++n}`, engine: fake.engine, store: o.wrapStore?.(local) ?? local, switchPort: fake.switchPort, now: () => clock,
+      sleep: async (ms) => { sleeps.push(ms); o.onSleep?.(sleeps.length, driver); },
+    });
+    return driver;
+  };
   mk();
   return { fake, get driver() { return driver; }, sleeps, dir, mk, advance: (ms: number) => { clock += ms; }, done: () => rmSync(dir, { recursive: true, force: true }) } as Rig;
 }
@@ -197,6 +204,85 @@ describe("migration driver: run", () => {
       const ids = [...g.tables.values()].flat().map((x) => x.id);
       assert.equal(ids.length, 15); assert.equal(new Set(ids).size, 15, "no row embedded twice");
       assert.equal(r.fake.state.calls.filter((c) => c === "apply").length, 1, "the first batch confirmed once; later runs resume");
+    } finally { r.done(); }
+  });
+
+  it("aborting the last batch persists progress without validating", async () => {
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const r = rig({ rows: { memories: 2 } });
+    const apply = r.fake.engine.apply;
+    r.fake.engine.apply = async request => {
+      const copied = await apply(request);
+      entered.resolve();
+      await release.promise;
+      return copied;
+    };
+    try {
+      await r.driver.plan({ target });
+      const running = await r.driver.start();
+      await entered.promise;
+      const aborting = r.driver.abort();
+      release.resolve();
+      const aborted = await aborting;
+      assert.deepEqual(await running.done, aborted);
+      assert.equal(aborted.phase, "aborted");
+      assert.equal(aborted.counts.rowsDone, 2);
+      assert.equal(aborted.counts.batchesDone, 1);
+      assert.equal(createStateStore(r.dir).read()?.phase, "aborted");
+      assert.ok(!r.fake.state.calls.includes("validate"));
+      assert.equal((await r.driver.run()).phase, "ready-to-switch");
+      assert.equal(r.fake.state.providerBatches, 1);
+    } finally { release.resolve(); r.done(); }
+  });
+
+  for (const first of ["start", "abort"] as const) {
+    it(`makes a pending ${first} exclude the other operation`, async () => {
+      const entered = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      let pause = false;
+      const r = rig({ wrapStore: store => ({ ...store, async read() {
+        if (pause) {
+          pause = false;
+          entered.resolve();
+          await release.promise;
+        }
+        return store.read();
+      } }) });
+      try {
+        await r.driver.plan({ target });
+        pause = true;
+        const pending = first === "start" ? r.driver.start() : r.driver.abort();
+        await entered.promise;
+        try {
+          const competing = first === "start" ? r.driver.abort() : r.driver.start();
+          const code = first === "start" ? "not-abortable" : "migration-active";
+          await assert.rejects(competing, error => codeOf(error) === code);
+        } finally { release.resolve(); }
+        const result = await pending;
+        const final = "done" in result ? await result.done : result;
+        assert.equal(final.phase, first === "start" ? "ready-to-switch" : "aborted");
+        assert.equal(createStateStore(r.dir).read()?.phase, final.phase);
+      } finally { release.resolve(); r.done(); }
+    });
+  }
+
+  it("merges each batch checkpoint into the state read at that save", async () => {
+    const newPause = 712;
+    const r = rig({ onSleep(n) {
+      if (n !== 1) return;
+      const local = createStateStore(r.dir);
+      const checkpoint = local.read();
+      assert.ok(checkpoint);
+      local.write({ ...checkpoint, throttleMs: newPause });
+    } });
+    try {
+      await r.driver.plan({ target, throttleMs: 30 });
+      const finished = await r.driver.run();
+      assert.equal(finished.phase, "ready-to-switch");
+      assert.equal(finished.counts.batchesDone, 6);
+      assert.deepEqual(r.sleeps, [30, newPause, newPause, newPause, newPause]);
+      assert.equal(createStateStore(r.dir).read()?.throttleMs, newPause);
     } finally { r.done(); }
   });
 

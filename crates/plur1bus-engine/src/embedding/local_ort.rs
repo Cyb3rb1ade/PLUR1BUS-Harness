@@ -631,6 +631,24 @@ impl EmbeddingProvider for LocalEmbedding {
 }
 
 #[cfg(test)]
+#[test]
+#[allow(
+    clippy::unwrap_used,
+    reason = "pinned E5 profile and private empty model cache"
+)]
+fn preparation_checks_runtime_support_before_looking_up_model_files() {
+    let empty = tempfile::tempdir().unwrap();
+    let profile = artifacts::pinned_profile("intfloat/multilingual-e5-small", None).unwrap();
+    let cache = PreparedCache::default();
+    let result = cached_preparation(&cache, profile, empty.path(), None, &Cancel::never());
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    assert!(matches!(result, Err(LocalModelError::RuntimeUnavailable)));
+    #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+    assert!(matches!(result, Err(LocalModelError::Artifact(_))));
+    assert!(cache.lock().unwrap().is_none());
+}
+
+#[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod projection_tests {
     use super::*;

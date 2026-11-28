@@ -365,7 +365,9 @@ fn malformed_torn_and_linked_files_refuse_without_repair_or_external_writes() {
 #[test]
 fn cancellation_capacity_and_unsafe_cache_refuse_before_new_authoritative_bytes() {
     for mode in ["cancel", "bytes", "rows", "cache"] {
-        let mut f = setup();
+        let f = setup();
+        #[cfg(unix)]
+        let mut f = f;
         let dir = f.root.path().join("workspace/.adaptive-learning");
         let log = dir.join("conflict-log.jsonl");
         let cancel = Cancel::never();
