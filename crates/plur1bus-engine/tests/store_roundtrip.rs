@@ -761,6 +761,14 @@ fn open_restores_a_missing_fts_index_without_a_memories_change() {
     });
     let marker = temp.path().join("lexical-state.json");
     let before = std::fs::read(&marker).unwrap();
+    let read_only = Store::open(temp.path(), OpenMode::ReadOnly, Some(&identity())).unwrap();
+    assert_eq!(read_only.get(&row.id).unwrap().unwrap().id, row.id);
+    drop(read_only);
+    runtime.block_on(async {
+        assert_eq!(table.list_indices().await.unwrap().len(), 1);
+    });
+    assert_eq!(std::fs::read(&marker).unwrap(), before);
+
     let store = Store::open(temp.path(), OpenMode::ReadWrite, Some(&identity())).unwrap();
     runtime.block_on(async {
         let indices = table.list_indices().await.unwrap();
