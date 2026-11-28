@@ -430,7 +430,28 @@ impl CaptureJournal {
         // not let go defers this step (a cancellation, which is transient); it never holds
         // up the turn's rows or ends the turn as aborted.
         let wait = cancel.limited_to(Instant::now() + neo_budget(self.host.as_ref()));
-        let kernel = kernel_lock::acquire(&locks, "workspace", &wait, &mut || {})?;
+        #[cfg(test)]
+        use crate::capture::isolation_probe::{budget, event};
+        #[cfg(test)]
+        event(
+            directory.path(),
+            "Neo workspace lease requested",
+            budget(wait.remaining()),
+        );
+        let kernel = kernel_lock::acquire(&locks, "workspace", &wait, &mut || {});
+        #[cfg(test)]
+        event(
+            directory.path(),
+            "Neo workspace lease returned",
+            format_args!("{:?}", kernel.as_ref().err()),
+        );
+        let kernel = kernel?;
+        #[cfg(test)]
+        event(
+            directory.path(),
+            "Neo write lock requested",
+            budget(wait.remaining()),
+        );
         let neo: LockGuard = loop {
             self.check(binding, principal, agent, &wait)?;
             directory.assert_unchanged()?;
@@ -442,6 +463,12 @@ impl CaptureJournal {
             }
             std::thread::sleep(Duration::from_millis(5));
         };
+        #[cfg(test)]
+        event(
+            directory.path(),
+            "Neo write lock acquired",
+            budget(wait.remaining()),
+        );
         let check = || -> Result<(), EngineError> {
             self.check(binding, principal, agent, &cancel)?;
             directory.assert_unchanged()?;

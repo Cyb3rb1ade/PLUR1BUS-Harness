@@ -512,6 +512,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::EngineDreamsDiaryParams,
                 types::EngineDreamsDiaryResult,
             >(name, fixture, &root_schema),
+            "engine.dreams.import" => check_pair::<
+                types::EngineDreamsImportParams,
+                types::EngineDreamsImportResult,
+            >(name, fixture, &root_schema),
             "engine.dreams.log" => check_pair::<
                 types::EngineDreamsLogParams,
                 types::EngineDreamsLogResult,

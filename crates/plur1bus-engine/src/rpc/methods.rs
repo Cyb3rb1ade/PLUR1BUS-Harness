@@ -120,10 +120,17 @@ impl From<EngineError> for WireError {
             EngineError::Invalid { .. } | EngineError::Store(StoreError::InvalidInput) => {
                 Self::invalid_params()
             }
+            EngineError::NotAvailable { reason }
+                if reason == "dream-candidate-response-too-large" =>
+            {
+                Self::response_too_large()
+            }
             EngineError::NotAvailable { reason } => Self::application(
                 "E_NOT_AVAILABLE",
                 match reason.as_str() {
                     "composition-pending" => "composition-pending",
+                    "dream-ledger-not-imported" => "dream-ledger-not-imported",
+                    "dream-ledger-version-unsupported" => "dream-ledger-version-unsupported",
                     "closed" => "closed",
                     "engine-closed" => "engine-closed",
                     "embedding-unavailable" => "embedding-unavailable",
@@ -961,6 +968,7 @@ mod tests {
                         // Live Core verification requires the process server. These routes
                         // are exercised through authenticated connections in rpc_server.rs.
                         | "engine.media.index"
+                        | "engine.dreams.import"
                         | "engine.dreams.run"
                         | "engine.dreams.schedule"
                         | "engine.dreams.status"

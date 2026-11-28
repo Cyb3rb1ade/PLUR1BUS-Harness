@@ -56,6 +56,41 @@ describe("Dockerfile", () => {
     assert.match(dockerfile, /pnpm install --frozen-lockfile/);
   });
 
+  it("pins package metadata in both build stages before installing dependencies", () => {
+    const firstStage = lines.findIndex((line) => /^FROM\s/i.test(line));
+    const global = lines.slice(0, firstStage);
+    assert.ok(global.some((line) => /^ARG DEBIAN_SNAPSHOT=\d{8}T\d{6}Z$/.test(line)));
+    for (const stage of ["rust-build", "node-build"]) {
+      const start = lines.findIndex((line) => line.endsWith(`AS ${stage}`) && /^FROM\s/i.test(line));
+      const end = lines.findIndex((line, index) => index > start && /^FROM\s/i.test(line));
+      assert.ok(start >= 0 && end > start, `${stage}: stage bounds`);
+      const commands = lines.slice(start + 1, end);
+      const installs = commands.filter((line) => /^RUN\s/i.test(line) && /\bapt-get.*\binstall\b/.test(line));
+      assert.equal(installs.length, 1, `${stage}: package installations`);
+      assert.ok(commands.slice(0, commands.indexOf(installs[0])).includes("ARG DEBIAN_SNAPSHOT"), `${stage}: snapshot scope`);
+      assert.match(installs[0], /snapshot\.debian\.org\/archive\/debian-security\/\$\{DEBIAN_SNAPSHOT\}/);
+      assert.match(installs[0], /snapshot\.debian\.org\/archive\/debian\/\$\{DEBIAN_SNAPSHOT\}/);
+      assert.match(installs[0], /debian\.sources .*&& apt-get -o Acquire::Check-Valid-Until=false update .*&& apt-get .*install/);
+    }
+  });
+
+  it("builds the Lance distance table for a fixed x86 target and checks the required CPU features", () => {
+    const cargo = read("Cargo.toml");
+    const localPatches = cargo.match(/^lance-linalg\s*=\s*\{\s*path\s*=\s*"vendor\/lance-linalg"\s*\}$/gm);
+    assert.equal(localPatches?.length, 2, "registry and Lance Git source must use the same package");
+    const build = read("vendor/lance-linalg/build.rs");
+    const flags = build.match(/build_dist_table_with_flags\(\s*"avx512"\s*,\s*&\[([^\]]+)\]/)?.[1];
+    assert.ok(flags, "distance-table compiler flags are missing");
+    assert.match(flags, /"-march=x86-64"/);
+    assert.match(flags, /"-mtune=generic"/);
+    assert.match(flags, /"-mavx512bw"/);
+    assert.doesNotMatch(flags, /-march=native/);
+    assert.match(build, /else\s*\{\s*println!\("cargo:rustc-cfg=kernel_support=\\"avx512_dist_table\\""\)/);
+    const dispatch = read("vendor/lance-linalg/src/simd/dist_table.rs");
+    assert.match(dispatch, /#\[cfg\(all\(kernel_support = "avx512_dist_table", target_arch = "x86_64"\)\)\]\s*SimdSupport::Avx512 \| SimdSupport::Avx512FP16\s+if is_x86_feature_detected!\("avx512bw"\)\s*&&\s*is_x86_feature_detected!\("avx2"\)\s*&&\s*is_x86_feature_detected!\("fma"\)\s*=>/);
+    assert.match(dispatch, /#\[cfg\(all\(kernel_support = "avx512_dist_table", target_arch = "x86_64"\)\)\]\s*pub fn sum_4bit_dist_table_32bytes_batch_avx512\(/);
+  });
+
   it("normalizes the Rust binary timestamp to SOURCE_DATE_EPOCH", () => {
     const rustStart = lines.findIndex((line) => /^FROM\s.*\sAS rust-build$/i.test(line));
     assert.ok(rustStart >= 0, "Rust stage is missing");

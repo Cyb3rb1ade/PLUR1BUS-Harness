@@ -6,9 +6,8 @@
 //!
 //! The deadline only has to be shorter than the shortest budget a holder could impose. The
 //! engines under test therefore run with a capture budget of 120 s and a Neo budget of
-//! 60 s, and the caller gives its turn 20 s: any dependency on a holder costs at least a
-//! minute and still ends the turn unstored, while a loaded machine has several times the
-//! time a turn needs on its own. The tests of this module run one after the other.
+//! 60 s. The caller deadline is below both PLACE_PATIENCE and the five-second
+//! recovery wait used in the regression probe. These wall-clock tests run in series.
 #![allow(
     clippy::unwrap_used,
     clippy::panic,
@@ -28,7 +27,7 @@ fn patient(host: Arc<FakeHost>) -> Arc<FakeHost> {
 }
 
 /// The caller's deadline of a foreign turn.
-const FOREIGN_DEADLINE: Duration = Duration::from_secs(20);
+const FOREIGN_DEADLINE: Duration = Duration::from_millis(4_500);
 
 /// The tests of this module measure against the wall clock; they do not load each other.
 fn serial() -> std::sync::MutexGuard<'static, ()> {
@@ -72,8 +71,15 @@ fn compose(engine: &Arc<ProcessEngine>, root: &Path, case: &str) {
 }
 
 /// The shared assertion: a foreign turn with the caller's deadline is stored.
-fn foreign_turn_is_stored(engine: &Arc<ProcessEngine>, mut turn: TurnRecord, case: &str) {
-    turn.cancel = Cancel::with_deadline(std::time::Instant::now() + FOREIGN_DEADLINE);
+pub(super) fn foreign_turn_is_stored(
+    engine: &Arc<ProcessEngine>,
+    mut turn: TurnRecord,
+    case: &str,
+) {
+    let base = engine.configured_store_base().unwrap();
+    let probe = crate::capture::isolation_probe::Probe::start(base);
+    let started = std::time::Instant::now();
+    turn.cancel = Cancel::with_deadline(started + FOREIGN_DEADLINE);
     let (sent, done) = mpsc::channel();
     let engine = engine.clone();
     std::thread::spawn(move || {
@@ -87,6 +93,16 @@ fn foreign_turn_is_stored(engine: &Arc<ProcessEngine>, mut turn: TurnRecord, cas
         .recv_timeout(FOREIGN_DEADLINE + Duration::from_secs(60))
         .unwrap_or_else(|_| panic!("{case}: the foreign turn never finished"))
         .unwrap_or_else(|error| panic!("{case}: {error}"));
+    let elapsed = started.elapsed().as_millis();
+    // Use the test process's stderr so successful samples appear in the CI log.
+    use std::io::Write as _;
+    writeln!(
+        std::io::stderr().lock(),
+        "{case}: {elapsed} ms, caller deadline {} ms, result {result}\n{}",
+        FOREIGN_DEADLINE.as_millis(),
+        probe.report()
+    )
+    .unwrap();
     assert_eq!(result["stored"], 2, "{case}: {result}");
 }
 

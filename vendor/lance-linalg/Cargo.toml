@@ -1,0 +1,26 @@
+[package]
+name = "lance-linalg"
+version = "2.0.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["The Lance Authors"]
+repository = "https://github.com/lance-format/lance"
+description = "Linear algebra kernels for Lance"
+readme = "README.md"
+
+[dependencies]
+arrow-array = "57.0.0"
+arrow-buffer = "57.0.0"
+arrow-schema = "57.0.0"
+deepsize = "0.2.0"
+half = { version = "2.1", default-features = false, features = ["num-traits", "std"] }
+lance-arrow = { version = "=2.0.0", git = "https://github.com/Cyb3rb1ade/lance", rev = "7dfd9ede65693027db8852159587d24e157ee0c6" }
+lance-core = { version = "=2.0.0", git = "https://github.com/Cyb3rb1ade/lance", rev = "7dfd9ede65693027db8852159587d24e157ee0c6" }
+num-traits = "0.2"
+rand = { version = "0.9.1", features = ["small_rng"] }
+
+[build-dependencies]
+cc = "1.0.83"
+
+[features]
+fp16kernels = []

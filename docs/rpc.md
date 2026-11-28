@@ -460,14 +460,15 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ### engine server
 
+- `engine.dreams.import`: experimental, since 1.28.0
 - `engine.dreams.diary`: experimental, since 1.28.0
 - `engine.dreams.log`: experimental, since 1.28.0
 - `engine.dreams.run`: experimental, since 1.28.0
 - `engine.dreams.schedule`: experimental, since 1.28.0
 - `engine.dreams.status`: experimental, since 1.28.0
 - `engine.media.index`: experimental, since 1.28.0
-- `engine.admin.reembedding.checkpoint.put`: experimental, since 1.27.0
-- `engine.admin.reembedding.checkpoint.get`: experimental, since 1.27.0
+- `engine.admin.reembedding.checkpoint.put`: experimental, since 1.28.0
+- `engine.admin.reembedding.checkpoint.get`: experimental, since 1.28.0
 - `engine.tokens.families`: experimental, since 1.27.0
 - `engine.tokens.observe`: experimental, since 1.27.0
 - `engine.tokens.count`: experimental, since 1.27.0
@@ -567,13 +568,55 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ## Methods
 
+### `engine.dreams.import`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Import the legacy dreaming ledger once over the verified Core link after the Core has retired the writer. Read and mutation methods return E_NOT_AVAILABLE reason=dream-ledger-not-imported before this operation. An unsupported ledger version returns E_NOT_AVAILABLE reason=dream-ledger-version-unsupported.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "legacyWriterRetired"
+  ],
+  "properties": {
+    "legacyWriterRetired": {
+      "const": true
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "imported"
+  ],
+  "properties": {
+    "imported": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
 ### `engine.dreams.diary`
 
 **Stability:** experimental · since 1.28.0
 
 **Served by:** engine
 
-Read the workspace diary over the verified Core link. The Core applies its public redaction before returning the text.
+Read the workspace diary over the verified Core link. Untrusted paths and read failures are reported. The Core applies its public redaction before returning the text.
 
 **params**
 
@@ -642,7 +685,7 @@ Read the workspace diary over the verified Core link. The Core applies its publi
 
 **Served by:** engine
 
-Read imported dream runs over the verified Core link, newest first. With runId, include the private per-run log when available.
+Read imported dream runs over the verified Core link, newest first. With runId, apply any supplied agent and phase filters and include the private per-run log when present. Untrusted paths and read failures are reported.
 
 **params**
 
@@ -698,7 +741,7 @@ Read imported dream runs over the verified Core link, newest first. With runId, 
 
 **Served by:** engine
 
-Apply a phase ledger transition over the verified Core link after the legacy writer retires. The Core admits triggers and dispatches the jobs. Candidate preparation records gate decisions for a claimed light or deep run and returns eligible current sources for deep runs.
+Apply a phase ledger transition over the verified Core link after the legacy writer retires. The Core admits triggers and dispatches the jobs. Candidate preparation records gate decisions for a claimed light or deep run and returns eligible current sources for deep runs. Observation content is limited to 64 KiB of UTF-8 bytes. Current observations are assessed before older candidates, with up to 1000 total evaluations. A counts.truncated value of 1 signals that older candidates were left unevaluated.
 
 **params**
 
@@ -786,6 +829,7 @@ Apply a phase ledger transition over the verified Core link after the legacy wri
             },
             "observations": {
               "type": "array",
+              "maxItems": 1000,
               "items": {
                 "type": "object",
                 "additionalProperties": false,
@@ -794,7 +838,8 @@ Apply a phase ledger transition over the verified Core link after the legacy wri
                 ],
                 "properties": {
                   "content": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 65536
                   },
                   "memoryId": {
                     "type": "string",
@@ -942,6 +987,7 @@ Apply a phase ledger transition over the verified Core link after the legacy wri
         },
         "eligible": {
           "type": "array",
+          "maxItems": 1000,
           "items": {
             "type": "object",
             "additionalProperties": false,
@@ -971,7 +1017,7 @@ Apply a phase ledger transition over the verified Core link after the legacy wri
 
 **Served by:** engine
 
-Read an agent's schedules or atomically apply an edit over the verified Core link. The Core validates cron and timezone and computes the next run. A stale expected schedule returns E_CONFLICT. The first call after the Core retires its writer imports the legacy ledger.
+Read an agent's schedules or atomically apply an edit over the verified Core link after engine.dreams.import. Cron and timezone have bounded lengths and reject control characters. The Core validates their syntax and computes the next run. A stale expected schedule returns E_CONFLICT.
 
 **params**
 
@@ -1203,11 +1249,11 @@ Index one Core-authorized media item. Captioning and codec admission remain with
 
 ### `engine.admin.reembedding.checkpoint.put`
 
-**Stability:** experimental · since 1.27.0
+**Stability:** experimental · since 1.28.0
 
 **Served by:** engine
 
-Commit the re-embedding restart checkpoint only if the observed revision still holds.
+Commit the private checkpoint if the observed revision holds. Replaying the committed bytes returns their revision. E_INVALID_PARAMS for an invalid checkpoint; E_CONFLICT reason=checkpoint-changed; E_STORAGE reason=state-corrupt|state-unreadable; E_NOT_AVAILABLE reason=composition-pending.
 
 **params**
 
@@ -1271,11 +1317,11 @@ Commit the re-embedding restart checkpoint only if the observed revision still h
 
 ### `engine.admin.reembedding.checkpoint.get`
 
-**Stability:** experimental · since 1.27.0
+**Stability:** experimental · since 1.28.0
 
 **Served by:** engine
 
-Read the private re-embedding restart checkpoint over the authenticated Core link.
+Read the private re-embedding restart checkpoint over the authenticated Core link without an audit write. E_NOT_AVAILABLE reason=composition-pending; E_STORAGE reason=state-corrupt|state-unreadable.
 
 **params**
 
@@ -38861,12 +38907,14 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "cron": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 256
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
     },
     "timezone": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 128
+      "maxLength": 128,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
     },
     "enabled": {
       "type": "boolean"

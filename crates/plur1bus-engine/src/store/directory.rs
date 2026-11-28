@@ -17,7 +17,7 @@ use super::paths::assert_trusted_path;
 mod append;
 #[path = "directory_replace.rs"]
 mod replace;
-pub(crate) use append::identity as regular_file_identity;
+pub(crate) use append::{identity as regular_file_identity, unlinked as regular_file_unlinked};
 
 #[cfg(test)]
 #[path = "directory_append_tests.rs"]
@@ -349,16 +349,30 @@ impl TrustedDirectory {
     fn open_windows_file(&self, name: &str, write: bool) -> Result<File, StoreError> {
         use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
         use windows_sys::Win32::Storage::FileSystem::{
-            FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT,
+            FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT,
+        };
+        let path = self.physical.join(name);
+        let non_file = |attributes| {
+            attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT) != 0
         };
         let file = OpenOptions::new()
             .read(true)
             .write(write)
             .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
-            .open(self.physical.join(name))
-            .map_err(io_error)?;
-        if file.metadata().map_err(io_error)?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
-        {
+            .open(&path)
+            .map_err(|error| {
+                // CreateFileW can return access denied before exposing the
+                // attributes of a directory. Inspect only the leaf's metadata.
+                if error.kind() == std::io::ErrorKind::PermissionDenied
+                    && fs::symlink_metadata(&path)
+                        .is_ok_and(|metadata| non_file(metadata.file_attributes()))
+                {
+                    StoreError::UntrustedPath
+                } else {
+                    io_error(error)
+                }
+            })?;
+        if non_file(file.metadata().map_err(io_error)?.file_attributes()) {
             return Err(StoreError::UntrustedPath);
         }
         Ok(file)

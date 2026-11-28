@@ -81,8 +81,9 @@ UID/mode checks; Windows uses owner SID and strict DACL inspection, permitting t
 SYSTEM and Administrators on the private root. RE-D240 sets the process user's SID and a
 protected DACL in the creation call for each new private directory. Windows can otherwise use
 the Administrators group as the default owner of a directory created by an elevated token.
-Windows native behavior is established by the Windows tests. Root replacement taints the router until restart. Leased stores retain all directory
-pins, and idle-only cache eviction never invalidates an outstanding handle. RE-D127's SHA-bound
+Root replacement taints the router until restart. The native Windows tests also cover the OS
+refusing to rename a held root and verify that the original store remains usable in that case.
+Leased stores retain all directory pins, and idle-only cache eviction never invalidates an outstanding handle. RE-D127's SHA-bound
 fixture marker documents stricter partial-schema reads, tainted reads and repeated permission
 checks against the actual Node observations. The cost is held directory handles and additional
 metadata/ACL checks; no atomic exclusion of an unrelated process during a backend call is claimed.
