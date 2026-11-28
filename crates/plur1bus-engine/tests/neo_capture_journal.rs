@@ -105,6 +105,30 @@ fn rows(directory: &Path, file: &str) -> Vec<Value> {
         .collect()
 }
 #[test]
+fn capture_rechecks_the_host_workspace_before_creating_its_journals() {
+    let f = setup();
+    let next = f.root.path().join("next-workspace");
+    fs::create_dir(&next).unwrap();
+    f.host.move_workspace_after_next_lookup("alpha", next);
+    let refused = f.journal.record(&f.turn, &f.context, &Cancel::never());
+    assert!(matches!(
+        refused,
+        Err(EngineError::Store(
+            plur1bus_engine::contract::StoreError::InvalidInput
+        ))
+    ));
+    assert!(!f.directory.exists());
+    f.host.set_workspace("alpha", f.root.path().to_path_buf());
+    assert_eq!(
+        f.journal
+            .record(&f.turn, &f.context, &Cancel::never())
+            .unwrap()
+            .turns,
+        5
+    );
+}
+
+#[test]
 fn five_turns_are_durable_private_and_replay_does_not_duplicate_any_journal() {
     let f = setup();
     let result = f

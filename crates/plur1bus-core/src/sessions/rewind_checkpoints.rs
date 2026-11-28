@@ -427,13 +427,14 @@ impl<F: PathFs> RewindCheckpoints<F> {
                 nanos
             );
             let dir = self.d.temp_dir.join(name);
-            let mut builder = std::fs::DirBuilder::new();
             #[cfg(unix)]
-            {
+            let created = {
                 use std::os::unix::fs::DirBuilderExt;
-                builder.mode(0o700);
-            }
-            match builder.create(&dir) {
+                std::fs::DirBuilder::new().mode(0o700).create(&dir)
+            };
+            #[cfg(not(unix))]
+            let created = std::fs::create_dir(&dir);
+            match created {
                 Ok(()) => return Ok(dir),
                 Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
                 Err(e) => return Err(fs_err(&e)),

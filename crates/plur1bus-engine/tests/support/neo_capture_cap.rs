@@ -1,12 +1,15 @@
 use super::*;
 use std::io::Read;
 fn seeded() -> (Fixture, Vec<u8>) {
+    seeded_to(700)
+}
+fn seeded_to(count: usize) -> (Fixture, Vec<u8>) {
     let f = setup_config(json!({"neo":{"maxRecords":500}}));
     f.journal
         .record(&f.turn, &f.context, &Cancel::never())
         .unwrap();
     let mut records = rows(&f.directory, "turn-journal.jsonl");
-    for i in records.len()..700 {
+    for i in records.len()..count {
         let mut row = records[0].clone();
         row["id"] = json!(format!("synthetic-{i}"));
         records.push(row);
@@ -19,6 +22,27 @@ fn seeded() -> (Fixture, Vec<u8>) {
     fs::write(f.directory.join("turn-journal.jsonl"), &bytes).unwrap();
     (f, bytes)
 }
+#[test]
+fn growth_during_capture_rechecks_the_cap_before_releasing_the_writer() {
+    let (f, _) = seeded_to(500);
+    let mut next = f.turn.clone();
+    next.session_key = Some("next-session".into());
+    next.run_id = Some("next-run".into());
+    next.messages.truncate(1);
+    let stored = f
+        .journal
+        .record(&next, &f.context, &Cancel::never())
+        .unwrap();
+    assert_eq!(stored.turns, 1);
+    let live = rows(&f.directory, "turn-journal.jsonl");
+    assert_eq!(live.len(), 500);
+    assert_eq!(live.last().unwrap()["sessionId"], "next-session");
+    assert!(fs::read_dir(f.directory.join("archives"))
+        .unwrap()
+        .next()
+        .is_some());
+}
+
 #[test]
 fn archive_does_not_forget_ids_of_trimmed_original_turns() {
     let (f, original) = seeded();

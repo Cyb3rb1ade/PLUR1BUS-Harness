@@ -281,7 +281,10 @@ impl<'a> AppendFile<'a> {
         self.check()?;
         self.file.sync_all()?;
         #[cfg(test)]
-        super::super::durability_probe::record(self.directory.path(), "append-file");
+        super::super::durability_probe::record(
+            &self.directory.path().join(self.name),
+            "append-file",
+        );
         self.check()
     }
 
@@ -346,17 +349,30 @@ fn open_child(directory: &TrustedDirectory, name: &str, create: bool) -> Result<
     }
     Ok(file)
 }
-#[cfg(unix)]
 pub(crate) fn identity(file: &File) -> Result<(u64, u64), StoreError> {
-    use std::os::unix::fs::MetadataExt;
-    let metadata = file.metadata()?;
-    if !metadata.is_file() || metadata.nlink() != 1 {
+    let (identity, links) = identity_and_links(file)?;
+    if links != 1 {
         return Err(StoreError::UntrustedPath);
     }
-    Ok((metadata.dev(), metadata.ino()))
+    Ok(identity)
+}
+
+pub(crate) fn unlinked(file: &File) -> Result<bool, StoreError> {
+    let (_, links) = identity_and_links(file)?;
+    Ok(links == 0)
+}
+
+#[cfg(unix)]
+fn identity_and_links(file: &File) -> Result<((u64, u64), u64), StoreError> {
+    use std::os::unix::fs::MetadataExt;
+    let metadata = file.metadata()?;
+    if !metadata.is_file() {
+        return Err(StoreError::UntrustedPath);
+    }
+    Ok(((metadata.dev(), metadata.ino()), metadata.nlink()))
 }
 #[cfg(windows)]
-pub(crate) fn identity(file: &File) -> Result<(u64, u64), StoreError> {
+fn identity_and_links(file: &File) -> Result<((u64, u64), u64), StoreError> {
     use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::Storage::FileSystem::{
         GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
@@ -370,11 +386,11 @@ pub(crate) fn identity(file: &File) -> Result<(u64, u64), StoreError> {
     if unsafe { GetFileInformationByHandle(file.as_raw_handle() as _, &mut info) } == 0 {
         return Err(std::io::Error::last_os_error().into());
     }
-    if info.nNumberOfLinks != 1 {
-        return Err(StoreError::UntrustedPath);
-    }
     Ok((
-        u64::from(info.dwVolumeSerialNumber),
-        (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow),
+        (
+            u64::from(info.dwVolumeSerialNumber),
+            (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow),
+        ),
+        u64::from(info.nNumberOfLinks),
     ))
 }

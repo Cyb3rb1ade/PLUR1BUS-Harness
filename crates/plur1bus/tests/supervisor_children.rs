@@ -528,12 +528,13 @@ fn pid_file(home: &Path) -> Option<u64> {
 #[test]
 fn spawns_the_core_and_reports_ready_after_the_handshake() {
     let h = Home::new();
-    let _s = start(&h, "ok", "0.02");
+    // Use normal health timing so a delayed status reply cannot outpace this handshake check.
+    let _s = start(&h, "ok", "1");
     let mut c = client(&h.home);
     let child = wait_child(&mut c, "ready", WAIT, |c| state(c) == "ready");
     assert_eq!(child["role"], "core");
     assert_eq!(child["adopted"], false);
-    assert_eq!(child["restarts"], 0);
+    assert_eq!(child["restarts"], 0, "{}", h.log("supervisor.log"));
     assert_eq!(child["pid"].as_u64(), pid_file(&h.home), "{child}");
     let started = h.named_events("started");
     assert_eq!(started.len(), 1);
