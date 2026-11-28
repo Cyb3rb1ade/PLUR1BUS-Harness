@@ -68,31 +68,52 @@ pub fn secure_dir(path: &Path) -> Result<(), StoreError> {
     for directory in missing.into_iter().rev() {
         assert_trusted_path(&directory)?;
         super::schema_version::before_create(&directory)?;
-        #[allow(unused_mut)] // Only the Unix builder configures an explicit creation mode.
-        let mut builder = fs::DirBuilder::new();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::DirBuilderExt;
-            builder.mode(0o700);
-        }
-        let created = match builder.create(&directory) {
-            Ok(()) => true,
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => false,
+        match create_private_directory(&directory) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(error) => return Err(io_error(error)),
-        };
-        assert_trusted_path(&directory)?;
-        #[cfg(windows)]
-        if created {
-            let user = plur1bus_rpc::win::user_sid().map_err(io_error)?;
-            let sddl = plur1bus_rpc::acl::run_dir_sddl(&user);
-            plur1bus_rpc::win::set_path_dacl(&directory, &sddl).map_err(io_error)?;
         }
-        #[cfg(not(windows))]
-        let _ = created;
+        assert_trusted_path(&directory)?;
         verify_directory(&directory)?;
     }
     assert_trusted_path(&absolute)?;
     verify_directory(&absolute)
+}
+
+#[cfg(not(windows))]
+fn create_private_directory(path: &Path) -> std::io::Result<()> {
+    #[allow(unused_mut)] // Only the Unix builder configures an explicit creation mode.
+    let mut builder = fs::DirBuilder::new();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        builder.mode(0o700);
+    }
+    builder.create(path)
+}
+
+#[cfg(windows)]
+fn create_private_directory(path: &Path) -> std::io::Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::CreateDirectoryW;
+
+    let user = plur1bus_rpc::win::user_sid()?;
+    // An elevated token can default to Administrators as owner. Set the exact
+    // user and protected DACL together, before the new directory is visible.
+    let descriptor = plur1bus_rpc::win::SecurityDescriptor::from_sddl(&format!(
+        "O:{user}{}",
+        plur1bus_rpc::acl::run_dir_sddl(&user)
+    ))?;
+    let wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+    if wide[..wide.len() - 1].contains(&0) {
+        return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
+    }
+    // SAFETY: the path is NUL-terminated and the security descriptor lives
+    // through this call. CreateDirectoryW leaves existing directories alone.
+    if unsafe { CreateDirectoryW(wide.as_ptr(), &descriptor.attributes()) } == 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
 }
 
 /// Restrict an existing state file to this user (and SYSTEM on Windows), without following links.

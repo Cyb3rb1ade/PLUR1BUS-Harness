@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.27.0)
+# RPC reference (rpc 1.28.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -460,6 +460,15 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ### engine server
 
+- `engine.dreams.import`: experimental, since 1.28.0
+- `engine.dreams.diary`: experimental, since 1.28.0
+- `engine.dreams.log`: experimental, since 1.28.0
+- `engine.dreams.run`: experimental, since 1.28.0
+- `engine.dreams.schedule`: experimental, since 1.28.0
+- `engine.dreams.status`: experimental, since 1.28.0
+- `engine.media.index`: experimental, since 1.28.0
+- `engine.admin.reembedding.checkpoint.put`: experimental, since 1.28.0
+- `engine.admin.reembedding.checkpoint.get`: experimental, since 1.28.0
 - `engine.tokens.families`: experimental, since 1.27.0
 - `engine.tokens.observe`: experimental, since 1.27.0
 - `engine.tokens.count`: experimental, since 1.27.0
@@ -557,6 +566,820 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `legacy.secret.changed`: experimental, since 1.27.0
 
 ## Methods
+
+### `engine.dreams.import`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Import the legacy dreaming ledger once over the verified Core link after the Core has retired the writer. Read and mutation methods return E_NOT_AVAILABLE reason=dream-ledger-not-imported before this operation. An unsupported ledger version returns E_NOT_AVAILABLE reason=dream-ledger-version-unsupported.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "legacyWriterRetired"
+  ],
+  "properties": {
+    "legacyWriterRetired": {
+      "const": true
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "imported"
+  ],
+  "properties": {
+    "imported": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `engine.dreams.diary`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Read the workspace diary over the verified Core link. Untrusted paths and read failures are reported. The Core applies its public redaction before returning the text.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "path",
+    "exists",
+    "bytes",
+    "text",
+    "truncated"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "path": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "exists": {
+      "type": "boolean"
+    },
+    "bytes": {
+      "type": "integer"
+    },
+    "text": {
+      "type": "string"
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `engine.dreams.log`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Read imported dream runs over the verified Core link, newest first. With runId, apply any supplied agent and phase filters and include the private per-run log when present. Untrusted paths and read failures are reported.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runs"
+  ],
+  "properties": {
+    "runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DreamRun"
+      }
+    },
+    "log": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `engine.dreams.run`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Apply a phase ledger transition over the verified Core link after the legacy writer retires. The Core admits triggers and dispatches the jobs. Candidate preparation records gate decisions for a claimed light or deep run and returns eligible current sources for deep runs. Observation content is limited to 64 KiB of UTF-8 bytes. Current observations are assessed before older candidates, with up to 1000 total evaluations. A counts.truncated value of 1 signals that older candidates were left unevaluated.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "transition"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "transition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "runId",
+            "phase",
+            "trigger",
+            "idempotencyKey",
+            "claim"
+          ],
+          "properties": {
+            "kind": {
+              "const": "begin"
+            },
+            "runId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9-]+$"
+            },
+            "phase": {
+              "$ref": "#/$defs/DreamPhase"
+            },
+            "trigger": {
+              "$ref": "#/$defs/DreamTrigger"
+            },
+            "scheduledFor": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "idempotencyKey": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "pattern": "^[^#]+$"
+            },
+            "claim": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "runId",
+            "observations"
+          ],
+          "properties": {
+            "kind": {
+              "const": "prepare-candidates"
+            },
+            "runId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9-]+$"
+            },
+            "observations": {
+              "type": "array",
+              "maxItems": 1000,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "content"
+                ],
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  "memoryId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "recalls": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "uniqueQueries": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "score": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "number"
+                  },
+                  "importance": {
+                    "type": "number"
+                  },
+                  "repetitions": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "runId",
+            "outcome"
+          ],
+          "properties": {
+            "kind": {
+              "const": "finish"
+            },
+            "runId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9-]+$"
+            },
+            "outcome": {
+              "$ref": "#/$defs/DreamOutcome"
+            },
+            "reason": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "counts": {
+              "type": "object",
+              "maxProperties": 64,
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "tokensIn": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "tokensOut": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "oneOf": [
+    {
+      "$ref": "#/$defs/DreamRun"
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "counts",
+        "eligible"
+      ],
+      "properties": {
+        "counts": {
+          "type": "object",
+          "maxProperties": 64,
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "eligible": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "candidateId",
+              "memoryId"
+            ],
+            "properties": {
+              "candidateId": {
+                "type": "string"
+              },
+              "memoryId": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+### `engine.dreams.schedule`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Read an agent's schedules or atomically apply an edit over the verified Core link after engine.dreams.import. Cron and timezone have bounded lengths and reject control characters. The Core validates their syntax and computes the next run. A stale expected schedule returns E_CONFLICT.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "edit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phase",
+        "expected",
+        "desired"
+      ],
+      "properties": {
+        "phase": {
+          "$ref": "#/$defs/DreamPhase"
+        },
+        "expected": {
+          "$ref": "#/$defs/EngineDreamSchedulePlan"
+        },
+        "desired": {
+          "$ref": "#/$defs/EngineDreamSchedulePlan"
+        }
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schedules"
+  ],
+  "properties": {
+    "schedules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DreamSchedule"
+      }
+    }
+  }
+}
+```
+
+### `engine.dreams.status`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Read the durable dreaming status over the verified Core link. The Core supplies live scheduler counters, thresholds and diary metadata.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "agents"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer"
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineDreamsStatusAgent"
+      }
+    }
+  }
+}
+```
+
+### `engine.media.index`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Index one Core-authorized media item. Captioning and codec admission remain with the Core.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mediaId",
+    "kind",
+    "mime",
+    "source",
+    "scope"
+  ],
+  "properties": {
+    "mediaId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "image",
+        "video",
+        "audio"
+      ]
+    },
+    "mime": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "source": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bytes"
+          ],
+          "properties": {
+            "bytes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1048576,
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              }
+            }
+          }
+        }
+      ]
+    },
+    "scope": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "caption": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "captionSource": {
+      "type": "string",
+      "enum": [
+        "prompt",
+        "user",
+        "auto"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "segments",
+    "state"
+  ],
+  "properties": {
+    "segments": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "indexed",
+        "pending",
+        "unsupported-kind",
+        "failed"
+      ]
+    }
+  }
+}
+```
+
+### `engine.admin.reembedding.checkpoint.put`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Commit the private checkpoint if the observed revision holds. Replaying the committed bytes returns their revision. E_INVALID_PARAMS for an invalid checkpoint; E_CONFLICT reason=checkpoint-changed; E_STORAGE reason=state-corrupt|state-unreadable; E_NOT_AVAILABLE reason=composition-pending.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "checkpoint"
+  ],
+  "properties": {
+    "revision": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "v",
+        "id"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision"
+  ],
+  "properties": {
+    "revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
+```
+
+### `engine.admin.reembedding.checkpoint.get`
+
+**Stability:** experimental · since 1.28.0
+
+**Served by:** engine
+
+Read the private re-embedding restart checkpoint over the authenticated Core link without an audit write. E_NOT_AVAILABLE reason=composition-pending; E_STORAGE reason=state-corrupt|state-unreadable.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "checkpoint"
+  ],
+  "properties": {
+    "revision": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "checkpoint": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "v",
+            "id"
+          ],
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "id": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
 
 ### `engine.tokens.families`
 
@@ -37960,6 +38783,172 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "integer",
         "null"
       ]
+    }
+  }
+}
+```
+
+### `EngineDreamSchedulePlan`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cron",
+    "timezone",
+    "enabled",
+    "nextRunAt"
+  ],
+  "properties": {
+    "cron": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+    },
+    "timezone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "nextRunAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  }
+}
+```
+
+### `EngineDreamPhaseStatus`
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.28.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "phase",
+    "enabled",
+    "cron",
+    "timezone",
+    "staggerOffsetS",
+    "nextRunAt",
+    "lastRun",
+    "breaker",
+    "importance"
+  ],
+  "properties": {
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "cron": {
+      "type": "string"
+    },
+    "timezone": {
+      "type": "string"
+    },
+    "staggerOffsetS": {
+      "type": "integer"
+    },
+    "nextRunAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "lastRun": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/DreamRun"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "breaker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "until",
+        "reason"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "closed",
+            "open"
+          ]
+        },
+        "until": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "importance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accumulated",
+        "capturesSinceRun"
+      ],
+      "properties": {
+        "accumulated": {
+          "type": "number"
+        },
+        "capturesSinceRun": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}
+```
+
+### `EngineDreamsStatusAgent`
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.28.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "phases"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineDreamPhaseStatus"
+      }
     }
   }
 }

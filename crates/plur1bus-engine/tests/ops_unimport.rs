@@ -333,28 +333,23 @@ fn parsed_files(files: &Value) -> Value {
     Value::Object(out)
 }
 fn normalize(v: &Value, root: &Path) -> Value {
-    support::replace_fixture_text(v, root.to_str().unwrap(), "<work>")
+    support::normalize_workspace_fixture(v, root)
 }
 
 fn normalize_files(files: &Value, root: &Path) -> Value {
-    let mut files = normalize(&parsed_files(files), root);
+    let mut files = parsed_files(files);
     if let Some(lines) = files
         .get_mut("workspace/.adaptive-learning/destructive-ops.jsonl")
         .and_then(Value::as_array_mut)
     {
         for line in lines {
-            if let Some(suffix) = line["archivePath"]
-                .as_str()
-                .and_then(|path| path.strip_prefix("<work>"))
-            {
-                line["archivePath"] = json!(format!(
-                    "<work>{}",
-                    suffix.replace(std::path::MAIN_SEPARATOR, "/")
-                ));
+            if let Some(path) = line["archivePath"].as_str() {
+                line["archivePath"] =
+                    json!(support::normalize_golden_path(path, root.to_str().unwrap()));
             }
         }
     }
-    files
+    normalize(&files, root)
 }
 fn rows(store: &Store) -> Value {
     let mut rows = store.scan(&RowFilter::default(), 100).unwrap();
@@ -457,6 +452,11 @@ impl Fixture {
                 None
             },
         );
+        let req = serde_json::from_value(support::expand_workspace_fixture(
+            &original["request"],
+            root.path(),
+        ))
+        .unwrap();
         Self {
             host,
             root,
@@ -465,7 +465,7 @@ impl Fixture {
             ops,
             p: serde_json::from_value(g["principal"].clone()).unwrap(),
             a: serde_json::from_value(c.get("context").unwrap_or(&g["agent"]).clone()).unwrap(),
-            req: serde_json::from_value(c["request"].clone()).unwrap(),
+            req,
             cancel,
         }
     }
@@ -546,11 +546,16 @@ fn actual_node_apply_rows_receipts_archives_and_recovery() {
             &format!("{name}:files"),
         );
         if !recover {
+            let mut cleanup = json!(*f.effects.cleanup_calls.lock().unwrap());
+            for call in cleanup.as_array_mut().unwrap() {
+                let path = call["archiveDir"].as_str().unwrap();
+                call["archiveDir"] = json!(support::normalize_golden_path(
+                    path,
+                    f.root.path().to_str().unwrap()
+                ));
+            }
             same(
-                normalize(
-                    &json!(*f.effects.cleanup_calls.lock().unwrap()),
-                    f.root.path(),
-                ),
+                normalize(&cleanup, f.root.path()),
                 c["cleanupCalls"].clone(),
                 &format!("{name}:cleanup"),
             );

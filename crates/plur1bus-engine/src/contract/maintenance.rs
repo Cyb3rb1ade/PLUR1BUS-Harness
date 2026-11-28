@@ -21,6 +21,10 @@ pub enum MaintenanceMethod {
     Switch,
     /// Prepare a reverse migration of the active generation.
     Rollback,
+    /// Read the restart checkpoint for the authorized Core.
+    CheckpointGet,
+    /// Commit the restart checkpoint if the read revision still holds.
+    CheckpointPut,
 }
 impl MaintenanceMethod {
     /// Existing wire method, without changing its schema or version.
@@ -34,6 +38,8 @@ impl MaintenanceMethod {
             Self::Validate => "engine.admin.reembedding.validate",
             Self::Switch => "engine.admin.reembedding.switch",
             Self::Rollback => "engine.admin.reembedding.rollback",
+            Self::CheckpointGet => "engine.admin.reembedding.checkpoint.get",
+            Self::CheckpointPut => "engine.admin.reembedding.checkpoint.put",
         }
     }
     /// Classify the bounded maintenance surface.
@@ -47,6 +53,8 @@ impl MaintenanceMethod {
             Self::Validate,
             Self::Switch,
             Self::Rollback,
+            Self::CheckpointGet,
+            Self::CheckpointPut,
         ]
         .into_iter()
         .find(|m| m.wire_name() == method)
@@ -160,6 +168,28 @@ pub trait MaintenanceOps: Send + Sync {
         new_id: &str,
         cancel: &Cancel,
     ) -> Result<Value, EngineError>;
+    /// Fetch the private checkpoint and its content revision over the Core link.
+    fn checkpoint_get(
+        &self,
+        _grant: &MaintenanceGrant,
+        _cancel: &Cancel,
+    ) -> Result<Value, EngineError> {
+        Err(EngineError::NotAvailable {
+            reason: "checkpoint-unavailable".into(),
+        })
+    }
+    /// Atomically replace the checkpoint against the observed revision.
+    fn checkpoint_put(
+        &self,
+        _grant: &MaintenanceGrant,
+        _expected: Option<&str>,
+        _checkpoint: &Value,
+        _cancel: &Cancel,
+    ) -> Result<Value, EngineError> {
+        Err(EngineError::NotAvailable {
+            reason: "checkpoint-unavailable".into(),
+        })
+    }
 }
 
 #[cfg(test)]

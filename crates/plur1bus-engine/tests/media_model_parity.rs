@@ -35,9 +35,9 @@ mod runtime {
         let path = std::env::var_os("ORT_DYLIB_PATH")
             .map(PathBuf::from)
             .expect("ORT_DYLIB_PATH must name the existing pinned 1.30.0 library");
-        let (_, _, bytes, sha) = pin();
+        let (_, _, pin) = pin();
         assert!(
-            verified(&path, bytes, sha).unwrap(),
+            verified(&path, pin.bytes, &pin.sha256).unwrap(),
             "existing ORT library must match size/SHA pin"
         );
         // Do NOT call ensure_runtime: unavailable/invalid ORT must fail without downloading.

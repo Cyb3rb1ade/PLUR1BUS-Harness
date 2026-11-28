@@ -46,6 +46,9 @@ RUN sed -i "s|http://deb.debian.org/debian-security|http://snapshot.debian.org/a
     && npm install --global --no-fund --no-audit pnpm@10.28.0
 WORKDIR /src
 COPY . .
+# Match the candidate image's Linux architecture and stage only the verified CPU library.
+RUN --mount=type=cache,target=/var/cache/plur1bus-ort,sharing=locked \
+    node --use-env-proxy scripts/release/onnx-runtime.mjs --target-directory /var/cache/plur1bus-ort --output-directory /out/ort
 # The lockfile records the engine's git repository as git@github.com:...; fetch it over https, with the read token when a
 # secret is supplied. The token reaches git only through this RUN's environment.
 # hadolint ignore=DL3003
@@ -98,6 +101,7 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack 
 COPY --from=rust-build /out/plur1bus /usr/local/bin/plur1bus
 COPY --from=rust-build /out/plur1bus-tools /usr/local/bin/plur1bus-tools
 COPY --from=rust-build /out/plur1bus-engine /usr/local/bin/plur1bus-engine
+COPY --from=node-build /out/ort/libonnxruntime.so.1 /usr/local/bin/libonnxruntime.so.1
 COPY --from=node-build /out/core /opt/plur1bus/core
 COPY containers/harness/healthcheck.mjs /opt/plur1bus/healthcheck.mjs
 ENV PLUR1BUS_CONTAINER=1 \

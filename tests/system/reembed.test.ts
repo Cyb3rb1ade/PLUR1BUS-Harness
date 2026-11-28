@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { CI_RECALL_HARD_MS, REAL, cli, coreChild, home, reapHome, startCore, startDaemon, stopCore, waitFor, type RunningCore } from "./helpers.ts";
+import { CI_RECALL_HARD_MS, ENGINE_IMPL, REAL, cli, coreChild, home, reapHome, startCore, startDaemon, stopCore, waitFor, type RunningCore } from "./helpers.ts";
 const E5 = "intfloat/multilingual-e5-small"; // the harness default: already the store's identity
 const JINA = "jinaai/jina-embeddings-v3";
 const GEMMA = "google/embeddinggemma-2"; // pinned, Apache-2.0: no licence question
@@ -103,6 +103,94 @@ describe("M2 — memory reembed through the CLI (acceptance 6)", () => {
       assert.equal(cli(h, ["memory", "reembed", "--abort"]).checkpoint.id, first.plan.id);
     } finally {
       if (core) await stopCore(core);
+      rmSync(h, { recursive: true, force: true });
+    }
+  });
+
+  it("the Rust pending re-embedding plan survives a restart and copies its planned rows", {
+    skip: (REAL || ENGINE_IMPL !== "rust") && "Rust with the flat embedder",
+  }, async () => {
+    const h = home();
+    let core: RunningCore | undefined;
+    try {
+      cli(h, ["agent", "create", "bernd"]);
+      core = await startCore(h);
+      assert.equal(cli(h, ["memory", "add", "--agent", "bernd", "--session", "s1", "The offsite is in June."]).stored, 1);
+
+      const auditEntries = () => readFileSync(join(h, "state", "engine-maintenance.jsonl"), "utf8")
+        .trim().split("\n").map(line => JSON.parse(line));
+      const checkpointPuts = () => auditEntries().filter(entry => entry.method === "engine.admin.reembedding.checkpoint.put");
+
+      const planArgs = ["memory", "reembed", "--plan", "--model", GEMMA, "--throttle-ms", "0"];
+      const first = cli(h, planArgs);
+      assert.ok(first.plan.rows >= 1, JSON.stringify(first));
+      assert.deepEqual(checkpointPuts().map(entry => entry.target.id), [first.plan.id]);
+
+      await stopCore(core);
+      core = await startCore(h);
+      const pending = cli(h, ["memory", "reembed", "--status"]);
+      assert.equal(pending.checkpoint.id, first.plan.id);
+      assert.equal(pending.checkpoint.phase, "planned");
+      assert.equal(pending.engineState, "planned");
+      assert.equal(checkpointPuts().length, 1, "reading after restart does not write a checkpoint");
+      assert.deepEqual(cli(h, planArgs), first, "reopening preserves the plan and its estimates");
+
+      // A standalone Core can copy and validate. The supervisor still owns activation.
+      const run = cli(h, ["memory", "reembed", "--run", "--yes"], { allowFail: true });
+      assert.equal(run.exit, 1, JSON.stringify(run));
+      const result = JSON.parse(run.stdout);
+      assert.equal(result.checkpoint.id, first.plan.id);
+      assert.equal(result.checkpoint.phase, "ready-to-switch", run.stdout);
+      assert.equal(result.checkpoint.error.code, "switch-unavailable");
+      assert.equal(result.checkpoint.counts.rowsDone, first.plan.rows);
+      assert.equal(result.engineState, "ready_to_switch");
+      const putsBeforeAbort = checkpointPuts().length;
+      const aborted = cli(h, ["memory", "reembed", "--abort"]);
+      assert.equal(aborted.checkpoint.id, first.plan.id);
+      assert.equal(aborted.checkpoint.phase, "aborted");
+      assert.equal(cli(h, ["memory", "reembed", "--status"]).checkpoint.phase, "aborted");
+      assert.ok(auditEntries().every(entry => entry.method !== "engine.admin.reembedding.checkpoint.get"));
+      const puts = checkpointPuts();
+      assert.equal(puts.length, putsBeforeAbort + 1, "abort commits one checkpoint");
+      assert.ok(puts.every(entry => entry.target.id === first.plan.id));
+
+    } finally {
+      if (core) await stopCore(core);
+      rmSync(h, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves the selected remote key name in the native checkpoint across a restart", {
+    skip: (REAL || ENGINE_IMPL !== "rust") && "Rust with the flat embedder",
+  }, async () => {
+    const h = home();
+    const { startStub } = await import("../../packages/providers/test/helpers/stub.ts");
+    const provider = await startStub((_req, res) => { res.writeHead(500); res.end(); });
+    const selected = "MIGRATION_TARGET_FIXTURE_KEY";
+    const checkpoint = () => JSON.parse(readFileSync(join(h, "state", "reembed", "migration.json"), "utf8"));
+    let core: RunningCore | undefined;
+    try {
+      cli(h, ["config", "set", "egress.allowHosts", '["127.0.0.1"]', "--yes"]);
+      cli(h, ["config", "set", "egress.allowPorts", JSON.stringify([Number(new URL(provider.baseUrl).port)]), "--yes"]);
+      cli(h, ["config", "set", "egress.allowLoopback", "true", "--yes"]);
+      core = await startCore(h);
+      // Only the flat provider seam runs. There is no key value and no provider request.
+      const result = cli(h, ["memory", "reembed", "--plan", "--provider", "openai",
+        "--model", "synthetic-migration-target", "--dimensions", "3",
+        "--api-key-env", selected, "--base-url", provider.baseUrl, "--acknowledge-privacy"]);
+      assert.ok(result.plan);
+      assert.equal(checkpoint().remote.apiKeyEnv, selected);
+      await stopCore(core);
+      core = await startCore(h);
+      const status = cli(h, ["memory", "reembed", "--status"]);
+      assert.equal(status.checkpoint.id, result.plan.id);
+      assert.equal(status.checkpoint.phase, "planned");
+      assert.equal(checkpoint().remote.apiKeyEnv, selected);
+      assert.equal(cli(h, ["memory", "reembed", "--abort"]).checkpoint.phase, "aborted");
+      assert.equal(provider.requests.length, 0);
+    } finally {
+      if (core) await stopCore(core);
+      await provider.close();
       rmSync(h, { recursive: true, force: true });
     }
   });

@@ -15,6 +15,8 @@ pub mod epistemic;
 pub mod epistemic_cutoff;
 /// Transient versus terminal failures of retained capture work (RE-D155, RE-D156).
 pub mod failure;
+#[cfg(test)]
+pub(crate) mod isolation_probe;
 /// Reuse of Node-compatible Neo journal records; capture replay uses its own WAL.
 pub mod journal;
 /// Content-free capture diagnostics (controller CA-R2, 2026-11-01).

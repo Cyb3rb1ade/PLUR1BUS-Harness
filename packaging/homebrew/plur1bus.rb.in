@@ -25,7 +25,15 @@ class Plur1bus < Formula
   end
   depends_on "node@24"
   def install
-    bin.install "bin/plur1bus", "bin/plur1bus-attest", "bin/plur1bus-tools"
+    bin.install "bin/plur1bus", "bin/plur1bus-attest", "bin/plur1bus-tools", "bin/plur1bus-engine"
+    on_linux do
+      bin.install "bin/libonnxruntime.so.1"
+    end
+    on_macos do
+      on_arm do
+        bin.install "bin/libonnxruntime.dylib"
+      end
+    end
     chmod 0755, bin/"plur1bus-attest"
     chmod 0755, bin/"plur1bus-tools"
     on_linux do

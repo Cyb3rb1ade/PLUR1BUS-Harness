@@ -104,3 +104,29 @@ fn owner_sid(path: &Path) -> Result<String, StoreError> {
     String::from_utf16(unsafe { std::slice::from_raw_parts(text, length) })
         .map_err(|_| StoreError::UntrustedPath)
 }
+
+#[cfg(all(test, windows))]
+mod tests {
+    #![allow(clippy::unwrap_used, reason = "isolated DACL fixture")]
+    use super::*;
+
+    #[test]
+    fn new_private_store_directory_has_the_process_user_as_owner() {
+        let temp = tempfile::tempdir().unwrap();
+        let directory = temp.path().canonicalize().unwrap().join("shared");
+        super::super::paths::secure_dir(&directory).unwrap();
+        let expected = plur1bus_rpc::win::user_sid().unwrap();
+        assert_eq!(owner_sid(&directory).unwrap(), expected);
+        assert!(verify(&directory, true).is_ok());
+
+        // Even a read grant for Everyone makes a private shared root untrusted.
+        let sddl = format!(
+            "{}(A;OICI;GR;;;WD)",
+            plur1bus_rpc::acl::run_dir_sddl(&expected)
+        );
+        plur1bus_rpc::win::set_path_dacl(&directory, &sddl).unwrap();
+        assert_eq!(verify(&directory, true), Err(StoreError::UntrustedPath));
+        super::super::paths::secure_dir(&directory).unwrap();
+        assert_eq!(verify(&directory, true), Err(StoreError::UntrustedPath));
+    }
+}

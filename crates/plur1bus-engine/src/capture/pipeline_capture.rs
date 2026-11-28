@@ -124,7 +124,21 @@ impl CaptureWorker for CapturePipeline {
         replay: ReplayRows,
         cancel: &Cancel,
     ) -> Result<CaptureResult, EngineError> {
-        self.capture_attempt((turn, metadata), context, options, &replay, cancel, false)
+        #[cfg(test)]
+        crate::capture::isolation_probe::event(
+            &self.base_db,
+            "capture worker entered",
+            crate::capture::isolation_probe::budget(turn.cancel.remaining()),
+        );
+        let result =
+            self.capture_attempt((turn, metadata), context, options, &replay, cancel, false);
+        #[cfg(test)]
+        crate::capture::isolation_probe::event(
+            &self.base_db,
+            "capture worker returned",
+            format_args!("{result:?}"),
+        );
+        result
     }
 }
 
@@ -619,6 +633,12 @@ impl CapturePipeline {
         }
         if self.config["neo"]["enabled"] != false {
             // A record that is being recovered carries the time of its turn (RE-D163).
+            #[cfg(test)]
+            crate::capture::isolation_probe::event(
+                &self.base_db,
+                "Neo capture entered",
+                crate::capture::isolation_probe::budget(cancel.remaining()),
+            );
             let resumed_at =
                 (admission.record.recovery_attempts > 0).then_some(admission.record.at_ms);
             let result = self.neo.as_ref().map_or_else(
@@ -636,6 +656,12 @@ impl CapturePipeline {
                         cancel,
                     )
                 },
+            );
+            #[cfg(test)]
+            crate::capture::isolation_probe::event(
+                &self.base_db,
+                "Neo capture returned",
+                format_args!("{:?}", result.as_ref().err()),
             );
             *neo_started = result.is_ok();
             if let Err(error) = result {
@@ -871,11 +897,19 @@ impl CapturePipeline {
     ) -> Result<CaptureResult, EngineError> {
         let result = admission.record.result.clone().ok_or(StoreError::Corrupt)?;
         let store = self.store(context)?;
-        let mut rows = Vec::new();
-        for id in &admission.record.row_order {
+        let ids: Vec<_> = admission
+            .record
+            .row_order
+            .iter()
+            .map(String::as_str)
+            .collect();
+        admission.check(cancel)?;
+        let mut persisted = store.get_many(&ids)?;
+        let mut rows = Vec::with_capacity(ids.len());
+        for id in ids {
             let expected = admission.record.rows.get(id).ok_or(StoreError::Corrupt)?;
             admission.check(cancel)?;
-            let row = store.get(id)?.ok_or(StoreError::Corrupt)?;
+            let row = persisted.remove(id).ok_or(StoreError::Corrupt)?;
             if row_digest(&row)? != *expected {
                 return Err(StoreError::Corrupt.into());
             }
@@ -897,7 +931,6 @@ impl CapturePipeline {
             {
                 Ok(()) => {
                     admission.record.classifier_done = true;
-                    admission.save(cancel)?;
                 }
                 Err(error) => {
                     self.warn(&error, CaptureLogStage::CapturePipeline, 1);
@@ -905,9 +938,14 @@ impl CapturePipeline {
                     if let FailureClass::Terminal(reason) = failure::classify(&error) {
                         admission.record.classifier_done = true;
                         admission.record.post_skipped.push(reason.to_owned());
-                        admission.save(cancel)?;
                     }
                 }
+            }
+            // Otherwise the next save can publish both the classifier's outcome and the
+            // Neo start marker, before any Neo effect. A crash before that save leaves
+            // the same durable reminder plans for classifier recovery as before.
+            if admission.record.classifier_done && admission.record.neo_done {
+                admission.save(cancel)?;
             }
         }
         if !admission.record.neo_done {

@@ -12,6 +12,7 @@ import {
 import { assertEngineContract, CORE_CONTRACT } from "../engine.ts";
 import type { A1Capability } from "./capabilities.ts";
 import { RpcError } from "../rpc/errors.ts";
+import type { CheckpointPort } from "../embedding-migrate/state.ts";
 
 type HostCapture = EngineClient["captureWithHostMessages"];
 export type NativeCaptureEngine = E.Engine & { captureWithHostMessages?: HostCapture };
@@ -490,6 +491,11 @@ export class EngineClient implements E.Engine {
       prepare: this.method<E.AdminOps["obsidian"]["prepare"]>("engine.admin.obsidian.prepare", ["vaultPath", "p", "a"]),
       confirm: this.method<E.AdminOps["obsidian"]["confirm"]>("engine.admin.obsidian.confirm", ["nonce", "p", "a"]),
     },
+  };
+
+  readonly reembeddingCheckpoint: CheckpointPort = {
+    get: () => this.call("engine.admin.reembedding.checkpoint.get"),
+    put: (revision, checkpoint) => this.call("engine.admin.reembedding.checkpoint.put", { revision, checkpoint }),
   };
 
   readonly stores: E.StoreOps = {

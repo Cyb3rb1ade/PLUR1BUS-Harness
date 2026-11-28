@@ -1,0 +1,230 @@
+{
+  "expected": {
+    "latest": [
+      {
+        "agentId": "a1",
+        "lastRunId": "provisional"
+      },
+      {
+        "agentId": "a2",
+        "lastRunId": "other-closed"
+      }
+    ],
+    "log": {
+      "runs": [
+        {
+          "agentId": "a2",
+          "claimed": true,
+          "counts": {},
+          "durationMs": 1,
+          "error": null,
+          "finishedAt": 6,
+          "idempotencyKey": "other-due",
+          "jobId": "consolidate-daily",
+          "logPath": null,
+          "outcome": "completed",
+          "partition": null,
+          "phase": "deep",
+          "reason": null,
+          "runId": "other-closed",
+          "scheduledFor": 5,
+          "startedAt": 5,
+          "tokensIn": null,
+          "tokensOut": null,
+          "trigger": "cron"
+        },
+        {
+          "agentId": "a1",
+          "claimed": false,
+          "counts": {},
+          "durationMs": 1791244799996,
+          "error": {
+            "message": "the process stopped before the run finished"
+          },
+          "finishedAt": 1791244800000,
+          "idempotencyKey": "next-due",
+          "jobId": "consolidate-daily",
+          "logPath": null,
+          "outcome": "aborted",
+          "partition": null,
+          "phase": "deep",
+          "reason": "crashed",
+          "runId": "provisional",
+          "scheduledFor": 4,
+          "startedAt": 4,
+          "tokensIn": null,
+          "tokensOut": null,
+          "trigger": "cron"
+        },
+        {
+          "agentId": "a1",
+          "claimed": false,
+          "counts": {
+            "llmSessions": 2
+          },
+          "durationMs": 1791244799997,
+          "error": {
+            "message": "the process stopped before the run finished"
+          },
+          "finishedAt": 1791244800000,
+          "idempotencyKey": "next-due",
+          "jobId": "consolidate-daily",
+          "logPath": null,
+          "outcome": "aborted",
+          "partition": null,
+          "phase": "deep",
+          "reason": "crashed",
+          "runId": "claimed",
+          "scheduledFor": 3,
+          "startedAt": 3,
+          "tokensIn": null,
+          "tokensOut": null,
+          "trigger": "cron"
+        },
+        {
+          "agentId": "a1",
+          "claimed": true,
+          "counts": {},
+          "durationMs": 1,
+          "error": null,
+          "finishedAt": 2,
+          "idempotencyKey": "old-due",
+          "jobId": "consolidate-daily",
+          "logPath": null,
+          "outcome": "completed",
+          "partition": null,
+          "phase": "deep",
+          "reason": null,
+          "runId": "closed",
+          "scheduledFor": 1,
+          "startedAt": 1,
+          "tokensIn": 3,
+          "tokensOut": null,
+          "trigger": "cron"
+        }
+      ]
+    },
+    "reconciled": 2
+  },
+  "input": {
+    "runs": [
+      {
+        "agent_id": "a1",
+        "cost_micros": null,
+        "counts_json": "{}",
+        "error_json": null,
+        "finished_at": 2,
+        "idempotency_key": "old-due",
+        "job_id": "consolidate-daily",
+        "log_path": null,
+        "outcome": "completed",
+        "partition": null,
+        "phase": "deep",
+        "reason": null,
+        "run_id": "closed",
+        "scheduled_for": 1,
+        "started_at": 1,
+        "tokens_in": 3,
+        "tokens_out": null,
+        "trigger": "cron"
+      },
+      {
+        "agent_id": "a1",
+        "cost_micros": null,
+        "counts_json": "{\"llmSessions\":2}",
+        "error_json": null,
+        "finished_at": null,
+        "idempotency_key": "next-due",
+        "job_id": "consolidate-daily",
+        "log_path": null,
+        "outcome": null,
+        "partition": null,
+        "phase": "deep",
+        "reason": null,
+        "run_id": "claimed",
+        "scheduled_for": 3,
+        "started_at": 3,
+        "tokens_in": 4,
+        "tokens_out": null,
+        "trigger": "cron"
+      },
+      {
+        "agent_id": "a1",
+        "cost_micros": null,
+        "counts_json": "{}",
+        "error_json": null,
+        "finished_at": null,
+        "idempotency_key": "next-due#provisional",
+        "job_id": "consolidate-daily",
+        "log_path": null,
+        "outcome": null,
+        "partition": null,
+        "phase": "deep",
+        "reason": null,
+        "run_id": "provisional",
+        "scheduled_for": 4,
+        "started_at": 4,
+        "tokens_in": null,
+        "tokens_out": null,
+        "trigger": "cron"
+      },
+      {
+        "agent_id": "a2",
+        "cost_micros": null,
+        "counts_json": "{}",
+        "error_json": null,
+        "finished_at": 6,
+        "idempotency_key": "other-due",
+        "job_id": "consolidate-daily",
+        "log_path": null,
+        "outcome": "completed",
+        "partition": null,
+        "phase": "deep",
+        "reason": null,
+        "run_id": "other-closed",
+        "scheduled_for": 5,
+        "started_at": 5,
+        "tokens_in": null,
+        "tokens_out": null,
+        "trigger": "cron"
+      }
+    ],
+    "schedules": [
+      {
+        "agent_id": "a1",
+        "breaker_reason": null,
+        "breaker_state": "closed",
+        "breaker_until": null,
+        "capture_seq": 0,
+        "captures_acc": 0,
+        "cron": "0 4 * * *",
+        "enabled": 1,
+        "importance_acc": 0,
+        "last_capture_at": null,
+        "last_run_id": "closed",
+        "next_run_at": 1791259200000,
+        "phase": "deep",
+        "stagger_offset_s": 0,
+        "timezone": "UTC"
+      },
+      {
+        "agent_id": "a2",
+        "breaker_reason": null,
+        "breaker_state": "closed",
+        "breaker_until": null,
+        "capture_seq": 0,
+        "captures_acc": 0,
+        "cron": "0 4 * * *",
+        "enabled": 1,
+        "importance_acc": 0,
+        "last_capture_at": null,
+        "last_run_id": "other-closed",
+        "next_run_at": 1791259200000,
+        "phase": "deep",
+        "stagger_offset_s": 0,
+        "timezone": "UTC"
+      }
+    ]
+  },
+  "now": 1791244800000
+}

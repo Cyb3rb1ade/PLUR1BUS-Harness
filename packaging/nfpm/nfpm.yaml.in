@@ -26,6 +26,18 @@ contents:
       mode: 0755
       owner: root
       group: root
+  - src: bin/plur1bus-engine
+    dst: /usr/bin/plur1bus-engine
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+  - src: bin/libonnxruntime.so.1
+    dst: /usr/bin/libonnxruntime.so.1
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
   - src: share/polkit-1/actions/org.plur1bus.approve.policy
     dst: /usr/share/polkit-1/actions/org.plur1bus.approve.policy
     file_info:

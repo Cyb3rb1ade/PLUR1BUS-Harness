@@ -72,11 +72,19 @@ pub(super) fn write(
     value: &Envelope,
 ) -> Result<(), EngineError> {
     let bytes = serde_json::to_vec(value).map_err(|_| StoreError::InvalidInput)?;
+    write_bytes(dir, name, &bytes)
+}
+
+pub(super) fn write_bytes(
+    dir: &TrustedDirectory,
+    name: &str,
+    bytes: &[u8],
+) -> Result<(), EngineError> {
     if bytes.len() > MAX_BYTES {
         return Err(StoreError::InvalidInput.into());
     }
     dir.assert_unchanged()?;
-    atomic_write(&dir.path().join(name), &bytes).map_err(StoreError::from)?;
+    atomic_write(&dir.path().join(name), bytes).map_err(StoreError::from)?;
     dir.assert_unchanged()?;
     Ok(())
 }
@@ -200,6 +208,51 @@ mod tests {
         .unwrap();
         let dir = base.join(ROOT);
         (root, host, admissions, dir)
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used, reason = "isolated admission fixture")]
+    fn admission_rejects_a_context_that_changes_while_pinning_the_workspace() {
+        struct MoveWorkspace {
+            host: Arc<FakeHost>,
+            next: PathBuf,
+        }
+        impl CapturePolicy for MoveWorkspace {
+            fn allowed(&self, ctx: &RequestContext) -> Result<bool, EngineError> {
+                self.host.set_workspace(&ctx.agent_id, self.next.clone());
+                Ok(true)
+            }
+        }
+        let (root, host, mut admissions, dir) = fixture();
+        let next = root.path().join("next-workspace");
+        std::fs::create_dir(&next).unwrap();
+        let turn: TurnRecord = serde_json::from_value(json!({
+            "agentId":"agent","sessionKey":"fixture","runId":"workspace-move","incognito":false,
+            "agent":{"origin":"user","background":false},
+            "principal":{"agentId":"agent","workspace":"workspace:v1:fixture","channel":"cli",
+                "accountId":"fixture","chat":{"id":"fixture","kind":"direct"},"trust":"inferred"},
+            "messages":[{"role":"user","content":"Remember the fixture convention."}]
+        }))
+        .unwrap();
+        let expected = RequestContext::build(&turn.principal, &turn.agent, host.as_ref()).unwrap();
+        admissions.policy = Arc::new(MoveWorkspace {
+            host: host.clone(),
+            next,
+        });
+        let options: CaptureOptions = serde_json::from_value(json!({})).unwrap();
+        let mode = Begin {
+            metadata: None,
+            inherits_rows: false,
+            recovery: false,
+        };
+        let refused = admissions.begin(&turn, &expected, &options, &Cancel::never(), mode);
+        assert!(matches!(
+            refused,
+            Err(EngineError::Store(StoreError::InvalidInput))
+        ));
+        let current = RequestContext::build(&turn.principal, &turn.agent, host.as_ref()).unwrap();
+        assert_ne!(expected.workspace_key, current.workspace_key);
+        assert!(!dir.join(LEASES).exists());
     }
 
     /// Record-named files below the admission root, one directory level deep.

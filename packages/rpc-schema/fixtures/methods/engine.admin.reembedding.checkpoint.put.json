@@ -1,0 +1,12 @@
+{
+  "params": {
+    "revision": null,
+    "checkpoint": {
+      "v": 1,
+      "id": "fixture-plan"
+    }
+  },
+  "result": {
+    "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

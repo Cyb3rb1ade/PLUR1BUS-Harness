@@ -173,7 +173,10 @@ fn normalize(
                 // Node's stored order is checked independently, before JSON comparison.
                 *s=format!("{{\"schemaVersion\":1,\"action\":{},\"targetScope\":{},\"targetPrincipalHash\":{},\"sourceMemoryId\":{},\"sourceAgentId\":{},\"sharedAt\":{}}}",v["action"],v["targetScope"],v["targetPrincipalHash"],v["sourceMemoryId"],v["sourceAgentId"],v["sharedAt"]);
             } else {
-                *s = s.replace(root, "<work>");
+                let native = std::path::Path::new(root).join("workspace");
+                *s = s
+                    .replace(native.to_str().unwrap(), "<work>/workspace")
+                    .replace(root, "<work>");
             }
         }
         Value::Array(items) => items
@@ -313,13 +316,10 @@ fn shares_match_node_oracles_and_read_back_with_origin_deduplication() {
                 vec![provider.clone()]
             },
         });
-        let p: plur1bus_engine::contract::Principal =
-            serde_json::from_value(support::replace_fixture_text(
-                &case["principal"],
-                "<work>",
-                root.path().to_str().unwrap(),
-            ))
-            .unwrap();
+        let p: plur1bus_engine::contract::Principal = serde_json::from_value(
+            support::expand_workspace_fixture(&case["principal"], root.path()),
+        )
+        .unwrap();
         let a = serde_json::from_value(case.get("context").unwrap_or(&golden["agent"]).clone())
             .unwrap();
         let options =
@@ -436,8 +436,13 @@ fn mutation_normalize(value: &mut Value, root: &str, ids: &BTreeMap<String, Stri
                 v["targetPrincipalHash"] = json!("<principal-hash>");
                 mutation_normalize(&mut v, root, ids, "");
                 *s=format!("{{\"schemaVersion\":1,\"action\":{},\"targetScope\":{},\"targetPrincipalHash\":{},\"sourceMemoryId\":{},\"sourceAgentId\":{},\"sharedAt\":{}}}",v["action"],v["targetScope"],v["targetPrincipalHash"],v["sourceMemoryId"],v["sourceAgentId"],v["sharedAt"].as_f64().unwrap() as i64);
+            } else if key == "archivePath" {
+                *s = support::normalize_golden_path(s, root);
             } else {
-                *s = s.replace(root, "<work>");
+                let native = std::path::Path::new(root).join("workspace");
+                *s = s
+                    .replace(native.to_str().unwrap(), "<work>/workspace")
+                    .replace(root, "<work>");
                 for (id, name) in ids {
                     *s = s.replace(id, name);
                 }
@@ -553,20 +558,14 @@ fn shared_mutations_match_node_including_partial_failure_recovery_and_archives()
                 stores: pools.clone(),
                 providers: vec![provider.clone()],
             });
-        let p: plur1bus_engine::contract::Principal =
-            serde_json::from_value(support::replace_fixture_text(
-                &case["principal"],
-                "<work>",
-                root.path().to_str().unwrap(),
-            ))
-            .unwrap();
-        let initial: plur1bus_engine::contract::Principal =
-            serde_json::from_value(support::replace_fixture_text(
-                &share_golden["cases"][0]["principal"],
-                "<work>",
-                root.path().to_str().unwrap(),
-            ))
-            .unwrap();
+        let p: plur1bus_engine::contract::Principal = serde_json::from_value(
+            support::expand_workspace_fixture(&case["principal"], root.path()),
+        )
+        .unwrap();
+        let initial: plur1bus_engine::contract::Principal = serde_json::from_value(
+            support::expand_workspace_fixture(&share_golden["cases"][0]["principal"], root.path()),
+        )
+        .unwrap();
         let agent = serde_json::from_value(golden["agent"].clone()).unwrap();
         let caller =
             serde_json::from_value(case.get("context").unwrap_or(&golden["agent"]).clone())
@@ -738,7 +737,7 @@ fn proposal_oracles_preserve_pool_acl_staleness_events_and_durable_resolution() 
         );
         let principal = |key: &str| {
             serde_json::from_value::<plur1bus_engine::contract::Principal>(
-                support::replace_fixture_text(&case[key], "<work>", root.path().to_str().unwrap()),
+                support::expand_workspace_fixture(&case[key], root.path()),
             )
             .unwrap()
         };

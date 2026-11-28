@@ -9,6 +9,104 @@ fn temp() -> tempfile::TempDir {
     tempfile::tempdir().unwrap()
 }
 
+#[cfg(unix)]
+#[test]
+fn publication_syncs_the_parent_once_after_all_source_files() {
+    use crate::store::durability_probe::Probe;
+
+    let root = temp();
+    let path = root.path().canonicalize().unwrap();
+    let directory = TrustedDirectory::open(&path).unwrap();
+    let probe = Probe::start(&path);
+    let record = parse_json("{\"id\":\"turn\"}").unwrap();
+    directory
+        .publish_jsonl(|publication| {
+            publication.append("one.jsonl", &record, LIMIT)?;
+            publication.append("two.jsonl", &record, LIMIT)?;
+            assert_eq!(probe.counts().get("append-file"), Some(&2));
+            assert_eq!(probe.counts().get("append-directory"), None);
+            assert_eq!(probe.counts().get("trusted-directory"), None);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(probe.counts().get("trusted-directory"), Some(&1));
+    assert_eq!(probe.counts().get("append-directory"), None);
+}
+
+#[cfg(unix)]
+#[test]
+fn publication_refuses_a_source_replaced_before_the_parent_sync() {
+    let root = temp();
+    let path = root.path().canonicalize().unwrap();
+    let directory = TrustedDirectory::open(&path).unwrap();
+    let record = parse_json("{\"id\":\"turn\"}").unwrap();
+    let result = directory.publish_jsonl(|publication| {
+        publication.append("journal.jsonl", &record, LIMIT)?;
+        fs::rename(path.join("journal.jsonl"), path.join("saved.jsonl")).unwrap();
+        fs::write(path.join("journal.jsonl"), b"replacement\n").unwrap();
+        Ok(())
+    });
+    assert!(matches!(
+        result,
+        Err(crate::contract::EngineError::Store(
+            StoreError::UntrustedPath
+        ))
+    ));
+    assert_eq!(
+        fs::read(path.join("journal.jsonl")).unwrap(),
+        b"replacement\n"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn publication_does_not_acknowledge_a_file_removed_during_the_parent_sync() {
+    let root = temp();
+    let path = root.path().canonicalize().unwrap();
+    let directory = TrustedDirectory::open(&path).unwrap();
+    let target = path.join("journal.jsonl");
+    let probe = crate::store::durability_probe::Probe::start(&path);
+    probe.after_sync("trusted-directory", move || {
+        fs::remove_file(target).unwrap()
+    });
+    let result = directory.publish_jsonl(|publication| {
+        publication.append("journal.jsonl", &parse_json("{}").unwrap(), LIMIT)?;
+        Ok(())
+    });
+    assert!(
+        matches!(
+            result,
+            Err(crate::contract::EngineError::Store(StoreError::Io {
+                kind: std::io::ErrorKind::NotFound
+            }))
+        ),
+        "{result:?}"
+    );
+    assert_eq!(probe.counts().get("trusted-directory"), Some(&1));
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_flush_checks_the_expected_file_identity() {
+    let root = temp();
+    let path = root.path().canonicalize().unwrap();
+    let directory = TrustedDirectory::open(&path).unwrap();
+    let first = directory.create_file("first.jsonl").unwrap();
+    let expected = super::regular_file_identity(&first).unwrap();
+    drop(first);
+    drop(directory.create_file("second.jsonl").unwrap());
+    assert!(
+        matches!(
+            directory.flush_existing_file("second.jsonl", expected),
+            Err(StoreError::UntrustedPath)
+        ),
+        "two distinct files must have different identities"
+    );
+    directory
+        .flush_existing_file("first.jsonl", expected)
+        .unwrap();
+}
+
 #[test]
 fn durable_append_preserves_actual_node_bytes_and_closes_torn_tail() {
     let root = temp();

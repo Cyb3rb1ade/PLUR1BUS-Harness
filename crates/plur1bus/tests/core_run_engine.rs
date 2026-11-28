@@ -827,12 +827,16 @@ fn an_engine_exit_3_says_another_engine_serves_the_home() {
 #[test]
 fn the_engine_gets_the_supervisor_environment_policy() {
     let h = Home::new(Some("rust"));
+    let runtime = h.root.join("custom runtime");
+    std::fs::write(&runtime, b"fixture").unwrap();
+    let runtime = runtime.canonicalize().unwrap();
+    let runtime = runtime.to_str().unwrap();
     let mut run = rust_run(
         &h,
         &[
             ("PLUR1BUS_RUN_ACL", "inherited"),
             ("PLUR1BUS_IMPORT_MAINTENANCE", "run-1"),
-            ("ORT_DYLIB_PATH", "/opt/ort/libonnxruntime.dylib"),
+            ("ORT_DYLIB_PATH", runtime),
             ("PLUR1BUS_TOKENIZER_DIR", "/opt/tokenizers"),
             ("PLUR1BUS_TEST_INTERNALS", "flat-embedder"),
             ("PLUR1BUS_ALLOW_TEST_INTERNALS", "1"),
@@ -843,7 +847,11 @@ fn the_engine_gets_the_supervisor_environment_policy() {
     let env = &h.engine_events("started")[0]["env"];
     assert_eq!(env["PLUR1BUS_RUN_ACL"], Value::Null, "{env}");
     assert_eq!(env["PLUR1BUS_IMPORT_MAINTENANCE"], Value::Null, "{env}");
-    assert_eq!(env["ORT_DYLIB_PATH"], "/opt/ort/libonnxruntime.dylib");
+    if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+        assert_eq!(env["ORT_DYLIB_PATH"], Value::Null);
+    } else {
+        assert_eq!(env["ORT_DYLIB_PATH"], runtime);
+    }
     assert_eq!(env["PLUR1BUS_TOKENIZER_DIR"], "/opt/tokenizers");
     assert_eq!(env["PLUR1BUS_TEST_INTERNALS"], "flat-embedder");
     assert_eq!(env["PLUR1BUS_ALLOW_TEST_INTERNALS"], "1");

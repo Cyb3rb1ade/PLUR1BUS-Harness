@@ -17,7 +17,7 @@ use super::paths::assert_trusted_path;
 mod append;
 #[path = "directory_replace.rs"]
 mod replace;
-pub(crate) use append::identity as regular_file_identity;
+pub(crate) use append::{identity as regular_file_identity, unlinked as regular_file_unlinked};
 
 #[cfg(test)]
 #[path = "directory_append_tests.rs"]
@@ -120,6 +120,8 @@ impl TrustedDirectory {
         ENTRY_SYNCS.with(|syncs| syncs.set(syncs.get() + 1));
         #[cfg(unix)]
         self.anchor.sync_all().map_err(io_error)?;
+        #[cfg(all(test, unix))]
+        super::durability_probe::record(self.path(), "trusted-directory");
         self.assert_unchanged()
     }
 
@@ -335,28 +337,63 @@ impl TrustedDirectory {
             unsafe { File::from_raw_fd(fd) }
         };
         #[cfg(windows)]
-        let file = {
-            use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
-            use windows_sys::Win32::Storage::FileSystem::{
-                FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT,
-            };
-            let file = OpenOptions::new()
-                .read(true)
-                .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
-                .open(self.physical.join(name))
-                .map_err(io_error)?;
-            if file.metadata().map_err(io_error)?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT
-                != 0
-            {
-                return Err(StoreError::UntrustedPath);
-            }
-            file
-        };
+        let file = self.open_windows_file(name, false)?;
         if !file.metadata().map_err(io_error)?.is_file() {
             return Err(StoreError::UntrustedPath);
         }
         self.assert_unchanged()?;
         Ok(file)
+    }
+
+    #[cfg(windows)]
+    fn open_windows_file(&self, name: &str, write: bool) -> Result<File, StoreError> {
+        use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+        use windows_sys::Win32::Storage::FileSystem::{
+            FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT,
+        };
+        let path = self.physical.join(name);
+        let non_file = |attributes| {
+            attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT) != 0
+        };
+        let file = OpenOptions::new()
+            .read(true)
+            .write(write)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(&path)
+            .map_err(|error| {
+                // CreateFileW can return access denied before exposing the
+                // attributes of a directory. Inspect only the leaf's metadata.
+                if error.kind() == std::io::ErrorKind::PermissionDenied
+                    && fs::symlink_metadata(&path)
+                        .is_ok_and(|metadata| non_file(metadata.file_attributes()))
+                {
+                    StoreError::UntrustedPath
+                } else {
+                    io_error(error)
+                }
+            })?;
+        if non_file(file.metadata().map_err(io_error)?.file_attributes()) {
+            return Err(StoreError::UntrustedPath);
+        }
+        Ok(file)
+    }
+
+    /// Flush an already-published file on Windows. FlushFileBuffers requires
+    /// write access; reopen without creating or truncating and bind the same file.
+    #[cfg(windows)]
+    pub(crate) fn flush_existing_file(
+        &self,
+        name: &str,
+        identity: (u64, u64),
+    ) -> Result<(), StoreError> {
+        valid_child(name)?;
+        self.assert_unchanged()?;
+        let file = self.open_windows_file(name, true)?;
+        if regular_file_identity(&file)? != identity {
+            return Err(StoreError::UntrustedPath);
+        }
+        self.assert_unchanged()?;
+        file.sync_all().map_err(io_error)
     }
 }
 

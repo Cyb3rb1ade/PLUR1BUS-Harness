@@ -1,0 +1,11 @@
+{
+  "params": { "agentId": "a1" },
+  "result": {
+    "agentId": "a1",
+    "path": null,
+    "exists": false,
+    "bytes": 0,
+    "text": "",
+    "truncated": false
+  }
+}

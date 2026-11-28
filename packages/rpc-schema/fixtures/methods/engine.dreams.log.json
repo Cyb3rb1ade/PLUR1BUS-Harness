@@ -1,0 +1,26 @@
+{
+  "params": { "agentId": "a1", "phase": "rem", "limit": 20 },
+  "result": {
+    "runs": [
+      {
+        "runId": "fixture",
+        "agentId": "a1",
+        "phase": "rem",
+        "jobId": "rem-dream",
+        "partition": "agent-private",
+        "idempotencyKey": "fixture-rem",
+        "claimed": true,
+        "trigger": "cron",
+        "scheduledFor": 1,
+        "startedAt": 2,
+        "finishedAt": 3,
+        "durationMs": 1,
+        "outcome": "completed",
+        "reason": null,
+        "counts": {"items": 3},
+        "tokensIn": 12,
+        "tokensOut": 4
+      }
+    ]
+  }
+}

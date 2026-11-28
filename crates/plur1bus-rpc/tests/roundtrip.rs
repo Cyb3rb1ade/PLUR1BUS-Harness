@@ -500,6 +500,42 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::EngineAdminWorkspacePolicyGetParams,
                 types::EngineAdminWorkspacePolicyGetResult,
             >(name, fixture, &root_schema),
+            "engine.admin.reembedding.checkpoint.get" => check_pair::<
+                types::EngineAdminReembeddingCheckpointGetParams,
+                types::EngineAdminReembeddingCheckpointGetResult,
+            >(name, fixture, &root_schema),
+            "engine.admin.reembedding.checkpoint.put" => check_pair::<
+                types::EngineAdminReembeddingCheckpointPutParams,
+                types::EngineAdminReembeddingCheckpointPutResult,
+            >(name, fixture, &root_schema),
+            "engine.dreams.diary" => check_pair::<
+                types::EngineDreamsDiaryParams,
+                types::EngineDreamsDiaryResult,
+            >(name, fixture, &root_schema),
+            "engine.dreams.import" => check_pair::<
+                types::EngineDreamsImportParams,
+                types::EngineDreamsImportResult,
+            >(name, fixture, &root_schema),
+            "engine.dreams.log" => check_pair::<
+                types::EngineDreamsLogParams,
+                types::EngineDreamsLogResult,
+            >(name, fixture, &root_schema),
+            "engine.dreams.run" => check_pair::<
+                types::EngineDreamsRunParams,
+                types::EngineDreamsRunResult,
+            >(name, fixture, &root_schema),
+            "engine.dreams.schedule" => check_pair::<
+                types::EngineDreamsScheduleParams,
+                types::EngineDreamsScheduleResult,
+            >(name, fixture, &root_schema),
+            "engine.dreams.status" => check_pair::<
+                types::EngineDreamsStatusParams,
+                types::EngineDreamsStatusResult,
+            >(name, fixture, &root_schema),
+            "engine.media.index" => check_pair::<
+                types::EngineMediaIndexParams,
+                types::EngineMediaIndexResult,
+            >(name, fixture, &root_schema),
             "engine.admin.reembedding.switch" => check_pair::<
                 types::EngineAdminReembeddingSwitchParams,
                 types::EngineAdminReembeddingSwitchResult,

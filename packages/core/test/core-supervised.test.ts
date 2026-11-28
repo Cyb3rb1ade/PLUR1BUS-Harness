@@ -430,7 +430,9 @@ describe("core on the supervisor's configuration (B7)", () => {
     const sup = await startFakeSupervisor({ home, config: next as unknown as Record<string, unknown> }); sups.push(sup);
     const c = await connect({ address: core.address, token: core.token }); clients.push(c);
     await c.call("core.adopt", { nonce: sup.token });
-    await until(() => core!.status().config?.source === "supervisor");
+    // The new watch becomes live before async preparation commits its snapshot.
+    await until(() => core!.status().config?.revision === sup.revision);
+    assert.equal(core.status().config?.source, "supervisor");
     assert.deepEqual(core.status().agents.map((a) => a.agentId), ["anna", "bernd"], "the supervisor's agents, not config.json's");
     assert.equal(typeof host!.mutateConfig, "function");
     await host!.mutateConfig!({ x: 1 });

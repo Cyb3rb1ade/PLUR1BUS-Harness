@@ -47,6 +47,7 @@ mod errors;
 mod host;
 mod jobs;
 mod maintenance;
+mod media_index;
 mod memory_ops;
 mod models;
 mod runtime;
@@ -66,6 +67,10 @@ pub use host::{
 };
 pub use jobs::JobRegistry;
 pub use maintenance::{MaintenanceGrant, MaintenanceMethod, MaintenanceOps};
+pub use media_index::{
+    CaptionSource, MediaIndexRequest, MediaIndexResult, MediaIndexSource, MediaIndexState,
+    MediaKind,
+};
 pub use memory_ops::{MemoryCurationOps, MemoryOps, MemoryProposalsOps};
 pub use models::ModelsService;
 pub use runtime::{AgentStoreHandle, CaptureHandle, EventReceiver};

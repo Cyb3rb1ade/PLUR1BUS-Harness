@@ -44,11 +44,15 @@ fn write_before_rename(
     let cleanup = Temporary(temporary);
     file.write_all(bytes)?;
     file.sync_all()?;
+    #[cfg(test)]
+    super::durability_probe::record(path, "atomic-file");
     drop(file);
     before_rename()?;
     rename_with_retry(&cleanup.0, path)?;
     #[cfg(unix)]
     File::open(directory)?.sync_all()?;
+    #[cfg(all(test, unix))]
+    super::durability_probe::record(path, "atomic-directory");
     Ok(())
 }
 

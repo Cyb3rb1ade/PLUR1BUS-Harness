@@ -205,6 +205,7 @@ emitters land in later parts of D111; the names are already reserved.
 | `model.scan.completed` | provider | debug | model_discovery | `provider`, `result`, `duration_ms`, `counts` |  | Model discovery event (D112 Task 12). |
 | `sandbox.watchdog.failure` | harness | info | sandbox_watchdog_failure | `process`, `version`, `cause`, `operation`, `phase`, `sample`, `elapsedMicros`, `pid`, `returned`, `expected`, `errno`, `probeReturned`, `probeErrno`, `ppid`, `pgid`, `status`, `startSeconds`, `startMicros`, `processRssBytes`, `count`, `rssBytes` | experimental | Retained native-watchdog diagnostic: the supervised ACP connector exited125 with a validated native sampling cause. Production macOS ACP cannot reach this event while macos-acceptance-pending applies (D123 SB-1/SB-3); pure consumer tests and native acceptance work retain the format. Detail comes from the target-closed helper fd, never child stderr; transport results and enforcement decisions are unchanged. Example values illustrate the format and are not a diagnosis of a native failure. |
 | `external.agent.refused` | harness | info | external_agent_refused | `process`, `reason`, `cause` | experimental | External ACP launch refused pending macOS acceptance (D123 SB-1/SB-3). Ordinary sandboxed tools retain their independent policy. |
+| `engine.dreams.ledger_imported` | harness | info | engine_dream_ledger_import | `runs`, `schedules`, `candidates` | experimental | RE-10 T5 commits the complete legacy dream ledger once. |
 | `engine.process.lifecycle` | harness | info | engine_process_lifecycle | `state`, `reason`, `pid` | experimental | RE-08 T2 process diagnostics with fixed categories only. |
 | `engine.process.error` | harness | warn | engine_process_error | `stage`, `error_kind`, `pid` | experimental | RE-08 T2 process diagnostics with fixed categories only. |
 
@@ -1106,6 +1107,16 @@ Fixed ACP platform acceptance refusal before process creation. No paths, error t
 | `process` | `connector` \| `terminal` \| `discovery` |  |
 | `reason` | `"sandbox-unavailable"` |  |
 | `cause` | `"macos-acceptance-pending"` |  |
+
+#### `engine_dream_ledger_import`
+
+Counts of legacy ADR-009 rows imported in one engine transaction.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `runs` | `integer` |  |
+| `schedules` | `integer` |  |
+| `candidates` | `integer` |  |
 
 #### `engine_process_lifecycle`
 

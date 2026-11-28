@@ -278,6 +278,106 @@ export function engineRpcSurface() {
     method.params = object({ request: object({ id: string, [key]: string }, ["id", key]) }, ["request"]);
   }
 
+  const checkpointRevision = { type: "string", pattern: "^[a-f0-9]{64}$" };
+  const optionalCheckpointRevision = { anyOf: [checkpointRevision, { type: "null" }] };
+  const checkpoint = { ...opaque, required: ["v", "id"], properties: { v: { const: 1 }, id: string } };
+  add("engine.admin.reembedding.checkpoint.get", {}, [],
+    object({ revision: optionalCheckpointRevision, checkpoint: { anyOf: [checkpoint, { type: "null" }] } }, ["revision", "checkpoint"]),
+    "Read the private re-embedding restart checkpoint over the authenticated Core link without an audit write. E_NOT_AVAILABLE reason=composition-pending; E_STORAGE reason=state-corrupt|state-unreadable.", "1.28.0");
+  add("engine.admin.reembedding.checkpoint.put", { revision: optionalCheckpointRevision, checkpoint }, ["revision", "checkpoint"],
+    object({ revision: checkpointRevision }, ["revision"]),
+    "Commit the private checkpoint if the observed revision holds. Replaying the committed bytes returns their revision. E_INVALID_PARAMS for an invalid checkpoint; E_CONFLICT reason=checkpoint-changed; E_STORAGE reason=state-corrupt|state-unreadable; E_NOT_AVAILABLE reason=composition-pending.", "1.28.0");
+
+  add(
+    "engine.media.index",
+    {
+      mediaId: { ...string, minLength: 1, maxLength: 100, pattern: "^[A-Za-z0-9_-]+$" },
+      kind: { ...string, enum: ["image", "video", "audio"] },
+      mime: { ...string, minLength: 1, maxLength: 100 },
+      source: { oneOf: [
+        object({ path: { ...string, minLength: 1, maxLength: 4096 } }, ["path"]),
+        object({ bytes: {
+          type: "array", minItems: 1, maxItems: 1048576,
+          items: { type: "integer", minimum: 0, maximum: 255 },
+        } }, ["bytes"]),
+      ] },
+      scope: ref("Principal"),
+      caption: { ...string, maxLength: 65536 },
+      captionSource: { ...string, enum: ["prompt", "user", "auto"] },
+    },
+    ["mediaId", "kind", "mime", "source", "scope"],
+    object({
+      segments: { type: "integer", minimum: 0 },
+      state: { ...string, enum: ["indexed", "pending", "unsupported-kind", "failed"] },
+    }, ["segments", "state"]),
+    "Index one Core-authorized media item. Captioning and codec admission remain with the Core.",
+    "1.28.0",
+  );
+
+  add(
+    "engine.dreams.import",
+    { legacyWriterRetired: { const: true } },
+    ["legacyWriterRetired"],
+    object({ imported: { type: "boolean" } }, ["imported"]),
+    "Import the legacy dreaming ledger once over the verified Core link after the Core has retired the writer. Read and mutation methods return E_NOT_AVAILABLE reason=dream-ledger-not-imported before this operation. An unsupported ledger version returns E_NOT_AVAILABLE reason=dream-ledger-version-unsupported.",
+    "1.28.0",
+  );
+  add(
+    "engine.dreams.diary",
+    { agentId: { $ref: "#/$defs/AgentId" } },
+    ["agentId"],
+    object({
+      agentId: { $ref: "#/$defs/AgentId" },
+      path: { oneOf: [{ type: "string" }, { type: "null" }] },
+      exists: { type: "boolean" },
+      bytes: { type: "integer" },
+      text: string,
+      truncated: { type: "boolean" },
+    }, ["agentId", "path", "exists", "bytes", "text", "truncated"]),
+    "Read the workspace diary over the verified Core link. Untrusted paths and read failures are reported. The Core applies its public redaction before returning the text.",
+    "1.28.0",
+  );
+  add(
+    "engine.dreams.log",
+    {
+      agentId: { $ref: "#/$defs/AgentId" },
+      phase: { $ref: "#/$defs/DreamPhase" },
+      runId: string,
+      limit: { type: "integer", minimum: 1, maximum: 1000 },
+    },
+    [],
+    object({ runs: { type: "array", items: { $ref: "#/$defs/DreamRun" } }, log: string }, ["runs"]),
+    "Read imported dream runs over the verified Core link, newest first. With runId, apply any supplied agent and phase filters and include the private per-run log when present. Untrusted paths and read failures are reported.",
+    "1.28.0",
+  );
+  const schedulePlan = { $ref: "#/$defs/EngineDreamSchedulePlan" };
+  add(
+    "engine.dreams.schedule",
+    {
+      agentId: { $ref: "#/$defs/AgentId" },
+      edit: object({
+        phase: { $ref: "#/$defs/DreamPhase" },
+        expected: schedulePlan,
+        desired: schedulePlan,
+      }, ["phase", "expected", "desired"]),
+    },
+    ["agentId"],
+    object({ schedules: { type: "array", items: { $ref: "#/$defs/DreamSchedule" } } }, ["schedules"]),
+    "Read an agent's schedules or atomically apply an edit over the verified Core link after engine.dreams.import. Cron and timezone have bounded lengths and reject control characters. The Core validates their syntax and computes the next run. A stale expected schedule returns E_CONFLICT.",
+    "1.28.0",
+  );
+  add(
+    "engine.dreams.status",
+    { agentId: { $ref: "#/$defs/AgentId" } },
+    [],
+    object({
+      schemaVersion: { type: "integer" },
+      agents: { type: "array", items: { $ref: "#/$defs/EngineDreamsStatusAgent" } },
+    }, ["schemaVersion", "agents"]),
+    "Read the durable dreaming status over the verified Core link. The Core supplies live scheduler counters, thresholds and diary metadata.",
+    "1.28.0",
+  );
+
   from("engine.stores", "StoreOps");
   add(
     "engine.snapshot.create",
@@ -504,7 +604,7 @@ export function syncEngineSchema(schemaPath, writeFile) {
     "core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
   );
   if (schema["x-rpc-version"] === "1.6.0") text = text.replace('"x-rpc-version": "1.6.0"', '"x-rpc-version": "1.7.0"');
-  if (!["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.13.0", "1.14.0", "1.15.0", "1.16.0", "1.17.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.22.0", "1.23.0", "1.24.0", "1.25.0", "1.26.0", "1.27.0"].includes(schema["x-rpc-version"]))
+  if (!["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.13.0", "1.14.0", "1.15.0", "1.16.0", "1.17.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.22.0", "1.23.0", "1.24.0", "1.25.0", "1.26.0", "1.27.0", "1.28.0"].includes(schema["x-rpc-version"]))
     throw new Error("RE-08: RPC version changed; agree the next minor before generating engine methods");
   for (const [name, value] of Object.entries(surface.definitions)) text = setMember(text, "$defs", name, value);
   const delegation = object(

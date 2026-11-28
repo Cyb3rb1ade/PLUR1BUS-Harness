@@ -98,6 +98,9 @@ impl fmt::Display for LocalModelError {
             Self::InvalidConfig => f.write_str("invalid local model configuration"),
             Self::InvalidTokenizer => f.write_str("invalid pinned tokenizer"),
             Self::InvalidTensor => f.write_str("invalid local inference output"),
+            Self::RuntimeUnavailable if intel_mac() => {
+                f.write_str("local models are unavailable on Intel Macs")
+            }
             Self::RuntimeUnavailable => {
                 f.write_str("set ORT_DYLIB_PATH to the host-provided ONNX Runtime 1.30.0 library")
             }
@@ -129,6 +132,18 @@ impl From<LocalModelError> for EmbedError {
             LocalModelError::InvalidTensor => Self::InvalidVector,
             _ => Self::Unavailable,
         }
+    }
+}
+
+const fn intel_mac() -> bool {
+    cfg!(all(target_os = "macos", target_arch = "x86_64"))
+}
+
+fn require_supported_runtime_target() -> Result<(), LocalModelError> {
+    if intel_mac() {
+        Err(LocalModelError::RuntimeUnavailable)
+    } else {
+        Ok(())
     }
 }
 
@@ -310,6 +325,10 @@ pub(super) fn cached_preparation(
     cap: Option<usize>,
     cancel: &Cancel,
 ) -> Result<Arc<PreparedLocal>, LocalModelError> {
+    cancel.check()?;
+    // Pinned ONNX Runtime has no Intel Mac build. Fail before opening the
+    // tokenizer or model, using the regular unavailable paths of both providers.
+    require_supported_runtime_target()?;
     let mut guard = loop {
         cancel.check()?;
         match cache.try_lock() {
@@ -609,6 +628,24 @@ impl EmbeddingProvider for LocalEmbedding {
         cancel.check().map_err(EmbedError::Cancelled)?;
         Ok(vectors)
     }
+}
+
+#[cfg(test)]
+#[test]
+#[allow(
+    clippy::unwrap_used,
+    reason = "pinned E5 profile and private empty model cache"
+)]
+fn preparation_checks_runtime_support_before_looking_up_model_files() {
+    let empty = tempfile::tempdir().unwrap();
+    let profile = artifacts::pinned_profile("intfloat/multilingual-e5-small", None).unwrap();
+    let cache = PreparedCache::default();
+    let result = cached_preparation(&cache, profile, empty.path(), None, &Cancel::never());
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    assert!(matches!(result, Err(LocalModelError::RuntimeUnavailable)));
+    #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+    assert!(matches!(result, Err(LocalModelError::Artifact(_))));
+    assert!(cache.lock().unwrap().is_none());
 }
 
 #[cfg(test)]

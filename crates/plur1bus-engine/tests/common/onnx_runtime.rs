@@ -6,46 +6,50 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
-pub const VERSION: &str = "1.30.0";
 static PREPARATION: Mutex<()> = Mutex::new(());
 
+#[derive(serde::Deserialize)]
+struct Pins {
+    version: String,
+    targets: std::collections::HashMap<String, Pin>,
+}
+
+#[derive(serde::Deserialize)]
+struct Pin {
+    path: String,
+    bytes: u64,
+    sha256: String,
+}
+
+#[allow(clippy::expect_used)]
+fn pins() -> &'static Pins {
+    static PINS: OnceLock<Pins> = OnceLock::new();
+    PINS.get_or_init(|| {
+        serde_json::from_str(include_str!(
+            "../../../../scripts/release/onnx-runtime-pins.json"
+        ))
+        .expect("valid repository ONNX Runtime pins")
+    })
+}
+
+pub fn runtime_version() -> &'static str {
+    &pins().version
+}
+
 #[allow(clippy::expect_used, clippy::panic)]
-fn pin() -> (&'static str, &'static str, u64, &'static str) {
-    match (std::env::consts::OS, std::env::consts::ARCH) {
-        ("linux", "x86_64") => (
-            "linux-x64",
-            "libonnxruntime.so.1",
-            45_828_512,
-            "ffb75a925ba05e47b235bb66e3e3911714a80b328a9c9425539feb204aa32a23",
-        ),
-        ("linux", "aarch64") => (
-            "linux-arm64",
-            "libonnxruntime.so.1",
-            25_135_496,
-            "1f549d46250b005580b597f4164984aaf75b3bcb9f3aeb07c7f8a8fe60b23c76",
-        ),
-        ("macos", "aarch64") => (
-            "darwin-arm64",
-            "libonnxruntime.1.30.0.dylib",
-            44_589_928,
-            "685d2be5dba1309c89d3a5324b7fd06a5c42f1a61bfea32d14c4cc28d072121d",
-        ),
-        ("windows", "x86_64") => (
-            "win32-x64",
-            "onnxruntime.dll",
-            28_754_232,
-            "508c362f5673483dd3a086379c392795b2e42d10d5e6f3f90ebd7ac21c97af67",
-        ),
-        ("windows", "aarch64") => (
-            "win32-arm64",
-            "onnxruntime.dll",
-            29_815_136,
-            "6c3a2abf5c6aca11c48a0d338a91af309f2266f25ce2e4084e6a87bbcb0fbfd0",
-        ),
+fn pin() -> (&'static str, &'static str, &'static Pin) {
+    let target = match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("linux", "x86_64") => "linux-x64",
+        ("linux", "aarch64") => "linux-arm64",
+        ("macos", "aarch64") => "darwin-arm64",
+        ("windows", "x86_64") => "win32-x64",
+        ("windows", "aarch64") => "win32-arm64",
         (os, arch) => panic!("unsupported ONNX Runtime test target: {os}-{arch}"),
-    }
+    };
+    let pin = pins().targets.get(target).expect("ONNX Runtime target pin");
+    (runtime_version(), target, pin)
 }
 
 fn verified(path: &Path, bytes: u64, expected: &str) -> io::Result<bool> {
@@ -97,35 +101,40 @@ pub fn ensure_runtime() -> PathBuf {
     let _preparation = PREPARATION
         .lock()
         .expect("ONNX Runtime test preparation lock");
-    let (target, filename, bytes, expected) = pin();
+    let (version, target, pin) = pin();
+    let filename = pin
+        .path
+        .rsplit('/')
+        .next()
+        .expect("ONNX Runtime archive member name");
     let directory = target_directory();
     let path = directory
         .join("ort")
-        .join(VERSION)
+        .join(version)
         .join(target)
         .join(filename);
-    let valid = verified(&path, bytes, expected).unwrap_or_else(|error| {
+    let valid = verified(&path, pin.bytes, &pin.sha256).unwrap_or_else(|error| {
         panic!(
             "cannot inspect ONNX Runtime test cache {}: {error}",
             path.display()
         )
     });
     if !valid {
-        let script =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/common/setup-onnx-runtime.mjs");
+        let script = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../scripts/release/onnx-runtime.mjs");
         let node = std::env::var_os("PLUR1BUS_NODE").unwrap_or_else(|| "node".into());
         let output = Command::new(node).arg("--use-env-proxy").arg(&script)
             .arg("--target-directory").arg(&directory).arg("--target").arg(target)
             .output().unwrap_or_else(|error| panic!("cannot run ONNX Runtime test preparation {}: {error}; use the repository's Node 24 toolchain", script.display()));
         assert!(
             output.status.success(),
-            "ONNX Runtime {VERSION} test preparation failed: {}",
+            "ONNX Runtime {version} test preparation failed: {}",
             String::from_utf8_lossy(&output.stderr)
         );
     }
     assert!(
-        verified(&path, bytes, expected).unwrap_or(false),
-        "ONNX Runtime {VERSION} CPU library failed SHA-256 verification: {}",
+        verified(&path, pin.bytes, &pin.sha256).unwrap_or(false),
+        "ONNX Runtime {version} CPU library failed SHA-256 verification: {}",
         path.display()
     );
     path

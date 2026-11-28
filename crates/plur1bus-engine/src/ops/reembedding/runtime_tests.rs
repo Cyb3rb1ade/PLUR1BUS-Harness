@@ -10,6 +10,13 @@ struct Host {
     config: EngineConfig,
     platform: PlatformCapabilities,
     decisions: AtomicUsize,
+    secret_names: Mutex<Vec<String>>,
+}
+impl SecretPort for Host {
+    fn get(&self, name: &str) -> Result<Option<SecretValue>, HostError> {
+        self.secret_names.lock().unwrap().push(name.into());
+        Ok(None)
+    }
 }
 impl EgressGate for Host {
     fn decide(&self, _: &Target) -> Decision {
@@ -33,7 +40,7 @@ impl HostServices for Host {
         None
     }
     fn secrets(&self) -> Option<&dyn SecretPort> {
-        None
+        Some(self)
     }
     fn egress(&self) -> &dyn EgressGate {
         self
@@ -59,6 +66,7 @@ fn setup(root: &Path) -> (NativeRuntime, Arc<Host>) {
         config,
         platform: PlatformCapabilities::default(),
         decisions: AtomicUsize::new(0),
+        secret_names: Mutex::new(Vec::new()),
     });
     let backend=Arc::new(GenerationBackend::new(super::super::backend::BackendConfig{
         state_root:root.join("state"),active_root:root.join("active"),active_shared_base:root.join("active"),namespace:None,active_generation:"active".into(),active_selection:json!({"mode":"generation","generation":"active"}),active_fingerprint:json!({"provider":"openai","model":"synthetic-source","dimensions":3}),active_secret_ref:None,config_revision:None,
@@ -142,6 +150,29 @@ fn actual_remote_factory_preserves_identity_and_releases_its_owned_lease() {
         runtime.create_provider(&raw(&json!({"fingerprint":fp})).unwrap(), &cancelled),
         Err(Error::Cancelled)
     ));
+}
+#[test]
+fn remote_target_probe_asks_the_host_for_the_planned_secret_name() {
+    let root = root();
+    let (runtime, host) = setup(root.path());
+    let fp = embedding::fingerprint::normalize_fingerprint(
+        &json!({"provider":"openai","model":"synthetic-target","dimensions":3}),
+        &json!([]),
+    )
+    .unwrap();
+    let target = raw(&json!({
+        "fingerprint": fp,
+        "secretRef": {"source": "env", "provider": "default", "id": "MIGRATION_TARGET_KEY"}
+    }))
+    .unwrap();
+    assert_eq!(
+        runtime.plan_probe(&target, &Cancel::never()),
+        Err(Error::Provider)
+    );
+    let names = host.secret_names.lock().unwrap();
+    assert!(!names.is_empty());
+    assert!(names.iter().all(|name| name == "MIGRATION_TARGET_KEY"));
+    assert_eq!(host.decisions.load(Ordering::SeqCst), 0);
 }
 #[test]
 fn local_target_configuration_round_trip_keeps_max_tokens_and_owned_cache() {

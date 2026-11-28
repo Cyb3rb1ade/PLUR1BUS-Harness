@@ -6,6 +6,7 @@ import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, readFileSync, ren
 import path from "node:path";
 import type { EmbeddingFingerprint } from "./probe.ts";
 import type { PrivacyAcknowledgment } from "@plur1bus/config-schema";
+import { RpcError } from "../rpc/errors.ts";
 
 export const PHASES = ["planned", "running", "aborted", "validating", "ready-to-switch", "switched", "failed"] as const;
 export type Phase = (typeof PHASES)[number];
@@ -115,26 +116,87 @@ function parse(raw: unknown): Checkpoint {
 export interface StateStore {
   readonly path: string;
   /** null when there is none; throws MigrationStateError `state-corrupt` when the file is unusable. */
+  read(): Checkpoint | null | Promise<Checkpoint | null>;
+  write(c: Checkpoint, previous: Checkpoint | null): void | Promise<void>;
+}
+
+export interface CheckpointReader {
   read(): Checkpoint | null;
+}
+
+interface LocalStateStore extends CheckpointReader {
+  readonly path: string;
   write(c: Checkpoint): void;
 }
 
-export interface StateStoreOptions { /** Test seam: the atomic-replace step. */ rename?: typeof renameSync }
+export interface CheckpointPort {
+  get(): Promise<{ revision: string | null; checkpoint: unknown }>;
+  put(revision: string | null, checkpoint: Checkpoint): Promise<{ revision: string }>;
+}
 
-export function createStateStore(stateDir: string, o: StateStoreOptions = {}): StateStore {
-  const dir = path.join(stateDir, "reembed");
-  const file = path.join(dir, "migration.json");
-  const rename = o.rename ?? renameSync;
+const checkpointPath = (stateDir: string): string => path.join(stateDir, "reembed", "migration.json");
+
+/** Read the durable checkpoint during a host callback without calling back into the engine. */
+export function createCheckpointReader(stateDir: string): CheckpointReader {
+  const file = checkpointPath(stateDir);
   return {
-    path: file,
     read() {
       let text: string;
-      try { text = readFileSync(file, "utf8"); } catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") return null; throw new MigrationStateError("state-unreadable", "migration checkpoint cannot be read"); }
+      try {
+        text = readFileSync(file, "utf8");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+        throw new MigrationStateError("state-unreadable", "migration checkpoint cannot be read");
+      }
       if (Buffer.byteLength(text) > MAX_STATE_BYTES) throw new MigrationStateError("state-corrupt", "migration checkpoint is invalid (oversized)");
       let json: unknown;
       try { json = JSON.parse(text); } catch { throw new MigrationStateError("state-corrupt", "migration checkpoint is invalid (not JSON)"); }
       return parse(json);
     },
+  };
+}
+
+/** The Rust engine serves the same durable file over its authenticated maintenance link. */
+export function createEngineCheckpointStore(stateDir: string, port: CheckpointPort): StateStore {
+  const revisions = new WeakMap<Checkpoint, string>();
+  const validRevision = (value: unknown): value is string => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+  return {
+    path: checkpointPath(stateDir),
+    async read() {
+      try {
+        const { revision, checkpoint } = await port.get();
+        if (revision === null && checkpoint === null) return null;
+        if (!validRevision(revision)) throw new MigrationStateError("state-corrupt", "invalid migration checkpoint revision");
+        const parsed = parse(checkpoint);
+        revisions.set(parsed, revision);
+        return parsed;
+      } catch (error) {
+        if (error instanceof MigrationStateError) throw error;
+        if (error instanceof RpcError && error.reason === "state-corrupt") {
+          throw new MigrationStateError("state-corrupt", "migration checkpoint is invalid");
+        }
+        throw new MigrationStateError("state-unreadable", "migration checkpoint cannot be read");
+      }
+    },
+    async write(checkpoint, previous) {
+      const revision = previous === null ? null : revisions.get(previous);
+      if (revision === undefined) throw new MigrationStateError("state-unreadable", "migration checkpoint was not read");
+      const written = await port.put(revision, parse(checkpoint));
+      if (!validRevision(written.revision)) throw new MigrationStateError("state-unreadable", "invalid written migration checkpoint revision");
+      revisions.set(checkpoint, written.revision);
+    },
+  };
+}
+
+export interface StateStoreOptions { /** Test seam: the atomic-replace step. */ rename?: typeof renameSync }
+
+export function createStateStore(stateDir: string, o: StateStoreOptions = {}): LocalStateStore {
+  const file = checkpointPath(stateDir);
+  const dir = path.dirname(file);
+  const rename = o.rename ?? renameSync;
+  return {
+    path: file,
+    ...createCheckpointReader(stateDir),
     write(c) {
       const body = JSON.stringify(parse(c)); // validates and drops every key that is not the checkpoint's own
       mkdirSync(dir, { recursive: true, mode: 0o700 });

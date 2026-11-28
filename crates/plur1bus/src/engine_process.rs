@@ -146,7 +146,44 @@ pub(crate) fn spec(layout: &Layout, instance: &str) -> Result<ChildSpec, &'stati
     let seam = std::env::var_os("PLUR1BUS_TEST_INTERNALS");
     let allow =
         std::env::var_os("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() == Some(OsStr::new("1"));
-    spec_with(layout, instance, &executable, seam.as_deref(), allow)
+    let runtime = std::env::var_os("ORT_DYLIB_PATH");
+    spec_with(
+        layout,
+        instance,
+        &executable,
+        seam.as_deref(),
+        allow,
+        runtime.as_deref(),
+    )
+}
+
+fn runtime_filename(os: &str, arch: &str) -> Option<&'static str> {
+    match (os, arch) {
+        ("macos", "x86_64") => None, // The universal archive's library is ARM only.
+        ("macos", _) => Some("libonnxruntime.dylib"),
+        ("windows", _) => Some("onnxruntime.dll"),
+        _ => Some("libonnxruntime.so.1"),
+    }
+}
+
+fn runtime_path(
+    executable: &Path,
+    override_path: Option<&OsStr>,
+    os: &str,
+    arch: &str,
+) -> Option<std::path::PathBuf> {
+    fn regular_absolute(path: &Path) -> Option<std::path::PathBuf> {
+        if !path.is_absolute() {
+            return None;
+        }
+        let path = path.canonicalize().ok()?;
+        path.is_file().then_some(path)
+    }
+
+    let filename = runtime_filename(os, arch)?;
+    override_path
+        .and_then(|path| regular_absolute(Path::new(path)))
+        .or_else(|| regular_absolute(&executable.with_file_name(filename)))
 }
 
 fn spec_with(
@@ -155,6 +192,7 @@ fn spec_with(
     executable: &Path,
     seam: Option<&OsStr>,
     allow: bool,
+    runtime_override: Option<&OsStr>,
 ) -> Result<ChildSpec, &'static str> {
     uuid::Uuid::parse_str(instance).map_err(|_| "invalid engine incarnation")?;
     let executable = executable
@@ -181,11 +219,20 @@ fn spec_with(
         }
         args.extend(["--test-internals".into(), seam.to_owned()]);
     }
+    let runtime = runtime_path(
+        &executable,
+        runtime_override,
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+    );
     Ok(ChildSpec {
         role: "engine".into(),
         program: executable,
         args,
-        env: Vec::new(),
+        env: runtime
+            .into_iter()
+            .map(|path| ("ORT_DYLIB_PATH".into(), path.into()))
+            .collect(),
         cwd: None,
     })
 }
@@ -313,7 +360,7 @@ mod tests {
         std::fs::write(&executable, b"fixture").unwrap();
         let layout = Layout::new(root.path().join("home with space"));
         let instance = "0b7a6a6e-2f1d-4c1e-9a55-6d7e8f901234";
-        let spec = spec_with(&layout, instance, &executable, None, false).unwrap();
+        let spec = spec_with(&layout, instance, &executable, None, false, None).unwrap();
         assert_eq!(spec.role, "engine");
         assert_eq!(spec.program, executable.canonicalize().unwrap());
         let args: Vec<_> = spec.args.iter().map(|s| s.to_str().unwrap()).collect();
@@ -333,6 +380,91 @@ mod tests {
         assert!(spec.cwd.is_none());
     }
 
+    #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+    #[test]
+    fn spec_uses_the_adjacent_onnx_runtime_unless_the_override_is_a_real_absolute_file() {
+        let root = tempfile::tempdir().unwrap();
+        let bin = root.path().join("bin");
+        std::fs::create_dir(&bin).unwrap();
+        let executable = bin.join("engine");
+        let bundled =
+            bin.join(runtime_filename(std::env::consts::OS, std::env::consts::ARCH).unwrap());
+        let external = root.path().join("custom runtime");
+        for path in [&executable, &bundled, &external] {
+            std::fs::write(path, b"fixture").unwrap();
+        }
+        let layout = Layout::new(root.path().join("home"));
+        let instance = "0b7a6a6e-2f1d-4c1e-9a55-6d7e8f901234";
+        let missing = root.path().join("missing");
+        assert!(Path::new("Cargo.toml").is_file());
+        for value in [
+            None,
+            Some(OsStr::new("Cargo.toml")),
+            Some(missing.as_os_str()),
+            Some(bin.as_os_str()),
+        ] {
+            let spec = spec_with(&layout, instance, &executable, None, false, value).unwrap();
+            assert_eq!(
+                spec.env,
+                vec![(
+                    "ORT_DYLIB_PATH".into(),
+                    bundled.canonicalize().unwrap().into()
+                )]
+            );
+        }
+        let spec = spec_with(
+            &layout,
+            instance,
+            &executable,
+            None,
+            false,
+            Some(external.as_os_str()),
+        )
+        .unwrap();
+        assert_eq!(
+            spec.env,
+            vec![(
+                "ORT_DYLIB_PATH".into(),
+                external.canonicalize().unwrap().into()
+            )]
+        );
+
+        std::fs::remove_file(&bundled).unwrap();
+        let spec = spec_with(
+            &layout,
+            instance,
+            &executable,
+            None,
+            false,
+            Some(bin.as_os_str()),
+        )
+        .unwrap();
+        let mut command = std::process::Command::new(&spec.program);
+        crate::supervisor::child::apply_child_env(&mut command, &spec, false);
+        assert_eq!(
+            command.get_envs().find(|(key, _)| *key == "ORT_DYLIB_PATH"),
+            Some((OsStr::new("ORT_DYLIB_PATH"), None)),
+        );
+    }
+
+    #[test]
+    fn the_universal_archive_only_selects_the_bundled_runtime_on_apple_silicon() {
+        let root = tempfile::tempdir().unwrap();
+        let bin = root.path().canonicalize().unwrap();
+        let engine = bin.join("plur1bus-engine");
+        let library = bin.join("libonnxruntime.dylib");
+        std::fs::write(&library, b"arm64 fixture").unwrap();
+        assert_eq!(
+            runtime_path(&engine, None, "macos", "aarch64"),
+            Some(library.clone())
+        );
+        assert_eq!(runtime_path(&engine, None, "macos", "x86_64"), None);
+        assert_eq!(
+            runtime_path(&engine, Some(library.as_os_str()), "macos", "x86_64"),
+            None
+        );
+    }
+
     #[test]
     fn test_seam_is_forwarded_only_with_explicit_authorization() {
         let root = tempfile::tempdir().unwrap();
@@ -346,6 +478,7 @@ mod tests {
             &executable,
             Some(OsStr::new("flat-embedder")),
             false,
+            None,
         );
         assert!(denied.is_err());
         let allowed = spec_with(
@@ -354,6 +487,7 @@ mod tests {
             &executable,
             Some(OsStr::new("flat-embedder")),
             true,
+            None,
         )
         .unwrap();
         assert_eq!(allowed.args[7], "--test-internals");
@@ -363,7 +497,8 @@ mod tests {
             instance,
             &executable,
             Some(OsStr::new("unknown")),
-            true
+            true,
+            None,
         )
         .is_err());
     }
@@ -377,9 +512,10 @@ mod tests {
             "0b7a6a6e-2f1d-4c1e-9a55-6d7e8f901234",
             Path::new("/missing/engine"),
             None,
-            false
+            false,
+            None,
         )
         .is_err());
-        assert!(spec_with(&layout, "invalid", root.path(), None, false).is_err());
+        assert!(spec_with(&layout, "invalid", root.path(), None, false, None).is_err());
     }
 }

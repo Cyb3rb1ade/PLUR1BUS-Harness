@@ -1,5 +1,41 @@
 {
   "methods": {
+    "engine.dreams.import": {
+      "stability": "experimental",
+      "since": "1.28.0"
+    },
+    "engine.dreams.diary": {
+      "stability": "experimental",
+      "since": "1.28.0"
+    },
+    "engine.dreams.log": {
+      "stability": "experimental",
+      "since": "1.28.0"
+    },
+    "engine.dreams.run": {
+      "stability": "experimental",
+      "since": "1.28.0"
+    },
+    "engine.dreams.schedule": {
+      "stability": "experimental",
+      "since": "1.28.0"
+    },
+    "engine.dreams.status": {
+      "stability": "experimental",
+      "since": "1.28.0"
+    },
+    "engine.media.index": {
+      "stability": "experimental",
+      "since": "1.28.0"
+    },
+    "engine.admin.reembedding.checkpoint.put": {
+      "stability": "experimental",
+      "since": "1.28.0"
+    },
+    "engine.admin.reembedding.checkpoint.get": {
+      "stability": "experimental",
+      "since": "1.28.0"
+    },
     "engine.tokens.families": {
       "stability": "experimental",
       "since": "1.27.0"

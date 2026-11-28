@@ -121,7 +121,8 @@ pub struct Registry {
     /// Agent slots with their last use; at most `MAX_AGENT_SESSIONS` idle ones are kept.
     agents: Mutex<BTreeMap<String, (Slot, u64)>>,
     uses: std::sync::atomic::AtomicU64,
-    settle: Duration,
+    #[cfg(any(test, feature = "testkit"))]
+    first_settle: Mutex<Option<Duration>>,
     closed: AtomicBool,
     inflight: health::InFlightRuns,
     #[cfg(any(test, feature = "testkit"))]
@@ -139,22 +140,31 @@ impl Registry {
             bodies: Mutex::new(BTreeMap::new()),
             agents: Mutex::new(BTreeMap::new()),
             uses: std::sync::atomic::AtomicU64::new(0),
-            settle: SETTLE_BUDGET,
+            #[cfg(any(test, feature = "testkit"))]
+            first_settle: Mutex::new(None),
             closed: AtomicBool::new(false),
             inflight: health::InFlightRuns::default(),
             #[cfg(any(test, feature = "testkit"))]
             observer: None,
         })
     }
-    /// Fixtures: a shorter settle budget, to force an unfinished settle without waiting.
+    /// Fixtures: shorten only the first settle, whose lease is deliberately blocked.
     #[cfg(any(test, feature = "testkit"))]
     #[must_use]
-    pub fn with_settle_budget(mut self, settle: Duration) -> Self {
-        self.settle = settle;
+    pub fn with_first_settle_budget(mut self, settle: Duration) -> Self {
+        self.first_settle = Mutex::new(Some(settle));
         self
     }
     fn settle_token(&self) -> Cancel {
-        Cancel::with_deadline(std::time::Instant::now() + self.settle)
+        let budget = SETTLE_BUDGET;
+        #[cfg(any(test, feature = "testkit"))]
+        let budget = self
+            .first_settle
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()
+            .unwrap_or(budget);
+        Cancel::with_deadline(std::time::Instant::now() + budget)
     }
     /// Install the host's best-effort job-run event sink; sink errors do not undo durable completion.
     #[must_use]

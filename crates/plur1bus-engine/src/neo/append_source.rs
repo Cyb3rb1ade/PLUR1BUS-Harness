@@ -14,6 +14,10 @@ pub(super) struct SourceProof {
     digest: [u8; 32],
 }
 impl SourceProof {
+    pub(super) fn digest(&self) -> [u8; 32] {
+        self.digest
+    }
+
     /// Returns bytes for the caller's ACL checks; reading is not itself authorization.
     pub(super) fn read(
         dir: &TrustedDirectory,

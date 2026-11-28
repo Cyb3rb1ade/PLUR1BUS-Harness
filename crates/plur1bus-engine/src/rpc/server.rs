@@ -581,6 +581,21 @@ impl Shared {
             .ok_or_else(|| unauthorized("core-link-required"))
     }
 
+    fn require_same_live_core(
+        &self,
+        connection: &Connection,
+        instance: uuid::Uuid,
+    ) -> Result<(), crate::contract::EngineError> {
+        if self
+            .live_core_instance(connection)
+            .is_ok_and(|current| current == instance)
+        {
+            Ok(())
+        } else {
+            Err(crate::contract::HostError::Denied.into())
+        }
+    }
+
     fn run_job(&self, connection: &Connection, params: &Value) -> Result<Value, WireError> {
         use crate::contract::{AgentContext, JobName, RunOptions, TurnOrigin};
         let (Some(process), Some(host)) = (&self.process, &self.job_host) else {
@@ -844,9 +859,23 @@ impl Shared {
         connection: &Arc<Connection>,
         method: &str,
         params: &Value,
+        request_id: &Value,
     ) -> Result<Value, WireError> {
         if let Some(method) = MaintenanceMethod::from_wire(method) {
-            let instance = self.core_instance(connection)?;
+            let instance = match method {
+                MaintenanceMethod::Migrate => self.core_instance(connection),
+                // During the Front Door transition, the verified legacy Core child
+                // still owns the re-embedding driver and its durable checkpoint.
+                MaintenanceMethod::Plan
+                | MaintenanceMethod::Apply
+                | MaintenanceMethod::Resume
+                | MaintenanceMethod::Status
+                | MaintenanceMethod::Validate
+                | MaintenanceMethod::Switch
+                | MaintenanceMethod::Rollback
+                | MaintenanceMethod::CheckpointGet
+                | MaintenanceMethod::CheckpointPut => self.live_core_instance(connection),
+            }?;
             let port = self
                 .maintenance
                 .as_deref()
@@ -921,6 +950,160 @@ impl Shared {
             "engine.tokens.observe" => {
                 self.live_core_instance(connection)?;
                 self.tokens.observe(params)
+            }
+            "engine.media.index" => {
+                self.live_core_instance(connection)?;
+                let request: crate::contract::MediaIndexRequest = decode(params)?;
+                if request.mime.chars().any(char::is_control)
+                    || request.caption.is_some() != request.caption_source.is_some()
+                {
+                    return Err(WireError::invalid_params());
+                }
+                encode(self.engine.index_media(request, &connection.cancel)?)
+            }
+            "engine.dreams.import" => {
+                let core = self.live_core_instance(connection)?;
+                if params["legacyWriterRetired"] != true {
+                    return Err(WireError::invalid_params());
+                }
+                let imported = crate::store::dream_ledger::import_legacy(
+                    &self.home.join("state"),
+                    self.job_host.as_ref().map(|host| host.now_ms()),
+                    &connection.cancel,
+                    || self.require_same_live_core(connection, core),
+                )?;
+                if let Some(imported) = imported {
+                    diagnostics::dream_ledger_import(imported);
+                }
+                Ok(json!({"imported":imported.is_some()}))
+            }
+            "engine.dreams.diary" => {
+                self.live_core_instance(connection)?;
+                let agent: AgentId = decode(&params["agentId"])?;
+                let safe = crate::context::safe_agent_id(agent.as_str())
+                    .map_err(|_| WireError::invalid_params())?;
+                crate::store::dream_ledger::require_imported(
+                    &self.home.join("state"),
+                    &connection.cancel,
+                )?;
+                let host = self
+                    .job_host
+                    .as_deref()
+                    .ok_or_else(WireError::not_available)?;
+                let workspace = host
+                    .workspace_dir(&agent)
+                    .map_err(crate::contract::EngineError::Host)?;
+                Ok(crate::store::dream_ledger::diary(
+                    workspace.as_deref(),
+                    &safe,
+                    &connection.cancel,
+                )?)
+            }
+            "engine.dreams.log" => {
+                self.live_core_instance(connection)?;
+                let query: crate::store::dream_ledger::LogQuery = decode(params)?;
+                if query
+                    .agent_id
+                    .as_deref()
+                    .is_some_and(|id| crate::context::safe_agent_id(id).is_err())
+                    || query
+                        .phase
+                        .as_deref()
+                        .is_some_and(|phase| !matches!(phase, "light" | "rem" | "deep"))
+                    || query
+                        .limit
+                        .is_some_and(|limit| !(1..=1000).contains(&limit))
+                {
+                    return Err(WireError::invalid_params());
+                }
+                let result = crate::store::dream_ledger::log(
+                    &self.home.join("state"),
+                    &query,
+                    &connection.cancel,
+                )?;
+                result.ok_or_else(WireError::dream_run_not_found)
+            }
+            "engine.dreams.run" => {
+                use crate::store::dream_ledger::{
+                    transition, RunCall, RunTransition, RunTransitionResult,
+                };
+                let core = self.live_core_instance(connection)?;
+                let agent: String = decode(&params["agentId"])?;
+                let agent = crate::context::safe_agent_id(&agent)
+                    .map_err(|_| WireError::invalid_params())?;
+                let request: RunTransition = decode(&params["transition"])?;
+                if !request.valid() {
+                    return Err(WireError::invalid_params());
+                }
+                let host = self
+                    .job_host
+                    .as_deref()
+                    .ok_or_else(WireError::not_available)?;
+                // FrameBuffer counts bytes before the terminating newline. Reserve the serialized
+                // identifier and the fixed envelope so a candidate receipt is deliverable at commit.
+                const ENVELOPE_BYTES: usize = br#"{"jsonrpc":"2.0","id":,"result":}"#.len();
+                let response_bytes = plur1bus_rpc::client::MAX_LINE
+                    .saturating_sub(ENVELOPE_BYTES + request_id.to_string().len());
+                let result = transition(
+                    &self.home.join("state"),
+                    &agent,
+                    &request,
+                    RunCall {
+                        now: host.now_ms(),
+                        cancel: &connection.cancel,
+                        core,
+                        response_bytes,
+                    },
+                    || self.require_same_live_core(connection, core),
+                )?;
+                match result {
+                    RunTransitionResult::Run(value) | RunTransitionResult::Candidates(value) => {
+                        Ok(value)
+                    }
+                    RunTransitionResult::Missing => Err(WireError::dream_run_not_found()),
+                    RunTransitionResult::Conflict => Err(WireError::dream_run_conflict()),
+                }
+            }
+            "engine.dreams.schedule" => {
+                self.live_core_instance(connection)?;
+                let agent: String = decode(&params["agentId"])?;
+                let agent = crate::context::safe_agent_id(&agent)
+                    .map_err(|_| WireError::invalid_params())?;
+                if let Some(edit) = params.get("edit") {
+                    use crate::store::dream_ledger::{edit_schedule, ScheduleEditResult};
+                    let result = edit_schedule(
+                        &self.home.join("state"),
+                        &agent,
+                        &decode(edit)?,
+                        &connection.cancel,
+                    )?;
+                    return match result {
+                        ScheduleEditResult::Updated(schedules) => Ok(schedules),
+                        ScheduleEditResult::Missing => Err(WireError::dream_schedule_not_found()),
+                        ScheduleEditResult::Stale => Err(WireError::stale_dream_schedule()),
+                    };
+                }
+                Ok(crate::store::dream_ledger::schedules(
+                    &self.home.join("state"),
+                    &agent,
+                    &connection.cancel,
+                )?)
+            }
+            "engine.dreams.status" => {
+                self.live_core_instance(connection)?;
+                let agent = params
+                    .get("agentId")
+                    .map(|value| {
+                        let agent: String = decode(value)?;
+                        crate::context::safe_agent_id(&agent)
+                            .map_err(|_| WireError::invalid_params())
+                    })
+                    .transpose()?;
+                Ok(crate::store::dream_ledger::status(
+                    &self.home.join("state"),
+                    agent.as_deref(),
+                    &connection.cancel,
+                )?)
             }
             "engine.jobs.run" => self.run_job(connection, params),
             "engine.capture.wait" => self.capture_wait(params, &connection.cancel),
@@ -1222,7 +1405,8 @@ fn connection_loop(state: &Arc<Shared>, accepted: Accepted, id: u64) {
         let request_method = method.to_owned();
         let worker_id = request_id.clone();
         match state.starter.spawn("engine-request", move || {
-            let result = request_state.call(&request_connection, &request_method, &params);
+            let result =
+                request_state.call(&request_connection, &request_method, &params, &worker_id);
             request_connection.reply(worker_id, result);
         }) {
             Ok(worker) => workers.push(worker),

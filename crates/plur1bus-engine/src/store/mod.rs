@@ -2,6 +2,9 @@
 pub mod atomic_write;
 pub mod checkpoint;
 pub mod directory;
+pub(crate) mod dream_ledger;
+#[cfg(test)]
+pub(crate) mod durability_probe;
 pub mod filter;
 /// Bounded LanceDB fragment compaction after capture (RE-D161).
 pub mod fragment_compactor;

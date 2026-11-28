@@ -1,0 +1,293 @@
+{
+  "expected": {
+    "agents": [
+      {
+        "agentId": "a1",
+        "phases": [
+          {
+            "breaker": {
+              "reason": null,
+              "state": "closed",
+              "until": null
+            },
+            "cron": "0 */4 * * *",
+            "enabled": true,
+            "importance": {
+              "accumulated": 0,
+              "capturesSinceRun": 0
+            },
+            "lastRun": {
+              "agentId": "a1",
+              "claimed": false,
+              "counts": {},
+              "durationMs": 0,
+              "error": null,
+              "finishedAt": 1791244800000,
+              "idempotencyKey": "ca9a4866c6f4af11b7a8feda113424a325a53136830052e5422c276162d15187",
+              "jobId": "light-dream",
+              "logPath": null,
+              "outcome": "skipped",
+              "partition": "agent-private",
+              "phase": "light",
+              "reason": "idempotent",
+              "runId": "fixture-run-2",
+              "scheduledFor": null,
+              "startedAt": 1791244800000,
+              "tokensIn": null,
+              "tokensOut": null,
+              "trigger": "manual"
+            },
+            "nextRunAt": 1791259200000,
+            "phase": "light",
+            "staggerOffsetS": 0,
+            "timezone": "UTC"
+          },
+          {
+            "breaker": {
+              "reason": null,
+              "state": "closed",
+              "until": null
+            },
+            "cron": "15 2 * * *",
+            "enabled": false,
+            "importance": {
+              "accumulated": 3,
+              "capturesSinceRun": 3
+            },
+            "lastRun": null,
+            "nextRunAt": null,
+            "phase": "rem",
+            "staggerOffsetS": 0,
+            "timezone": "UTC"
+          },
+          {
+            "breaker": {
+              "reason": null,
+              "state": "closed",
+              "until": null
+            },
+            "cron": "0 4 * * *",
+            "enabled": true,
+            "importance": {
+              "accumulated": 3,
+              "capturesSinceRun": 3
+            },
+            "lastRun": null,
+            "nextRunAt": 1791259200000,
+            "phase": "deep",
+            "staggerOffsetS": 0,
+            "timezone": "UTC"
+          }
+        ]
+      },
+      {
+        "agentId": "a2",
+        "phases": [
+          {
+            "breaker": {
+              "reason": null,
+              "state": "closed",
+              "until": null
+            },
+            "cron": "0 */4 * * *",
+            "enabled": true,
+            "importance": {
+              "accumulated": 2,
+              "capturesSinceRun": 2
+            },
+            "lastRun": null,
+            "nextRunAt": 1791259200000,
+            "phase": "light",
+            "staggerOffsetS": 0,
+            "timezone": "UTC"
+          },
+          {
+            "breaker": {
+              "reason": null,
+              "state": "closed",
+              "until": null
+            },
+            "cron": "15 1 * * *",
+            "enabled": true,
+            "importance": {
+              "accumulated": 2,
+              "capturesSinceRun": 2
+            },
+            "lastRun": null,
+            "nextRunAt": 1791249300000,
+            "phase": "rem",
+            "staggerOffsetS": 0,
+            "timezone": "UTC"
+          },
+          {
+            "breaker": {
+              "reason": null,
+              "state": "closed",
+              "until": null
+            },
+            "cron": "0 4 * * *",
+            "enabled": true,
+            "importance": {
+              "accumulated": 2,
+              "capturesSinceRun": 2
+            },
+            "lastRun": null,
+            "nextRunAt": 1791259200000,
+            "phase": "deep",
+            "staggerOffsetS": 0,
+            "timezone": "UTC"
+          }
+        ]
+      }
+    ],
+    "schemaVersion": 1
+  },
+  "input": {
+    "runs": [
+      {
+        "agent_id": "a1",
+        "cost_micros": null,
+        "counts_json": "{\"jobs\":2,\"llmSessions\":0}",
+        "error_json": null,
+        "finished_at": 1791244800000,
+        "idempotency_key": "ca9a4866c6f4af11b7a8feda113424a325a53136830052e5422c276162d15187",
+        "job_id": "light-dream",
+        "log_path": null,
+        "outcome": "completed",
+        "partition": "agent-private",
+        "phase": "light",
+        "reason": null,
+        "run_id": "fixture-run-1",
+        "scheduled_for": null,
+        "started_at": 1791244800000,
+        "tokens_in": 200,
+        "tokens_out": 100,
+        "trigger": "manual"
+      },
+      {
+        "agent_id": "a1",
+        "cost_micros": null,
+        "counts_json": "{}",
+        "error_json": null,
+        "finished_at": 1791244800000,
+        "idempotency_key": "ca9a4866c6f4af11b7a8feda113424a325a53136830052e5422c276162d15187#skipped:fixture-run-2",
+        "job_id": "light-dream",
+        "log_path": null,
+        "outcome": "skipped",
+        "partition": "agent-private",
+        "phase": "light",
+        "reason": "idempotent",
+        "run_id": "fixture-run-2",
+        "scheduled_for": null,
+        "started_at": 1791244800000,
+        "tokens_in": null,
+        "tokens_out": null,
+        "trigger": "manual"
+      }
+    ],
+    "schedules": [
+      {
+        "agent_id": "a1",
+        "breaker_reason": null,
+        "breaker_state": "closed",
+        "breaker_until": null,
+        "capture_seq": 3,
+        "captures_acc": 0,
+        "cron": "0 */4 * * *",
+        "enabled": 1,
+        "importance_acc": 0,
+        "last_capture_at": 1791244800000,
+        "last_run_id": "fixture-run-2",
+        "next_run_at": 1791259200000,
+        "phase": "light",
+        "stagger_offset_s": 0,
+        "timezone": "UTC"
+      },
+      {
+        "agent_id": "a1",
+        "breaker_reason": null,
+        "breaker_state": "closed",
+        "breaker_until": null,
+        "capture_seq": 3,
+        "captures_acc": 3,
+        "cron": "15 2 * * *",
+        "enabled": 0,
+        "importance_acc": 3,
+        "last_capture_at": 1791244800000,
+        "last_run_id": null,
+        "next_run_at": 1791252900000,
+        "phase": "rem",
+        "stagger_offset_s": 0,
+        "timezone": "UTC"
+      },
+      {
+        "agent_id": "a1",
+        "breaker_reason": null,
+        "breaker_state": "closed",
+        "breaker_until": null,
+        "capture_seq": 3,
+        "captures_acc": 3,
+        "cron": "0 4 * * *",
+        "enabled": 1,
+        "importance_acc": 3,
+        "last_capture_at": 1791244800000,
+        "last_run_id": null,
+        "next_run_at": 1791259200000,
+        "phase": "deep",
+        "stagger_offset_s": 0,
+        "timezone": "UTC"
+      },
+      {
+        "agent_id": "a2",
+        "breaker_reason": null,
+        "breaker_state": "closed",
+        "breaker_until": null,
+        "capture_seq": 2,
+        "captures_acc": 2,
+        "cron": "0 */4 * * *",
+        "enabled": 1,
+        "importance_acc": 2,
+        "last_capture_at": 1791244800000,
+        "last_run_id": null,
+        "next_run_at": 1791259200000,
+        "phase": "light",
+        "stagger_offset_s": 0,
+        "timezone": "UTC"
+      },
+      {
+        "agent_id": "a2",
+        "breaker_reason": null,
+        "breaker_state": "closed",
+        "breaker_until": null,
+        "capture_seq": 2,
+        "captures_acc": 2,
+        "cron": "15 1 * * *",
+        "enabled": 1,
+        "importance_acc": 2,
+        "last_capture_at": 1791244800000,
+        "last_run_id": null,
+        "next_run_at": 1791249300000,
+        "phase": "rem",
+        "stagger_offset_s": 0,
+        "timezone": "UTC"
+      },
+      {
+        "agent_id": "a2",
+        "breaker_reason": null,
+        "breaker_state": "closed",
+        "breaker_until": null,
+        "capture_seq": 2,
+        "captures_acc": 2,
+        "cron": "0 4 * * *",
+        "enabled": 1,
+        "importance_acc": 2,
+        "last_capture_at": 1791244800000,
+        "last_run_id": null,
+        "next_run_at": 1791259200000,
+        "phase": "deep",
+        "stagger_offset_s": 0,
+        "timezone": "UTC"
+      }
+    ]
+  }
+}

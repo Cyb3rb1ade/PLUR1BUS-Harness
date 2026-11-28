@@ -11,29 +11,45 @@
 # Base images are pinned by digest (glibc: LanceDB and onnxruntime prebuilds, spec §6.15.9). To bump one, resolve the
 # digest of the multi-arch index (`docker buildx imagetools inspect <tag>`) and change tag and digest together.
 
+# Freeze the signed Debian package metadata for both build stages.
+ARG DEBIAN_SNAPSHOT=20261001T000000Z
+
 # ---- 1. the Rust CLI and supervisor ----------------------------------------------------------------------------------
 FROM rust:1.95-slim-bookworm@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082 AS rust-build
 ARG SOURCE_DATE_EPOCH=0
+ARG DEBIAN_SNAPSHOT
 WORKDIR /src
 COPY . .
 # The image's own toolchain (the digest above) is the pin; rust-toolchain.toml would make rustup resolve "1.95" again
 # and download it under another name.
-RUN rm -f rust-toolchain.toml
+# Lance builds its pinned protobuf compiler from source.
+# hadolint ignore=DL3008
+RUN sed -i "s|http://deb.debian.org/debian-security|http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}|; s|http://deb.debian.org/debian|http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}|" /etc/apt/sources.list.d/debian.sources \
+    && apt-get -o Acquire::Check-Valid-Until=false update \
+    && apt-get -o Acquire::Retries=3 install -y --no-install-recommends cmake g++ make \
+    && rm -rf /var/lib/apt/lists/* && rm -f rust-toolchain.toml
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/src/target,sharing=locked \
-    cargo build --release --locked -p plur1bus \
+    cargo build --release --locked -p plur1bus -p plur1bus-engine \
     && install -D -m 0755 target/release/plur1bus /out/plur1bus \
-    && touch -m -d "@${SOURCE_DATE_EPOCH}" /out/plur1bus
+    && install -D -m 0755 target/release/plur1bus-engine /out/plur1bus-engine \
+    && touch -m -d "@${SOURCE_DATE_EPOCH}" /out/plur1bus /out/plur1bus-engine
 
 # ---- 2. the core: build, then `pnpm deploy` a self-contained production tree -----------------------------------------
 FROM node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS node-build
+ARG DEBIAN_SNAPSHOT
 ENV CI=true GIT_TERMINAL_PROMPT=0
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates git \
+# hadolint ignore=DL3008
+RUN sed -i "s|http://deb.debian.org/debian-security|http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}|; s|http://deb.debian.org/debian|http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}|" /etc/apt/sources.list.d/debian.sources \
+    && apt-get -o Acquire::Check-Valid-Until=false update \
+    && apt-get -o Acquire::Retries=3 install -y --no-install-recommends ca-certificates git \
     && rm -rf /var/lib/apt/lists/* \
     && npm install --global --no-fund --no-audit pnpm@10.28.0
 WORKDIR /src
 COPY . .
+# Match the candidate image's Linux architecture and stage only the verified CPU library.
+RUN --mount=type=cache,target=/var/cache/plur1bus-ort,sharing=locked \
+    node --use-env-proxy scripts/release/onnx-runtime.mjs --target-directory /var/cache/plur1bus-ort --output-directory /out/ort
 # The lockfile records the engine's git repository as git@github.com:...; fetch it over https, with the read token when a
 # secret is supplied. The token reaches git only through this RUN's environment.
 RUN --mount=type=secret,id=engine_token,required=false \
@@ -83,6 +99,8 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack 
     && test "$(getent shadow plur1bus | cut -d: -f3)" = "$expected_day" \
     && install -d -o 10001 -g 10001 -m 0700 /var/lib/plur1bus /var/lib/plur1bus/models
 COPY --from=rust-build /out/plur1bus /usr/local/bin/plur1bus
+COPY --from=rust-build /out/plur1bus-engine /usr/local/bin/plur1bus-engine
+COPY --from=node-build /out/ort/libonnxruntime.so.1 /usr/local/bin/libonnxruntime.so.1
 COPY --from=node-build /out/core /opt/plur1bus/core
 COPY deploy/container/healthcheck.mjs /opt/plur1bus/healthcheck.mjs
 ENV PLUR1BUS_CONTAINER=1 \

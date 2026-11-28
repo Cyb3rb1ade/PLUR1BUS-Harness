@@ -305,6 +305,86 @@ fn process_job_requires_a_core_peer_and_a_live_reverse_authority() {
 }
 
 #[test]
+fn process_dream_diary_resolves_only_the_workspace_from_the_verified_core() {
+    let _serial = rpc_process_support::process_test();
+    let home = rpc_process_support::home();
+    let root = home.path();
+    let workspace = root.join("fixture-workspace");
+    plur1bus_engine::store::paths::secure_dir(&workspace).unwrap();
+    let path = workspace.join("DREAMS.md");
+    let text = "Fixture diary\n";
+    std::fs::write(&path, text).unwrap();
+    plur1bus_engine::store::paths::secure_file(&path).unwrap();
+    let core = FakeCore::start(root, CORE_TOKEN, move |method, params| match method {
+        "host.workspaceDir" => {
+            assert_eq!(params["agentId"], "alpha");
+            Ok(json!({"path":workspace}))
+        }
+        "host.event" => Ok(json!({})),
+        _ => Err("E_NOT_AVAILABLE"),
+    });
+    let mut engine = rpc_process_support::EngineProcess::start_with_seam(root, "flat-embedder");
+    let mut peer = rpc_process_support::RawConnection::connect(engine.address());
+    assert!(peer.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"diary-fixture"})
+    )["result"]
+        .is_object());
+    let params = json!({"agentId":"alpha"});
+    let refused = peer.call(2, "engine.dreams.diary", params.clone());
+    assert_eq!(refused["error"]["data"]["reason"], "core-link-required");
+    assert_eq!(core.count("host.workspaceDir"), 0);
+    std::fs::write(
+        root.join("run/core.pid"),
+        format!("{} {}\n", std::process::id(), uuid::Uuid::from_u128(1)),
+    )
+    .unwrap();
+    let pending = peer.call(3, "engine.dreams.diary", params.clone());
+    assert_eq!(
+        pending["error"]["data"]["reason"],
+        "dream-ledger-not-imported"
+    );
+    assert_eq!(core.count("host.workspaceDir"), 0);
+    assert!(!root.join("state/dreams/engine.sqlite").exists());
+    let imported = peer.call(
+        4,
+        "engine.dreams.import",
+        json!({"legacyWriterRetired":true}),
+    );
+    assert_eq!(imported["result"], json!({"imported":true}), "{imported}");
+    let response = peer.call(5, "engine.dreams.diary", params.clone());
+    assert_eq!(
+        response["result"],
+        json!({
+            "agentId":"alpha","path":path,"exists":true,"bytes":text.len(),"text":text,"truncated":false,
+        })
+    );
+    assert_eq!(core.count("host.workspaceDir"), 1);
+    std::fs::remove_file(&path).unwrap();
+    let absent = peer.call(6, "engine.dreams.diary", params.clone());
+    assert_eq!(absent["result"]["exists"], false, "{absent}");
+    let source = path.with_file_name("source.md");
+    std::fs::write(&source, "hardlinked test diary").unwrap();
+    std::fs::hard_link(&source, &path).unwrap();
+    let linked = peer.call(8, "engine.dreams.diary", params.clone());
+    assert_eq!(
+        linked["error"]["data"]["reason"], "untrusted-path",
+        "{linked}"
+    );
+    std::fs::remove_file(&path).unwrap();
+    plur1bus_engine::store::paths::secure_dir(&path).unwrap();
+    let unusable = peer.call(7, "engine.dreams.diary", params);
+    assert_eq!(
+        unusable["error"]["data"]["reason"], "untrusted-path",
+        "{unusable}"
+    );
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
+}
+
+#[test]
 fn authorized_episode_rebuild_completes_through_the_attributed_core_port() {
     use plur1bus_engine::{context::harness_user_principal, neo::merged::Layout};
 

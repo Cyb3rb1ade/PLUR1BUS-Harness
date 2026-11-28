@@ -50,6 +50,42 @@ money dimension (owner decision 2026-10-19); the ledger's legacy money column st
   migrations). Per-run logs: `<home>/state/dreams/<agentId>/<phase>/<runId>.log`. Retention: ledger rows 365 days, logs 30 days.
 * Code: `packages/core/src/dreams/` (`cron.ts`, `store.ts`, `candidates.ts`, `producer.ts`, `scheduler.ts`, `methods.ts`, `index.ts`).
 
+### Native ledger cutover
+
+After retiring the legacy ledger writer, the verified Core calls `engine.dreams.import` with `legacyWriterRetired: true`.
+Before that import, the read and mutation methods return `E_NOT_AVAILABLE` with reason `dream-ledger-not-imported`.
+The log method lists recent imported runs or reads one run and the tail of its private log.
+The engine resolves per-run logs under the ledger's existing agent and phase directories and limits the tail to 262,144 UTF-16 units.
+The status method projects the durable schedules, breaker state, importance state and latest run for each phase.
+The Core supplies the live scheduler counters, thresholds and diary metadata for the public status response.
+The Core link can also call `engine.dreams.diary` for the workspace diary.
+The engine resolves the workspace through the host and returns at most 262,144 bytes of text on a UTF-8 boundary.
+The public Core handler owns application redaction.
+The import copies all three ADR-009 tables into `<home>/state/dreams/engine.sqlite` in one
+transaction and records the row counts. It closes imported runs left open by the retired Core as
+`aborted / crashed`, releases their idempotency claims, and updates the affected schedules.
+Retries report `imported: false` after that commit. After a crash during import, SQLite rolls back
+the uncommitted transaction in the existing native file. The methods report `dream-ledger-not-imported`
+until an explicit import succeeds. On Windows the Engine sequences native ledger access through
+transaction completion so one request cannot remove the SQLite rollback journal during another
+request's path validation. The legacy database and per-run log files are retained. The public
+schedule methods and scheduler still use the legacy ledger until the complete read/write cutover
+is available.
+
+For the cutover the Core can use `engine.dreams.run` to begin a phase, claim its idempotency key,
+and finish it. A second run for the same key gets an unclaimed row. A failed or aborted close
+releases the claim, and a completed close clears the phase's accumulated corpus signals in the
+same transaction. The Core still decides when a phase is due and dispatches its individual jobs.
+The first write by a replacement Core closes the previous instance's interrupted phase runs before
+claiming another run. Candidate preparation records the expiry and utility decisions in the same
+ledger. It accepts up to 1,000 observations with up to 64 KiB of UTF-8 content each. It evaluates
+current observations first and fills the remaining evaluation budget with older shortlisted rows
+in order of first appearance and candidate ID. The total budget is 1,000 rows. When older rows
+are left unevaluated, the result includes `counts.truncated: 1`. Deep runs return eligible current
+private sources. If the reply exceeds the RPC frame, the preparation rolls back and reports
+`response-too-large`. The Engine promotion operation owns authorization and durable confirmation
+for knowledge publication.
+
 ## Rust-engine jobs
 
 With `engine.implementation: "rust"`, the Core still owns the schedule. It

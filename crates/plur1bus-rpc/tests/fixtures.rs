@@ -250,6 +250,27 @@ fn method_fixture(name: &str, f: &Value) {
             EngineAdminWorkspacePolicyGetParams,
             EngineAdminWorkspacePolicyGetResult,
         >(name, f),
+        "engine.admin.reembedding.checkpoint.get" => pair::<
+            EngineAdminReembeddingCheckpointGetParams,
+            EngineAdminReembeddingCheckpointGetResult,
+        >(name, f),
+        "engine.admin.reembedding.checkpoint.put" => pair::<
+            EngineAdminReembeddingCheckpointPutParams,
+            EngineAdminReembeddingCheckpointPutResult,
+        >(name, f),
+        "engine.dreams.diary" => pair::<EngineDreamsDiaryParams, EngineDreamsDiaryResult>(name, f),
+        "engine.dreams.import" => {
+            pair::<EngineDreamsImportParams, EngineDreamsImportResult>(name, f)
+        }
+        "engine.dreams.log" => pair::<EngineDreamsLogParams, EngineDreamsLogResult>(name, f),
+        "engine.dreams.run" => pair::<EngineDreamsRunParams, EngineDreamsRunResult>(name, f),
+        "engine.dreams.schedule" => {
+            pair::<EngineDreamsScheduleParams, EngineDreamsScheduleResult>(name, f)
+        }
+        "engine.dreams.status" => {
+            pair::<EngineDreamsStatusParams, EngineDreamsStatusResult>(name, f)
+        }
+        "engine.media.index" => pair::<EngineMediaIndexParams, EngineMediaIndexResult>(name, f),
         "engine.admin.reembedding.switch" => {
             pair::<EngineAdminReembeddingSwitchParams, EngineAdminReembeddingSwitchResult>(name, f)
         }
@@ -1117,7 +1138,7 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.27.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.28.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()

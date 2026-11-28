@@ -48,10 +48,52 @@ pub fn replace_fixture_text(value: &Value, from: &str, to: &str) -> Value {
     }
 }
 
+/// Replace the golden workspace spelling before generic root substitution.
+pub fn expand_workspace_fixture(value: &Value, root: &Path) -> Value {
+    let native = root.join("workspace");
+    let value = replace_fixture_text(value, "<work>/workspace", native.to_str().unwrap());
+    replace_fixture_text(&value, "<work>", root.to_str().unwrap())
+}
+
+pub fn normalize_workspace_fixture(value: &Value, root: &Path) -> Value {
+    let native = root.join("workspace");
+    let value = replace_fixture_text(value, native.to_str().unwrap(), "<work>/workspace");
+    replace_fixture_text(&value, root.to_str().unwrap(), "<work>")
+}
+
+/// Normalize a path field inside the test root, preserving the relative path.
+pub fn normalize_golden_path(value: &str, root: &str) -> String {
+    match value.strip_prefix(root) {
+        Some("") => "<work>".into(),
+        Some(suffix) if suffix.starts_with(['/', '\\']) => {
+            format!("<work>{}", suffix.replace('\\', "/"))
+        }
+        _ => value.to_owned(),
+    }
+}
+
+#[test]
+fn golden_paths_keep_their_suffix_and_leave_unrelated_values_alone() {
+    let root = r"C:\Temp\fixture";
+    assert_eq!(
+        normalize_golden_path(r"C:\Temp\fixture\state\memory\card.json", root),
+        "<work>/state/memory/card.json"
+    );
+    assert_eq!(
+        normalize_golden_path(r"C:\Temp\fixture-other\card.json", root),
+        r"C:\Temp\fixture-other\card.json"
+    );
+}
+
+struct WorkspaceBinding {
+    current: PathBuf,
+    next: Option<PathBuf>,
+}
+
 pub struct TestHost {
     state_dir: PathBuf,
     config: EngineConfig,
-    workspaces: Mutex<BTreeMap<String, PathBuf>>,
+    workspaces: Mutex<BTreeMap<String, WorkspaceBinding>>,
     platform: PlatformCapabilities,
     pub events: Mutex<Vec<Value>>,
     pub time: std::sync::atomic::AtomicI64,
@@ -74,11 +116,22 @@ impl TestHost {
         }
     }
 
+    /// Return a final snapshot of the current binding before serving the replacement.
+    pub fn move_workspace_after_next_lookup(&self, agent: &str, next: PathBuf) {
+        self.workspaces.lock().unwrap().get_mut(agent).unwrap().next = Some(next);
+    }
+
     pub fn set_workspace(&self, agent: &str, path: PathBuf) {
         self.workspaces
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(agent.to_owned(), path);
+            .insert(
+                agent.to_owned(),
+                WorkspaceBinding {
+                    current: path,
+                    next: None,
+                },
+            );
     }
 }
 
@@ -92,12 +145,14 @@ impl HostServices for TestHost {
     }
 
     fn workspace_dir(&self, agent: &AgentId) -> Result<Option<PathBuf>, HostError> {
-        Ok(self
-            .workspaces
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .get(agent.as_str())
-            .cloned())
+        let mut workspaces = self.workspaces.lock().unwrap();
+        Ok(workspaces.get_mut(agent.as_str()).map(|binding| {
+            if let Some(next) = binding.next.take() {
+                std::mem::replace(&mut binding.current, next)
+            } else {
+                binding.current.clone()
+            }
+        }))
     }
 
     fn llm(&self) -> Option<&dyn LlmPort> {
