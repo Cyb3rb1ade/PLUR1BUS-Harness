@@ -3838,6 +3838,7 @@ fn daily_compaction_and_resolution_publish_owner_proposals_once() {
         "{}",
         String::from_utf8_lossy(&node.stderr)
     );
+    let node_receipt = node.stdout;
     drop(engine);
     let engine =
         ProcessEngine::with_job_completion(host.clone(), Some(Seam::FlatEmbedder), &completion)
@@ -3886,4 +3887,15 @@ fn daily_compaction_and_resolution_publish_owner_proposals_once() {
     assert_eq!(fs::read(&resolved).unwrap(), stored, "{result:?}");
     assert_eq!(result.outcome, JobOutcome::Failed, "{result:?}");
     assert!(store.get(&c.id).unwrap().is_some());
+
+    // Give Rust only the receipt written by the pinned Node resolver.
+    let legacy_resolved = workspace_sidecars.join("conflict-resolved.jsonl");
+    fs::write(&legacy_resolved, &node_receipt).unwrap();
+    fs::remove_file(&resolved).unwrap();
+    let resumed = run(&engine);
+    assert_eq!(resumed.outcome, JobOutcome::Completed);
+    assert_eq!(resumed.counts["conflictProposals"].as_u64(), Some(0));
+    assert_eq!(calls.load(Ordering::SeqCst), 3);
+    assert!(!resolved.exists());
+    assert_eq!(fs::read(&legacy_resolved).unwrap(), node_receipt);
 }

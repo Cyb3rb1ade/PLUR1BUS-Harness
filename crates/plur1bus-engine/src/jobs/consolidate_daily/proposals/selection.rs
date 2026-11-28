@@ -244,4 +244,46 @@ mod tests {
         assert_eq!(result[0]["type"], "mark_conflict");
         assert_eq!(result[0]["id"], "b");
     }
+
+    #[test]
+    fn vector_actions_respect_the_similarity_threshold_and_batch_boundary() {
+        let direction = |cosine: f32| vec![cosine, (1.0 - cosine * cosine).sqrt()];
+        let mut rows: Vec<_> = (0..=50)
+            .map(|i| {
+                let mut row = schema_defaults(vec![0.0, 0.0]);
+                row.scope = "agent-private".into();
+                row.id = format!("synthetic-{i}");
+                row.created_at = i.into();
+                row.text = format!("Synthetic observation {i}");
+                row
+            })
+            .collect();
+        rows[0].vector = vec![1.0, 0.0];
+        rows[1].vector = direction(0.879);
+        let cancel = Cancel::never();
+        assert!(actions(&rows[..2], true, &cancel).unwrap().is_empty());
+        rows[1].vector = direction(0.881);
+        assert_eq!(actions(&rows[..2], true, &cancel).unwrap().len(), 1);
+
+        // The same pair is split across two 50-row batches after ordering.
+        assert!(actions(&rows, true, &cancel).unwrap().is_empty());
+    }
+
+    #[test]
+    fn matching_text_with_different_evidence_stays_a_review_proposal() {
+        let mut older = schema_defaults(vec![1.0]);
+        older.id = "older".into();
+        older.text = "Synthetic observation".into();
+        let mut newer = older.clone();
+        newer.id = "newer".into();
+        newer.created_at = 1.into();
+        newer.epistemic_status_reason = "independent verification".into();
+
+        let proposals = actions(&[older, newer], false, &Cancel::never()).unwrap();
+        assert_eq!(proposals.len(), 1);
+        assert_eq!(proposals[0]["type"], "mark_redundant");
+        assert_eq!(proposals[0]["reason"], "compatible_but_not_merged");
+        assert_eq!(proposals[0]["id"], "older");
+        assert_eq!(proposals[0]["targetId"], "newer");
+    }
 }

@@ -1,4 +1,4 @@
-// Exercise the pinned resolver against a native receipt in a private synthetic copy.
+// Exercise the pinned resolver in both directions in a private synthetic copy.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -17,20 +17,36 @@ try {
   await mkdir(sidecars);
   const resolved = join(sidecars, "conflict-resolved.jsonl");
   await writeFile(join(sidecars, "conflict-log.jsonl"), JSON.stringify(receipt.original) + "\n");
-  await writeFile(resolved, input);
   let calls = 0;
-  const result = await runConflictResolver({
+  const resolve = () => runConflictResolver({
     workspaceDir: home,
     agentId: receipt.original.agentId,
     llmCfg: {},
     callLlm: async () => {
       calls++;
-      return JSON.stringify({ resolution: "uncertain", confidence: 0 });
+      return JSON.stringify({
+        resolution: receipt.resolution,
+        confidence: receipt.confidence,
+        reason: receipt.reason,
+      });
     },
   });
+
+  await resolve();
+  assert.equal(calls, 1);
+  const nodeBytes = await readFile(resolved, "utf8");
+  const nodeReceipt = JSON.parse(nodeBytes);
+  for (const field of ["original", "resolution", "confidence", "reason", "recommendation", "dryRun"]) {
+    assert.deepEqual(nodeReceipt[field], receipt[field], field);
+  }
+  assert.ok(Number.isFinite(Date.parse(nodeReceipt.resolvedAt)));
+
+  await writeFile(resolved, input);
+  const result = await resolve();
   assert.equal(result.note, "no_eligible_conflicts");
-  assert.equal(calls, 0);
+  assert.equal(calls, 1);
   assert.equal(await readFile(resolved, "utf8"), input);
+  process.stdout.write(nodeBytes);
 } finally {
   await rm(home, { recursive: true });
 }
