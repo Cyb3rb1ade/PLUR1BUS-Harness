@@ -28,7 +28,7 @@ use super::knowledge::{self, CanonicalHit};
 use super::lifecycle::{self, epoch};
 use super::namespace_observation::Observations;
 use super::namespace_trace::{NamespaceTrace, TraceLimits};
-use super::score::{self, distance_to_score};
+use super::score::{self, ScoreScale};
 use super::temporal::{self, range_from_anchor, Temporal};
 
 /// Limits copied from the pipeline arguments.
@@ -40,7 +40,9 @@ pub struct StageLimits {
     pub candidate_top_k: usize,
     /// Caller hard cap, itself capped at 100.
     pub candidate_hard_limit: usize,
-    /// Minimum vector score. The function default in Node is 0.15.
+    /// Active scoring scale.
+    pub score_scale: ScoreScale,
+    /// Legacy vector score floor. The function default in Node is 0.15.
     pub recall_min_score: f64,
     /// Minimum canonical cosine. The function default is 0.30.
     pub canonical_min_score: f64,
@@ -296,7 +298,13 @@ fn run_stages(
     });
     phase!("query_refinement", true, {
         if input.flags.query_refiner
-            && should_refine_query(&state.hits, input.limits.recall_min_score)
+            && should_refine_query(
+                &state.hits,
+                input
+                    .limits
+                    .score_scale
+                    .threshold(input.limits.recall_min_score),
+            )
         {
             if let Some(merged) = refine_hits(input, &state.hits, sink, &mut state.rejections)? {
                 state.hits = merged;
@@ -327,7 +335,11 @@ fn run_stages(
         Ok(())
     });
     phase!("scoring", true, {
-        state.hits = score_hits(std::mem::take(&mut state.hits), emotion);
+        state.hits = score_hits(
+            std::mem::take(&mut state.hits),
+            emotion,
+            input.limits.score_scale,
+        );
         state.scored = true;
         observations.scoring(
             state
@@ -382,7 +394,8 @@ fn finish_progress(
         // The pinned early exit applies strength once, without later emotion/epistemic stages.
         for hit in &mut state.hits {
             if let Some(row) = &hit.row {
-                hit.score += score::strength_adjustment(lifecycle::number(&row.memory_strength));
+                hit.score += input.limits.score_scale.boost_weight()
+                    * score::strength_adjustment(lifecycle::number(&row.memory_strength));
             }
         }
         state
@@ -480,6 +493,11 @@ fn read_hits(
     sink: &dyn DenialSink,
     rejections: &mut Vec<Rejection>,
 ) -> Result<Vec<Hit>, StageError> {
+    let scale = input.limits.score_scale;
+    if !scale.accepts_vector(query_vector) {
+        return Err(StageError::Embed(EmbedError::InvalidVector));
+    }
+    let minimum = scale.threshold(input.limits.recall_min_score);
     let filter = RowFilter {
         valid_at: input.clocks.valid_at,
         ..RowFilter::default()
@@ -490,8 +508,11 @@ fn read_hits(
         .map_err(StageError::Store)?;
     let mut hits = Vec::new();
     for scored in found {
-        let score = distance_to_score(f64::from(scored.distance));
-        if score < input.limits.recall_min_score {
+        let score = scale.distance_score(f64::from(scored.distance));
+        if score < minimum
+            || (scale != ScoreScale::Legacy
+                && (!score.is_finite() || !scale.accepts_vector(&scored.row.vector)))
+        {
             continue;
         }
         hits.push(Hit {
@@ -712,17 +733,22 @@ fn canonical_hits(
     hits
 }
 
-fn score_hits(mut hits: Vec<Hit>, emotion: Option<&dyn score::EmotionalRecallState>) -> Vec<Hit> {
+fn score_hits(
+    mut hits: Vec<Hit>,
+    emotion: Option<&dyn score::EmotionalRecallState>,
+    scale: ScoreScale,
+) -> Vec<Hit> {
     for hit in &mut hits {
         let Some(row) = hit.row.as_ref() else {
             continue;
         };
-        if let Some(emotion) = emotion {
-            hit.score *= emotion.recall_boost(row).clamp(0.9, 1.1);
-        }
-        let strength = lifecycle::number(&row.memory_strength);
-        hit.score += score::strength_adjustment(strength);
-        hit.score += score::epistemic_score_boost(&row.epistemic_status);
+        let emotional_factor = emotion.map_or(1.0, |state| state.recall_boost(row).clamp(0.9, 1.1));
+        hit.score = scale.boost(
+            hit.score,
+            emotional_factor,
+            lifecycle::number(&row.memory_strength),
+            &row.epistemic_status,
+        );
     }
     hits.sort_by(|left, right| right.score.total_cmp(&left.score));
     hits

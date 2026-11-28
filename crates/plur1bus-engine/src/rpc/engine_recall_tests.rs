@@ -617,8 +617,7 @@ fn an_unreadable_registry_answers_degraded_without_data() {
     assert!(!result.to_string().contains(&row.id));
 }
 
-#[test]
-fn warm_reranking_never_receives_a_forgotten_legacy_copy() {
+fn record_flat_reranker(engine: &mut ProcessEngine) -> Arc<Mutex<Vec<String>>> {
     use crate::embedding::{RerankError, Reranker};
 
     struct Recorder(Arc<Mutex<Vec<String>>>);
@@ -640,19 +639,6 @@ fn warm_reranking_never_receives_a_forgotten_legacy_copy() {
             }])
         }
     }
-    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
-    let root = scratch.path();
-    let mut engine =
-        ProcessEngine::new(legacy_host(root, &json!({})), Some(Seam::FlatEmbedder)).unwrap();
-    let (_, row) = seeded(root, &engine);
-    let mut kept = row.clone();
-    kept.id = "66666666-6666-4666-8666-666666666666".into();
-    kept.text = "A legacy card that was never forgotten.".into();
-    let mut second = kept.clone();
-    second.id = "77777777-7777-4777-8777-777777777777".into();
-    second.text = "A second live legacy card.".into();
-    legacy_copy(root, &engine, &[row.clone(), kept.clone(), second]);
-    forget(&engine, &row.id);
     let identity = engine.embedding().identities().remove(0);
     let space = identity.space.clone().unwrap();
     let width = space.dimension.as_u64().unwrap() as usize;
@@ -667,6 +653,25 @@ fn warm_reranking_never_receives_a_forgotten_legacy_copy() {
         )
         .unwrap(),
     );
+    seen
+}
+
+#[test]
+fn warm_reranking_never_receives_a_forgotten_legacy_copy() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let mut engine =
+        ProcessEngine::new(legacy_host(root, &json!({})), Some(Seam::FlatEmbedder)).unwrap();
+    let (_, row) = seeded(root, &engine);
+    let mut kept = row.clone();
+    kept.id = "66666666-6666-4666-8666-666666666666".into();
+    kept.text = "A legacy card that was never forgotten.".into();
+    let mut second = kept.clone();
+    second.id = "77777777-7777-4777-8777-777777777777".into();
+    second.text = "A second live legacy card.".into();
+    legacy_copy(root, &engine, &[row.clone(), kept.clone(), second]);
+    forget(&engine, &row.id);
+    let seen = record_flat_reranker(&mut engine);
     let mut warm = params("synthetic project archive", "user");
     warm["query"]["warmOnly"] = json!(true);
     warm["options"]["reranker"] = json!("on");
@@ -823,4 +828,230 @@ fn the_prompt_trace_does_not_count_a_masked_card() {
         text[start..].split("/>").next().unwrap().to_owned()
     };
     assert_eq!(summary(true), summary(false));
+}
+
+#[test]
+fn a_configured_cosine_floor_filters_the_native_recall_pipeline() {
+    for (scale, keeps_weaker) in [("legacy", true), ("cosine", false)] {
+        let scratch =
+            tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+        let root = scratch.path();
+        let host = host_with(
+            root,
+            &json!({
+                "recall":{"scoreScale":scale,"cosineMinScore":0.8,"canonicalFirst":false}
+            }),
+        );
+        let mut engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+        let (store, relevant) = seeded(root, &engine);
+        let mut weaker = relevant.clone();
+        weaker.id = "22222222-2222-4222-8222-222222222222".into();
+        weaker.text = "Another archived review, about a different topic.".into();
+        weaker.vector[0] = 0.6;
+        weaker.vector[1] = 0.8;
+        let mut non_unit = relevant.clone();
+        non_unit.id = "44444444-4444-4444-8444-444444444444".into();
+        non_unit.text = "A fixture card with an off-scale stored vector.".into();
+        non_unit.vector[0] = 1.1;
+        store.upsert(&[weaker.clone(), non_unit.clone()]).unwrap();
+        let answer = recall(&engine, &params("synthetic project archive", "user"));
+        assert_eq!(answer["degraded"], Value::Null, "{answer}");
+        let text = memories(&answer);
+        assert!(text.contains(&relevant.id), "{text}");
+        assert_eq!(text.contains(&weaker.id), keeps_weaker, "{scale}: {text}");
+        assert_eq!(text.contains(&non_unit.id), keeps_weaker, "{scale}: {text}");
+
+        // Warm recall invokes the reranker only when at least two candidates qualify.
+        let mut second = relevant.clone();
+        second.id = "33333333-3333-4333-8333-333333333333".into();
+        second.text = "A separate fixture decision in the synthetic project archive.".into();
+        store.upsert(std::slice::from_ref(&second)).unwrap();
+        let seen = record_flat_reranker(&mut engine);
+        let mut warm = params("synthetic project archive", "user");
+        warm["query"]["warmOnly"] = json!(true);
+        warm["options"]["reranker"] = json!("on");
+        let warm_reply = recall(&engine, &warm);
+        assert_eq!(warm_reply["degraded"], Value::Null, "{warm_reply}");
+        let seen = seen.lock().unwrap();
+        assert!(seen.contains(&relevant.text), "{scale}: {seen:?}");
+        assert!(seen.contains(&second.text), "{scale}: {seen:?}");
+        assert_eq!(
+            seen.contains(&non_unit.text),
+            keeps_weaker,
+            "{scale}: {seen:?}"
+        );
+        assert_eq!(
+            seen.contains(&weaker.text),
+            keeps_weaker,
+            "{scale}: {seen:?}"
+        );
+    }
+}
+
+#[test]
+fn the_native_config_discards_the_retired_forget_threshold() {
+    use crate::config;
+    let raw = json!({"forgetThreshold":0.4,"recall":{"scoreScale":"cosine","cosineMinScore":0.8}});
+    let config = serde_json::to_value(config::validate(&raw).unwrap()).unwrap();
+    assert!(config.get("forgetThreshold").is_none());
+    assert_eq!(config["recall"], raw["recall"]);
+    assert!(config::validate(&json!({"recall":{"cosineMinScore":1.2}})).is_err());
+    assert_eq!(
+        config::effective_config(&raw).unwrap()["forgetThreshold"],
+        0.4
+    );
+}
+
+fn recall_ab_corpus(cache_dir: Option<&Path>) -> Value {
+    let corpus: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/engine-parity/corpus/recall-ab/corpus.json"
+    )))
+    .unwrap();
+    let cards = corpus["cards"].as_array().unwrap();
+    let queries = corpus["queries"].as_array().unwrap();
+    let texts = cards
+        .iter()
+        .map(|card| card["text"].as_str().unwrap().to_owned())
+        .collect::<Vec<_>>();
+    let memory_ids = cards
+        .iter()
+        .enumerate()
+        .map(|(index, card)| {
+            (
+                format!("00000000-0000-4000-8000-{:012}", index + 1),
+                card["id"].as_str().unwrap(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let now = chrono::DateTime::parse_from_rfc3339(corpus["now"].as_str().unwrap())
+        .unwrap()
+        .timestamp_millis();
+    let profile = if cache_dir.is_some() { "e5" } else { "flat" };
+    let mut scales = Vec::new();
+    for scale in ["legacy", "cosine"] {
+        let scratch =
+            tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+        let root = scratch.path();
+        let mut config = json!({
+            "autoRecallMinScore":0.3,
+            "recall":{"scoreScale":scale,"maxPromptMemories":cards.len(),"canonicalFirst":false,
+                "adaptiveBudget":{"enabled":false},"dedup":false,"memoriesMaxChars":60_000},
+            "continuityEngine":{"enabled":false},
+            "reranker":{"enabled":false}
+        });
+        if scale == "cosine" && cache_dir.is_none() {
+            config["recall"]["cosineMinScore"] = json!(1.0);
+        }
+        if let Some(cache_dir) = cache_dir {
+            config["embedding"] = json!({"provider":"local-transformers",
+                "local":{"model":"intfloat/multilingual-e5-small","dimensions":384,"cacheDir":cache_dir}});
+        }
+        let host = host_with(root, &config);
+        host.set_now_ms(now);
+        let seam = cache_dir.is_none().then_some(Seam::FlatEmbedder);
+        let engine = ProcessEngine::new(host, seam).unwrap();
+        let identity = engine.embedding().identities().remove(0);
+        let scale_id = crate::recall::score::ScoreScale::configured(
+            &config["recall"],
+            identity.space.as_ref().unwrap(),
+        )
+        .unwrap();
+        let vectors = engine
+            .embedding()
+            .embed(&texts, EmbedKind::Passage, &identity, &Cancel::never())
+            .unwrap();
+        let space = identity.space.unwrap();
+        let width = space.dimension.as_u64().unwrap() as usize;
+        let store = Store::create(&root.join("db/current/agent"), &space, width).unwrap();
+        let rows = vectors
+            .into_iter()
+            .enumerate()
+            .map(|(index, vector)| {
+                let mut row = adopt_tests::row(vector);
+                row.id = memory_ids[index].0.clone();
+                row.text = texts[index].clone();
+                row.category = "general".into();
+                row.created_at = (now - 86_400_000 - (index as i64) * 60_000).into();
+                row.memory_strength = 1.into();
+                row.importance = serde_json::Number::from_f64(0.5).unwrap();
+                row.epistemic_status = "observed".into();
+                row
+            })
+            .collect::<Vec<_>>();
+        store.upsert(&rows).unwrap();
+        let results = queries
+            .iter()
+            .map(|query| {
+                let mut input = params(query["text"].as_str().unwrap(), "user");
+                input["query"]["budget"] =
+                    json!({"softMs":30_000,"hardMs":60_000,"capChars":65_536});
+                let answer = recall(&engine, &input);
+                assert_eq!(
+                    answer["degraded"],
+                    Value::Null,
+                    "{profile} {scale} {}: {answer}",
+                    query["id"]
+                );
+                let text = memories(&answer);
+                let mut ids = memory_ids
+                    .iter()
+                    .filter_map(|(id, label)| {
+                        text.find(&format!("id=\"{id}\""))
+                            .map(|position| (position, *label))
+                    })
+                    .collect::<Vec<_>>();
+                ids.sort_unstable_by_key(|(position, _)| *position);
+                let ordered = ids.into_iter().map(|(_, label)| label).collect::<Vec<_>>();
+                json!({"query":query["id"],"expectedIds":query["expectedIds"],"orderedIds":ordered})
+            })
+            .collect::<Vec<_>>();
+        scales.push(json!({"scale":scale,"threshold":scale_id.threshold(0.3),"queries":results}));
+    }
+    json!({"schema":"recall-ab.rust/1","profile":profile,"scales":scales})
+}
+
+#[test]
+#[allow(clippy::print_stdout, reason = "frozen corpus recorder output")]
+fn flat_recall_ab_keeps_the_frozen_control_corpus() {
+    let result = recall_ab_corpus(None);
+    let scales = result["scales"].as_array().unwrap();
+    assert_eq!(scales.len(), 2);
+    for (legacy, cosine) in scales[0]["queries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(scales[1]["queries"].as_array().unwrap())
+    {
+        let selected = |case: &Value| {
+            let mut ids = case["orderedIds"].as_array().unwrap().clone();
+            ids.sort_by(|left, right| left.as_str().cmp(&right.as_str()));
+            ids
+        };
+        assert_eq!(selected(legacy).len(), 16, "{}", legacy["query"]);
+        assert_eq!(selected(legacy), selected(cosine), "{}", legacy["query"]);
+    }
+    println!("RECALL_AB {}", result);
+}
+
+#[cfg(feature = "real-models")]
+#[test]
+#[ignore = "explicit corpus recording with the fixed E5 model and verified ONNX Runtime"]
+#[allow(clippy::print_stdout, reason = "frozen corpus recorder output")]
+fn e5_recall_ab_records_frozen_queries() {
+    let cache = std::path::PathBuf::from(std::env::var_os("PLUR1BUS_MODELS_CACHE").unwrap());
+    let runtime = std::path::PathBuf::from(std::env::var_os("ORT_DYLIB_PATH").unwrap());
+    embedding::local_ort::initialize_runtime(&runtime).unwrap();
+    let result = recall_ab_corpus(Some(&cache));
+    let cosine = &result["scales"][1];
+    assert_eq!(cosine["threshold"], 0.82);
+    for case in cosine["queries"].as_array().unwrap() {
+        let expected = case["expectedIds"].as_array().unwrap();
+        let ordered = case["orderedIds"].as_array().unwrap();
+        assert!(expected.iter().all(|id| ordered.contains(id)), "{case}");
+        if expected.is_empty() {
+            assert!(ordered.is_empty(), "{case}");
+        }
+    }
+    println!("RECALL_AB {}", result);
 }

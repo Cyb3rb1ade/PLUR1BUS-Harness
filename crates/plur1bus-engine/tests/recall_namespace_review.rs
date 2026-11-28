@@ -238,6 +238,7 @@ fn fixture_with_routes(
         tombstones: None,
         cancel: &cancel,
         limits: StageLimits {
+            score_scale: Default::default(),
             top_n: 20,
             candidate_top_k: 40,
             candidate_hard_limit: 100,

@@ -372,6 +372,7 @@ fn workspace_for(root: &Path, scenario: &Value) -> Option<PathBuf> {
 
 fn limits_of(scenario: &Value) -> StageLimits {
     StageLimits {
+        score_scale: Default::default(),
         top_n: usize_field(scenario, "topN"),
         candidate_top_k: usize_field(scenario, "candidateTopK"),
         candidate_hard_limit: usize_field(scenario, "candidateHardLimit"),

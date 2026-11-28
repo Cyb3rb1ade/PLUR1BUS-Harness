@@ -134,6 +134,7 @@ impl Fixture {
             bound_graph: None,
             tombstones: None,
             limits: StageLimits {
+                score_scale: Default::default(),
                 top_n: 12,
                 candidate_top_k: 40,
                 candidate_hard_limit: 100,

@@ -29,7 +29,7 @@ use crate::{
         pattern_source::BoundPatternSource,
         render::{RenderError, RenderRequest},
         runtime::{self, RuntimeRequest},
-        score::EmotionalRecallState,
+        score::{EmotionalRecallState, ScoreScale},
         stages::{StageClocks, StageFlags, StageLimits},
         tombstone_mask::TombstoneMask,
     },
@@ -65,6 +65,8 @@ struct Foreground<'a> {
     options: &'a RecallOptions,
     raw: Value,
     overrides: Value,
+    embedder: Arc<dyn crate::embedding::EmbeddingProvider>,
+    score_scale: ScoreScale,
     reranker: Option<Arc<dyn crate::embedding::Reranker>>,
     missing_reranker: bool,
     started: Instant,
@@ -108,6 +110,8 @@ pub(super) fn run(
         return engine_warm::result(&control, degraded, missing_reranker);
     };
     control.timer.record("entry", control.timer.elapsed_ms());
+    let embedder = engine.embedding.pipeline_embedder();
+    let score_scale = ScoreScale::configured(&raw["recall"], embedder.identity())?;
     let request = Foreground {
         engine,
         base,
@@ -115,6 +119,8 @@ pub(super) fn run(
         options,
         raw,
         overrides,
+        embedder,
+        score_scale,
         reranker,
         missing_reranker,
         started,
@@ -252,6 +258,8 @@ fn retrieve(
         ref raw,
         ref overrides,
         ref reranker,
+        ref embedder,
+        score_scale,
         missing_reranker,
         started,
         caller,
@@ -269,7 +277,6 @@ fn retrieve(
     let patterns = optional(BoundPatternSource::open(&neo, context))?;
     // The same registry the memory readers consult (RE-D153).
     let tombstones = TombstoneMask::new(base);
-    let embedder = engine.embedding.pipeline_embedder();
     let recall = &raw["recall"];
     let continuity = raw["continuityEngine"]["enabled"] != false;
     let top_n = engine_warm::bounded(&recall["maxPromptMemories"], 12, 1, 100);
@@ -287,6 +294,7 @@ fn retrieve(
         tombstones: Some(&tombstones),
         cancel: caller,
         limits: StageLimits {
+            score_scale,
             top_n,
             candidate_top_k: top_k,
             candidate_hard_limit: CANDIDATE_HARD_LIMIT,

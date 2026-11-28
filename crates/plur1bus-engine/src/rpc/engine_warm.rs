@@ -18,7 +18,7 @@ use crate::{
         lifecycle::is_recall_entry_live,
         neo_prelude::{NeoPrelude, NeoRequest},
         render::RenderError,
-        score::distance_to_score,
+        score::ScoreScale,
         timing::PhaseTimer,
         warm::{self, WarmParameters, WarmRecall, WarmRequest},
     },
@@ -87,6 +87,7 @@ pub(super) fn run(
         now,
     };
     let recall = &raw["recall"];
+    let score_scale = ScoreScale::configured(recall, embedder.identity())?;
     let request = WarmRequest {
         prompt: query.query.clone(),
         neo_enabled: raw["neo"]["enabled"] != false,
@@ -94,6 +95,7 @@ pub(super) fn run(
         allowed,
     };
     let mut vectors = WarmVectors {
+        score_scale,
         stores: &engine.live_stores,
         context,
         base,
@@ -179,6 +181,7 @@ fn unavailable(detail: &str) -> RenderError {
 }
 
 struct WarmVectors<'a> {
+    score_scale: ScoreScale,
     stores: &'a EngineStores,
     context: &'a RequestContext,
     base: &'a Path,
@@ -237,7 +240,12 @@ impl WarmRecall for WarmVectors<'_> {
         let recall = &self.config["recall"];
         let limit = bounded(&recall["candidateTopK"], 40, 1, 100);
         let rerank_limit = bounded(&self.config["reranker"]["candidates"], limit, 1, 100);
-        let min_score = self.config["autoRecallMinScore"].as_f64().unwrap_or(0.2);
+        if !self.score_scale.accepts_vector(&vector) {
+            return Err(unavailable("query embedding is not a unit vector"));
+        }
+        let min_score = self
+            .score_scale
+            .threshold(self.config["autoRecallMinScore"].as_f64().unwrap_or(0.2));
         for source in sources {
             self.cancel.check().map_err(|_| RenderError::Aborted)?;
             let attempt = self.warm_table(
@@ -285,7 +293,11 @@ impl WarmVectors<'_> {
         }
         let mut docs = Vec::new();
         for hit in rows {
-            if distance_to_score(f64::from(hit.distance)) < min_score {
+            let score = self.score_scale.distance_score(f64::from(hit.distance));
+            if score < min_score
+                || (self.score_scale != ScoreScale::Legacy
+                    && (!score.is_finite() || !self.score_scale.accepts_vector(&hit.row.vector)))
+            {
                 continue;
             }
             self.cancel.check().map_err(|_| RenderError::Aborted)?;

@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "scoreScale": {
+      "type": "string",
+      "enum": ["legacy", "cosine"],
+      "description": "Native recall scoring. Legacy is the default; cosine requires a unit-normalized embedding profile."
+    },
+    "cosineMinScore": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1,
+      "description": "Optional explicit raw cosine threshold, required for profiles without a calibrated default."
+    }
+  }
+}

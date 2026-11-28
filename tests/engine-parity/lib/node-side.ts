@@ -25,7 +25,7 @@ async function nodeInternals(embedder: Scenario["seams"]["embedder"]): Promise<R
   } };
 }
 
-function verifyNodeInstall(): void {
+export function verifyNodeInstall(): string {
   const manifest = join(repo, "packages/core/package.json");
   const specification = JSON.parse(readFileSync(manifest, "utf8")).dependencies[dependency] as string | undefined;
   if (!specification?.startsWith("git+") || !specification.endsWith(`#${PIN}`)) {
@@ -50,6 +50,7 @@ function verifyNodeInstall(): void {
     const actual = createHash("sha256").update(readFileSync(join(dirname(installed), file))).digest("hex");
     if (actual !== expected) throw new Error(`installed Node source does not match the pin: ${file}`);
   }
+  return dirname(installed);
 }
 
 export async function runNode(scenario: Scenario) {
