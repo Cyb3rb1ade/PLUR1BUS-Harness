@@ -364,6 +364,7 @@ impl ProcessEngine {
                     neo_root: neo_enabled.then(|| engine_warm::neo_root(&raw["neo"], base)),
                     base: base.clone(),
                     reader: promotion_reader,
+                    completion: completion.cloned(),
                 }),
             ];
             if neo_enabled {

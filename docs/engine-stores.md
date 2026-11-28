@@ -3474,3 +3474,11 @@ spinning at all. Scores do not depend on the shape (the local embedding parity s
 sessions keep their own pool of half the processors (`media/session.rs`); they wait while text inference is pending,
 and the two pools were not measured together.
 
+
+### Daily compaction and conflict proposals (RY-B3)
+
+The daily job takes candidates from the authorized agent's physical Lance generation. Its scan is scoped to agent, workspace, owner and the current ACL partition. It considers live, non-protected cards from the last 30 days. It groups identical normalized text across batch boundaries. Remaining rows can form similarity groups in batches of 50 at cosine 0.88 when the table's embedding identity is verified. The newest row anchors each group. Compatible rows may receive a merge suggestion from the configured merging route. Deterministic actions cover other cases. The proposal retains the source IDs, evidence state and validity bounds. Changes to those inputs, ownership or tombstones are checked before publication.
+
+Native proposals and the compatible compaction cursor fields live below `_consolidation/<owner-binding>/.adaptive-learning`. The partition hash incorporates agent, workspace and owner. The job keeps the existing Node envelope fields in `merge-proposals.jsonl`. It advances the per-partition cursor after durable proposal publication and reuses matching exact candidates from the preceding page. A retry after publication recognizes the existing snapshots. Private output stays in the bound sink.
+
+A configured host completion route can review up to 20 unresolved, explicitly owned conflict pairs at least seven days old. The job checks both current rows and the workspace log before model access and again before publication. `conflict-resolved.jsonl` keeps the original observation and unknown fields, the Node-compatible recommendation and a timestamp. Missing, stale or ambiguous observations remain pending in the source log. The Node resolver recognizes an exported native receipt when reopening the same synthetic observation. Appending a recommendation grants no authority to apply it.

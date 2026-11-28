@@ -1,5 +1,6 @@
 //! Daily maintenance of owned Lance rows and the canonical Capture workspace.
 mod dynamics;
+mod proposals;
 use super::{
     lance_scope::LanceScope,
     registry::{JobBody, JobContext, JobReport},
@@ -20,6 +21,7 @@ pub(crate) struct ConsolidateDaily {
     pub neo_root: Option<PathBuf>,
     pub base: PathBuf,
     pub reader: Arc<MemoryReader>,
+    pub completion: Option<Arc<super::llm::CompleteFor>>,
 }
 
 impl JobBody for ConsolidateDaily {
@@ -54,16 +56,6 @@ impl JobBody for ConsolidateDaily {
             }
         };
         context.note_count("expiredDeleted", expired)?;
-        let Some(root) = &self.neo_root else {
-            return Ok(JobReport::completed());
-        };
-        let journal = match CaptureJournal::open(root, host.clone(), self.scope.policy.clone()) {
-            Ok(journal) => journal,
-            Err(StoreError::Io {
-                kind: std::io::ErrorKind::NotFound,
-            }) => return Ok(JobReport::completed()),
-            Err(error) => return Err(error.into()),
-        };
         let check = || {
             if self.scope.check(authority, &cancel)?.is_some()
                 || serde_json::to_value(host.config()).map_err(|_| StoreError::Corrupt)? != cfg
@@ -71,6 +63,26 @@ impl JobBody for ConsolidateDaily {
                 return Err(StoreError::Unavailable.into());
             }
             Ok(())
+        };
+        let propose = || -> Result<(), EngineError> {
+            if let Some(store) = self.scope.stores.existing_private(authority.request())? {
+                proposals::run(self, authority, &store, context, &cancel, &check)?;
+            }
+            Ok(())
+        };
+        let Some(root) = &self.neo_root else {
+            propose()?;
+            return Ok(JobReport::completed());
+        };
+        let journal = match CaptureJournal::open(root, host.clone(), self.scope.policy.clone()) {
+            Ok(journal) => journal,
+            Err(StoreError::Io {
+                kind: std::io::ErrorKind::NotFound,
+            }) => {
+                propose()?;
+                return Ok(JobReport::completed());
+            }
+            Err(error) => return Err(error.into()),
         };
         let graph = match self.scope.stores.existing_private(authority.request())? {
             Some(store) => {
@@ -102,6 +114,7 @@ impl JobBody for ConsolidateDaily {
         context.note_count("graphRemovedWeak", graph.weak)?;
         let pruned = retention::run_for_job(&journal, authority, host.clone(), &cancel)?;
         context.note_count("hookStorePrune", pruned)?;
+        propose()?;
         check()?;
         let config = crate::config::effective_config(&cfg).map_err(|_| StoreError::InvalidInput)?;
         if !context.partitioned() && config["schicht15"]["enabled"] != false {
