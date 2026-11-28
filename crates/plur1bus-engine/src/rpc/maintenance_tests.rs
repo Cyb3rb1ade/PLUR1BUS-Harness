@@ -63,6 +63,35 @@ fn code(error: &EngineError) -> Option<MemoryOpErrorCode> {
 }
 
 #[test]
+fn checkpoint_rechecks_its_grant_after_creating_the_state_directory() {
+    let root = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let host = host(root.path());
+    let state = host.state_dir().to_owned();
+    crate::store::paths::secure_dir(&state).unwrap();
+    crate::store::schema_version::guard_base(&state).unwrap();
+    let maintenance = ProcessMaintenance::new(host);
+    let revoked = Cancel::never();
+    let grant = MaintenanceGrant::for_test(revoked.clone());
+    // The fresh store writes its marker when the first put creates the reembed directory.
+    let marker = crate::store::durability_probe::Probe::start(&state.join("_schema.json"));
+    marker.after_sync("atomic-file", move || revoked.cancel());
+    let checkpoint = json!({"id":"fixture","v":1});
+    let failed = maintenance.checkpoint_put(&grant, None, &checkpoint, &Cancel::never());
+    assert!(
+        matches!(failed, Err(EngineError::Cancelled(_))),
+        "{failed:?}"
+    );
+    assert_eq!(marker.counts().get("atomic-file"), Some(&1));
+    assert!(!state.join("reembed/migration.json").exists());
+    assert!(!state.join("engine-maintenance.jsonl").exists());
+    let live = MaintenanceGrant::for_test(Cancel::never());
+    let retry = maintenance
+        .checkpoint_put(&live, None, &checkpoint, &Cancel::never())
+        .unwrap();
+    assert!(retry["revision"].is_string());
+}
+
+#[test]
 fn capture_and_recall_run_during_a_held_apply_and_the_library_refuses_the_changed_source() {
     let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let root = scratch.path();

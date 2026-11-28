@@ -117,9 +117,14 @@ describe("M2 — memory reembed through the CLI (acceptance 6)", () => {
       core = await startCore(h);
       assert.equal(cli(h, ["memory", "add", "--agent", "bernd", "--session", "s1", "The offsite is in June."]).stored, 1);
 
+      const auditEntries = () => readFileSync(join(h, "state", "engine-maintenance.jsonl"), "utf8")
+        .trim().split("\n").map(line => JSON.parse(line));
+      const checkpointPuts = () => auditEntries().filter(entry => entry.method === "engine.admin.reembedding.checkpoint.put");
+
       const planArgs = ["memory", "reembed", "--plan", "--model", GEMMA, "--throttle-ms", "0"];
       const first = cli(h, planArgs);
       assert.ok(first.plan.rows >= 1, JSON.stringify(first));
+      assert.deepEqual(checkpointPuts().map(entry => entry.target.id), [first.plan.id]);
 
       await stopCore(core);
       core = await startCore(h);
@@ -127,6 +132,7 @@ describe("M2 — memory reembed through the CLI (acceptance 6)", () => {
       assert.equal(pending.checkpoint.id, first.plan.id);
       assert.equal(pending.checkpoint.phase, "planned");
       assert.equal(pending.engineState, "planned");
+      assert.equal(checkpointPuts().length, 1, "reading after restart does not write a checkpoint");
       assert.deepEqual(cli(h, planArgs), first, "reopening preserves the plan and its estimates");
 
       // A standalone Core can copy and validate. The supervisor still owns activation.
@@ -138,13 +144,16 @@ describe("M2 — memory reembed through the CLI (acceptance 6)", () => {
       assert.equal(result.checkpoint.error.code, "switch-unavailable");
       assert.equal(result.checkpoint.counts.rowsDone, first.plan.rows);
       assert.equal(result.engineState, "ready_to_switch");
+      const putsBeforeAbort = checkpointPuts().length;
       const aborted = cli(h, ["memory", "reembed", "--abort"]);
       assert.equal(aborted.checkpoint.id, first.plan.id);
       assert.equal(aborted.checkpoint.phase, "aborted");
       assert.equal(cli(h, ["memory", "reembed", "--status"]).checkpoint.phase, "aborted");
-      const audit = readFileSync(join(h, "state", "engine-maintenance.jsonl"), "utf8").trim().split("\n").map(line => JSON.parse(line));
-      assert.ok(audit.some(entry => entry.method === "engine.admin.reembedding.checkpoint.get"));
-      assert.ok(audit.some(entry => entry.method === "engine.admin.reembedding.checkpoint.put" && entry.target.id === first.plan.id));
+      assert.ok(auditEntries().every(entry => entry.method !== "engine.admin.reembedding.checkpoint.get"));
+      const puts = checkpointPuts();
+      assert.equal(puts.length, putsBeforeAbort + 1, "abort commits one checkpoint");
+      assert.ok(puts.every(entry => entry.target.id === first.plan.id));
+
     } finally {
       if (core) await stopCore(core);
       rmSync(h, { recursive: true, force: true });

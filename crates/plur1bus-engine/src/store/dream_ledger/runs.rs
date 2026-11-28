@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::{
-    candidates, read_runs, reconcile_open_runs, with_ledger, Cancel, EngineError, Imported,
+    bounded_text, candidates, read_runs, reconcile_open_runs, with_ledger, Cancel, EngineError,
     LogQuery, StoreError,
 };
 
@@ -85,10 +85,6 @@ impl RunTransition {
     }
 }
 
-fn bounded_text(value: &str, limit: usize) -> bool {
-    !value.is_empty() && value.chars().count() <= limit && !value.chars().any(char::is_control)
-}
-
 fn primary_job(phase: &str) -> Option<&'static str> {
     match phase {
         "light" => Some("light-dream"),
@@ -98,23 +94,38 @@ fn primary_job(phase: &str) -> Option<&'static str> {
     }
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct RunCall<'a> {
+    pub(crate) now: i64,
+    pub(crate) cancel: &'a Cancel,
+    pub(crate) core: uuid::Uuid,
+    pub(crate) response_bytes: usize,
+}
+
 pub(crate) fn transition(
     state: &std::path::Path,
     agent: &str,
     transition: &RunTransition,
-    now: i64,
-    cancel: &Cancel,
-    core: uuid::Uuid,
+    call: RunCall<'_>,
     check_core: impl Fn() -> Result<(), EngineError>,
-) -> Result<(RunTransitionResult, Option<Imported>), EngineError> {
-    with_ledger(state, Some(now), cancel, |db, _| {
+) -> Result<RunTransitionResult, EngineError> {
+    let RunCall {
+        now,
+        cancel,
+        core,
+        response_bytes,
+    } = call;
+    with_ledger(state, true, cancel, |db, _| {
         check_core()?;
         establish_writer(db, core, now, cancel)?;
         let result = match transition {
             RunTransition::Begin(start) => begin(db, agent, start, now, cancel)?,
-            RunTransition::PrepareCandidates(request) => prepare(db, agent, request, now, cancel)?,
+            RunTransition::PrepareCandidates(request) => {
+                prepare(db, agent, request, now, cancel, response_bytes)?
+            }
             RunTransition::Finish(result) => finish(db, agent, result, now, cancel)?,
         };
+        crate::rpc::seams::pause_fixture_step(state, "dream-run-before-commit")?;
         check_core()?;
         Ok(result)
     })
@@ -126,12 +137,6 @@ fn establish_writer(
     now: i64,
     cancel: &Cancel,
 ) -> Result<(), EngineError> {
-    db.execute_batch(
-        "CREATE TABLE IF NOT EXISTS dream_ledger_writer (
-        id INTEGER PRIMARY KEY CHECK (id=1), core TEXT NOT NULL
-    )",
-    )
-    .map_err(StoreError::from)?;
     let old: Option<String> = db
         .query_row(
             "SELECT core FROM dream_ledger_writer WHERE id=1",
@@ -161,6 +166,7 @@ fn prepare(
     request: &candidates::Prepare,
     now: i64,
     cancel: &Cancel,
+    response_bytes: usize,
 ) -> Result<RunTransitionResult, EngineError> {
     let Some(run) = get(db, &request.run_id, cancel)?.filter(|run| run["agentId"] == agent) else {
         return Ok(RunTransitionResult::Missing);
@@ -170,7 +176,7 @@ fn prepare(
         return Ok(RunTransitionResult::Conflict);
     }
     Ok(
-        candidates::prepare(db, agent, phase, request, now, cancel)?.map_or(
+        candidates::prepare(db, agent, phase, request, now, cancel, response_bytes)?.map_or(
             RunTransitionResult::Conflict,
             RunTransitionResult::Candidates,
         ),
@@ -305,6 +311,27 @@ mod tests {
     use super::*;
 
     #[test]
+    fn transition_validation_reserves_the_claim_suffix_and_bounds_the_count_map() {
+        let begin = |key: &str| {
+            serde_json::from_value::<RunTransition>(json!({
+                "kind":"begin","runId":"sample","phase":"deep","trigger":"manual",
+                "idempotencyKey":key,"claim":true
+            }))
+            .unwrap()
+        };
+        assert!(begin("sample-key").valid());
+        assert!(!begin("sample#suffix").valid());
+        for (entries, valid) in [(64, true), (65, false)] {
+            let counts: BTreeMap<_, _> = (0..entries).map(|n| (format!("count-{n}"), n)).collect();
+            let finish = serde_json::from_value::<RunTransition>(json!({
+                "kind":"finish","runId":"sample","outcome":"completed","counts":counts
+            }))
+            .unwrap();
+            assert_eq!(finish.valid(), valid);
+        }
+    }
+
+    #[test]
     fn changed_core_at_commit_rolls_back_the_writer_handoff_and_run() {
         let home = tempfile::tempdir().unwrap();
         let path = home.path().canonicalize().unwrap().join("state");
@@ -320,9 +347,16 @@ mod tests {
         };
         let old_run = start("old-run");
         let next_run = start("next-run");
-        transition(&path, "a1", &old_run, 1, &cancel, old, || Ok(())).unwrap();
+        let call = |now, core| RunCall {
+            now,
+            core,
+            cancel: &cancel,
+            response_bytes: usize::MAX,
+        };
+        super::super::import_legacy(&path, Some(1), &cancel, || Ok(())).unwrap();
+        transition(&path, "a1", &old_run, call(1, old), || Ok(())).unwrap();
         let calls = Cell::new(0);
-        let failed = transition(&path, "a1", &next_run, 2, &cancel, new, || {
+        let failed = transition(&path, "a1", &next_run, call(2, new), || {
             calls.set(calls.get() + 1);
             if calls.get() == 2 {
                 Err(crate::contract::HostError::Denied.into())
@@ -341,7 +375,7 @@ mod tests {
             true
         );
 
-        transition(&path, "a1", &next_run, 3, &cancel, new, || Ok(())).unwrap();
+        transition(&path, "a1", &next_run, call(3, new), || Ok(())).unwrap();
         let abandoned = get(&db, "old-run", &cancel).unwrap().unwrap();
         assert_eq!(abandoned["outcome"], "aborted");
         assert_eq!(abandoned["finishedAt"], 3);

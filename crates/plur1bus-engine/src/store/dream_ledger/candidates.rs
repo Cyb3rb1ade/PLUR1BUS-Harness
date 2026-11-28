@@ -12,6 +12,8 @@ use sha2::{Digest, Sha256};
 use super::{Cancel, EngineError, StoreError};
 
 const TTL_MS: i64 = 72 * 60 * 60 * 1000;
+const MAX_OBSERVATIONS: usize = 1_000;
+const MAX_CONTENT_BYTES: usize = 64 * 1024;
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -43,17 +45,22 @@ struct FallbackInput {
 
 impl Prepare {
     pub(super) fn valid(&self) -> bool {
-        self.observations.iter().all(|item| {
-            item.memory_id.as_ref().is_none_or(|id| {
-                !id.is_empty() && id.chars().count() <= 256 && !id.chars().any(char::is_control)
-            }) && item
-                .recalls
-                .is_none_or(|count| (0..=9_007_199_254_740_991).contains(&count))
-                && item
-                    .unique_queries
-                    .is_none_or(|count| (0..=9_007_199_254_740_991).contains(&count))
-                && item.score.is_none_or(f64::is_finite)
-        })
+        self.observations.len() <= MAX_OBSERVATIONS
+            && self.observations.iter().all(|item| {
+                item.content.len() <= MAX_CONTENT_BYTES
+                    && item.memory_id.as_ref().is_none_or(|id| {
+                        !id.is_empty()
+                            && id.chars().count() <= 256
+                            && !id.chars().any(char::is_control)
+                    })
+                    && item
+                        .recalls
+                        .is_none_or(|count| (0..=9_007_199_254_740_991).contains(&count))
+                    && item
+                        .unique_queries
+                        .is_none_or(|count| (0..=9_007_199_254_740_991).contains(&count))
+                    && item.score.is_none_or(f64::is_finite)
+            })
     }
 }
 
@@ -153,21 +160,8 @@ pub(super) fn prepare(
     request: &Prepare,
     now: i64,
     cancel: &Cancel,
+    response_bytes: usize,
 ) -> Result<Option<Value>, EngineError> {
-    db.execute_batch(
-        "CREATE TABLE IF NOT EXISTS dream_candidate_preparation (
-            run_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, result_json TEXT NOT NULL
-        );
-        CREATE TRIGGER IF NOT EXISTS dream_candidate_preparation_finished
-          AFTER UPDATE OF outcome ON dream_run WHEN NEW.outcome IS NOT NULL BEGIN
-            DELETE FROM dream_candidate_preparation WHERE run_id = NEW.run_id;
-          END;
-        CREATE TRIGGER IF NOT EXISTS dream_candidate_preparation_removed
-          AFTER DELETE ON dream_run BEGIN
-            DELETE FROM dream_candidate_preparation WHERE run_id = OLD.run_id;
-          END;",
-    )
-    .map_err(StoreError::from)?;
     let bytes = serde_json::to_vec(request).map_err(|_| StoreError::InvalidInput)?;
     let fingerprint = format!("{:x}", Sha256::digest(bytes));
     let existing = db
@@ -182,17 +176,30 @@ pub(super) fn prepare(
         return if saved != fingerprint {
             Ok(None)
         } else {
+            check_response_size(&result, response_bytes)?;
             Ok(Some(
                 serde_json::from_str(&result).map_err(|_| StoreError::Corrupt)?,
             ))
         };
     }
     let result = prepare_once(db, agent, phase, request, now, cancel)?;
+    let serialized = result.to_string();
+    check_response_size(&serialized, response_bytes)?;
     db.execute(
         "INSERT INTO dream_candidate_preparation (run_id,fingerprint,result_json) VALUES (?1,?2,?3)",
-        params![request.run_id, fingerprint, result.to_string()],
+        params![request.run_id, fingerprint, serialized],
     ).map_err(StoreError::from)?;
     Ok(Some(result))
+}
+
+fn check_response_size(result: &str, budget: usize) -> Result<(), EngineError> {
+    if result.len() <= budget {
+        Ok(())
+    } else {
+        Err(EngineError::NotAvailable {
+            reason: "dream-candidate-response-too-large".into(),
+        })
+    }
 }
 
 fn prepare_once(
@@ -238,17 +245,44 @@ fn prepare_once(
         )
         .map_err(StoreError::from)?;
 
-    let mut select = db.prepare(
-        "SELECT candidate_id,partition,content_hash,expires_at,recalls,unique_queries,score
-         FROM dream_candidate WHERE agent_id=?1 AND state='shortlisted' ORDER BY first_seen_at,candidate_id",
-    ).map_err(StoreError::from)?;
-    let mut rows = select.query([agent]).map_err(StoreError::from)?;
+    // Look up the current shortlist by its unique key, then fill the remaining
+    // slots in chronological order. One extra older row detects truncation.
+    let hashes = serde_json::to_string(&current.keys().collect::<Vec<_>>())
+        .map_err(|_| StoreError::InvalidInput)?;
+    let mut select = db
+        .prepare(
+            "WITH observed AS MATERIALIZED (SELECT value FROM json_each(?2)),
+                  fresh AS MATERIALIZED (
+                    SELECT candidate_id,partition,content_hash,expires_at,recalls,unique_queries,score,first_seen_at
+                    FROM observed JOIN dream_candidate ON content_hash=observed.value
+                    WHERE agent_id=?1 AND state='shortlisted' AND partition='agent-private'
+                  ),
+                  older AS (
+                    SELECT candidate_id,partition,content_hash,expires_at,recalls,unique_queries,score,first_seen_at
+                    FROM dream_candidate
+                    WHERE agent_id=?1 AND state='shortlisted'
+                      AND NOT (partition='agent-private' AND content_hash IN (SELECT value FROM observed))
+                    ORDER BY first_seen_at,candidate_id LIMIT (?3 + 1 - (SELECT count(*) FROM fresh))
+                  )
+             SELECT *,0 AS priority FROM fresh
+             UNION ALL SELECT *,1 AS priority FROM older
+             ORDER BY priority,first_seen_at,candidate_id",
+        )
+        .map_err(StoreError::from)?;
+    let mut rows = select
+        .query(params![agent, hashes, MAX_OBSERVATIONS as i64])
+        .map_err(StoreError::from)?;
     let thresholds = Thresholds::default();
     let mut prepared = Vec::new();
     let mut rejected = 0;
     let mut eligible = Vec::new();
+    let mut truncated = false;
     while let Some(row) = rows.next().map_err(StoreError::from)? {
         cancel.check()?;
+        if prepared.len() == MAX_OBSERVATIONS {
+            truncated = true;
+            break;
+        }
         let field = |index| row.get::<_, String>(index).map_err(StoreError::from);
         let id = field(0)?;
         let partition = field(1)?;
@@ -296,9 +330,13 @@ fn prepare_once(
             .execute(params![decision.to_string(), id, agent])
             .map_err(StoreError::from)?;
     }
-    Ok(json!({"counts":{
+    let mut counts = json!({
         "candidates":inserted,"deduped":request.observations.len()-inserted,"expired":expired,"rejected":rejected
-    },"eligible":eligible}))
+    });
+    if truncated {
+        counts["truncated"] = json!(1);
+    }
+    Ok(json!({"counts":counts,"eligible":eligible}))
 }
 
 #[cfg(test)]

@@ -283,10 +283,10 @@ export function engineRpcSurface() {
   const checkpoint = { ...opaque, required: ["v", "id"], properties: { v: { const: 1 }, id: string } };
   add("engine.admin.reembedding.checkpoint.get", {}, [],
     object({ revision: optionalCheckpointRevision, checkpoint: { anyOf: [checkpoint, { type: "null" }] } }, ["revision", "checkpoint"]),
-    "Read the private re-embedding restart checkpoint over the authenticated Core link.", "1.27.0");
+    "Read the private re-embedding restart checkpoint over the authenticated Core link without an audit write. E_NOT_AVAILABLE reason=composition-pending; E_STORAGE reason=state-corrupt|state-unreadable.", "1.28.0");
   add("engine.admin.reembedding.checkpoint.put", { revision: optionalCheckpointRevision, checkpoint }, ["revision", "checkpoint"],
     object({ revision: checkpointRevision }, ["revision"]),
-    "Commit the re-embedding restart checkpoint only if the observed revision still holds.", "1.27.0");
+    "Commit the private checkpoint if the observed revision holds. Replaying the committed bytes returns their revision. E_INVALID_PARAMS for an invalid checkpoint; E_CONFLICT reason=checkpoint-changed; E_STORAGE reason=state-corrupt|state-unreadable; E_NOT_AVAILABLE reason=composition-pending.", "1.28.0");
 
   add(
     "engine.media.index",
@@ -315,6 +315,14 @@ export function engineRpcSurface() {
   );
 
   add(
+    "engine.dreams.import",
+    { legacyWriterRetired: { const: true } },
+    ["legacyWriterRetired"],
+    object({ imported: { type: "boolean" } }, ["imported"]),
+    "Import the legacy dreaming ledger once over the verified Core link after the Core has retired the writer. Read and mutation methods return E_NOT_AVAILABLE reason=dream-ledger-not-imported before this operation. An unsupported ledger version returns E_NOT_AVAILABLE reason=dream-ledger-version-unsupported.",
+    "1.28.0",
+  );
+  add(
     "engine.dreams.diary",
     { agentId: { $ref: "#/$defs/AgentId" } },
     ["agentId"],
@@ -326,7 +334,7 @@ export function engineRpcSurface() {
       text: string,
       truncated: { type: "boolean" },
     }, ["agentId", "path", "exists", "bytes", "text", "truncated"]),
-    "Read the workspace diary over the verified Core link. The Core applies its public redaction before returning the text.",
+    "Read the workspace diary over the verified Core link. Untrusted paths and read failures are reported. The Core applies its public redaction before returning the text.",
     "1.28.0",
   );
   add(
@@ -339,7 +347,7 @@ export function engineRpcSurface() {
     },
     [],
     object({ runs: { type: "array", items: { $ref: "#/$defs/DreamRun" } }, log: string }, ["runs"]),
-    "Read imported dream runs over the verified Core link, newest first. With runId, include the private per-run log when available.",
+    "Read imported dream runs over the verified Core link, newest first. With runId, apply any supplied agent and phase filters and include the private per-run log when present. Untrusted paths and read failures are reported.",
     "1.28.0",
   );
   const schedulePlan = { $ref: "#/$defs/EngineDreamSchedulePlan" };
@@ -355,7 +363,7 @@ export function engineRpcSurface() {
     },
     ["agentId"],
     object({ schedules: { type: "array", items: { $ref: "#/$defs/DreamSchedule" } } }, ["schedules"]),
-    "Read an agent's schedules or atomically apply an edit over the verified Core link. The Core validates cron and timezone and computes the next run. A stale expected schedule returns E_CONFLICT. The first call after the Core retires its writer imports the legacy ledger.",
+    "Read an agent's schedules or atomically apply an edit over the verified Core link after engine.dreams.import. Cron and timezone have bounded lengths and reject control characters. The Core validates their syntax and computes the next run. A stale expected schedule returns E_CONFLICT.",
     "1.28.0",
   );
   add(

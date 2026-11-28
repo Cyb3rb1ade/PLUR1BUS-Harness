@@ -46,3 +46,25 @@
     id INTEGER PRIMARY KEY CHECK (id = 1),
     runs INTEGER NOT NULL, schedules INTEGER NOT NULL, candidates INTEGER NOT NULL
   );
+
+-- BEGIN NATIVE AUXILIARY OBJECTS
+  CREATE INDEX IF NOT EXISTS dream_candidate_shortlist
+    ON dream_candidate(agent_id, first_seen_at, candidate_id) WHERE state='shortlisted';
+
+  CREATE TABLE IF NOT EXISTS dream_ledger_writer (
+    id INTEGER PRIMARY KEY CHECK (id = 1), core TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS dream_candidate_preparation (
+    run_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, result_json TEXT NOT NULL
+  );
+
+  CREATE TRIGGER IF NOT EXISTS dream_candidate_preparation_finished
+    AFTER UPDATE OF outcome ON dream_run WHEN NEW.outcome IS NOT NULL BEGIN
+      DELETE FROM dream_candidate_preparation WHERE run_id = NEW.run_id;
+    END;
+
+  CREATE TRIGGER IF NOT EXISTS dream_candidate_preparation_removed
+    AFTER DELETE ON dream_run BEGIN
+      DELETE FROM dream_candidate_preparation WHERE run_id = OLD.run_id;
+    END;

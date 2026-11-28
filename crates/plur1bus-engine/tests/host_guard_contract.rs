@@ -340,7 +340,20 @@ fn process_dream_diary_resolves_only_the_workspace_from_the_verified_core() {
         format!("{} {}\n", std::process::id(), uuid::Uuid::from_u128(1)),
     )
     .unwrap();
-    let response = peer.call(3, "engine.dreams.diary", params);
+    let pending = peer.call(3, "engine.dreams.diary", params.clone());
+    assert_eq!(
+        pending["error"]["data"]["reason"],
+        "dream-ledger-not-imported"
+    );
+    assert_eq!(core.count("host.workspaceDir"), 0);
+    assert!(!root.join("state/dreams/engine.sqlite").exists());
+    let imported = peer.call(
+        4,
+        "engine.dreams.import",
+        json!({"legacyWriterRetired":true}),
+    );
+    assert_eq!(imported["result"], json!({"imported":true}), "{imported}");
+    let response = peer.call(5, "engine.dreams.diary", params.clone());
     assert_eq!(
         response["result"],
         json!({
@@ -348,6 +361,24 @@ fn process_dream_diary_resolves_only_the_workspace_from_the_verified_core() {
         })
     );
     assert_eq!(core.count("host.workspaceDir"), 1);
+    std::fs::remove_file(&path).unwrap();
+    let absent = peer.call(6, "engine.dreams.diary", params.clone());
+    assert_eq!(absent["result"]["exists"], false, "{absent}");
+    let source = path.with_file_name("source.md");
+    std::fs::write(&source, "hardlinked test diary").unwrap();
+    std::fs::hard_link(&source, &path).unwrap();
+    let linked = peer.call(8, "engine.dreams.diary", params.clone());
+    assert_eq!(
+        linked["error"]["data"]["reason"], "untrusted-path",
+        "{linked}"
+    );
+    std::fs::remove_file(&path).unwrap();
+    plur1bus_engine::store::paths::secure_dir(&path).unwrap();
+    let unusable = peer.call(7, "engine.dreams.diary", params);
+    assert_eq!(
+        unusable["error"]["data"]["reason"], "untrusted-path",
+        "{unusable}"
+    );
     drop(peer);
     engine.close_stdin();
     assert!(engine.wait_for_exit().success());

@@ -6,6 +6,9 @@
 //
 // <WP> is `P4-\d\d[a-z]?` or `RE-\d\d(/T\d+[a-z]?)?`. The range is BASE_SHA..HEAD_SHA (env, as `changes.mjs` gets it) or
 // `--base X --head Y`; without a range (push, schedule) there is nothing to judge and the script exits 0.
+//
+// A pushed commit is never rewritten. When its `Phase4:` line was mistyped, the PR base records the value it should have
+// carried in `phase4-trailer-corrections.json`, keyed by the full commit id, and the commit is judged with that value.
 import { execFileSync } from 'node:child_process';
 import { readdirSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -34,6 +37,8 @@ const TRAILER = new RegExp(String.raw`^(?:(?:seam|cut|vectors) ${WP}|running-wor
 const DEFECT_TRAILER = /^defect (P4D-\d{2})$/;
 const EXCEPTION_FILE = 'scripts/ci/phase4-freeze-exceptions.json';
 const NO_APPROVED_DEFECTS = new Map();
+const CORRECTION_FILE = 'scripts/ci/phase4-trailer-corrections.json';
+const NO_CORRECTIONS = new Map();
 export const EXPECTED = 'Phase4: seam <WP> | cut <WP> | vectors <WP> | running-work <TK|LP|RX|RY> | generated | defect <P4D-NN>   (<WP> = P4-NN[a], RE-NN or RE-NN/TN[a]; defects must be approved in phase4-freeze-exceptions.json on the PR base)';
 
 export function frozenPackages(entries) {
@@ -59,12 +64,32 @@ const defectId = value => DEFECT_TRAILER.exec(value)?.[1];
 
 export const validateTrailer = (value, approvedDefects = NO_APPROVED_DEFECTS) => TRAILER.test(value) || approvedDefects.has(defectId(value));
 
-export function checkCommits(commits, { packages, generated = GENERATED, activation = ACTIVATION, approvedDefects = NO_APPROVED_DEFECTS } = {}) {
+// Corrections as a map from full commit id to trailer value. A correction is a plain work trailer: a defect needs its own
+// commit and the owner's approval, so it is never written in afterwards. Anything else in the file fails the check.
+export function parseCorrections(entries) {
+  if (!Array.isArray(entries)) throw new Error(`${CORRECTION_FILE}: expected an array`);
+  const corrections = new Map();
+  for (const entry of entries) {
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) throw new Error(`${CORRECTION_FILE}: every entry must be an object`);
+    const { sha, trailer, reason, ...unknown } = entry;
+    if (typeof sha !== 'string' || !/^[0-9a-f]{40}$/.test(sha)) throw new Error(`${CORRECTION_FILE}: sha must be a full lower-case commit id`);
+    if (typeof trailer !== 'string' || !TRAILER.test(trailer)) throw new Error(`${CORRECTION_FILE}: ${sha}: trailer must be a valid Phase4 value other than a defect`);
+    if (typeof reason !== 'string' || !reason.trim()) throw new Error(`${CORRECTION_FILE}: ${sha}: reason is required`);
+    if (Object.keys(unknown).length) throw new Error(`${CORRECTION_FILE}: ${sha}: unknown field ${Object.keys(unknown).join(', ')}`);
+    if (corrections.has(sha)) throw new Error(`${CORRECTION_FILE}: ${sha} is listed twice`);
+    corrections.set(sha, trailer);
+  }
+  return corrections;
+}
+
+export function checkCommits(commits, { packages, generated = GENERATED, activation = ACTIVATION, approvedDefects = NO_APPROVED_DEFECTS, corrections = NO_CORRECTIONS } = {}) {
   const findings = [];
   for (const c of commits) {
     const time = Date.parse(c.authorDate);
     if (Number.isFinite(time) && time < activation.getTime()) continue; // unparsable dates fail closed, they are judged
-    const lines = trailerLines(c.message);
+    // A recorded correction stands in for the Phase4 lines of exactly this commit. Everything below judges it as usual.
+    const corrected = corrections.get(c.sha);
+    const lines = corrected === undefined ? trailerLines(c.message) : [`Phase4: ${corrected}`];
     const values = lines.map(trailerValue);
     const declaresDefect = values.some(value => /^\s*defect\b/.test(value));
     // Judge the paths in a defect commit even when the package was removed from the head tree.
@@ -116,6 +141,17 @@ function readApprovedDefects(cwd, baseCommit) {
   return new Map(entries.map(({ id, paths }) => [id, new Set(paths)]));
 }
 
+function readCorrections(cwd, baseCommit) {
+  // Read from the PR base like the approvals, so a pull request cannot correct its own commits.
+  const entry = git(cwd, ['ls-tree', '--full-tree', baseCommit, '--', CORRECTION_FILE]);
+  if (!entry) return NO_CORRECTIONS;
+  if (!/^100(?:644|755) blob /.test(entry)) throw new Error(`${CORRECTION_FILE}: must be a regular file on the PR base`);
+  let entries;
+  try { entries = JSON.parse(git(cwd, ['show', `${baseCommit}:${CORRECTION_FILE}`])); }
+  catch (error) { throw new Error(`${CORRECTION_FILE}: not readable as JSON on the PR base (${error.message})`); }
+  return parseCorrections(entries);
+}
+
 // Non-merge commits reachable from head and not from base, oldest first. Renames count on both sides (`--no-renames`).
 export function collectCommits({ base, head, cwd = process.cwd() }) {
   const shas = git(cwd, ['rev-list', '--no-merges', '--reverse', head, '--not', base]).split('\n').filter(Boolean);
@@ -149,7 +185,8 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
       const approvedDefects = readApprovedDefects(cwd, baseCommit);
       const packages = frozenPackages(readdirSync('packages', { withFileTypes: true }));
       const commits = collectCommits({ base: baseCommit, head, cwd });
-      const findings = checkCommits(commits, { packages, approvedDefects });
+      const corrections = readCorrections(cwd, baseCommit);
+      const findings = checkCommits(commits, { packages, approvedDefects, corrections });
       if (findings.length) { console.error(report(findings)); process.exitCode = 1; }
       else console.log(`phase4-freeze: ${commits.length} commit(s) checked, ${packages.length} frozen packages, ok`);
     }
