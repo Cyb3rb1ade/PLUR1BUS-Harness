@@ -1,5 +1,5 @@
 //! Bound incoming requests separately from completed replies waiting for the peer.
-use std::{collections::HashMap, fmt, future::Future, io, time::Duration};
+use std::{collections::HashMap, fmt, future::Future, io};
 
 use rmcp::{
     model::{JsonRpcMessage, RequestId},
@@ -7,10 +7,7 @@ use rmcp::{
     transport::Transport,
 };
 use serde::Serialize;
-use tokio::{
-    sync::watch,
-    time::{timeout_at, Instant},
-};
+use tokio::sync::watch;
 
 use crate::{
     connection_fault::{Cause, Fault},
@@ -93,8 +90,6 @@ pub(crate) struct Bounded<Role: ServiceRole, T> {
     pending: Option<RxJsonRpcMessage<Role>>,
     honor_cancellation: bool,
     legacy_initialize: fn(&TxJsonRpcMessage<Role>) -> bool,
-    closing_budget: Duration,
-    blocked_until: Option<Instant>,
     fault: Fault,
     max_frame: usize,
     is_ping: fn(&Role::PeerReq) -> bool,
@@ -104,7 +99,6 @@ impl<Role: ServiceRole, T> Bounded<Role, T> {
     pub(crate) fn new(
         inner: T,
         max_frame: usize,
-        closing_budget: Duration,
         fault: Fault,
         is_ping: fn(&Role::PeerReq) -> bool,
     ) -> Self {
@@ -114,8 +108,6 @@ impl<Role: ServiceRole, T> Bounded<Role, T> {
             pending: None,
             honor_cancellation: false,
             legacy_initialize: |_| false,
-            closing_budget,
-            blocked_until: None,
             fault,
             max_frame: max_frame.min(MAX_FRAME_BYTES),
             is_ping,
@@ -133,26 +125,14 @@ impl<Role: ServiceRole, T> Bounded<Role, T> {
             if self.fault.current().is_some() {
                 return None;
             }
-            let waiting_only_for_writes = {
-                let value = state.borrow_and_update();
-                if value.has_room(bytes) {
-                    self.blocked_until = None;
-                    return Some(());
-                }
-                value.bytes >= MAX_FRAME_BYTES || value.writing.len() == value.replies.len()
-            };
-            if waiting_only_for_writes {
-                let deadline = *self
-                    .blocked_until
-                    .get_or_insert_with(|| Instant::now() + self.closing_budget);
-                if timeout_at(deadline, state.changed()).await.is_err() {
-                    self.fault.trip(Cause::Backpressure);
-                    return None;
-                }
-            } else {
-                // User-facing callbacks may legitimately take longer than the writer deadline.
-                self.blocked_until = None;
-                state.changed().await.ok()?;
+            if state.borrow_and_update().has_room(bytes) {
+                return Some(());
+            }
+            // A response queued in the SDK may already have reached a reading
+            // peer. Only the writer can distinguish a stall from a delayed ACK.
+            tokio::select! {
+                _ = self.fault.wait() => return None,
+                changed = state.changed() => changed.ok()?,
             }
         }
     }
@@ -225,7 +205,10 @@ impl<Role: ServiceRole, T: Transport<Role>> Transport<Role> for Bounded<Role, T>
             if writes_only {
                 self.wait_for_room(1).await?;
             }
-            self.pending = self.inner.receive().await;
+            self.pending = tokio::select! {
+                _ = self.fault.wait() => return None,
+                frame = self.inner.receive() => frame,
+            };
         }
         if self.honor_cancellation {
             if let Some(JsonRpcMessage::Notification(notification)) = &self.pending {
@@ -378,7 +361,6 @@ mod tests {
         let mut client = Bounded::new(
             Incoming([request, cancel].into()),
             MAX_FRAME_BYTES,
-            Duration::from_secs(1),
             Fault::new(),
             |_| false,
         )
@@ -407,13 +389,7 @@ mod tests {
             write_slots: write_slots.clone(),
         };
         let fault = Fault::new();
-        let mut transport = Bounded::new(
-            memory,
-            MAX_FRAME_BYTES,
-            Duration::from_secs(1),
-            fault.clone(),
-            |_| false,
-        );
+        let mut transport = Bounded::new(memory, MAX_FRAME_BYTES, fault.clone(), |_| false);
         assert!(transport.receive().await.is_some());
         let mut write = std::pin::pin!(transport.send(serde_json::from_str(
             r#"{"jsonrpc":"2.0","id":1,"result":{"tools":[]}}"#,
@@ -428,6 +404,42 @@ mod tests {
         assert_eq!(transport.outstanding.borrow().bytes, 0);
         assert_eq!(transport.outstanding.borrow().replies.len(), 1);
         assert!(fault.current().is_none());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn stdio_stalled_write_expires_with_another_request_still_in_host(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let fault = Fault::new();
+        let (mut host_input, input) = tokio::io::duplex(256);
+        let (output, mut peer) = tokio::io::duplex(1);
+        let idle = Duration::from_millis(60);
+        let framed = crate::stdio::Framed::<RoleServer, _, _>::new(
+            input,
+            output,
+            512,
+            Duration::from_secs(2),
+        )?
+        .with_write_fault(idle, fault.clone());
+        let mut session = Bounded::new(framed, 512, fault.clone(), |_| false);
+        for id in [1, 2] {
+            let request = serde_json::json!({"jsonrpc":"2.0","id":id,"method":"tools/list"});
+            host_input
+                .write_all(format!("{request}\n").as_bytes())
+                .await?;
+            assert!(session.receive().await.is_some());
+        }
+        let reply = serde_json::from_str(r#"{"jsonrpc":"2.0","id":2,"result":{"tools":[]}}"#)?;
+        let write = tokio::spawn(session.send(reply));
+        let mut first = [0; 1];
+        peer.read_exact(&mut first).await?;
+        assert_eq!(first, [b'{']);
+        assert_eq!(session.outstanding.borrow().replies.len(), 2);
+        assert_eq!(session.outstanding.borrow().writing.len(), 1);
+        tokio::time::timeout(Duration::from_millis(500), fault.wait()).await?;
+        assert_eq!(fault.current(), Some(super::Cause::Backpressure));
+        assert!(write.await?.is_err());
         Ok(())
     }
 
@@ -449,7 +461,6 @@ mod tests {
                 write_slots: Arc::new(Semaphore::new(1)),
             },
             frame_limit,
-            Duration::from_secs(1),
             Fault::new(),
             |_| true,
         ))
@@ -505,7 +516,6 @@ mod tests {
         let ids: Vec<_> = (1..=65).collect();
         let mut transport = memory_transport(&ids, MAX_FRAME_BYTES)?;
         transport.is_ping = |_| false;
-        transport.closing_budget = Duration::from_millis(20);
         for _ in 0..64 {
             assert!(
                 tokio::time::timeout(Duration::from_secs(1), transport.receive())

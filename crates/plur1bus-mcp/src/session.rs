@@ -204,6 +204,7 @@ impl Session {
                     .with_frame_limit(stdio::MAX_FRAME_BYTES)
                     .allow_legacy_probe(matches!(options.protocol, Protocol::Auto))
                     .passive()
+                    .with_reply_write_timeout(timing.close, reply_fault.clone())
                     .with_reconnect_limit(reply_fault.clone());
             let backend = if let Some(observer) = observer {
                 backend.with_challenges(observer)
@@ -220,7 +221,6 @@ impl Session {
             let transport = replies::Bounded::new(
                 StreamableHttpClientTransport::with_client(backend, config),
                 stdio::MAX_FRAME_BYTES,
-                timing.close,
                 reply_fault.clone(),
                 |request| matches!(request, ServerRequest::PingRequest(_)),
             )
@@ -533,9 +533,10 @@ async fn open_child(
             };
             connect(
                 replies::Bounded::new(
-                    transport.passive(),
+                    transport
+                        .passive()
+                        .with_write_fault(timing.close, reply_fault.clone()),
                     stdio::MAX_FRAME_BYTES,
-                    timing.close,
                     reply_fault.clone(),
                     |request| matches!(request, ServerRequest::PingRequest(_)),
                 )

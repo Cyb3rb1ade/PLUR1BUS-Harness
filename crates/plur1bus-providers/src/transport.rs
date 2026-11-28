@@ -158,6 +158,7 @@ struct PinnedTcp {
     address: SocketAddr,
     deadline: SocketDeadline,
     cancelled: Option<Arc<AtomicBool>>,
+    write_idle: Option<WriteIdle>,
 }
 
 impl Connector for PinnedTcp {
@@ -180,6 +181,7 @@ impl Connector for PinnedTcp {
         stream.set_nodelay(details.config.no_delay())?;
         let mut transport = SocketTransport::new(stream.into(), details, self.deadline);
         transport.cancelled = self.cancelled.clone();
+        transport.write_idle = self.write_idle.clone();
         Ok(Some(transport))
     }
 }
@@ -197,12 +199,13 @@ fn pinned_agent(
     config: ureq::config::Config,
     pin: SocketAddr,
     deadline: Instant,
-    cancelled: Option<Arc<AtomicBool>>,
+    signal: Option<&HttpCancellation>,
 ) -> ureq::Agent {
     let connector = PinnedTcp {
         address: pin,
         deadline: SocketDeadline(deadline),
-        cancelled,
+        cancelled: signal.map(|s| s.flag.clone()),
+        write_idle: signal.and_then(|s| s.write_idle.clone()),
     }
     .chain(RustlsConnector::default());
     ureq::Agent::with_parts(config, connector, Pin(pin))
@@ -226,24 +229,48 @@ pub fn with_pinned_http_cancellation<T: Send>(
 /// Cancellation shared by a pinned agent and its body. It is scoped to one
 /// wire exchange and stays cancelled once triggered.
 #[derive(Clone, Debug, Default)]
-pub struct HttpCancellation(Arc<AtomicBool>);
+pub struct HttpCancellation {
+    flag: Arc<AtomicBool>,
+    write_idle: Option<WriteIdle>,
+}
+
+#[derive(Clone, Debug)]
+struct WriteIdle {
+    duration: Duration,
+    expired: Arc<AtomicBool>,
+}
 
 impl HttpCancellation {
+    /// Bound each period without socket write progress independently of the response deadline.
+    pub fn with_write_idle_timeout(mut self, duration: Duration) -> Self {
+        self.write_idle = Some(WriteIdle {
+            duration,
+            expired: Arc::default(),
+        });
+        self
+    }
+
+    pub fn write_stalled(&self) -> bool {
+        self.write_idle
+            .as_ref()
+            .is_some_and(|idle| idle.expired.load(Ordering::Acquire))
+    }
+
     pub fn pinned_agent(
         &self,
         config: ureq::config::Config,
         pin: SocketAddr,
         deadline: Instant,
     ) -> ureq::Agent {
-        pinned_agent(config, pin, deadline, Some(self.0.clone()))
+        pinned_agent(config, pin, deadline, Some(self))
     }
 
     pub fn cancelled(&self) -> bool {
-        self.0.load(Ordering::Acquire)
+        self.flag.load(Ordering::Acquire)
     }
 
     pub fn cancel(&self) {
-        self.0.store(true, Ordering::Release);
+        self.flag.store(true, Ordering::Release);
     }
 
     /// Read a streaming HTTP body on demand while sampling cancellation on
@@ -483,6 +510,7 @@ pub(crate) struct SocketTransport {
     buffers: LazyBuffers,
     deadline: SocketDeadline,
     pub(crate) cancelled: Option<Arc<AtomicBool>>,
+    write_idle: Option<WriteIdle>,
 }
 
 impl SocketTransport {
@@ -499,6 +527,7 @@ impl SocketTransport {
             ),
             deadline,
             cancelled: None,
+            write_idle: None,
         }
     }
 }
@@ -515,20 +544,17 @@ impl Transport for SocketTransport {
     ) -> std::result::Result<(), ureq::Error> {
         let timeout = self.deadline.bound(timeout)?;
         let deadline = (Instant::now() + *timeout.after).min(self.deadline.0);
-        let mut pending = &self.buffers.output()[..amount];
-        while !pending.is_empty() {
-            let slice = io_budget(deadline, self.cancelled.as_deref())
-                .map_err(|error| socket_error(error, timeout))?;
-            self.socket.set_write_timeout(Some(slice))?;
-            match self.socket.write(pending) {
-                Ok(0) => return Err(io::Error::from(io::ErrorKind::WriteZero).into()),
-                Ok(written) => pending = &pending[written..],
-                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
-                Err(error) if self.cancelled.is_some() && io_would_wait(&error) => {}
-                Err(error) => return Err(socket_error(error, timeout)),
-            }
-        }
-        Ok(())
+        write_output(
+            &self.buffers.output()[..amount],
+            deadline,
+            timeout,
+            self.cancelled.as_deref(),
+            self.write_idle.as_ref(),
+            |data, slice| {
+                self.socket.set_write_timeout(Some(slice))?;
+                self.socket.write(data)
+            },
+        )
     }
 
     fn await_input(&mut self, timeout: NextTimeout) -> std::result::Result<bool, ureq::Error> {
@@ -552,6 +578,44 @@ impl Transport for SocketTransport {
         // A pinned provider connection belongs to one call and cannot enter the pool.
         false
     }
+}
+
+fn write_output(
+    mut pending: &[u8],
+    deadline: Instant,
+    timeout: NextTimeout,
+    cancelled: Option<&AtomicBool>,
+    write_idle: Option<&WriteIdle>,
+    mut write: impl FnMut(&[u8], Duration) -> io::Result<usize>,
+) -> std::result::Result<(), ureq::Error> {
+    let mut last_progress = Instant::now();
+    while !pending.is_empty() {
+        let write_deadline = write_idle.and_then(|idle| last_progress.checked_add(idle.duration));
+        if write_deadline.is_some_and(|t| t <= Instant::now() && t <= deadline) {
+            if let Some(idle) = write_idle {
+                idle.expired.store(true, Ordering::Release);
+            }
+            return Err(ureq::Error::Timeout(timeout.reason));
+        }
+        let slice = io_budget(deadline, cancelled).map_err(|error| socket_error(error, timeout))?;
+        let slice = write_deadline.map_or(slice, |t| {
+            slice.min(
+                t.saturating_duration_since(Instant::now())
+                    .max(Duration::from_millis(1)),
+            )
+        });
+        match write(pending, slice) {
+            Ok(0) => return Err(io::Error::from(io::ErrorKind::WriteZero).into()),
+            Ok(written) => {
+                pending = &pending[written..];
+                last_progress = Instant::now();
+            }
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+            Err(error) if cancelled.is_some() && io_would_wait(&error) => {}
+            Err(error) => return Err(socket_error(error, timeout)),
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn socket_error(error: io::Error, timeout: NextTimeout) -> ureq::Error {
@@ -1091,7 +1155,7 @@ impl Adapter {
         #[cfg(unix)]
         if let Some(socket) = &self.managed {
             let connector =
-                local::UnixConnector(socket.path().to_owned(), deadline, signal.0.clone())
+                local::UnixConnector(socket.path().to_owned(), deadline, signal.flag.clone())
                     .chain(idle);
             return Ok((
                 ureq::Agent::with_parts(config, connector, Pin(pin)),
@@ -1101,7 +1165,8 @@ impl Adapter {
         let connector = PinnedTcp {
             address: pin,
             deadline,
-            cancelled: Some(signal.0.clone()),
+            cancelled: Some(signal.flag.clone()),
+            write_idle: signal.write_idle.clone(),
         }
         .chain(RustlsConnector::default())
         .chain(idle);
@@ -1352,6 +1417,48 @@ mod tests {
     }
 
     #[test]
+    fn http_reply_write_idle_expires_on_stall_and_resets_on_progress() {
+        let timeout = NextTimeout {
+            after: Duration::from_secs(2).into(),
+            reason: ureq::Timeout::SendBody,
+        };
+        let cancel = AtomicBool::new(false);
+        let idle = WriteIdle {
+            duration: Duration::from_millis(40),
+            expired: Arc::default(),
+        };
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let result = write_output(
+            b"abcde",
+            deadline,
+            timeout,
+            Some(&cancel),
+            Some(&idle),
+            |_, _| {
+                thread::sleep(Duration::from_millis(12));
+                Ok(1)
+            },
+        );
+        assert!(result.is_ok());
+        assert!(!idle.expired.load(Ordering::Acquire));
+        let start = Instant::now();
+        let result = write_output(
+            b"x",
+            deadline,
+            timeout,
+            Some(&cancel),
+            Some(&idle),
+            |_, slice| {
+                thread::sleep(slice);
+                Err(io::ErrorKind::WouldBlock.into())
+            },
+        );
+        assert!(result.is_err());
+        assert!(start.elapsed() < Duration::from_millis(500));
+        assert!(idle.expired.load(Ordering::Acquire));
+    }
+
+    #[test]
     fn the_raw_transport_rechecks_the_absolute_deadline_under_tls() {
         // The TLS connector delegates to these raw methods. No connection is
         // needed: an expired call must return Global before touching the socket.
@@ -1361,6 +1468,7 @@ mod tests {
             buffers: LazyBuffers::new(32, 32),
             deadline: SocketDeadline(Instant::now() - Duration::from_secs(1)),
             cancelled: None,
+            write_idle: None,
         };
         let phase = NextTimeout {
             after: Duration::from_secs(10).into(),

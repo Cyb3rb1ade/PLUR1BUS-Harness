@@ -56,7 +56,7 @@ pub struct Framed<Role, R, W> {
     limit: usize,
     timeout: Duration,
     failure: Fault,
-    write_fault: Option<crate::connection_fault::Fault>,
+    write_fault: Option<(Duration, crate::connection_fault::Fault)>,
     include_progress: bool,
     legacy_envelope: bool,
     _role: PhantomData<fn() -> Role>,
@@ -101,8 +101,12 @@ where
         self
     }
 
-    pub(crate) fn with_write_fault(mut self, fault: crate::connection_fault::Fault) -> Self {
-        self.write_fault = Some(fault);
+    pub(crate) fn with_write_fault(
+        mut self,
+        budget: Duration,
+        fault: crate::connection_fault::Fault,
+    ) -> Self {
+        self.write_fault = Some((budget, fault));
         self
     }
 
@@ -166,6 +170,11 @@ where
         let write_fault = self.write_fault.clone();
         let include_progress = self.include_progress;
         let legacy_envelope = self.legacy_envelope;
+        let timed_reply = write_fault.is_some()
+            && matches!(
+                &message,
+                rmcp::model::JsonRpcMessage::Response(_) | rmcp::model::JsonRpcMessage::Error(_)
+            );
         let deadline = Instant::now().checked_add(self.timeout);
         async move {
             let deadline = deadline.ok_or(Error::Timeout)?;
@@ -176,7 +185,7 @@ where
                 return Err(Error::FrameLimit);
             }
             bytes.push(b'\n');
-            let result = timeout_at(deadline, async {
+            let output = async {
                 let mut slot = write.lock().await;
                 if failure.get().is_some() {
                     return Err(Error::Closed);
@@ -184,19 +193,38 @@ where
                 // A dropped send after taking the writer closes it. A partial
                 // frame must never be followed by a new frame on the same pipe.
                 let mut sink = slot.take().ok_or(Error::Closed)?;
-                sink.write_all(&bytes).await.map_err(|_| Error::Write)?;
+                if let Some((idle, fault)) = &write_fault {
+                    let mut pending = bytes.as_slice();
+                    while !pending.is_empty() {
+                        let written = tokio::time::timeout(*idle, sink.write(pending))
+                            .await
+                            .map_err(|_| {
+                                fault.trip(crate::connection_fault::Cause::Backpressure);
+                                Error::Timeout
+                            })?
+                            .map_err(|_| Error::Write)?;
+                        if written == 0 {
+                            return Err(Error::Write);
+                        }
+                        pending = &pending[written..];
+                    }
+                } else {
+                    sink.write_all(&bytes).await.map_err(|_| Error::Write)?;
+                }
                 *slot = Some(sink);
                 Ok(())
-            })
-            .await
-            .unwrap_or(Err(Error::Timeout));
+            };
+            // While sending a ready reply the writer owns the idle timer.
+            // A peer that keeps accepting bytes can take longer in total.
+            let result = if timed_reply {
+                output.await
+            } else {
+                timeout_at(deadline, output)
+                    .await
+                    .unwrap_or(Err(Error::Timeout))
+            };
             if let Err(error) = result {
                 let _ = failure.set(error);
-                if error == Error::Timeout {
-                    if let Some(fault) = write_fault {
-                        fault.trip(crate::connection_fault::Cause::Backpressure);
-                    }
-                }
             }
             result
         }

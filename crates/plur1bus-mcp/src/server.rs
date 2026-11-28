@@ -413,9 +413,8 @@ impl Server {
                 .map_err(|_| Error::Invalid)?;
                 let fault = Fault::new();
                 let transport = replies::Bounded::new(
-                    transport.with_write_fault(fault.clone()),
+                    transport.with_write_fault(frame_deadline, fault.clone()),
                     BODY_LIMIT,
-                    frame_deadline,
                     fault.clone(),
                     |request| matches!(request, ClientRequest::PingRequest(_)),
                 )
