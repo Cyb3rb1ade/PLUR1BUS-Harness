@@ -1283,7 +1283,7 @@ fn the_same_first_writes_leave_a_legacy_store_base_at_schema_zero() {
         );
         drop(peer);
         engine.close_stdin();
-        assert!(engine.wait_for_exit().success());
+        assert!(engine.observe_legacy_exit(name).success());
     }
 }
 

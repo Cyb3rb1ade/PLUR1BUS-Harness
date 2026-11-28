@@ -268,6 +268,48 @@ impl EngineProcess {
         }
     }
 
+    pub fn observe_legacy_exit(&mut self, case: &str) -> ExitStatus {
+        let started = Instant::now();
+        let result =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.wait_for_exit()));
+        match result {
+            Ok(status) => {
+                eprintln!(
+                    "F13 case={case} phase=original exit={status} elapsed_ms={}",
+                    started.elapsed().as_millis()
+                );
+                status
+            }
+            Err(panic) => {
+                self.observe_after_exit_timeout(case, started);
+                std::panic::resume_unwind(panic);
+            }
+        }
+    }
+
+    fn observe_after_exit_timeout(&mut self, case: &str, started: Instant) {
+        // Continue past the one-second grace and the thirty-second product budget.
+        // The original assertion is still reported as a failure.
+        let deadline = started + Duration::from_secs(35);
+        let observation = loop {
+            match self.child.try_wait() {
+                Ok(Some(status)) => break format!("exit={status}"),
+                Err(error) => break format!("wait_error={:?}", error.kind()),
+                Ok(None) if Instant::now() >= deadline => break "alive=true".to_owned(),
+                Ok(None) => std::thread::sleep(Duration::from_millis(20)),
+            }
+        };
+        eprintln!(
+            "F13 case={case} phase=after-original-timeout {observation} elapsed_ms={}",
+            started.elapsed().as_millis()
+        );
+        for line in self.stderr().lines() {
+            if line.contains(r#""event":"engine.process.lifecycle""#) {
+                eprintln!("{line}");
+            }
+        }
+    }
+
     pub fn assert_run_files_removed(&self) {
         for name in ["engine.token", "engine.pid"] {
             assert!(
