@@ -1916,7 +1916,7 @@ jobs:
 
   windows-f13-diagnosis:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/ry-windows-f13-evidence'
-    name: Windows F13 legacy first writes
+    name: Windows F13 under the full Engine suite
     runs-on: windows-2025
     timeout-minutes: 90
     env:
@@ -1928,7 +1928,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          fetch-depth: 3
+          fetch-depth: 4
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -1958,18 +1958,30 @@ jobs:
         timeout-minutes: 10
         env:
           PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
-      - name: Run the complete RPC process tests three times
+      - name: Verify the original Main baseline
         shell: bash
-        timeout-minutes: 75
-        env:
-          PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
+        run: |
+          git merge-base --is-ancestor 620a4fba8e13f2237b55ef9782a5f99963cbf1c3 HEAD
+          git diff --exit-code 620a4fba8e13f2237b55ef9782a5f99963cbf1c3 HEAD -- crates/plur1bus-engine/src
+      - name: Build the engine test executables
+        run: cargo test --locked -p plur1bus-engine --no-run --timings
+        timeout-minutes: 55
+      - name: Test the native engine on Windows
+        shell: bash
         run: |
           set -euo pipefail
-          git merge-base --is-ancestor 620a4fba8e13f2237b55ef9782a5f99963cbf1c3 HEAD
+          # The caller deadlines in these tests measure owner isolation. Do not
+          # let unrelated Rust tests contend for the same Windows filesystem.
+          isolation=(
+            'rpc::engine::capture_tests::isolation::'
+            'rpc::engine::capture_tests::a_slow_owners_startup_recovery_never_refuses_another_owners_turn'
+          )
+          remainder=()
+          for filter in "${isolation[@]}"; do remainder+=(--skip "$filter"); done
           status=0
-          for attempt in 1 2 3; do
-            echo "::group::RPC process trial ${attempt}"
-            cargo test --locked -p plur1bus-engine --test rpc_server -- --show-output || status=$?
-            echo "::endgroup::"
-          done
+          cargo test --locked -p plur1bus-engine --lib -- "${isolation[@]}" --test-threads=1 || status=$?
+          cargo test --locked -p plur1bus-engine --no-fail-fast -- "${remainder[@]}" --show-output || status=$?
           exit "$status"
+        timeout-minutes: 50
+        env:
+          PLUR1BUS_TOKENIZER_DIR: ${{ runner.temp }}/plur1bus-tokenizers
