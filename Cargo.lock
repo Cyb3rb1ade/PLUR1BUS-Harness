@@ -5961,12 +5961,12 @@ dependencies = [
  "tokenizers",
  "tokio",
  "typify",
+ "unicode-casefold",
+ "unicode-segmentation",
  "ureq",
  "url",
  "uuid",
  "windows-sys 0.59.0",
- "unicode-casefold",
- "unicode-segmentation",
 ]
 
 [[package]]
