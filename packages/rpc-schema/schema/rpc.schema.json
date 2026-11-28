@@ -10270,6 +10270,7 @@
                   "candidatePool",
                   "candidateCount",
                   "canonicalCount",
+                  "elapsedMs",
                   "orderedIds",
                   "difference",
                   "degradation"
@@ -10291,6 +10292,11 @@
                   "canonicalCount": {
                     "type": "integer",
                     "minimum": 0
+                  },
+                  "elapsedMs": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Monotonic time for this pool in milliseconds. Zero when no pool is searched."
                   },
                   "orderedIds": {
                     "type": "array",

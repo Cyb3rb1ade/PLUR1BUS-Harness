@@ -2267,6 +2267,7 @@ Compare three candidate pool sizes in the native Recall pipeline. Requires the v
           "candidatePool",
           "candidateCount",
           "canonicalCount",
+          "elapsedMs",
           "orderedIds",
           "difference",
           "degradation"
@@ -2288,6 +2289,11 @@ Compare three candidate pool sizes in the native Recall pipeline. Requires the v
           "canonicalCount": {
             "type": "integer",
             "minimum": 0
+          },
+          "elapsedMs": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Monotonic time for this pool in milliseconds. Zero when no pool is searched."
           },
           "orderedIds": {
             "type": "array",

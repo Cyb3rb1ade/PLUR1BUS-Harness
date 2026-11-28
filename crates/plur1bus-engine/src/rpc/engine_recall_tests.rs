@@ -1063,6 +1063,15 @@ fn recall_comparison_retrieves_a_wider_pool_and_explains_a_changed_selection() {
             .collect::<Vec<_>>(),
         [40, 50, 60]
     );
+    for case in cases {
+        assert_eq!(case["orderedIds"].as_array().unwrap().len(), 5);
+        assert!(
+            case["elapsedMs"]
+                .as_f64()
+                .is_some_and(|ms| ms.is_finite() && ms > 0.0),
+            "{case}"
+        );
+    }
     assert!(!cases[0]["orderedIds"]
         .as_array()
         .unwrap()
@@ -1091,6 +1100,7 @@ fn recall_comparison_does_not_create_a_missing_store() {
     let cases = result["cases"].as_array().unwrap();
     assert_eq!(cases.len(), 3);
     assert!(cases.iter().all(|case| case["difference"] == "no-store"));
+    assert!(cases.iter().all(|case| case["elapsedMs"] == 0.0));
     assert!(!root.join("db").exists());
     assert!(host.events().is_empty());
 }

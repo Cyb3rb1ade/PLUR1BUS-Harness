@@ -1340,5 +1340,12 @@ fn recall_comparison_requires_a_live_core_link() {
         [40, 50, 100]
     );
     assert!(cases.iter().all(|case| case["orderedIds"] == json!([])));
+    assert!(
+        cases.iter().all(|case| case["elapsedMs"]
+            .as_f64()
+            .is_some_and(|ms| ms.is_finite() && ms > 0.0)),
+        "{reply}"
+    );
+    assert_eq!(cases[0]["difference"], "baseline");
     assert!(core.count("host.workspaceDir") > 0);
 }

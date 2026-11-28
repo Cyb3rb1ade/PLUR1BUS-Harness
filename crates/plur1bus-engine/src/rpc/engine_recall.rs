@@ -92,6 +92,7 @@ struct ComparisonCase {
     candidate_pool: usize,
     candidate_count: usize,
     canonical_count: usize,
+    elapsed_ms: f64,
     ordered_ids: Vec<String>,
     difference: &'static str,
     degradation: Option<String>,
@@ -103,6 +104,7 @@ impl ComparisonCase {
             candidate_pool,
             candidate_count: 0,
             canonical_count: 0,
+            elapsed_ms: 0.0,
             ordered_ids: Vec::new(),
             difference,
             degradation: None,
@@ -228,6 +230,7 @@ pub(super) fn compare(
             candidate_pool,
             candidate_count: selection.candidate_count,
             canonical_count: selection.canonical_count,
+            elapsed_ms: started.elapsed().as_secs_f64() * 1_000.0,
             ordered_ids: selection.ordered_ids,
             difference: if degradation.is_some() {
                 "incomplete-comparison"

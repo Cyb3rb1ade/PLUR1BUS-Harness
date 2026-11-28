@@ -25,6 +25,7 @@
         "candidatePool": 40,
         "candidateCount": 0,
         "canonicalCount": 0,
+        "elapsedMs": 0.0,
         "orderedIds": [],
         "difference": "no-store",
         "degradation": null
@@ -33,6 +34,7 @@
         "candidatePool": 50,
         "candidateCount": 0,
         "canonicalCount": 0,
+        "elapsedMs": 0.0,
         "orderedIds": [],
         "difference": "no-store",
         "degradation": null
@@ -41,6 +43,7 @@
         "candidatePool": 100,
         "candidateCount": 0,
         "canonicalCount": 0,
+        "elapsedMs": 0.0,
         "orderedIds": [],
         "difference": "no-store",
         "degradation": null

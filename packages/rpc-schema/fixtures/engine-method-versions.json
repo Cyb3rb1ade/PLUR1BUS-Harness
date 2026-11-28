@@ -68,6 +68,7 @@
   "engine.models.warm": "1.7.0",
   "engine.open": "1.7.0",
   "engine.recall": "1.7.0",
+  "engine.recall.compare": "1.28.0",
   "engine.shutdown": "1.7.0",
   "engine.snapshot.create": "1.7.0",
   "engine.snapshot.verify": "1.7.0",

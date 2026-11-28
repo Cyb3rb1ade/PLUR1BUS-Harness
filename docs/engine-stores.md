@@ -3438,8 +3438,8 @@ forwarding, the host authorizes the person and binds the query to the selected a
 and project. The engine resolves that principal with the ordinary recall ACL and
 checks the host workspace binding. The diagnostic result returns ordinary memory
 IDs in their selected order after tombstone revalidation, initial authorized
-candidate counts across tables, selected canonical counts, and the reason for
-the difference from the 40-candidate case. A degraded case is marked incomplete.
+candidate counts across tables, selected canonical counts, elapsed milliseconds
+per pool, and the reason for the difference from the 40-candidate case. A degraded case is marked incomplete.
 The ID order is measured before prompt text clipping.
 
 The three cases use the same read-only namespace routes and the last stored mood
