@@ -3477,6 +3477,6 @@ and the two pools were not measured together.
 
 ### Group reasoning filter (D137 Ü2)
 
-The native input filter checks the start of the supplied group message bodies, with support for a single transport label. It accepts the effective enable flag, the configured prefix list and the channel adapter's verified sender identifier. An individual exact entry in `allowFrom` or `groupAllowFrom` exempts that sender. Wildcard entries grant no exemption. A matching event returns an ignore decision with at most a hash of the sender. Direct conversations pass through.
+The native input filter checks the start of the supplied group message bodies. It strips one transport label followed by a colon and whitespace, with a limit of 80 UTF-16 units inside brackets and 61 for a plain label. A plain display name can start with a bracketed tag. It accepts the effective enable flag, the configured prefix list and the channel adapter's verified sender identifier. An individual exact entry in `allowFrom` or `groupAllowFrom` exempts that sender. Wildcard entries grant no exemption. A matching event returns an ignore decision with at most a hash of the sender. Direct conversations pass through.
 
 At the Core flip, the channel adapter must apply this decision before constructing a model turn. It supplies a trusted chat classification and sender ID in the same namespace as both allow lists. On an ignore decision, the host claims the event without an automatic response. The log entry may carry the returned hash and omits the message body and raw routing identifiers.

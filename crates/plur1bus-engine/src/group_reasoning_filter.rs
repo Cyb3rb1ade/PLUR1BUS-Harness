@@ -97,22 +97,26 @@ pub fn classify(input: &Input<'_>) -> Decision {
 }
 
 fn strip_label(body: &str) -> Option<&str> {
-    let end = if let Some(bracketed) = body.strip_prefix('[') {
+    let after_label = |end| {
+        let rest = body.get(end..)?.strip_prefix(':')?;
+        let stripped = js_trim_start(rest);
+        (rest.len() != stripped.len()).then_some(stripped)
+    };
+    let bracketed = body.strip_prefix('[').and_then(|bracketed| {
         let end = bracketed.find(']')?;
         let label = &bracketed[..end];
         if !(1..=80).contains(&label.encode_utf16().count()) || label.contains('\n') {
             return None;
         }
-        end + 2
-    } else {
+        after_label(end + 2)
+    });
+    // A plain display name can begin with a bracketed tag.
+    bracketed.or_else(|| {
         let end = body.find(':')?;
         let label = &body[..end];
         if !(1..=61).contains(&label.encode_utf16().count()) || label.contains('\n') {
             return None;
         }
-        end
-    };
-    let rest = body.get(end..)?.strip_prefix(':')?;
-    let stripped = js_trim_start(rest);
-    (rest.len() != stripped.len()).then_some(stripped)
+        after_label(end)
+    })
 }
