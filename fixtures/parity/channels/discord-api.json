@@ -1,0 +1,274 @@
+{
+  "exporter": "scripts/parity/export-channels.ts",
+  "scenarios": [
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{\"content\":\"Grüße 👋\",\"flags\":4,\"allowed_mentions\":{\"parse\":[]}}",
+            "headers": {
+              "authorization": "Bot [FIXTURE:DISCORD]",
+              "content-type": "application/json"
+            },
+            "method": "PATCH",
+            "path": "/v1/channels/123456/messages/654321"
+          },
+          "response": {
+            "body": {
+              "content": "Grüße 👋",
+              "id": "654321"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": {
+          "content": "Grüße 👋",
+          "id": "654321"
+        }
+      },
+      "input": {
+        "json": "{\"content\":\"Grüße 👋\",\"flags\":4,\"allowed_mentions\":{\"parse\":[]}}",
+        "method": "PATCH",
+        "path": "/channels/123456/messages/654321"
+      },
+      "name": "message",
+      "waits": []
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{\"type\":5}",
+            "headers": {
+              "content-type": "application/json"
+            },
+            "method": "POST",
+            "path": "/v1/interactions/123456/[FIXTURE:INTERACTION]/callback"
+          },
+          "response": {
+            "status": 204
+          }
+        }
+      ],
+      "expected": {
+        "result": null
+      },
+      "input": {
+        "json": "{\"type\":5}",
+        "method": "POST",
+        "path": "/interactions/123456/[FIXTURE:INTERACTION]/callback",
+        "tokenRoute": true
+      },
+      "name": "token-route",
+      "waits": []
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {
+              "authorization": "Bot [FIXTURE:DISCORD]"
+            },
+            "method": "GET",
+            "path": "/v1/channels/123456/messages/654321"
+          },
+          "response": {
+            "chunksBase64": [
+              "Ww=="
+            ],
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "protocol",
+          "message": "discord returned invalid json",
+          "status": 200
+        }
+      },
+      "input": {
+        "method": "GET",
+        "path": "/channels/123456/messages/654321"
+      },
+      "name": "bad-json",
+      "waits": []
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {
+              "authorization": "Bot [FIXTURE:DISCORD]"
+            },
+            "method": "GET",
+            "path": "/v1/channels/123456/messages/654321"
+          },
+          "response": {
+            "body": {
+              "code": 50013,
+              "message": "permission denied for Bot [FIXTURE:DISCORD]"
+            },
+            "status": 403
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": 50013,
+          "kind": "forbidden",
+          "message": "discord forbidden (403): permission denied for Bot [redacted]",
+          "status": 403
+        }
+      },
+      "input": {
+        "method": "GET",
+        "path": "/channels/123456/messages/654321"
+      },
+      "name": "permission",
+      "waits": []
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {
+              "authorization": "Bot [FIXTURE:DISCORD]"
+            },
+            "method": "GET",
+            "path": "/v1/channels/123456/messages/654321"
+          },
+          "response": {
+            "headers": {
+              "retry-after": "0"
+            },
+            "status": 429
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "rate-limited",
+          "message": "discord rate limit",
+          "retryAfterMs": 1000,
+          "status": 429
+        }
+      },
+      "input": {
+        "method": "GET",
+        "path": "/channels/123456/messages/654321"
+      },
+      "name": "rate-limited",
+      "waits": []
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {
+              "authorization": "Bot [FIXTURE:DISCORD]"
+            },
+            "method": "GET",
+            "path": "/v1/channels/123456/messages/654321"
+          },
+          "response": {
+            "body": {
+              "global": true,
+              "retry_after": 1.2345
+            },
+            "headers": {
+              "x-ratelimit-global": "true"
+            },
+            "status": 429
+          }
+        },
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {
+              "authorization": "Bot [FIXTURE:DISCORD]"
+            },
+            "method": "GET",
+            "path": "/v1/channels/123456/messages/654321"
+          },
+          "response": {
+            "status": 503
+          }
+        },
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {
+              "authorization": "Bot [FIXTURE:DISCORD]"
+            },
+            "method": "GET",
+            "path": "/v1/channels/123456/messages/654321"
+          },
+          "response": {
+            "body": {
+              "id": "654321"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": {
+          "id": "654321"
+        }
+      },
+      "input": {
+        "method": "GET",
+        "path": "/channels/123456/messages/654321",
+        "retries": 2
+      },
+      "name": "retry-limits",
+      "waits": [
+        1235,
+        2000
+      ]
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {
+              "authorization": "Bot [FIXTURE:DISCORD]"
+            },
+            "method": "GET",
+            "path": "/v1/channels/123456/messages/654321"
+          },
+          "response": {
+            "headers": {
+              "location": "/unused-location"
+            },
+            "status": 302
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "http",
+          "message": "discord http (302)",
+          "status": 302
+        }
+      },
+      "input": {
+        "method": "GET",
+        "path": "/channels/123456/messages/654321"
+      },
+      "name": "manual-redirect",
+      "waits": []
+    }
+  ],
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/channels-discord/src/api.ts",
+  "transport": "http"
+}

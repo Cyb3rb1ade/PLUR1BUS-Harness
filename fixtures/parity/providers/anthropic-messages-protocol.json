@@ -1,0 +1,295 @@
+{
+  "exchanges": [
+    {
+      "expected": {
+        "events": [],
+        "result": {
+          "finishReason": "tool_calls",
+          "meta": {
+            "id": "recorded-anthropic",
+            "model": "fixture-model"
+          },
+          "rawFinishReason": "tool_use",
+          "text": "Grüße",
+          "toolCalls": [
+            {
+              "arguments": {
+                "z": 1
+              },
+              "argumentsRaw": "{\"z\":1}",
+              "id": "call_fixture",
+              "name": "inspect"
+            }
+          ],
+          "usage": {
+            "cachedInputTokens": 3,
+            "inputTokens": 9,
+            "outputTokens": 4,
+            "totalTokens": 13
+          }
+        }
+      },
+      "mode": "complete",
+      "name": "complete",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool_use\",\"id\":\"call_fixture\",\"name\":\"inspect\",\"input\":{\"z\":1,\"a\":2}}]},{\"role\":\"user\",\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"call_fixture\",\"content\":\"{\\\"found\\\":true}\"},{\"type\":\"text\",\"text\":\"Check the image.\"},{\"type\":\"image\",\"source\":{\"type\":\"base64\",\"media_type\":\"image/png\",\"data\":\"AAEC\"}}]}],\"tools\":[{\"name\":\"inspect\",\"description\":\"Inspect an example\",\"input_schema\":{\"type\":\"object\",\"properties\":{\"z\":{\"type\":\"integer\"},\"a\":{\"type\":\"integer\"}},\"required\":[\"z\",\"a\"]}}],\"tool_choice\":{\"type\":\"auto\"},\"temperature\":0,\"stream\":false}",
+        "headers": {
+          "accept": "application/json",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"},{\"role\":\"assistant\",\"toolCalls\":[{\"id\":\"call_fixture\",\"name\":\"inspect\",\"arguments\":\"{\\\"z\\\":1,\\\"a\\\":2}\"}]},{\"role\":\"tool\",\"toolCallId\":\"call_fixture\",\"content\":\"{\\\"found\\\":true}\"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Check the image.\"},{\"type\":\"image_url\",\"url\":\"data:image/png;base64,AAEC\"}]}],\"maxTokens\":64,\"temperature\":0,\"tools\":[{\"name\":\"inspect\",\"description\":\"Inspect an example\",\"parameters\":{\"type\":\"object\",\"properties\":{\"z\":{\"type\":\"integer\"},\"a\":{\"type\":\"integer\"}},\"required\":[\"z\",\"a\"]}}],\"toolChoice\":\"auto\",\"parallelToolCalls\":true}",
+      "response": {
+        "chunksBase64": [
+          "eyJpZCI6InJlY29yZGVkLWFudGhyb3BpYyIsIm1vZGVsIjoiZml4dHVyZS1tb2RlbCIsInR5cGUiOiJtZXNzYWdlIiwidXNhZ2UiOnsiaW5wdXRfdG9rZW5zIjo2LCJjYWNoZV9yZWFkX2lucHV0X3Rva2VucyI6Mywib3V0cHV0X3Rva2VucyI6NH0sImNvbnRlbnQiOlt7InR5cGUiOiJ0ZXh0IiwidGV4dCI6Ikdyw7zDn2UifSx7InR5cGUiOiJ0b29sX3VzZSIsImlkIjoiY2FsbF9maXh0dXJlIiwibmFtZSI6Imluc3BlY3QiLCJpbnB1dCI6eyJ6IjoxfX1dLCJzdG9wX3JlYXNvbiI6InRvb2xfdXNlIn0="
+        ],
+        "headers": {
+          "content-type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "events": [
+          {
+            "text": "Grüße",
+            "type": "text_delta"
+          },
+          {
+            "id": "call_fixture",
+            "index": 0,
+            "name": "inspect",
+            "type": "tool_call_start"
+          },
+          {
+            "argumentsDelta": "{\"z\":",
+            "index": 0,
+            "type": "tool_call_delta"
+          },
+          {
+            "argumentsDelta": "1}",
+            "index": 0,
+            "type": "tool_call_delta"
+          },
+          {
+            "finishReason": "tool_calls",
+            "rawFinishReason": "tool_use",
+            "type": "finish"
+          },
+          {
+            "type": "usage",
+            "usage": {
+              "cachedInputTokens": 3,
+              "inputTokens": 9,
+              "outputTokens": 5,
+              "totalTokens": 14
+            }
+          },
+          {
+            "result": {
+              "finishReason": "tool_calls",
+              "meta": {
+                "id": "recorded-anthropic",
+                "model": "fixture-model"
+              },
+              "rawFinishReason": "tool_use",
+              "text": "Grüße",
+              "toolCalls": [
+                {
+                  "arguments": {
+                    "z": 1
+                  },
+                  "argumentsRaw": "{\"z\":1}",
+                  "id": "call_fixture",
+                  "name": "inspect"
+                }
+              ],
+              "usage": {
+                "cachedInputTokens": 3,
+                "inputTokens": 9,
+                "outputTokens": 5,
+                "totalTokens": 14
+              }
+            },
+            "type": "done"
+          }
+        ]
+      },
+      "mode": "stream",
+      "name": "stream-tools-and-usage",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool_use\",\"id\":\"call_fixture\",\"name\":\"inspect\",\"input\":{\"z\":1,\"a\":2}}]},{\"role\":\"user\",\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"call_fixture\",\"content\":\"{\\\"found\\\":true}\"},{\"type\":\"text\",\"text\":\"Check the image.\"},{\"type\":\"image\",\"source\":{\"type\":\"base64\",\"media_type\":\"image/png\",\"data\":\"AAEC\"}}]}],\"tools\":[{\"name\":\"inspect\",\"description\":\"Inspect an example\",\"input_schema\":{\"type\":\"object\",\"properties\":{\"z\":{\"type\":\"integer\"},\"a\":{\"type\":\"integer\"}},\"required\":[\"z\",\"a\"]}}],\"tool_choice\":{\"type\":\"auto\"},\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"},{\"role\":\"assistant\",\"toolCalls\":[{\"id\":\"call_fixture\",\"name\":\"inspect\",\"arguments\":\"{\\\"z\\\":1,\\\"a\\\":2}\"}]},{\"role\":\"tool\",\"toolCallId\":\"call_fixture\",\"content\":\"{\\\"found\\\":true}\"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Check the image.\"},{\"type\":\"image_url\",\"url\":\"data:image/png;base64,AAEC\"}]}],\"maxTokens\":64,\"temperature\":0,\"tools\":[{\"name\":\"inspect\",\"description\":\"Inspect an example\",\"parameters\":{\"type\":\"object\",\"properties\":{\"z\":{\"type\":\"integer\"},\"a\":{\"type\":\"integer\"}},\"required\":[\"z\",\"a\"]}}],\"toolChoice\":\"auto\",\"parallelToolCalls\":true}",
+      "response": {
+        "chunksBase64": [
+          "ZGF0YTogeyJ0eXBlIjoibWVzc2FnZV9zdGFydCIsIm1lc3NhZ2UiOnsiaWQiOiJyZWNvcmRlZC1hbnRocm9waWMiLCJtb2RlbCI6ImZpeHR1cmUtbW9kZWwiLCJ0eXBlIjoibWVzc2FnZSIsInVzYWdlIjp7ImlucHV0X3Rva2VucyI6NiwiY2FjaGVfcmVhZF9pbnB1dF90b2tlbnMiOjMsIm91dHB1dF90b2tlbnMiOjR9fX0NCg0KZGF0YTogeyJ0eXBlIjoiY29udGVudF9ibG9ja19zdGFydCIsImluZGV4IjowLCJjb250ZW50X2Jsb2NrIjp7InR5cGUiOiJ0ZXh0IiwidGV4dCI6IiJ9fQ0KDQpkYXRhOiB7InR5cGUiOiJjb250ZW50X2Jsb2NrX2RlbHRhIiwiaW5kZXgiOjAsImRlbHRhIjp7InR5cGUiOiJ0ZXh0X2RlbHRhIiwidGV4dCI6Ikdyww==",
+          "vMOfZSJ9fQ0KDQpkYXRhOiB7InR5cGUiOiJjb250ZW50X2Jsb2NrX3N0b3AiLCJpbmRleCI6MH0NCg0KZGF0YTogeyJ0eXBlIjoiY29udGVudF9ibG9ja19zdGFydCIsImluZGV4IjoxLCJjb250ZW50X2Jsb2NrIjp7InR5cGUiOiJ0b29sX3VzZSIsImlkIjoiY2FsbF9maXh0dXJlIiwibmFtZSI6Imluc3BlY3QiLCJpbnB1dCI6e319fQ0KDQpkYXRhOiB7InR5cGUiOiJjb250ZW50X2Jsb2NrX2RlbHRhIiwiaW5kZXgiOjEsImRlbHRhIjp7InR5cGUiOiJpbnB1dF9qc29uX2RlbHRhIiwicGFydGlhbF9qc29uIjoie1wielwiOiJ9fQ0KDQpkYXRhOiB7InR5cGUiOiJjb250ZW50X2Jsb2NrX2RlbHRhIiwiaW5kZXgiOjEsImRlbHRhIjp7InR5cGUiOiJpbnB1dF9qc29uX2RlbHRhIiwicGFydGlhbF9qc29uIjoiMX0ifX0NCg0KZGF0YTogeyJ0eXBlIjoiY29udGVudF9ibG9ja19zdG9wIiwiaW5kZXgiOjF9DQoNCmRhdGE6IHsidHlwZSI6Im1lc3NhZ2VfZGVsdGEiLCJkZWx0YSI6eyJzdG9wX3JlYXNvbiI6InRvb2xfdXNlIn0sInVzYWdlIjp7Im91dHB1dF90b2tlbnMiOjV9fQ0KDQpkYXRhOiB7InR5cGUiOiJtZXNzYWdlX3N0b3AifQ0KDQo="
+        ],
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "protocol",
+          "contentFiltered": false,
+          "kind": "unknown",
+          "message": "stream ended without message_stop",
+          "partial": {
+            "text": "",
+            "toolCalls": [],
+            "usage": {
+              "cachedInputTokens": 3,
+              "inputTokens": 9,
+              "outputTokens": 4,
+              "totalTokens": 13
+            }
+          },
+          "retryable": false
+        },
+        "events": []
+      },
+      "mode": "stream",
+      "name": "stream-premature-eof",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool_use\",\"id\":\"call_fixture\",\"name\":\"inspect\",\"input\":{\"z\":1,\"a\":2}}]},{\"role\":\"user\",\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"call_fixture\",\"content\":\"{\\\"found\\\":true}\"},{\"type\":\"text\",\"text\":\"Check the image.\"},{\"type\":\"image\",\"source\":{\"type\":\"base64\",\"media_type\":\"image/png\",\"data\":\"AAEC\"}}]}],\"tools\":[{\"name\":\"inspect\",\"description\":\"Inspect an example\",\"input_schema\":{\"type\":\"object\",\"properties\":{\"z\":{\"type\":\"integer\"},\"a\":{\"type\":\"integer\"}},\"required\":[\"z\",\"a\"]}}],\"tool_choice\":{\"type\":\"auto\"},\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"},{\"role\":\"assistant\",\"toolCalls\":[{\"id\":\"call_fixture\",\"name\":\"inspect\",\"arguments\":\"{\\\"z\\\":1,\\\"a\\\":2}\"}]},{\"role\":\"tool\",\"toolCallId\":\"call_fixture\",\"content\":\"{\\\"found\\\":true}\"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Check the image.\"},{\"type\":\"image_url\",\"url\":\"data:image/png;base64,AAEC\"}]}],\"maxTokens\":64,\"temperature\":0,\"tools\":[{\"name\":\"inspect\",\"description\":\"Inspect an example\",\"parameters\":{\"type\":\"object\",\"properties\":{\"z\":{\"type\":\"integer\"},\"a\":{\"type\":\"integer\"}},\"required\":[\"z\",\"a\"]}}],\"toolChoice\":\"auto\",\"parallelToolCalls\":true}",
+      "response": {
+        "chunksBase64": [
+          "ZGF0YTogeyJ0eXBlIjoibWVzc2FnZV9zdGFydCIsIm1lc3NhZ2UiOnsiaWQiOiJyZWNvcmRlZC1hbnRocm9waWMiLCJtb2RlbCI6ImZpeHR1cmUtbW9kZWwiLCJ0eXBlIjoibWVzc2FnZSIsInVzYWdlIjp7ImlucHV0X3Rva2VucyI6NiwiY2FjaGVfcmVhZF9pbnB1dF90b2tlbnMiOjMsIm91dHB1dF90b2tlbnMiOjR9fX0NCg0K"
+        ],
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 200
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "rate_limit_exceeded",
+          "contentFiltered": false,
+          "kind": "rate_limit",
+          "message": "rate limited (HTTP 429, rate_limit_exceeded): Fixture throttled.",
+          "providerMessage": "Fixture throttled.",
+          "providerType": "rate_limit_error",
+          "retryAfterMs": 2000,
+          "retryable": true,
+          "status": 429
+        },
+        "events": []
+      },
+      "mode": "stream",
+      "name": "http-rate-limit-and-retry",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [
+          "eyJlcnJvciI6eyJtZXNzYWdlIjoiRml4dHVyZSB0aHJvdHRsZWQuIiwidHlwZSI6InJhdGVfbGltaXRfZXJyb3IiLCJjb2RlIjoicmF0ZV9saW1pdF9leGNlZWRlZCJ9fQ=="
+        ],
+        "headers": {
+          "content-type": "application/json",
+          "retry-after": "2"
+        },
+        "status": 429
+      }
+    },
+    {
+      "expected": {
+        "error": {
+          "code": "rate_limit_exceeded",
+          "contentFiltered": false,
+          "kind": "rate_limit",
+          "message": "provider error in stream (rate_limit_error): Fixture throttled.",
+          "partial": {
+            "text": "",
+            "toolCalls": []
+          },
+          "providerMessage": "Fixture throttled.",
+          "providerType": "rate_limit_error",
+          "retryable": true
+        },
+        "events": []
+      },
+      "mode": "stream",
+      "name": "stream-vendor-error",
+      "options": {
+        "allowMissingDone": false
+      },
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"max_tokens\":64,\"system\":[{\"type\":\"text\",\"text\":\"Answer briefly.\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Grüße 👋\"}]}],\"temperature\":0,\"stream\":true}",
+        "headers": {
+          "accept": "text/event-stream",
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "x-api-key": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/v1/messages"
+      },
+      "requestJson": "{\"model\":\"fixture-model\",\"messages\":[{\"role\":\"system\",\"content\":\"Answer briefly.\"},{\"role\":\"user\",\"content\":\"Grüße 👋\"}],\"maxTokens\":64,\"temperature\":0}",
+      "response": {
+        "chunksBase64": [
+          "ZGF0YTogeyJ0eXBlIjoiZXJyb3IiLCJlcnJvciI6eyJtZXNzYWdlIjoiRml4dHVyZSB0aHJvdHRsZWQuIiwidHlwZSI6InJhdGVfbGltaXRfZXJyb3IiLCJjb2RlIjoicmF0ZV9saW1pdF9leGNlZWRlZCJ9fQ0KDQo="
+        ],
+        "headers": {
+          "content-type": "text/event-stream"
+        },
+        "status": 200
+      }
+    }
+  ],
+  "exporter": "scripts/parity/export-providers.ts",
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/providers/src/index.ts",
+  "transport": "http",
+  "wire": "anthropic_messages"
+}

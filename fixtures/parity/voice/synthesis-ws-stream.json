@@ -1,0 +1,104 @@
+{
+  "exchanges": [
+    {
+      "receive": [
+        {
+          "audio": "AQIA"
+        },
+        {
+          "audio": "/wA=",
+          "isFinal": true
+        }
+      ],
+      "send": [
+        {
+          "generation_config": {
+            "chunk_length_schedule": [
+              120,
+              160,
+              250,
+              290
+            ]
+          },
+          "text": " ",
+          "voice_settings": {
+            "similarity_boost": 0.75,
+            "stability": 0.5
+          }
+        },
+        {
+          "text": "A fixture "
+        },
+        {
+          "text": "voice 🎙 "
+        },
+        {
+          "flush": true,
+          "text": " "
+        },
+        {
+          "text": ""
+        }
+      ],
+      "sendText": [
+        "{\"text\":\" \",\"voice_settings\":{\"stability\":0.5,\"similarity_boost\":0.75},\"generation_config\":{\"chunk_length_schedule\":[120,160,250,290]}}",
+        "{\"text\":\"A fixture \"}",
+        "{\"text\":\"voice 🎙 \"}",
+        "{\"text\":\" \",\"flush\":true}",
+        "{\"text\":\"\"}"
+      ]
+    }
+  ],
+  "expected": {
+    "chunks": [
+      {
+        "dataBase64": "AQIA",
+        "format": "pcm16",
+        "sampleRate": 24000
+      },
+      {
+        "dataBase64": "/wA=",
+        "format": "pcm16",
+        "sampleRate": 24000
+      }
+    ],
+    "usage": {
+      "chars": 18,
+      "model": "eleven_flash_v2_5",
+      "operation": "tts",
+      "provider": "elevenlabs"
+    }
+  },
+  "exporter": "scripts/parity/export-voice.ts",
+  "input": {
+    "language": "en",
+    "text": [
+      "A fixture ",
+      "",
+      "voice 🎙"
+    ],
+    "voice": "synthetic/a b",
+    "voiceSettings": {
+      "similarity_boost": 0.75,
+      "stability": 0.5
+    },
+    "voiceSettingsEntries": [
+      [
+        "stability",
+        0.5
+      ],
+      [
+        "similarity_boost",
+        0.75
+      ]
+    ]
+  },
+  "request": {
+    "headers": {
+      "xi-api-key": "<credential>"
+    },
+    "path": "/v1/text-to-speech/synthetic%2Fa%20b/stream-input?model_id=eleven_flash_v2_5&output_format=pcm_24000&language_code=en&enable_logging=false"
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "websocket"
+}

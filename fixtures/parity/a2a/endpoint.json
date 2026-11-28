@@ -1,0 +1,268 @@
+{
+  "base": "https://fixture-peer.example.invalid",
+  "cases": [
+    {
+      "expected": {
+        "bodyBase64": "eyJwcm90b2NvbFZlcnNpb24iOiIwLjMuMCIsIm5hbWUiOiJFeGFtcGxlIiwiZGVzY3JpcHRpb24iOiJBIFBMVVIxQlVTIGFnZW50LiIsInVybCI6Imh0dHBzOi8vZml4dHVyZS1wZWVyLmV4YW1wbGUuaW52YWxpZC9hMmEvc2FtcGxlLyIsInByZWZlcnJlZFRyYW5zcG9ydCI6IkpTT05SUEMiLCJ2ZXJzaW9uIjoiZml4dHVyZSIsImNhcGFiaWxpdGllcyI6eyJzdHJlYW1pbmciOnRydWUsInB1c2hOb3RpZmljYXRpb25zIjp0cnVlLCJzdGF0ZVRyYW5zaXRpb25IaXN0b3J5IjpmYWxzZX0sImRlZmF1bHRJbnB1dE1vZGVzIjpbInRleHQvcGxhaW4iXSwiZGVmYXVsdE91dHB1dE1vZGVzIjpbInRleHQvcGxhaW4iXSwic2tpbGxzIjpbeyJpZCI6ImNoYXQiLCJuYW1lIjoiQ2hhdCIsImRlc2NyaXB0aW9uIjoiQW5zd2VycyBhIHRleHQgbWVzc2FnZS4iLCJ0YWdzIjpbXX1dLCJzZWN1cml0eVNjaGVtZXMiOnsicGVlcktleSI6eyJ0eXBlIjoiaHR0cCIsInNjaGVtZSI6ImJlYXJlciIsImRlc2NyaXB0aW9uIjoiQSBwZXItcGVlciBBUEkga2V5IGlzc3VlZCBieSB0aGUgb3BlcmF0b3IuIn19LCJzZWN1cml0eSI6W3sicGVlcktleSI6W119XX0=",
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "name": "scoped-card",
+      "request": {
+        "auth": true,
+        "contentType": "application/json",
+        "method": "GET",
+        "path": "/a2a/sample/.well-known/agent-card.json"
+      }
+    },
+    {
+      "expected": {
+        "bodyBase64": "eyJwcm90b2NvbFZlcnNpb24iOiIwLjMuMCIsIm5hbWUiOiJFeGFtcGxlIiwiZGVzY3JpcHRpb24iOiJBIFBMVVIxQlVTIGFnZW50LiIsInVybCI6Imh0dHBzOi8vZml4dHVyZS1wZWVyLmV4YW1wbGUuaW52YWxpZC9hMmEvc2FtcGxlLyIsInByZWZlcnJlZFRyYW5zcG9ydCI6IkpTT05SUEMiLCJ2ZXJzaW9uIjoiZml4dHVyZSIsImNhcGFiaWxpdGllcyI6eyJzdHJlYW1pbmciOnRydWUsInB1c2hOb3RpZmljYXRpb25zIjp0cnVlLCJzdGF0ZVRyYW5zaXRpb25IaXN0b3J5IjpmYWxzZX0sImRlZmF1bHRJbnB1dE1vZGVzIjpbInRleHQvcGxhaW4iXSwiZGVmYXVsdE91dHB1dE1vZGVzIjpbInRleHQvcGxhaW4iXSwic2tpbGxzIjpbeyJpZCI6ImNoYXQiLCJuYW1lIjoiQ2hhdCIsImRlc2NyaXB0aW9uIjoiQW5zd2VycyBhIHRleHQgbWVzc2FnZS4iLCJ0YWdzIjpbXX1dLCJzZWN1cml0eVNjaGVtZXMiOnsicGVlcktleSI6eyJ0eXBlIjoiaHR0cCIsInNjaGVtZSI6ImJlYXJlciIsImRlc2NyaXB0aW9uIjoiQSBwZXItcGVlciBBUEkga2V5IGlzc3VlZCBieSB0aGUgb3BlcmF0b3IuIn19LCJzZWN1cml0eSI6W3sicGVlcktleSI6W119XX0=",
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "name": "default-card",
+      "request": {
+        "auth": true,
+        "contentType": "application/json",
+        "method": "GET",
+        "path": "/.well-known/agent-card.json"
+      }
+    },
+    {
+      "expected": {
+        "bodyBase64": "eyJlcnJvciI6Im5vdC1mb3VuZCJ9",
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 404
+      },
+      "name": "bad-route",
+      "request": {
+        "auth": true,
+        "contentType": "application/json",
+        "method": "GET",
+        "path": "/about"
+      }
+    },
+    {
+      "expected": {
+        "bodyBase64": "eyJlcnJvciI6Im1ldGhvZC1ub3QtYWxsb3dlZCJ9",
+        "headers": {
+          "allow": "POST",
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 405
+      },
+      "name": "wrong-method",
+      "request": {
+        "auth": true,
+        "contentType": "application/json",
+        "method": "GET",
+        "path": "/a2a/sample/"
+      }
+    },
+    {
+      "expected": {
+        "bodyBase64": "eyJlcnJvciI6InVuYXV0aGVudGljYXRlZCJ9",
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          "www-authenticate": "Bearer",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 401
+      },
+      "name": "no-auth",
+      "request": {
+        "auth": false,
+        "contentType": "application/json",
+        "method": "GET",
+        "path": "/.well-known/agent-card.json"
+      }
+    },
+    {
+      "expected": {
+        "bodyBase64": "eyJlcnJvciI6Im5vdC1mb3VuZCJ9",
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 404
+      },
+      "name": "hidden-agent",
+      "request": {
+        "auth": true,
+        "contentType": "application/json",
+        "method": "GET",
+        "path": "/a2a/other/.well-known/agent-card.json"
+      }
+    },
+    {
+      "expected": {
+        "bodyBase64": "eyJlcnJvciI6InVuc3VwcG9ydGVkLW1lZGlhLXR5cGUifQ==",
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 415
+      },
+      "name": "wrong-encoding",
+      "request": {
+        "auth": true,
+        "body": "hello",
+        "contentType": "text/plain",
+        "method": "POST",
+        "path": "/a2a/sample/"
+      }
+    },
+    {
+      "expected": {
+        "bodyBase64": "eyJlcnJvciI6ImJvZHktdG9vLWxhcmdlIn0=",
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 413
+      },
+      "name": "oversize",
+      "request": {
+        "auth": true,
+        "body": "{\"message\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+        "contentType": "application/json",
+        "method": "POST",
+        "path": "/a2a/sample/"
+      }
+    },
+    {
+      "expected": {
+        "bodyBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOm51bGwsImVycm9yIjp7ImNvZGUiOi0zMjcwMCwibWVzc2FnZSI6InBhcnNlIGVycm9yIn19",
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "name": "parse",
+      "request": {
+        "auth": true,
+        "body": "{",
+        "contentType": "application/json",
+        "method": "POST",
+        "path": "/a2a/sample/"
+      }
+    },
+    {
+      "expected": {
+        "bodyBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOm51bGwsImVycm9yIjp7ImNvZGUiOi0zMjYwMCwibWVzc2FnZSI6ImJhdGNoIHJlcXVlc3RzIGFyZSBub3Qgc3VwcG9ydGVkIiwiZGF0YSI6eyJyZWFzb24iOiJiYXRjaCJ9fX0=",
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "name": "batch",
+      "request": {
+        "auth": true,
+        "body": "[]",
+        "contentType": "application/json",
+        "method": "POST",
+        "path": "/a2a/sample/"
+      }
+    },
+    {
+      "expected": {
+        "bodyBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOiJpZC1maXh0dXJlIiwiZXJyb3IiOnsiY29kZSI6LTMyNjAxLCJtZXNzYWdlIjoibWV0aG9kIG5vdCBmb3VuZCJ9fQ==",
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "name": "unknown-method",
+      "request": {
+        "auth": true,
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":\"id-fixture\",\"method\":\"tasks/describe\",\"params\":{}}",
+        "contentType": "application/json",
+        "method": "POST",
+        "path": "/a2a/sample/"
+      }
+    },
+    {
+      "expected": {
+        "bodyBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOiJpZC1maXh0dXJlIiwiZXJyb3IiOnsiY29kZSI6LTMyNjAwLCJtZXNzYWdlIjoibm90IHBlcm1pdHRlZCIsImRhdGEiOnsicmVhc29uIjoiZm9yYmlkZGVuIn19fQ==",
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "name": "forbidden",
+      "request": {
+        "auth": true,
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":\"id-fixture\",\"method\":\"message/send\",\"params\":{}}",
+        "contentType": "application/json",
+        "method": "POST",
+        "path": "/a2a/sample/"
+      }
+    },
+    {
+      "expected": {
+        "bodyBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOiJpZC1maXh0dXJlIiwiZXJyb3IiOnsiY29kZSI6LTMyNjAyLCJtZXNzYWdlIjoicGFyYW1zLmlkIGlzIHJlcXVpcmVkIn19",
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "name": "missing-param",
+      "request": {
+        "auth": true,
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":\"id-fixture\",\"method\":\"tasks/get\",\"params\":{}}",
+        "contentType": "application/json",
+        "method": "POST",
+        "path": "/a2a/sample/"
+      }
+    },
+    {
+      "expected": {
+        "bodyBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOiJpZC1maXh0dXJlIiwiZXJyb3IiOnsiY29kZSI6LTMyMDAxLCJtZXNzYWdlIjoidGFzayBub3QgZm91bmQifX0=",
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "name": "task-missing",
+      "request": {
+        "auth": true,
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":\"id-fixture\",\"method\":\"tasks/get\",\"params\":{\"id\":\"unassigned\"}}",
+        "contentType": "application/json",
+        "method": "POST",
+        "path": "/a2a/sample/"
+      }
+    }
+  ],
+  "source": "packages/core/src/a2a/server.ts"
+}

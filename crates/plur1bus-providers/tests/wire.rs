@@ -1,0 +1,474 @@
+#![forbid(unsafe_code)]
+#![allow(clippy::unwrap_used)]
+
+use plur1bus_providers::{
+    Adapter, Config, Json, Ports, ProviderError, ToolRepair, ToolRepairInput, Wire,
+};
+use plur1bus_wire_fixtures::{load_fixture, FakeServer};
+use serde_json::{json, Value};
+use std::net::SocketAddr;
+use url::Url;
+
+struct FixturePorts {
+    addr: SocketAddr,
+    repair: bool,
+    padded_credential: bool,
+}
+
+impl FixturePorts {
+    fn at(addr: SocketAddr) -> Self {
+        Self {
+            addr,
+            repair: false,
+            padded_credential: false,
+        }
+    }
+}
+
+impl Ports for FixturePorts {
+    fn pin(&self, uri: &Url) -> Result<SocketAddr, ProviderError> {
+        assert_eq!(uri.host_str(), Some("fixture.invalid"));
+        Ok(self.addr)
+    }
+
+    fn socket_timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(10)
+    }
+
+    fn credential(&self, wire: Wire) -> Result<Option<String>, ProviderError> {
+        let value = if matches!(wire, Wire::ChatCompletions | Wire::CodexResponses) {
+            if self.padded_credential {
+                "Bearer fixture-credential "
+            } else {
+                "Bearer fixture-credential"
+            }
+        } else {
+            "fixture-credential"
+        };
+        Ok(Some(value.into()))
+    }
+
+    fn repair_tool_arguments(&self, input: ToolRepairInput<'_>) -> Option<ToolRepair> {
+        if !self.repair {
+            return None;
+        }
+        assert_eq!(input.name, "inspect");
+        assert_eq!(input.id, "call_fixture");
+        assert_eq!(input.arguments_raw, "{");
+        assert_eq!(input.error, "arguments are not valid JSON: Expected property name or '}' in JSON at position 1 (line 1 column 2)");
+        assert_eq!(input.tool.unwrap()["name"].text(), "inspect");
+        Some(ToolRepair::Object(
+            Json::parse(r#"{"fixed":true}"#).unwrap(),
+        ))
+    }
+}
+
+const WIRES: [(Wire, &str); 4] = [
+    (Wire::ChatCompletions, "chat-completions"),
+    (Wire::AnthropicMessages, "anthropic-messages"),
+    (Wire::CodexResponses, "codex-responses"),
+    (Wire::Gemini, "gemini"),
+];
+
+fn replay(wire: Wire, recording: &Value, exchange: &Value) {
+    let mut isolated = recording.clone();
+    let fixture_header = exchange["options"]["fixtureHeaders"].as_str();
+    let mut scripted = exchange.clone();
+    if fixture_header.is_some() {
+        let message = &mut scripted["response"]["body"]["error"]["message"];
+        let restored = message
+            .as_str()
+            .unwrap()
+            .replace("[FIXTURE:AUTH]", "fixture-credential")
+            .replace("[FIXTURE:EXTRA_HEADER]", "fixture-header-marker");
+        *message = json!(restored);
+    }
+    isolated["exchanges"] = json!([scripted]);
+    let server = FakeServer::start(&isolated);
+    let padded = fixture_header == Some("padded");
+    let extra_headers = fixture_header
+        .map(|_| {
+            vec![(
+                "x-fixture-scope".into(),
+                if padded {
+                    " fixture-header-marker ".into()
+                } else {
+                    "fixture-header-marker".into()
+                },
+            )]
+        })
+        .unwrap_or_default();
+    let config = Config {
+        allow_insecure_http: true,
+        allow_missing_done: exchange["options"]["allowMissingDone"].as_bool().unwrap(),
+        extra_headers,
+        ..Config::default()
+    };
+    let adapter = Adapter::new(
+        wire,
+        &format!("http://fixture.invalid:{}/v1", server.addr.port()),
+        config,
+    )
+    .unwrap();
+    let call = Json::parse(exchange["requestJson"].as_str().unwrap()).unwrap();
+    let ports = FixturePorts {
+        addr: server.addr,
+        repair: exchange["options"]["repair"].as_bool().unwrap_or(false),
+        padded_credential: padded,
+    };
+    if padded {
+        assert_eq!(exchange["expected-divergence"], "P4D-195");
+        let raw = exchange["typescriptOutcome"]["error"].to_string();
+        assert!(raw.contains("[FIXTURE:AUTH]") && raw.contains("[FIXTURE:EXTRA_HEADER]"));
+    }
+    let mut events = Vec::new();
+    let outcome = if exchange["mode"] == "stream" {
+        adapter
+            .stream(&call, &ports, &mut |event| events.push(event))
+            .map(|()| None)
+    } else {
+        adapter.complete(&call, &ports).map(Some)
+    };
+    let name = &exchange["name"];
+    let seen = server.received();
+    assert_eq!(seen.len(), 1, "{name}");
+    let seen = &seen[0];
+    for key in ["method", "path"] {
+        assert_eq!(seen[key], exchange["request"][key], "{name}: {key}");
+    }
+    assert_eq!(
+        seen["body"], exchange["request"]["bodyText"],
+        "{name}: body bytes"
+    );
+    for (key, value) in exchange["request"]["headers"].as_object().unwrap() {
+        assert_eq!(
+            seen["headers"][key],
+            value
+                .as_str()
+                .unwrap()
+                .replace("[REDACTED:secret]", "fixture-credential")
+                .replace("[REDACTED:header]", "fixture-header-marker"),
+            "{name}: {key}"
+        );
+    }
+    assert_eq!(
+        json!(events),
+        exchange["expected"]["events"],
+        "{name}: events"
+    );
+    match outcome {
+        Ok(result) => assert_eq!(
+            json!(result),
+            exchange["expected"]["result"],
+            "{name}: result"
+        ),
+        Err(error) => assert_eq!(json!(error), exchange["expected"]["error"], "{name}: error"),
+    }
+}
+
+#[test]
+fn recorded_bodyless_and_redirect_responses_match_the_bridge_contract() {
+    for (wire, name) in WIRES {
+        let recording = load_fixture("providers", &format!("{name}-bodyless"));
+        let exchanges = recording["exchanges"].as_array().unwrap();
+        assert_eq!(exchanges.len(), 24);
+        for exchange in exchanges {
+            assert!(exchange.get("expected-divergence").is_none());
+            assert!(exchange.get("typescriptConstructor").is_none());
+            if exchange["response"]["status"] == 304 {
+                let error = &exchange["expected"]["error"];
+                assert_eq!(error["kind"], "invalid_request");
+                assert_eq!(error["message"], "provider redirects refused");
+            }
+            replay(wire, &recording, exchange);
+        }
+    }
+}
+
+#[test]
+fn each_wire_replays_complete_stream_and_truncation() {
+    for (wire, name) in WIRES {
+        let recording = load_fixture("providers", &format!("{name}-protocol"));
+        for exchange in recording["exchanges"].as_array().unwrap() {
+            replay(wire, &recording, exchange);
+        }
+    }
+}
+
+#[test]
+fn response_size_is_checked_at_the_limit() {
+    let recording = load_fixture("providers", "chat-completions-protocol");
+    let mut exchange = recording["exchanges"][0].clone();
+    exchange["response"]["chunksBase64"] = json!(["e30="]);
+    let input = Json::parse(exchange["requestJson"].as_str().unwrap()).unwrap();
+    for (limit, message) in [
+        (1, "response body exceeds 1 bytes"),
+        (
+            2,
+            "malformed chat_completions response: choices is missing or empty",
+        ),
+    ] {
+        let server = FakeServer::start(&json!({"transport": "http", "exchanges": [exchange]}));
+        let adapter = Adapter::new(
+            Wire::ChatCompletions,
+            &format!("http://fixture.invalid:{}/v1", server.addr.port()),
+            Config {
+                allow_insecure_http: true,
+                max_body_bytes: limit,
+                ..Config::default()
+            },
+        )
+        .unwrap();
+        let error = adapter
+            .complete(&input, &FixturePorts::at(server.addr))
+            .unwrap_err();
+        assert_eq!(error.message.as_ref(), message);
+    }
+}
+
+#[test]
+fn timed_stream_keeps_its_idle_and_total_deadlines_separate() {
+    use plur1bus_providers::{TimeoutPhase, Timeouts};
+    use std::time::Duration;
+
+    let recording = load_fixture("providers", "chat-completions-protocol");
+    let exchange = recording["exchanges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|exchange| exchange["name"] == "stream-tools-and-usage")
+        .unwrap();
+    let input = Json::parse(exchange["requestJson"].as_str().unwrap()).unwrap();
+    // Keep the inter-chunk gap comfortably within the idle limit in the success case.
+    for (gap, idle, total, expected) in [
+        (45, 300, 5000, None),
+        (250, 40, 5000, Some(TimeoutPhase::Idle)),
+        (250, 600, 100, Some(TimeoutPhase::Total)),
+    ] {
+        let mut exchange = exchange.clone();
+        let chunks = exchange["response"]["chunksBase64"].as_array_mut().unwrap();
+        chunks.splice(..0, std::iter::repeat_n(json!("OiBwaW5nCgo="), 10));
+        exchange["response"]["chunkGapMs"] = json!(gap);
+        let server = FakeServer::start(&json!({"transport": "http", "exchanges": [exchange]}));
+        let adapter = Adapter::new(
+            Wire::ChatCompletions,
+            &format!("http://fixture.invalid:{}/v1", server.addr.port()),
+            Config {
+                allow_insecure_http: true,
+                timeouts: Some(Timeouts {
+                    headers: Some(Duration::from_secs(2)),
+                    idle: Some(Duration::from_millis(idle)),
+                    total: Some(Duration::from_millis(total)),
+                }),
+                ..Config::default()
+            },
+        )
+        .unwrap();
+        let result = adapter.stream(&input, &FixturePorts::at(server.addr), &mut |_| {});
+        match expected {
+            None => assert!(result.is_ok(), "{result:?}"),
+            Some(phase) => assert_eq!(result.unwrap_err().timeout_phase, Some(phase)),
+        }
+    }
+}
+
+#[test]
+fn credentialed_plain_http_is_refused_before_dialling() {
+    let recording = load_fixture("providers", "chat-completions-protocol");
+    let input = Json::parse(recording["exchanges"][0]["requestJson"].as_str().unwrap()).unwrap();
+    let server = FakeServer::start(&recording);
+    let adapter = Adapter::new(
+        Wire::ChatCompletions,
+        &format!("http://fixture.invalid:{}/v1", server.addr.port()),
+        Config::default(),
+    )
+    .unwrap();
+    let error = adapter
+        .complete(&input, &FixturePorts::at(server.addr))
+        .unwrap_err();
+    assert_eq!(error.kind, plur1bus_providers::ErrorKind::InvalidRequest);
+    assert!(server.received().is_empty());
+}
+
+#[test]
+fn cancellation_during_a_stalled_read_returns_before_the_port_deadline() {
+    use plur1bus_providers::{ErrorKind, Timeouts};
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    };
+    use std::time::{Duration, Instant};
+
+    struct CancellingPort<'a> {
+        fixture: FixturePorts,
+        cancelled: &'a AtomicBool,
+        budget: Duration,
+    }
+
+    impl Ports for CancellingPort<'_> {
+        fn pin(&self, uri: &Url) -> Result<SocketAddr, ProviderError> {
+            self.fixture.pin(uri)
+        }
+        fn credential(&self, wire: Wire) -> Result<Option<String>, ProviderError> {
+            self.fixture.credential(wire)
+        }
+        fn cancelled(&self) -> bool {
+            self.cancelled.load(Ordering::Acquire)
+        }
+        fn socket_timeout(&self) -> Duration {
+            self.budget
+        }
+    }
+
+    let budget = Duration::from_secs(3);
+    let recording = load_fixture("providers", "chat-completions-protocol");
+    let mut exchange = recording["exchanges"][1].clone();
+    let input = Json::parse(exchange["requestJson"].as_str().unwrap()).unwrap();
+    exchange["response"]["chunksBase64"] = json!([
+        "ZGF0YTogeyJjaG9pY2VzIjpbeyJpbmRleCI6MCwiZGVsdGEiOnsiY29udGVudCI6ImhpIn19XX0KCg==",
+        "ZGF0YTogW0RPTkVdCgo="
+    ]);
+    exchange["response"]["chunkGapMs"] = json!(1200);
+    let server = FakeServer::start(&json!({"transport": "http", "exchanges": [exchange]}));
+    let adapter = Adapter::new(
+        Wire::ChatCompletions,
+        &format!("http://fixture.invalid:{}/v1", server.addr.port()),
+        Config {
+            allow_insecure_http: true,
+            timeouts: Some(Timeouts {
+                headers: None,
+                idle: None,
+                total: None,
+            }),
+            ..Config::default()
+        },
+    )
+    .unwrap();
+    let cancelled = AtomicBool::new(false);
+    let ports = CancellingPort {
+        fixture: FixturePorts::at(server.addr),
+        cancelled: &cancelled,
+        budget,
+    };
+    let (reading, waiting) = mpsc::sync_channel(1);
+    let (error, elapsed) = std::thread::scope(|scope| {
+        let cancelled = &cancelled;
+        scope.spawn(move || {
+            waiting.recv_timeout(Duration::from_secs(2)).unwrap();
+            std::thread::sleep(Duration::from_millis(35));
+            cancelled.store(true, Ordering::Release);
+        });
+        let started = Instant::now();
+        let error = adapter
+            .stream(&input, &ports, &mut |event| {
+                if event["type"] == "text_delta" {
+                    reading.send(()).unwrap();
+                }
+            })
+            .unwrap_err();
+        (error, started.elapsed())
+    });
+    assert_eq!(error.kind, ErrorKind::Aborted);
+    assert!(
+        elapsed < Duration::from_millis(500),
+        "stalled read held the stream for {elapsed:?}, port deadline {budget:?}"
+    );
+}
+
+fn with_fixture_response(
+    response: Value,
+    config: Config,
+) -> (FakeServer, Adapter, FixturePorts, Json) {
+    let recording = load_fixture("providers", "chat-completions-protocol");
+    let mut exchange = recording["exchanges"][0].clone();
+    exchange["response"] = response;
+    let request = Json::parse(exchange["requestJson"].as_str().unwrap()).unwrap();
+    let server = FakeServer::start(&json!({"transport":"http","exchanges":[exchange]}));
+    let adapter = Adapter::new(
+        Wire::ChatCompletions,
+        &format!("http://fixture.invalid:{}/v1", server.addr.port()),
+        Config {
+            allow_insecure_http: true,
+            ..config
+        },
+    )
+    .unwrap();
+    let ports = FixturePorts::at(server.addr);
+    (server, adapter, ports, request)
+}
+
+#[test]
+fn the_stream_cap_still_counts_ignored_sse_comments() {
+    let (_server, adapter, ports, request) = with_fixture_response(
+        json!({
+            "status": 200,
+            "headers": {"content-type":"text/event-stream"},
+            "chunksBase64": ["Ogo6CjoKOgo6Cgo="]
+        }),
+        Config {
+            max_body_bytes: 10,
+            ..Config::default()
+        },
+    );
+    let error = adapter.stream(&request, &ports, &mut |_| {}).unwrap_err();
+    assert_eq!(error.message.as_ref(), "stream exceeds 10 bytes");
+}
+
+#[test]
+fn a_redirect_with_a_location_is_refused_without_another_request() {
+    let (server, adapter, ports, request) = with_fixture_response(
+        json!({"status":302, "headers":{"location":"/other"}, "body":{}}),
+        Config::default(),
+    );
+    let error = adapter.complete(&request, &ports).unwrap_err();
+    assert_eq!(error.kind, plur1bus_providers::ErrorKind::InvalidRequest);
+    assert_eq!(error.message.as_ref(), "provider redirects refused");
+    assert_eq!(server.received().len(), 1);
+}
+
+#[test]
+fn a_vendor_error_redacts_fixture_credentials_from_every_error_view() {
+    const MARKER: &str = "fixture-credential";
+    let (_server, adapter, ports, request) = with_fixture_response(
+        json!({
+            "status":401,
+            "body":{"error":{"message":format!("rejected {MARKER}"),"code":MARKER,"type":MARKER}}
+        }),
+        Config::default(),
+    );
+    let error = adapter.complete(&request, &ports).unwrap_err();
+    assert_eq!(error.kind, plur1bus_providers::ErrorKind::Auth);
+    assert!(error.message.contains("[redacted]"));
+    assert!(!format!("{error:?}").contains(MARKER));
+    assert!(!json!(error).to_string().contains(MARKER));
+}
+
+#[test]
+fn error_body_metadata_is_read_at_64_kib_and_discarded_beyond_it() {
+    let mut body = json!({"error":{"code":"fixture-code","message":"fixture error"},"padding":""});
+    let overhead = body.to_string().len();
+    for limit in [64 * 1024, 64 * 1024 + 1] {
+        body["padding"] = json!("x".repeat(limit - overhead));
+        assert_eq!(body.to_string().len(), limit);
+        let (_server, adapter, ports, request) =
+            with_fixture_response(json!({"status":401, "body":body}), Config::default());
+        let error = adapter.complete(&request, &ports).unwrap_err();
+        assert_eq!(error.kind, plur1bus_providers::ErrorKind::Auth);
+        let message = if limit == 64 * 1024 {
+            Some("fixture error")
+        } else {
+            None
+        };
+        assert_eq!(error.provider_message.as_deref(), message);
+    }
+}
+
+#[test]
+fn status_205_does_not_parse_bytes_after_the_headers() {
+    let (_server, adapter, ports, request) = with_fixture_response(
+        json!({"status":205, "body":{"choices":[{"message":{"content":"ignored"},"finish_reason":"stop"}]}}),
+        Config::default(),
+    );
+    let error = adapter.complete(&request, &ports).unwrap_err();
+    assert_eq!(error.message.as_ref(), "response body is not valid JSON");
+}

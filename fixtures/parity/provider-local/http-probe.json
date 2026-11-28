@@ -1,0 +1,173 @@
+{
+  "cases": [
+    {
+      "dialects": [
+        "ollama",
+        "openai"
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "accept": "application/json",
+            "bodyText": "",
+            "method": "GET",
+            "path": "/api/tags"
+          },
+          "response": {
+            "body": {
+              "models": [
+                {
+                  "name": "small"
+                },
+                {
+                  "name": "small"
+                },
+                {
+                  "name": "large"
+                },
+                {
+                  "name": ""
+                }
+              ]
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "baseUrl": "@origin@/v1",
+        "dialect": "ollama",
+        "httpStatus": 200,
+        "models": [
+          {
+            "id": "small"
+          },
+          {
+            "id": "large"
+          }
+        ],
+        "state": "ok"
+      },
+      "name": "ollama-list"
+    },
+    {
+      "dialects": [
+        "ollama",
+        "openai"
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "accept": "application/json",
+            "bodyText": "",
+            "method": "GET",
+            "path": "/api/tags"
+          },
+          "response": {
+            "body": {
+              "models": []
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "accept": "application/json",
+            "bodyText": "",
+            "method": "GET",
+            "path": "/v1/models"
+          },
+          "response": {
+            "body": {
+              "data": [
+                {
+                  "id": "chat"
+                }
+              ]
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "baseUrl": "@origin@/v1",
+        "dialect": "openai",
+        "httpStatus": 200,
+        "models": [
+          {
+            "id": "chat"
+          }
+        ],
+        "state": "ok"
+      },
+      "name": "empty-to-openai"
+    },
+    {
+      "dialects": [
+        "openai"
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "accept": "application/json",
+            "bodyText": "",
+            "method": "GET",
+            "path": "/v1/models"
+          },
+          "response": {
+            "body": null,
+            "headers": {
+              "location": "/never"
+            },
+            "status": 302
+          }
+        }
+      ],
+      "expected": {
+        "baseUrl": "@origin@/v1",
+        "detail": "redirect not followed",
+        "httpStatus": 302,
+        "models": [],
+        "state": "protocol"
+      },
+      "name": "redirect"
+    },
+    {
+      "dialects": [
+        "openai"
+      ],
+      "exchanges": [
+        {
+          "request": {
+            "accept": "application/json",
+            "bodyText": "",
+            "method": "GET",
+            "path": "/v1/models"
+          },
+          "response": {
+            "body": {
+              "data": [
+                null,
+                {
+                  "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                }
+              ]
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "baseUrl": "@origin@/v1",
+        "detail": "model entries carry no ids",
+        "models": [],
+        "state": "protocol"
+      },
+      "name": "invalid-model-entries"
+    }
+  ],
+  "exporter": "scripts/parity/export-provider-local.ts",
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/providers/src/local/probe.ts",
+  "transport": "http"
+}

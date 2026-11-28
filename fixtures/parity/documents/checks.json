@@ -1,0 +1,149 @@
+{
+  "expected-divergence": "P4D-221",
+  "input": {
+    "fixed": [
+      "Substituted a local font"
+    ],
+    "html": "<style>@font-face { font-family: \"Inter\"; src: url(data:font/ttf;base64,AAAA) }\n.sample { font-family: \"Inter\", \"Fixture Sans\", system-ui; }</style>\n<a id=\"available\" href=\"#available\">Present</a>\n<a href=\"#missing\">Missing</a><a href=\"terms\">Terms</a>\n<img alt=\"cover\"><img alt=\"figure\" width=\"192\" data-natural-width=\"200\">\n<p style=\"color:#777;background-color:#fff\">Low contrast text</p>\n<p style=\"color:#000;background-color:#fff\">High contrast text</p>",
+    "layoutHtml": "<!doctype html><p>A short paragraph with <b>inline emphasis</b> and a plain end.</p>",
+    "vision": false
+  },
+  "layoutExpectedDivergence": "P4D-222",
+  "layoutScript": "(() => {\n  const out = [];\n  // text overflow: a block whose content is clipped or scrolled past its box\n  for (const el of document.querySelectorAll('body *')) {\n    const cs = getComputedStyle(el);\n    const clips = cs.overflow === 'hidden' || cs.overflow === 'clip' || cs.textOverflow === 'ellipsis';\n    if (clips && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1)) {\n      out.push({ check: 'overflow', message: 'clipped or overflowing box', detail: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') });\n    }\n  }\n  // widow: a paragraph whose last line carries a single word\n  for (const p of document.querySelectorAll('p')) {\n    const text = p.textContent.trim();\n    const words = text.split(/\\s+/).filter(Boolean);\n    if (words.length < 4) continue;\n    const range = document.createRange();\n    range.selectNodeContents(p);\n    const rect = range.getBoundingClientRect();\n    if (rect.height < 8) continue; // no meaningful lines\n    const last = words[words.length - 1];\n    const i = text.lastIndexOf(last);\n    const r2 = document.createRange();\n    r2.setStart(p.firstChild, i);\n    r2.setEnd(p.firstChild, i + last.length);\n    const prev = document.createRange();\n    const j = text.lastIndexOf(words[words.length - 2]);\n    prev.setStart(p.firstChild, j);\n    prev.setEnd(p.firstChild, j + words[words.length - 2].length);\n    if (Math.abs(r2.getBoundingClientRect().top - prev.getBoundingClientRect().top) > 4) {\n      out.push({ check: 'widow', message: 'paragraph ends in a single-word line (widow)', detail: last });\n    }\n  }\n  // empty page: two forced page breaks with no content between them (computed style, not attribute)\n  const breaks = [...document.querySelectorAll('body *')].filter(el => {\n    const cs = getComputedStyle(el);\n    return cs.breakAfter === 'page' || cs.breakBefore === 'page';\n  });\n  for (let k = 0; k + 1 < breaks.length; k++) {\n    const a = breaks[k], b = breaks[k + 1];\n    if (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) {\n      const between = document.createRange();\n      between.setStartAfter(a);\n      between.setEndBefore(b);\n      if (!between.toString().trim() && between.cloneContents().querySelectorAll('img, table, figure').length === 0) {\n        out.push({ check: 'empty-page', message: 'a forced page break is immediately followed by another (empty page)' });\n      }\n    }\n  }\n  return out;\n})()",
+  "observed": {
+    "checked": [
+      "links",
+      "images",
+      "fonts",
+      "contrast",
+      "overflow",
+      "widow",
+      "empty-page"
+    ],
+    "findings": [
+      {
+        "check": "links",
+        "detail": "#missing",
+        "message": "fragment link to a missing target #missing",
+        "severity": "warn"
+      },
+      {
+        "check": "links",
+        "detail": "terms",
+        "message": "unverifiable link target terms",
+        "severity": "warn"
+      },
+      {
+        "check": "images",
+        "detail": "cover",
+        "message": "image has no intrinsic pixel width to compute print dpi",
+        "severity": "warn"
+      },
+      {
+        "check": "images",
+        "detail": "figure",
+        "message": "image is 100 dpi at print size (below 150)",
+        "severity": "error"
+      },
+      {
+        "check": "fonts",
+        "detail": "\"Inter\"",
+        "message": "font family \"\"Inter\"\" is used but not embedded and has no system fallback",
+        "severity": "error"
+      },
+      {
+        "check": "fonts",
+        "detail": "\"Inter\"",
+        "message": "font family \"\"Inter\"\" is used but not embedded and has no system fallback",
+        "severity": "error"
+      },
+      {
+        "check": "fonts",
+        "detail": "\"Fixture Sans\"",
+        "message": "font family \"\"Fixture Sans\"\" is used but not embedded and has no system fallback",
+        "severity": "error"
+      },
+      {
+        "check": "contrast",
+        "detail": "#777 on #fff",
+        "message": "inline text contrast 4.48:1 is below 4.5:1 (#777 on #fff)",
+        "severity": "error"
+      }
+    ],
+    "passed": false,
+    "summary": [
+      "links: fragment link to a missing target #missing",
+      "links: unverifiable link target terms",
+      "images: image has no intrinsic pixel width to compute print dpi",
+      "images: image is 100 dpi at print size (below 150)",
+      "fonts: font family \"\"Inter\"\" is used but not embedded and has no system fallback",
+      "fonts: font family \"\"Inter\"\" is used but not embedded and has no system fallback",
+      "fonts: font family \"\"Fixture Sans\"\" is used but not embedded and has no system fallback",
+      "contrast: inline text contrast 4.48:1 is below 4.5:1 (#777 on #fff)",
+      "fixed: Substituted a local font",
+      "vision review: not configured — automatic checks only"
+    ],
+    "vision": false
+  },
+  "result": {
+    "checked": [
+      "links",
+      "images",
+      "fonts",
+      "contrast",
+      "overflow",
+      "widow",
+      "empty-page"
+    ],
+    "findings": [
+      {
+        "check": "links",
+        "detail": "#missing",
+        "message": "fragment link to a missing target #missing",
+        "severity": "warn"
+      },
+      {
+        "check": "links",
+        "detail": "terms",
+        "message": "unverifiable link target terms",
+        "severity": "warn"
+      },
+      {
+        "check": "images",
+        "detail": "cover",
+        "message": "image has no intrinsic pixel width to compute print dpi",
+        "severity": "warn"
+      },
+      {
+        "check": "images",
+        "detail": "figure",
+        "message": "image is 100 dpi at print size (below 150)",
+        "severity": "error"
+      },
+      {
+        "check": "fonts",
+        "detail": "\"Fixture Sans\"",
+        "message": "font family \"\"Fixture Sans\"\" is used but not embedded and has no system fallback",
+        "severity": "error"
+      },
+      {
+        "check": "contrast",
+        "detail": "#777 on #fff",
+        "message": "inline text contrast 4.48:1 is below 4.5:1 (#777 on #fff)",
+        "severity": "error"
+      }
+    ],
+    "passed": false,
+    "summary": [
+      "links: fragment link to a missing target #missing",
+      "links: unverifiable link target terms",
+      "images: image has no intrinsic pixel width to compute print dpi",
+      "images: image is 100 dpi at print size (below 150)",
+      "fonts: font family \"\"Fixture Sans\"\" is used but not embedded and has no system fallback",
+      "contrast: inline text contrast 4.48:1 is below 4.5:1 (#777 on #fff)",
+      "fixed: Substituted a local font",
+      "vision review: not configured — automatic checks only"
+    ],
+    "vision": false
+  }
+}

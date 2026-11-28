@@ -1,0 +1,522 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "bodyText": "{\"model\":\"anthropic/claude-sonnet-4.5\",\"messages\":[{\"role\":\"system\",\"content\":\"Instructions\"},{\"role\":\"system\",\"content\":[{\"type\":\"text\",\"text\":\"Facts\",\"cache_control\":{\"type\":\"ephemeral\",\"ttl\":\"1h\"}}]},{\"role\":\"user\",\"content\":\"Look up an example.\"},{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call_fixture\",\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"arguments\":\"{}\"}}]},{\"role\":\"tool\",\"tool_call_id\":\"call_fixture\",\"content\":[{\"type\":\"text\",\"text\":\"Found.\",\"cache_control\":{\"type\":\"ephemeral\"}}]},{\"role\":\"user\",\"content\":\"Volatile recall\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"}},\"cache_control\":{\"type\":\"ephemeral\"}}],\"stream\":true,\"stream_options\":{\"include_usage\":true},\"session_id\":\"fixture-session\"}",
+        "headers": {}
+      },
+      "headers": {},
+      "name": "openrouter-claude",
+      "prompt": {
+        "breakpoints": [
+          {
+            "segment": 1,
+            "ttl": "1h"
+          },
+          {
+            "segment": 4,
+            "ttl": "5m"
+          },
+          {
+            "segment": 5,
+            "ttl": "5m"
+          }
+        ],
+        "cache": {
+          "ttl": "1h"
+        },
+        "model": "anthropic/claude-sonnet-4.5",
+        "segments": [
+          {
+            "text": "Instructions",
+            "zone": "system"
+          },
+          {
+            "text": "Facts",
+            "zone": "memory"
+          },
+          {
+            "kind": "text",
+            "text": "Look up an example.",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_use",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_result",
+            "zone": "conversation"
+          },
+          {
+            "zone": "tools"
+          },
+          {
+            "text": "Volatile recall",
+            "zone": "volatile"
+          }
+        ],
+        "session_id": "fixture-session"
+      },
+      "requestJson": "{\"model\":\"anthropic/claude-sonnet-4.5\",\"messages\":[{\"role\":\"system\",\"content\":\"Instructions\"},{\"role\":\"system\",\"content\":\"Facts\"},{\"role\":\"user\",\"content\":\"Look up an example.\"},{\"role\":\"assistant\",\"toolCalls\":[{\"id\":\"call_fixture\",\"name\":\"lookup\",\"arguments\":\"{}\"}]},{\"role\":\"tool\",\"toolCallId\":\"call_fixture\",\"content\":\"Found.\"},{\"role\":\"user\",\"content\":\"Volatile recall\"}],\"tools\":[{\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"}}]}",
+      "route": {
+        "gateway": "openrouter"
+      },
+      "wire": "chat_completions"
+    },
+    {
+      "expected": {
+        "bodyText": "{\"model\":\"claude-sonnet-4-5\",\"max_tokens\":4096,\"system\":[{\"type\":\"text\",\"text\":\"Instructions\"},{\"type\":\"text\",\"text\":\"Facts\",\"cache_control\":{\"type\":\"ephemeral\",\"ttl\":\"1h\"}}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Look up an example.\"}]},{\"role\":\"assistant\",\"content\":[{\"type\":\"tool_use\",\"id\":\"call_fixture\",\"name\":\"lookup\",\"input\":{}}]},{\"role\":\"user\",\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"call_fixture\",\"content\":\"Found.\",\"cache_control\":{\"type\":\"ephemeral\"}},{\"type\":\"text\",\"text\":\"Volatile recall\"}]}],\"tools\":[{\"name\":\"lookup\",\"input_schema\":{\"type\":\"object\"},\"cache_control\":{\"type\":\"ephemeral\"}}],\"stream\":true}",
+        "headers": {}
+      },
+      "headers": {},
+      "name": "claude-anthropic",
+      "prompt": {
+        "breakpoints": [
+          {
+            "segment": 1,
+            "ttl": "1h"
+          },
+          {
+            "segment": 4,
+            "ttl": "5m"
+          },
+          {
+            "segment": 5,
+            "ttl": "5m"
+          }
+        ],
+        "cache": {
+          "ttl": "1h"
+        },
+        "model": "claude-sonnet-4-5",
+        "segments": [
+          {
+            "text": "Instructions",
+            "zone": "system"
+          },
+          {
+            "text": "Facts",
+            "zone": "memory"
+          },
+          {
+            "kind": "text",
+            "text": "Look up an example.",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_use",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_result",
+            "zone": "conversation"
+          },
+          {
+            "zone": "tools"
+          },
+          {
+            "text": "Volatile recall",
+            "zone": "volatile"
+          }
+        ],
+        "session_id": "fixture-session"
+      },
+      "requestJson": "{\"model\":\"claude-sonnet-4-5\",\"messages\":[{\"role\":\"system\",\"content\":\"Instructions\"},{\"role\":\"system\",\"content\":\"Facts\"},{\"role\":\"user\",\"content\":\"Look up an example.\"},{\"role\":\"assistant\",\"toolCalls\":[{\"id\":\"call_fixture\",\"name\":\"lookup\",\"arguments\":\"{}\"}]},{\"role\":\"tool\",\"toolCallId\":\"call_fixture\",\"content\":\"Found.\"},{\"role\":\"user\",\"content\":\"Volatile recall\"}],\"tools\":[{\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"}}]}",
+      "route": {},
+      "wire": "anthropic_messages"
+    },
+    {
+      "expected": {
+        "bodyText": "{\"model\":\"gpt-5.6\",\"input\":[{\"type\":\"message\",\"role\":\"developer\",\"content\":[{\"type\":\"input_text\",\"text\":\"Instructions\"},{\"type\":\"input_text\",\"text\":\"Facts\",\"prompt_cache_breakpoint\":{\"mode\":\"explicit\"}}]},{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Look up an example.\"}]},{\"type\":\"function_call\",\"call_id\":\"call_fixture\",\"name\":\"lookup\",\"arguments\":\"{}\"},{\"type\":\"function_call_output\",\"call_id\":\"call_fixture\",\"output\":[{\"type\":\"input_text\",\"text\":\"Found.\",\"prompt_cache_breakpoint\":{\"mode\":\"explicit\"}}]},{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Volatile recall\"}]}],\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"},\"strict\":false}],\"store\":false,\"stream\":true,\"prompt_cache_key\":\"fixture-session\",\"prompt_cache_options\":{\"mode\":\"explicit\"}}",
+        "headers": {}
+      },
+      "headers": {},
+      "name": "responses-first-party",
+      "prompt": {
+        "breakpoints": [
+          {
+            "segment": 1,
+            "ttl": "1h"
+          },
+          {
+            "segment": 4,
+            "ttl": "5m"
+          },
+          {
+            "segment": 5,
+            "ttl": "5m"
+          }
+        ],
+        "cache": {
+          "ttl": "1h"
+        },
+        "model": "gpt-5.6",
+        "segments": [
+          {
+            "text": "Instructions",
+            "zone": "system"
+          },
+          {
+            "text": "Facts",
+            "zone": "memory"
+          },
+          {
+            "kind": "text",
+            "text": "Look up an example.",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_use",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_result",
+            "zone": "conversation"
+          },
+          {
+            "zone": "tools"
+          },
+          {
+            "text": "Volatile recall",
+            "zone": "volatile"
+          }
+        ],
+        "session_id": "fixture-session"
+      },
+      "requestJson": "{\"model\":\"gpt-5.6\",\"messages\":[{\"role\":\"system\",\"content\":\"Instructions\"},{\"role\":\"system\",\"content\":\"Facts\"},{\"role\":\"user\",\"content\":\"Look up an example.\"},{\"role\":\"assistant\",\"toolCalls\":[{\"id\":\"call_fixture\",\"name\":\"lookup\",\"arguments\":\"{}\"}]},{\"role\":\"tool\",\"toolCallId\":\"call_fixture\",\"content\":\"Found.\"},{\"role\":\"user\",\"content\":\"Volatile recall\"}],\"tools\":[{\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"}}]}",
+      "route": {
+        "vendor": "openai"
+      },
+      "wire": "codex_responses"
+    },
+    {
+      "expected": {
+        "bodyText": "{\"model\":\"gpt-5.6\",\"instructions\":\"Instructions\\n\\nFacts\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Look up an example.\"}]},{\"type\":\"function_call\",\"call_id\":\"call_fixture\",\"name\":\"lookup\",\"arguments\":\"{}\"},{\"type\":\"function_call_output\",\"call_id\":\"call_fixture\",\"output\":\"Found.\"},{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Volatile recall\"}]}],\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"},\"strict\":false}],\"store\":false,\"stream\":true,\"prompt_cache_key\":\"fixture-session\",\"prompt_cache_options\":{\"mode\":\"explicit\"}}",
+        "headers": {}
+      },
+      "headers": {},
+      "name": "responses-no-breakpoint",
+      "prompt": {
+        "breakpoints": [],
+        "cache": {
+          "ttl": "1h"
+        },
+        "model": "gpt-5.6",
+        "segments": [
+          {
+            "text": "Instructions",
+            "zone": "system"
+          },
+          {
+            "text": "Facts",
+            "zone": "memory"
+          },
+          {
+            "kind": "text",
+            "text": "Look up an example.",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_use",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_result",
+            "zone": "conversation"
+          },
+          {
+            "zone": "tools"
+          },
+          {
+            "text": "Volatile recall",
+            "zone": "volatile"
+          }
+        ],
+        "session_id": "fixture-session"
+      },
+      "requestJson": "{\"model\":\"gpt-5.6\",\"messages\":[{\"role\":\"system\",\"content\":\"Instructions\"},{\"role\":\"system\",\"content\":\"Facts\"},{\"role\":\"user\",\"content\":\"Look up an example.\"},{\"role\":\"assistant\",\"toolCalls\":[{\"id\":\"call_fixture\",\"name\":\"lookup\",\"arguments\":\"{}\"}]},{\"role\":\"tool\",\"toolCallId\":\"call_fixture\",\"content\":\"Found.\"},{\"role\":\"user\",\"content\":\"Volatile recall\"}],\"tools\":[{\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"}}]}",
+      "route": {
+        "vendor": "openai"
+      },
+      "wire": "codex_responses"
+    },
+    {
+      "expected": {
+        "bodyText": "{\"model\":\"gpt-5.6\",\"instructions\":\"Instructions\\n\\nFacts\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Look up an example.\"}]},{\"type\":\"function_call\",\"call_id\":\"call_fixture\",\"name\":\"lookup\",\"arguments\":\"{}\"},{\"type\":\"function_call_output\",\"call_id\":\"call_fixture\",\"output\":\"Found.\"},{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Volatile recall\"}]}],\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"},\"strict\":false}],\"store\":false,\"stream\":true}",
+        "headers": {}
+      },
+      "headers": {},
+      "name": "responses-plan-platform",
+      "prompt": {
+        "breakpoints": [
+          {
+            "segment": 1,
+            "ttl": "1h"
+          },
+          {
+            "segment": 4,
+            "ttl": "5m"
+          },
+          {
+            "segment": 5,
+            "ttl": "5m"
+          }
+        ],
+        "cache": {
+          "ttl": "1h"
+        },
+        "model": "gpt-5.6",
+        "segments": [
+          {
+            "text": "Instructions",
+            "zone": "system"
+          },
+          {
+            "text": "Facts",
+            "zone": "memory"
+          },
+          {
+            "kind": "text",
+            "text": "Look up an example.",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_use",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_result",
+            "zone": "conversation"
+          },
+          {
+            "zone": "tools"
+          },
+          {
+            "text": "Volatile recall",
+            "zone": "volatile"
+          }
+        ],
+        "session_id": "fixture-session"
+      },
+      "requestJson": "{\"model\":\"gpt-5.6\",\"messages\":[{\"role\":\"system\",\"content\":\"Instructions\"},{\"role\":\"system\",\"content\":\"Facts\"},{\"role\":\"user\",\"content\":\"Look up an example.\"},{\"role\":\"assistant\",\"toolCalls\":[{\"id\":\"call_fixture\",\"name\":\"lookup\",\"arguments\":\"{}\"}]},{\"role\":\"tool\",\"toolCallId\":\"call_fixture\",\"content\":\"Found.\"},{\"role\":\"user\",\"content\":\"Volatile recall\"}],\"tools\":[{\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"}}]}",
+      "route": {
+        "platform": "chatgpt-plan",
+        "vendor": "openai"
+      },
+      "wire": "codex_responses"
+    },
+    {
+      "expected": {
+        "bodyText": "{\"model\":\"kimi-k3\",\"messages\":[{\"role\":\"system\",\"content\":\"Instructions\"},{\"role\":\"system\",\"content\":\"Facts\"},{\"role\":\"user\",\"content\":\"Look up an example.\"},{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call_fixture\",\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"arguments\":\"{}\"}}]},{\"role\":\"tool\",\"tool_call_id\":\"call_fixture\",\"content\":\"Found.\"},{\"role\":\"user\",\"content\":\"Volatile recall\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"}}}],\"stream\":true,\"stream_options\":{\"include_usage\":true},\"prompt_cache_key\":\"fixture-session\",\"prompt_cache_options\":{\"mode\":\"implicit\",\"ttl\":\"1h\"}}",
+        "headers": {}
+      },
+      "headers": {},
+      "name": "moonshot-tier",
+      "prompt": {
+        "breakpoints": [
+          {
+            "segment": 1,
+            "ttl": "1h"
+          },
+          {
+            "segment": 4,
+            "ttl": "5m"
+          },
+          {
+            "segment": 5,
+            "ttl": "5m"
+          }
+        ],
+        "cache": {
+          "ttl": "1h"
+        },
+        "model": "kimi-k3",
+        "segments": [
+          {
+            "text": "Instructions",
+            "zone": "system"
+          },
+          {
+            "text": "Facts",
+            "zone": "memory"
+          },
+          {
+            "kind": "text",
+            "text": "Look up an example.",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_use",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_result",
+            "zone": "conversation"
+          },
+          {
+            "zone": "tools"
+          },
+          {
+            "text": "Volatile recall",
+            "zone": "volatile"
+          }
+        ],
+        "session_id": "fixture-session"
+      },
+      "requestJson": "{\"model\":\"kimi-k3\",\"messages\":[{\"role\":\"system\",\"content\":\"Instructions\"},{\"role\":\"system\",\"content\":\"Facts\"},{\"role\":\"user\",\"content\":\"Look up an example.\"},{\"role\":\"assistant\",\"toolCalls\":[{\"id\":\"call_fixture\",\"name\":\"lookup\",\"arguments\":\"{}\"}]},{\"role\":\"tool\",\"toolCallId\":\"call_fixture\",\"content\":\"Found.\"},{\"role\":\"user\",\"content\":\"Volatile recall\"}],\"tools\":[{\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"}}]}",
+      "route": {
+        "vendor": "moonshot"
+      },
+      "wire": "chat_completions"
+    },
+    {
+      "expected": {
+        "bodyText": "{\"model\":\"grok-4.5\",\"messages\":[{\"role\":\"system\",\"content\":\"Instructions\"},{\"role\":\"system\",\"content\":\"Facts\"},{\"role\":\"user\",\"content\":\"Look up an example.\"},{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call_fixture\",\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"arguments\":\"{}\"}}]},{\"role\":\"tool\",\"tool_call_id\":\"call_fixture\",\"content\":\"Found.\"},{\"role\":\"user\",\"content\":\"Volatile recall\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"}}}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}",
+        "headers": {
+          "x-grok-conv-id": "supplied"
+        }
+      },
+      "headers": {
+        "x-grok-conv-id": "supplied"
+      },
+      "name": "xai-preserve-header",
+      "prompt": {
+        "breakpoints": [
+          {
+            "segment": 1,
+            "ttl": "1h"
+          },
+          {
+            "segment": 4,
+            "ttl": "5m"
+          },
+          {
+            "segment": 5,
+            "ttl": "5m"
+          }
+        ],
+        "cache": {
+          "ttl": "1h"
+        },
+        "model": "grok-4.5",
+        "segments": [
+          {
+            "text": "Instructions",
+            "zone": "system"
+          },
+          {
+            "text": "Facts",
+            "zone": "memory"
+          },
+          {
+            "kind": "text",
+            "text": "Look up an example.",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_use",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_result",
+            "zone": "conversation"
+          },
+          {
+            "zone": "tools"
+          },
+          {
+            "text": "Volatile recall",
+            "zone": "volatile"
+          }
+        ],
+        "session_id": "fixture-session"
+      },
+      "requestJson": "{\"model\":\"grok-4.5\",\"messages\":[{\"role\":\"system\",\"content\":\"Instructions\"},{\"role\":\"system\",\"content\":\"Facts\"},{\"role\":\"user\",\"content\":\"Look up an example.\"},{\"role\":\"assistant\",\"toolCalls\":[{\"id\":\"call_fixture\",\"name\":\"lookup\",\"arguments\":\"{}\"}]},{\"role\":\"tool\",\"toolCallId\":\"call_fixture\",\"content\":\"Found.\"},{\"role\":\"user\",\"content\":\"Volatile recall\"}],\"tools\":[{\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"}}]}",
+      "route": {
+        "vendor": "xai"
+      },
+      "wire": "chat_completions"
+    },
+    {
+      "expected": {
+        "bodyText": "{\"model\":\"gpt-5.6\",\"instructions\":\"Instructions\\n\\nFacts\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Look up an example.\"}]},{\"type\":\"function_call\",\"call_id\":\"call_fixture\",\"name\":\"lookup\",\"arguments\":\"{}\"},{\"type\":\"function_call_output\",\"call_id\":\"call_fixture\",\"output\":\"Found.\"},{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Volatile recall\"}]}],\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"},\"strict\":false}],\"store\":false,\"stream\":true}",
+        "headers": {}
+      },
+      "headers": {},
+      "name": "unknown-host",
+      "prompt": {
+        "breakpoints": [
+          {
+            "segment": 1,
+            "ttl": "1h"
+          },
+          {
+            "segment": 4,
+            "ttl": "5m"
+          },
+          {
+            "segment": 5,
+            "ttl": "5m"
+          }
+        ],
+        "cache": {
+          "ttl": "1h"
+        },
+        "model": "gpt-5.6",
+        "segments": [
+          {
+            "text": "Instructions",
+            "zone": "system"
+          },
+          {
+            "text": "Facts",
+            "zone": "memory"
+          },
+          {
+            "kind": "text",
+            "text": "Look up an example.",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_use",
+            "zone": "conversation"
+          },
+          {
+            "id": "call_fixture",
+            "kind": "tool_result",
+            "zone": "conversation"
+          },
+          {
+            "zone": "tools"
+          },
+          {
+            "text": "Volatile recall",
+            "zone": "volatile"
+          }
+        ],
+        "session_id": "fixture-session"
+      },
+      "requestJson": "{\"model\":\"gpt-5.6\",\"messages\":[{\"role\":\"system\",\"content\":\"Instructions\"},{\"role\":\"system\",\"content\":\"Facts\"},{\"role\":\"user\",\"content\":\"Look up an example.\"},{\"role\":\"assistant\",\"toolCalls\":[{\"id\":\"call_fixture\",\"name\":\"lookup\",\"arguments\":\"{}\"}]},{\"role\":\"tool\",\"toolCallId\":\"call_fixture\",\"content\":\"Found.\"},{\"role\":\"user\",\"content\":\"Volatile recall\"}],\"tools\":[{\"name\":\"lookup\",\"parameters\":{\"type\":\"object\"}}]}",
+      "route": {},
+      "wire": "codex_responses"
+    }
+  ],
+  "schema": "plur1bus.provider-cache/1",
+  "source": "packages/core/src/composition/cache-emit.ts"
+}

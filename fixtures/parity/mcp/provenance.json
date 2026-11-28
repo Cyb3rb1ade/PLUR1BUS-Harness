@@ -1,0 +1,192 @@
+{
+  "cases": [
+    {
+      "input": {
+        "maxBytes": 128,
+        "name": "untrusted-result",
+        "raw": {
+          "content": [
+            {
+              "text": "Résumé",
+              "type": "text"
+            }
+          ],
+          "structuredContent": {
+            "count": 1
+          }
+        },
+        "trust": "untrusted"
+      },
+      "observed": {
+        "content": [
+          {
+            "text": "Résumé",
+            "type": "text"
+          }
+        ],
+        "isError": false,
+        "provenance": {
+          "hops": 1,
+          "origin": {
+            "agent": null,
+            "principal": "fixture-person",
+            "system": "mcp:fixture",
+            "trust": "untrusted"
+          },
+          "transformedBy": []
+        },
+        "server": "fixture",
+        "structuredContent": {
+          "count": 1
+        },
+        "tool": "summary"
+      }
+    },
+    {
+      "input": {
+        "maxBytes": 4,
+        "name": "partial-unicode-scalar",
+        "raw": {
+          "content": [
+            {
+              "text": "ab🌿",
+              "type": "text"
+            },
+            {
+              "text": "next",
+              "type": "text"
+            }
+          ],
+          "structuredContent": {
+            "count": 1
+          }
+        },
+        "trust": "untrusted"
+      },
+      "observed": {
+        "content": [
+          {
+            "text": "ab",
+            "type": "text"
+          },
+          {
+            "text": "",
+            "type": "text"
+          }
+        ],
+        "isError": false,
+        "provenance": {
+          "hops": 1,
+          "origin": {
+            "agent": null,
+            "principal": "fixture-person",
+            "system": "mcp:fixture",
+            "trust": "untrusted"
+          },
+          "transformedBy": [
+            "truncate"
+          ]
+        },
+        "server": "fixture",
+        "tool": "summary"
+      }
+    },
+    {
+      "input": {
+        "maxBytes": 11,
+        "name": "redaction-and-truncation",
+        "raw": {
+          "content": [
+            {
+              "resource": {
+                "text": "sample-marker",
+                "uri": "test://example"
+              },
+              "type": "resource"
+            },
+            {
+              "data": "AAAA",
+              "mimeType": "image/png",
+              "type": "image"
+            }
+          ],
+          "isError": true
+        },
+        "trust": "operator-vetted"
+      },
+      "observed": {
+        "content": [
+          {
+            "resource": {
+              "text": "[REDACTED]",
+              "uri": "test://example"
+            },
+            "type": "resource"
+          },
+          {
+            "text": "[omitted: image block over the size cap]",
+            "type": "text"
+          }
+        ],
+        "isError": true,
+        "provenance": {
+          "hops": 1,
+          "origin": {
+            "agent": null,
+            "principal": "fixture-person",
+            "system": "mcp:fixture",
+            "trust": "operator-vetted"
+          },
+          "transformedBy": [
+            "truncate",
+            "redact"
+          ]
+        },
+        "server": "fixture",
+        "tool": "summary"
+      }
+    },
+    {
+      "input": {
+        "maxBytes": 2,
+        "name": "resource-blob",
+        "raw": {
+          "content": [
+            {
+              "resource": {
+                "blob": "AAAA",
+                "uri": "test://example"
+              },
+              "type": "resource"
+            }
+          ]
+        },
+        "trust": "untrusted"
+      },
+      "observed": {
+        "content": [
+          {
+            "text": "[omitted: resource blob over the size cap]",
+            "type": "text"
+          }
+        ],
+        "isError": false,
+        "provenance": {
+          "hops": 1,
+          "origin": {
+            "agent": null,
+            "principal": "fixture-person",
+            "system": "mcp:fixture",
+            "trust": "untrusted"
+          },
+          "transformedBy": [
+            "truncate"
+          ]
+        },
+        "server": "fixture",
+        "tool": "summary"
+      }
+    }
+  ],
+  "source": "packages/core/src/mcp/provenance.ts"
+}

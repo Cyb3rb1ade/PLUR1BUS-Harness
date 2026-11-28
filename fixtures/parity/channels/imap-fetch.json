@@ -1,0 +1,124 @@
+{
+  "exchanges": [
+    {
+      "receiveChunksBase64": [
+        "KiBPSyBbQ0FQQUJJTElUWSBJTUFQNHJldjFdIGZha2UgcmVhZHkNCg=="
+      ],
+      "sendBase64": []
+    },
+    {
+      "receiveChunksBase64": [
+        "KiBDQVBBQklMSVRZIElNQVA0cmV2MSBTVEFSVFRMUyBBVVRIPVBMQUlOIElETEUNCkEwMDAxIE9LIGRvbmUNCg=="
+      ],
+      "sendBase64": [
+        "QTAwMDEgQ0FQQUJJTElUWQ0K"
+      ]
+    },
+    {
+      "receiveChunksBase64": [
+        "QTAwMDIgT0sgYmVnaW4gVExTDQo="
+      ],
+      "sendBase64": [
+        "QTAwMDIgU1RBUlRUTFMNCg=="
+      ]
+    },
+    {
+      "receiveChunksBase64": [
+        "KiBDQVBBQklMSVRZIElNQVA0cmV2MSBBVVRIPVBMQUlOIElETEUNCkEwMDAzIE9LIGRvbmUNCg=="
+      ],
+      "sendBase64": [
+        "QTAwMDMgQ0FQQUJJTElUWQ0K"
+      ]
+    },
+    {
+      "receiveChunksBase64": [
+        "KyANCg=="
+      ],
+      "sendBase64": [
+        "QTAwMDQgQVVUSEVOVElDQVRFIFBMQUlODQo="
+      ]
+    },
+    {
+      "receiveChunksBase64": [
+        "QTAwMDQgT0sgQVVUSEVOVElDQVRFIGNvbXBsZXRlZA0K"
+      ],
+      "sendBase64": [
+        "W0ZJWFRVUkU6TUFJTF9QTEFJTl0NCg=="
+      ]
+    },
+    {
+      "receiveChunksBase64": [
+        "KiBDQVBBQklMSVRZIElNQVA0cmV2MSBBVVRIPVBMQUlOIElETEUNCkEwMDA1IE9LIGRvbmUNCg=="
+      ],
+      "sendBase64": [
+        "QTAwMDUgQ0FQQUJJTElUWQ0K"
+      ]
+    },
+    {
+      "receiveChunksBase64": [
+        "KiAxIEVYSVNUUw0KKiBPSyBbVUlEVkFMSURJVFkgMV0gdWlkcw0KKiBPSyBbVUlETkVYVCAyXSBuZXh0DQpBMDAwNiBPSyBbUkVBRC1XUklURV0gU0VMRUNUIGNvbXBsZXRlZA0K"
+      ],
+      "sendBase64": [
+        "QTAwMDYgU0VMRUNUICJJTkJPWCINCg=="
+      ]
+    },
+    {
+      "receiveChunksBase64": [
+        "KiBTRUFSQ0ggMQ0KQTAwMDcgT0sgU0VBUkNIIGNvbXBsZXRlZA0K"
+      ],
+      "sendBase64": [
+        "QTAwMDcgVUlEIFNFQVJDSCBVSUQgMToqDQo="
+      ]
+    },
+    {
+      "receiveChunksBase64": [
+        "KiAxIEZFVENIIChVSUQgMSBSRkM4MjIuU0laRSA1NikNCkEwMDA4IE9LIEZFVENIIGNvbXBsZXRlZA0K"
+      ],
+      "sendBase64": [
+        "QTAwMDggVUlEIEZFVENIIDEgKFJGQzgyMi5TSVpFKQ0K"
+      ]
+    },
+    {
+      "receiveChunksBase64": [
+        "KiAxIEZFVENIIChVSUQgMSBCT0RZW10gezU2fQ0KRnJvbTogRXhhbXBsZSA8c2VuZGVyQGV4YW1wbGUuaW52YWxpZD4NCg0KR3LDvMOfZSDwn5GLDQopDQpBMDAwOSBPSyBGRVRDSCBjb21wbGV0ZWQNCg=="
+      ],
+      "sendBase64": [
+        "QTAwMDkgVUlEIEZFVENIIDEgKEJPRFkuUEVFS1tdKQ0K"
+      ]
+    },
+    {
+      "receiveChunksBase64": [
+        "QTAwMTAgT0sgU1RPUkUgY29tcGxldGVkDQo="
+      ],
+      "sendBase64": [
+        "QTAwMTAgVUlEIFNUT1JFIDEgK0ZMQUdTLlNJTEVOVCAoXFNlZW4pDQo="
+      ]
+    }
+  ],
+  "expected": {
+    "result": {
+      "caps": [
+        "AUTH=PLAIN",
+        "IDLE",
+        "IMAP4REV1"
+      ],
+      "dataBase64": "RnJvbTogRXhhbXBsZSA8c2VuZGVyQGV4YW1wbGUuaW52YWxpZD4NCg0KR3LDvMOfZSDwn5GLDQo=",
+      "select": {
+        "exists": 1,
+        "uidNext": 2,
+        "uidValidity": 1
+      },
+      "size": 56,
+      "uids": [
+        1
+      ]
+    }
+  },
+  "exporter": "scripts/parity/export-channels.ts",
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/channels-email/src/imap.ts",
+  "transport": "lines",
+  "upgrades": [
+    2
+  ]
+}

@@ -1,0 +1,222 @@
+{
+  "cases": [
+    {
+      "body": "[{\"kind\":\"text\",\"text\":\"Grüße 🌱\",\"metadata\":{\"title\":\"Ignored\"}}]",
+      "expected": {
+        "parts": [
+          {
+            "kind": "text",
+            "text": "Grüße 🌱"
+          }
+        ],
+        "text": "Grüße 🌱"
+      },
+      "limits": {
+        "maxDataBytes": 120,
+        "maxFileBytes": 4,
+        "maxParts": 4,
+        "maxTextBytes": 16
+      }
+    },
+    {
+      "body": "[{\"kind\":\"text\",\"text\":\"Report\"},{\"kind\":\"file\",\"file\":{\"name\":\" page\\n1 \",\"mimeType\":\" text/plain \",\"data\":\"Z g==\\n\"}},{\"kind\":\"file\",\"file\":{\"uri\":\"https://files.example.invalid/sample\",\"bytes\":\"ZnI=\"}},{\"kind\":\"data\",\"data\":{\"2\":\"two\",\"10\":null,\"z\":1e-7,\"nested\":{\"b\":false,\"a\":3},\"items\":[\"🌱\",0]}}]",
+      "expected": {
+        "parts": [
+          {
+            "kind": "text",
+            "text": "Report"
+          },
+          {
+            "file": {
+              "bytes": "Zg==",
+              "mimeType": "text/plain",
+              "name": "page 1"
+            },
+            "kind": "file"
+          },
+          {
+            "file": {
+              "bytes": "ZnI=",
+              "uri": "https://files.example.invalid/sample"
+            },
+            "kind": "file"
+          },
+          {
+            "data": {
+              "2": "two",
+              "10": null,
+              "items": [
+                "🌱",
+                0
+              ],
+              "nested": {
+                "a": 3,
+                "b": false
+              },
+              "z": 1e-7
+            },
+            "kind": "data"
+          }
+        ],
+        "text": "Report\n[file name=page 1 mime=text/plain bytes=1]\n[file bytes=2 uri=https://files.example.invalid/sample]\n[data] {\"2\":\"two\",\"10\":null,\"z\":1e-7,\"nested\":{\"b\":false,\"a\":3},\"items\":[\"🌱\",0]}"
+      },
+      "limits": {
+        "maxDataBytes": 120,
+        "maxFileBytes": 4,
+        "maxParts": 4,
+        "maxTextBytes": 16
+      }
+    },
+    {
+      "body": "[]",
+      "expectedError": {
+        "code": "invalid",
+        "message": "message.parts must be a non-empty array"
+      },
+      "limits": {
+        "maxDataBytes": 120,
+        "maxFileBytes": 4,
+        "maxParts": 4,
+        "maxTextBytes": 16
+      }
+    },
+    {
+      "body": "[{\"kind\":\"text\",\"text\":\"   \"}]",
+      "expectedError": {
+        "code": "invalid",
+        "message": "message text is empty"
+      },
+      "limits": {
+        "maxDataBytes": 120,
+        "maxFileBytes": 4,
+        "maxParts": 4,
+        "maxTextBytes": 16
+      }
+    },
+    {
+      "body": "[{\"kind\":\"image\",\"value\":\"sample\"}]",
+      "expectedError": {
+        "code": "content-type",
+        "message": "part kind \"image\" is not supported"
+      },
+      "limits": {
+        "maxDataBytes": 120,
+        "maxFileBytes": 4,
+        "maxParts": 4,
+        "maxTextBytes": 16
+      }
+    },
+    {
+      "body": "[{\"kind\":\"data\",\"data\":[]}]",
+      "expectedError": {
+        "code": "invalid",
+        "message": "data part needs a data object"
+      },
+      "limits": {
+        "maxDataBytes": 32,
+        "maxFileBytes": 4,
+        "maxParts": 4,
+        "maxTextBytes": 16
+      }
+    },
+    {
+      "body": "[{\"kind\":\"file\",\"file\":{\"name\":\"sample\"}}]",
+      "expectedError": {
+        "code": "invalid",
+        "message": "file part needs bytes or a uri"
+      },
+      "limits": {
+        "maxDataBytes": 120,
+        "maxFileBytes": 4,
+        "maxParts": 4,
+        "maxTextBytes": 16
+      }
+    },
+    {
+      "body": "[{\"kind\":\"file\",\"file\":{\"bytes\":\"x\"}}]",
+      "expectedError": {
+        "code": "invalid",
+        "message": "file bytes are not valid base64"
+      },
+      "limits": {
+        "maxDataBytes": 120,
+        "maxFileBytes": 4,
+        "maxParts": 4,
+        "maxTextBytes": 16
+      }
+    },
+    {
+      "body": "[{\"kind\":\"file\",\"file\":{\"bytes\":\"\"}}]",
+      "expected": {
+        "parts": [
+          {
+            "file": {
+              "bytes": ""
+            },
+            "kind": "file"
+          }
+        ],
+        "text": "[file bytes=0]"
+      },
+      "limits": {
+        "maxDataBytes": 120,
+        "maxFileBytes": 4,
+        "maxParts": 4,
+        "maxTextBytes": 16
+      }
+    },
+    {
+      "body": "[{\"kind\":\"text\",\"text\":\"🌱🌱🌱🌱🌱\"}]",
+      "expectedError": {
+        "code": "too-large",
+        "message": "message text is too large"
+      },
+      "limits": {
+        "maxDataBytes": 120,
+        "maxFileBytes": 4,
+        "maxParts": 4,
+        "maxTextBytes": 16
+      }
+    },
+    {
+      "body": "[{\"kind\":\"data\",\"data\":{\"name\":\"éééééééééééééééééééé\"}}]",
+      "expectedError": {
+        "code": "too-large",
+        "message": "data part is too large"
+      },
+      "limits": {
+        "maxDataBytes": 32,
+        "maxFileBytes": 4,
+        "maxParts": 4,
+        "maxTextBytes": 16
+      }
+    },
+    {
+      "body": "[{\"kind\":\"file\",\"file\":{\"bytes\":\"AQIDBAUG\"}}]",
+      "expectedError": {
+        "code": "too-large",
+        "message": "file part is too large"
+      },
+      "limits": {
+        "maxDataBytes": 120,
+        "maxFileBytes": 4,
+        "maxParts": 4,
+        "maxTextBytes": 16
+      }
+    },
+    {
+      "body": "[{\"kind\":\"text\",\"text\":\"a\"},{\"kind\":\"text\",\"text\":\"a\"},{\"kind\":\"text\",\"text\":\"a\"},{\"kind\":\"text\",\"text\":\"a\"},{\"kind\":\"text\",\"text\":\"a\"}]",
+      "expectedError": {
+        "code": "too-many",
+        "message": "too many parts"
+      },
+      "limits": {
+        "maxDataBytes": 120,
+        "maxFileBytes": 4,
+        "maxParts": 4,
+        "maxTextBytes": 16
+      }
+    }
+  ],
+  "source": "packages/core/src/a2a/parts.ts"
+}

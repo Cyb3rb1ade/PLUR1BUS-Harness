@@ -1,0 +1,435 @@
+{
+  "exporter": "scripts/parity/export-channels.ts",
+  "scenarios": [
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {
+              "authorization": "Bearer [FIXTURE:SLACK_APP]",
+              "content-type": "application/x-www-form-urlencoded"
+            },
+            "method": "POST",
+            "path": "/v1/apps.connections.open"
+          },
+          "response": {
+            "body": {
+              "ok": true,
+              "url": "wss://fixture.invalid/socket"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": "wss://fixture.invalid/socket"
+      },
+      "input": {
+        "op": "open"
+      },
+      "name": "open"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{\"channel\":\"C123\",\"text\":\"Grüße 👋\",\"unfurl_links\":false}",
+            "headers": {
+              "authorization": "Bearer [FIXTURE:SLACK_BOT]",
+              "content-type": "application/json; charset=utf-8"
+            },
+            "method": "POST",
+            "path": "/v1/chat.postMessage"
+          },
+          "response": {
+            "body": {
+              "ok": true,
+              "ts": "1.23"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": {
+          "ok": true,
+          "ts": "1.23"
+        }
+      },
+      "input": {
+        "json": "{\"channel\":\"C123\",\"text\":\"Grüße 👋\",\"unfurl_links\":false}",
+        "method": "chat.postMessage",
+        "op": "call"
+      },
+      "name": "call"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "filename=a+b%2B%C3%BC.txt&length=12",
+            "headers": {
+              "authorization": "Bearer [FIXTURE:SLACK_BOT]",
+              "content-type": "application/x-www-form-urlencoded"
+            },
+            "method": "POST",
+            "path": "/v1/files.getUploadURLExternal"
+          },
+          "response": {
+            "body": {
+              "file_id": "F123",
+              "ok": true
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": {
+          "file_id": "F123",
+          "ok": true
+        }
+      },
+      "input": {
+        "json": "{\"filename\":\"a b+ü.txt\",\"length\":12}",
+        "method": "files.getUploadURLExternal",
+        "op": "form"
+      },
+      "name": "upload-ticket"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{}",
+            "headers": {
+              "authorization": "Bearer [FIXTURE:SLACK_BOT]",
+              "content-type": "application/json; charset=utf-8"
+            },
+            "method": "POST",
+            "path": "/v1/auth.test"
+          },
+          "response": {
+            "body": {
+              "error": "invalid_auth",
+              "ok": false
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": "invalid_auth",
+          "kind": "unauthorized",
+          "message": "auth.test unauthorized: invalid_auth",
+          "status": 200
+        }
+      },
+      "input": {
+        "method": "auth.test",
+        "op": "call"
+      },
+      "name": "invalid-auth"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{}",
+            "headers": {
+              "authorization": "Bearer [FIXTURE:SLACK_BOT]",
+              "content-type": "application/json; charset=utf-8"
+            },
+            "method": "POST",
+            "path": "/v1/auth.test"
+          },
+          "response": {
+            "body": {
+              "error": "missing_scope",
+              "ok": false
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "code": "missing_scope",
+          "kind": "forbidden",
+          "message": "auth.test forbidden: missing_scope",
+          "status": 200
+        }
+      },
+      "input": {
+        "method": "auth.test",
+        "op": "call"
+      },
+      "name": "invalid-scope"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{}",
+            "headers": {
+              "authorization": "Bearer [FIXTURE:SLACK_BOT]",
+              "content-type": "application/json; charset=utf-8"
+            },
+            "method": "POST",
+            "path": "/v1/auth.test"
+          },
+          "response": {
+            "body": {
+              "error": "untrusted mixed case",
+              "ok": false
+            },
+            "status": 400
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "bad-request",
+          "message": "auth.test failed",
+          "status": 400
+        }
+      },
+      "input": {
+        "method": "auth.test",
+        "op": "call"
+      },
+      "name": "bad-code"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "{}",
+            "headers": {
+              "authorization": "Bearer [FIXTURE:SLACK_BOT]",
+              "content-type": "application/json; charset=utf-8"
+            },
+            "method": "POST",
+            "path": "/v1/auth.test"
+          },
+          "response": {
+            "body": {
+              "error": "ratelimited",
+              "ok": false
+            },
+            "headers": {
+              "retry-after": "1.2349"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "rate-limited",
+          "message": "auth.test rate limited",
+          "retryAfterMs": 1235,
+          "status": 200
+        }
+      },
+      "input": {
+        "method": "auth.test",
+        "op": "call"
+      },
+      "name": "limit"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {
+              "authorization": "Bearer [FIXTURE:SLACK_BOT]"
+            },
+            "method": "GET",
+            "path": "/private/first"
+          },
+          "response": {
+            "headers": {
+              "location": "/private/last"
+            },
+            "status": 302
+          }
+        },
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {
+              "authorization": "Bearer [FIXTURE:SLACK_BOT]"
+            },
+            "method": "GET",
+            "path": "/private/last"
+          },
+          "response": {
+            "chunksBase64": [
+              "YWI=",
+              "Y2RlZg=="
+            ],
+            "headers": {
+              "content-type": "TEXT/PLAIN; charset=utf-8"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": {
+          "data": [
+            97,
+            98,
+            99,
+            100,
+            101,
+            102
+          ],
+          "mimeType": "text/plain"
+        }
+      },
+      "input": {
+        "limit": 6,
+        "op": "download",
+        "path": "/private/first"
+      },
+      "name": "download-hop"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {
+              "authorization": "Bearer [FIXTURE:SLACK_BOT]"
+            },
+            "method": "GET",
+            "path": "/private/first"
+          },
+          "response": {
+            "headers": {
+              "location": "https://fixture.invalid/file"
+            },
+            "status": 302
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "protocol",
+          "message": "unsafe Slack file URL"
+        }
+      },
+      "input": {
+        "limit": 6,
+        "op": "download",
+        "path": "/private/first"
+      },
+      "name": "download-foreign"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {
+              "authorization": "Bearer [FIXTURE:SLACK_BOT]"
+            },
+            "method": "GET",
+            "path": "/private/first"
+          },
+          "response": {
+            "chunksBase64": [
+              "PGZvcm0+"
+            ],
+            "headers": {
+              "content-type": "text/html"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "protocol",
+          "message": "Slack file download returned a web page"
+        }
+      },
+      "input": {
+        "limit": 6,
+        "op": "download",
+        "path": "/private/first"
+      },
+      "name": "download-sign-in"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "",
+            "headers": {
+              "authorization": "Bearer [FIXTURE:SLACK_BOT]"
+            },
+            "method": "GET",
+            "path": "/private/first"
+          },
+          "response": {
+            "chunksBase64": [
+              "YWI=",
+              "Y2RlZg=="
+            ],
+            "headers": {
+              "content-type": "text/plain"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "error": {
+          "kind": "protocol",
+          "message": "Slack file exceeds size limit"
+        }
+      },
+      "input": {
+        "limit": 5,
+        "op": "download",
+        "path": "/private/first"
+      },
+      "name": "download-cap"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyText": "file content 👋",
+            "headers": {
+              "content-type": "application/octet-stream"
+            },
+            "method": "POST",
+            "path": "/private/last"
+          },
+          "response": {
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "result": null
+      },
+      "input": {
+        "op": "bytes",
+        "path": "/private/last",
+        "text": "file content 👋"
+      },
+      "name": "upload-bytes"
+    }
+  ],
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/channels-slack/src/api.ts",
+  "transport": "http"
+}

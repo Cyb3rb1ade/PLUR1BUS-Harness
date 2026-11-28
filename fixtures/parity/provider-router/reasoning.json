@@ -1,0 +1,246 @@
+{
+  "cases": [
+    {
+      "descriptor": {
+        "budget": {
+          "default": 2048,
+          "max": 16384,
+          "min": 1024
+        },
+        "kind": "budget",
+        "levels": [
+          "off",
+          "low",
+          "high"
+        ],
+        "source": "table",
+        "vendorParam": "thinking.budget_tokens"
+      },
+      "expected": {
+        "directive": {
+          "value": 2048,
+          "vendorParam": "thinking.budget_tokens"
+        },
+        "nearest": {
+          "adjusted": true,
+          "level": "low"
+        }
+      },
+      "requested": "medium"
+    },
+    {
+      "descriptor": {
+        "adaptiveThinking": true,
+        "kind": "effort",
+        "levels": [
+          "low",
+          "high"
+        ],
+        "source": "table",
+        "vendorParam": "output_config.effort"
+      },
+      "expected": {
+        "directive": {
+          "adaptiveThinking": true,
+          "value": "high",
+          "vendorParam": "output_config.effort"
+        },
+        "nearest": {
+          "adjusted": false,
+          "level": "high"
+        }
+      },
+      "requested": "high"
+    },
+    {
+      "descriptor": {
+        "kind": "toggle",
+        "levels": [
+          "off",
+          "high"
+        ],
+        "source": "table",
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      },
+      "expected": {
+        "directive": {
+          "value": false,
+          "vendorParam": "chat_template_kwargs.enable_thinking"
+        },
+        "nearest": {
+          "adjusted": false,
+          "level": "off"
+        }
+      },
+      "requested": "off"
+    },
+    {
+      "descriptor": {
+        "kind": "none",
+        "levels": [],
+        "source": "unknown"
+      },
+      "expected": {
+        "directive": null,
+        "nearest": null
+      },
+      "requested": "low"
+    },
+    {
+      "descriptor": {
+        "kind": "effort",
+        "levels": [
+          "high"
+        ],
+        "source": "table",
+        "values": {
+          "high": null
+        },
+        "vendorParam": "output_config.effort"
+      },
+      "expected": {
+        "directive": {
+          "value": "high",
+          "vendorParam": "output_config.effort"
+        },
+        "nearest": {
+          "adjusted": false,
+          "level": "high"
+        }
+      },
+      "name": "effort-null-uses-level",
+      "requested": "high"
+    },
+    {
+      "descriptor": {
+        "kind": "toggle",
+        "levels": [
+          "off"
+        ],
+        "source": "table",
+        "values": {
+          "off": "none"
+        },
+        "vendorParam": "chat_template_kwargs.enable_thinking"
+      },
+      "expected": {
+        "directive": {
+          "value": "none",
+          "vendorParam": "chat_template_kwargs.enable_thinking"
+        },
+        "nearest": {
+          "adjusted": false,
+          "level": "off"
+        }
+      },
+      "expected-divergence": "P4D-196",
+      "name": "toggle-with-string-override",
+      "requested": "off"
+    },
+    {
+      "descriptor": {
+        "adaptiveThinking": 1,
+        "kind": "effort",
+        "levels": [
+          "high"
+        ],
+        "source": "table",
+        "vendorParam": "output_config.effort"
+      },
+      "expected": {
+        "directive": {
+          "adaptiveThinking": true,
+          "value": "high",
+          "vendorParam": "output_config.effort"
+        },
+        "nearest": {
+          "adjusted": false,
+          "level": "high"
+        }
+      },
+      "expected-divergence": "P4D-196",
+      "name": "effort-with-numeric-adaptive",
+      "requested": "high"
+    },
+    {
+      "descriptor": {
+        "adaptiveThinking": true,
+        "kind": "legacy-unknown",
+        "levels": [
+          "high"
+        ],
+        "source": "table",
+        "vendorParam": "output_config.effort"
+      },
+      "expected": {
+        "directive": {
+          "adaptiveThinking": true,
+          "value": "high",
+          "vendorParam": "output_config.effort"
+        },
+        "nearest": {
+          "adjusted": false,
+          "level": "high"
+        }
+      },
+      "expected-divergence": "P4D-196",
+      "name": "unknown-kind-with-adaptive",
+      "requested": "high"
+    },
+    {
+      "descriptor": {
+        "budget": {
+          "min": 1024
+        },
+        "kind": "budget",
+        "levels": [
+          "high"
+        ],
+        "source": "table",
+        "vendorParam": "thinking.budget_tokens"
+      },
+      "expected": {
+        "directive": {
+          "value": null,
+          "vendorParam": "thinking.budget_tokens"
+        },
+        "nearest": {
+          "adjusted": false,
+          "level": "high"
+        }
+      },
+      "expected-divergence": "P4D-196",
+      "name": "budget-without-max",
+      "requested": "high"
+    },
+    {
+      "descriptor": {
+        "budget": {
+          "max": "4096",
+          "min": "1024"
+        },
+        "kind": "budget",
+        "levels": [
+          "high"
+        ],
+        "source": "table",
+        "vendorParam": "thinking.budget_tokens"
+      },
+      "expected": {
+        "directive": {
+          "value": 2048,
+          "vendorParam": "thinking.budget_tokens"
+        },
+        "nearest": {
+          "adjusted": false,
+          "level": "high"
+        }
+      },
+      "expected-divergence": "P4D-196",
+      "name": "budget-with-string-bounds",
+      "requested": "high"
+    }
+  ],
+  "schema": "plur1bus.provider-reasoning/1",
+  "source": "packages/providers/src/reasoning.ts"
+}

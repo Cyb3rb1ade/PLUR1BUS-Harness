@@ -1,0 +1,546 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "capabilities": {
+          "pushNotifications": true,
+          "stateTransitionHistory": false,
+          "streaming": true
+        },
+        "defaultInputModes": [
+          "text/plain"
+        ],
+        "defaultOutputModes": [
+          "text/plain"
+        ],
+        "description": "A PLUR1BUS agent.",
+        "name": "example",
+        "preferredTransport": "JSONRPC",
+        "protocolVersion": "0.3.0",
+        "security": [
+          {
+            "peerKey": []
+          }
+        ],
+        "securitySchemes": {
+          "peerKey": {
+            "description": "A per-peer API key issued by the operator.",
+            "scheme": "bearer",
+            "type": "http"
+          }
+        },
+        "skills": [
+          {
+            "description": "Answers a text message.",
+            "id": "chat",
+            "name": "Chat",
+            "tags": []
+          }
+        ],
+        "url": "https://agents.example.invalid/a2a/example/",
+        "version": "2.0"
+      },
+      "input": {
+        "base": "https://agents.example.invalid",
+        "id": "example",
+        "info": {
+          "optIn": true
+        },
+        "version": "2.0"
+      }
+    },
+    {
+      "expected": {
+        "capabilities": {
+          "pushNotifications": true,
+          "stateTransitionHistory": false,
+          "streaming": false
+        },
+        "defaultInputModes": [
+          "text/markdown",
+          "fixture/0",
+          "fixture/1",
+          "fixture/2",
+          "fixture/3",
+          "fixture/4",
+          "fixture/5",
+          "fixture/6"
+        ],
+        "defaultOutputModes": [
+          "text/plain"
+        ],
+        "description": "A PLUR1BUS agent.",
+        "name": "Field Notes",
+        "preferredTransport": "JSONRPC",
+        "protocolVersion": "0.3.0",
+        "security": [
+          {
+            "peerKey": []
+          }
+        ],
+        "securitySchemes": {
+          "peerKey": {
+            "description": "A per-peer API key issued by the operator.",
+            "scheme": "bearer",
+            "type": "http"
+          }
+        },
+        "skills": [
+          {
+            "description": "No description.",
+            "id": "convert",
+            "inputModes": [
+              "text/plain",
+              "application/json"
+            ],
+            "name": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "tags": [
+              "tag",
+              "t0",
+              "t1",
+              "t2",
+              "t3",
+              "t4",
+              "t5",
+              "t6"
+            ]
+          }
+        ],
+        "url": "https://agents.example.invalid/public/a2a/fixture-a/",
+        "version": "2.1"
+      },
+      "input": {
+        "base": "https://agents.example.invalid/public///",
+        "features": {
+          "pushNotifications": true,
+          "streaming": false
+        },
+        "id": "fixture-a",
+        "info": {
+          "defaultInputModes": [
+            "",
+            "text/markdown",
+            "fixture/0",
+            "fixture/1",
+            "fixture/2",
+            "fixture/3",
+            "fixture/4",
+            "fixture/5",
+            "fixture/6",
+            "fixture/7",
+            "fixture/8",
+            "fixture/9"
+          ],
+          "defaultOutputModes": [
+            ""
+          ],
+          "description": "    ",
+          "displayName": "  Field\tNotes  ",
+          "internalNote": "synthetic-private-card-marker",
+          "optIn": true,
+          "skills": [
+            {
+              "id": "convert",
+              "inputModes": [
+                "text/plain",
+                "  application/json"
+              ],
+              "name": "  XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "outputModes": [
+                ""
+              ],
+              "tags": [
+                "  ",
+                "t0",
+                "t1",
+                "t2",
+                "t3",
+                "t4",
+                "t5",
+                "t6",
+                "t7",
+                "t8"
+              ]
+            }
+          ]
+        },
+        "version": "2.1"
+      }
+    },
+    {
+      "expected": {
+        "capabilities": {
+          "pushNotifications": false,
+          "stateTransitionHistory": false,
+          "streaming": true
+        },
+        "defaultInputModes": [
+          "text/plain"
+        ],
+        "defaultOutputModes": [
+          "text/plain"
+        ],
+        "description": "A PLUR1BUS agent.",
+        "name": "📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚",
+        "preferredTransport": "JSONRPC",
+        "protocolVersion": "0.3.0",
+        "security": [
+          {
+            "peerKey": []
+          }
+        ],
+        "securitySchemes": {
+          "peerKey": {
+            "description": "A per-peer API key issued by the operator.",
+            "scheme": "bearer",
+            "type": "http"
+          }
+        },
+        "skills": [
+          {
+            "description": "No description.",
+            "id": "s0",
+            "name": "Skill 0",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s1",
+            "name": "Skill 1",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s2",
+            "name": "Skill 2",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s3",
+            "name": "Skill 3",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s4",
+            "name": "Skill 4",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s5",
+            "name": "Skill 5",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s6",
+            "name": "Skill 6",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s7",
+            "name": "Skill 7",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s8",
+            "name": "Skill 8",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s9",
+            "name": "Skill 9",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s10",
+            "name": "Skill 10",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s11",
+            "name": "Skill 11",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s12",
+            "name": "Skill 12",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s13",
+            "name": "Skill 13",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s14",
+            "name": "Skill 14",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s15",
+            "name": "Skill 15",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s16",
+            "name": "Skill 16",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s17",
+            "name": "Skill 17",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s18",
+            "name": "Skill 18",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s19",
+            "name": "Skill 19",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s20",
+            "name": "Skill 20",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s21",
+            "name": "Skill 21",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s22",
+            "name": "Skill 22",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s23",
+            "name": "Skill 23",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s24",
+            "name": "Skill 24",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s25",
+            "name": "Skill 25",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s26",
+            "name": "Skill 26",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s27",
+            "name": "Skill 27",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s28",
+            "name": "Skill 28",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s29",
+            "name": "Skill 29",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s30",
+            "name": "Skill 30",
+            "tags": []
+          },
+          {
+            "description": "No description.",
+            "id": "s31",
+            "name": "Skill 31",
+            "tags": []
+          }
+        ],
+        "url": "https://agents.example.invalid/catalog/a2a/books/",
+        "version": "2.1"
+      },
+      "input": {
+        "base": "https://agents.example.invalid/catalog/",
+        "features": {
+          "pushNotifications": false,
+          "streaming": true
+        },
+        "id": "books",
+        "info": {
+          "displayName": "📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚📚A",
+          "optIn": true,
+          "skills": [
+            {
+              "id": "s0",
+              "name": "Skill 0"
+            },
+            {
+              "id": "s1",
+              "name": "Skill 1"
+            },
+            {
+              "id": "s2",
+              "name": "Skill 2"
+            },
+            {
+              "id": "s3",
+              "name": "Skill 3"
+            },
+            {
+              "id": "s4",
+              "name": "Skill 4"
+            },
+            {
+              "id": "s5",
+              "name": "Skill 5"
+            },
+            {
+              "id": "s6",
+              "name": "Skill 6"
+            },
+            {
+              "id": "s7",
+              "name": "Skill 7"
+            },
+            {
+              "id": "s8",
+              "name": "Skill 8"
+            },
+            {
+              "id": "s9",
+              "name": "Skill 9"
+            },
+            {
+              "id": "s10",
+              "name": "Skill 10"
+            },
+            {
+              "id": "s11",
+              "name": "Skill 11"
+            },
+            {
+              "id": "s12",
+              "name": "Skill 12"
+            },
+            {
+              "id": "s13",
+              "name": "Skill 13"
+            },
+            {
+              "id": "s14",
+              "name": "Skill 14"
+            },
+            {
+              "id": "s15",
+              "name": "Skill 15"
+            },
+            {
+              "id": "s16",
+              "name": "Skill 16"
+            },
+            {
+              "id": "s17",
+              "name": "Skill 17"
+            },
+            {
+              "id": "s18",
+              "name": "Skill 18"
+            },
+            {
+              "id": "s19",
+              "name": "Skill 19"
+            },
+            {
+              "id": "s20",
+              "name": "Skill 20"
+            },
+            {
+              "id": "s21",
+              "name": "Skill 21"
+            },
+            {
+              "id": "s22",
+              "name": "Skill 22"
+            },
+            {
+              "id": "s23",
+              "name": "Skill 23"
+            },
+            {
+              "id": "s24",
+              "name": "Skill 24"
+            },
+            {
+              "id": "s25",
+              "name": "Skill 25"
+            },
+            {
+              "id": "s26",
+              "name": "Skill 26"
+            },
+            {
+              "id": "s27",
+              "name": "Skill 27"
+            },
+            {
+              "id": "s28",
+              "name": "Skill 28"
+            },
+            {
+              "id": "s29",
+              "name": "Skill 29"
+            },
+            {
+              "id": "s30",
+              "name": "Skill 30"
+            },
+            {
+              "id": "s31",
+              "name": "Skill 31"
+            },
+            {
+              "id": "s32",
+              "name": "Skill 32"
+            }
+          ]
+        },
+        "version": "2.1"
+      }
+    }
+  ],
+  "source": "packages/core/src/a2a/card.ts"
+}

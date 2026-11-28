@@ -1,0 +1,537 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "duplicates": 1,
+        "entries": [
+          {
+            "capabilities": [
+              "tools",
+              "structured_output",
+              "reasoning",
+              "vision"
+            ],
+            "contextWindow": 1024,
+            "created": 7000,
+            "displayName": "Example",
+            "id": "vendor/example",
+            "reasoning": {
+              "style": "openrouter",
+              "supported": true
+            }
+          },
+          {
+            "id": "plain",
+            "reasoning": {
+              "style": "openrouter",
+              "supported": false
+            }
+          }
+        ],
+        "pages": 1
+      },
+      "requests": [
+        {
+          "path": "/models"
+        }
+      ],
+      "responses": [
+        {
+          "data": [
+            {
+              "architecture": {
+                "modality": "image+text->text"
+              },
+              "context_length": 1024,
+              "created": 7,
+              "id": "vendor/example",
+              "name": "Example",
+              "supported_parameters": [
+                "tools",
+                "structured_outputs",
+                "reasoning"
+              ]
+            },
+            {
+              "context_length": 256,
+              "id": "vendor/example",
+              "name": "Duplicate"
+            },
+            {
+              "context_length": null,
+              "created": null,
+              "id": "plain",
+              "name": null,
+              "supported_parameters": []
+            }
+          ]
+        }
+      ],
+      "scanner": "openai-models"
+    },
+    {
+      "apple": true,
+      "expected": {
+        "duplicates": 0,
+        "entries": [
+          {
+            "capabilities": [
+              "tools",
+              "structured_output"
+            ],
+            "contextWindow": 4096,
+            "created": 12000,
+            "id": "system"
+          }
+        ],
+        "filteredByPolicy": 1,
+        "pages": 1
+      },
+      "requests": [
+        {
+          "path": "/models"
+        }
+      ],
+      "responses": [
+        {
+          "data": [
+            {
+              "id": "optional"
+            },
+            {
+              "context_length": 8192,
+              "created": 12,
+              "id": "system",
+              "name": "Discarded"
+            }
+          ]
+        }
+      ],
+      "scanner": "openai-models"
+    },
+    {
+      "expected": {
+        "duplicates": 0,
+        "entries": [
+          {
+            "contextWindow": 2048,
+            "created": 1795338611000,
+            "displayName": "A",
+            "id": "model-a"
+          },
+          {
+            "id": "model-b"
+          }
+        ],
+        "pages": 2
+      },
+      "requests": [
+        {
+          "headers": {
+            "anthropic-version": "2023-06-01"
+          },
+          "path": "/models",
+          "query": {
+            "limit": "1000"
+          }
+        },
+        {
+          "headers": {
+            "anthropic-version": "2023-06-01"
+          },
+          "path": "/models",
+          "query": {
+            "after_id": "model-a",
+            "limit": "1000"
+          }
+        }
+      ],
+      "responses": [
+        {
+          "data": [
+            {
+              "created_at": "2026-11-22T09:10:11Z",
+              "display_name": "A",
+              "id": "model-a",
+              "max_input_tokens": 2048
+            }
+          ],
+          "has_more": true,
+          "last_id": "model-a"
+        },
+        {
+          "data": [
+            {
+              "created_at": "unknown",
+              "display_name": null,
+              "id": "model-b"
+            }
+          ],
+          "has_more": false
+        }
+      ],
+      "scanner": "anthropic-models"
+    },
+    {
+      "expected": {
+        "reason": "bad_envelope",
+        "result": "failed:invalid"
+      },
+      "requests": [
+        {
+          "headers": {
+            "anthropic-version": "2023-06-01"
+          },
+          "path": "/models",
+          "query": {
+            "limit": "1000"
+          }
+        },
+        {
+          "headers": {
+            "anthropic-version": "2023-06-01"
+          },
+          "path": "/models",
+          "query": {
+            "after_id": "same",
+            "limit": "1000"
+          }
+        }
+      ],
+      "responses": [
+        {
+          "data": [],
+          "has_more": true,
+          "last_id": "same"
+        },
+        {
+          "data": [],
+          "has_more": true,
+          "last_id": "same"
+        }
+      ],
+      "scanner": "anthropic-models"
+    },
+    {
+      "expected": {
+        "duplicates": 0,
+        "entries": [
+          {
+            "contextWindow": 4096,
+            "displayName": "Embed",
+            "id": "sample-embed",
+            "kind": "embedding",
+            "reasoning": {
+              "style": "gemini",
+              "supported": false
+            }
+          },
+          {
+            "id": "sample",
+            "reasoning": {
+              "style": "gemini",
+              "supported": true
+            }
+          }
+        ],
+        "pages": 2
+      },
+      "requests": [
+        {
+          "path": "/models",
+          "query": {
+            "pageSize": "1000"
+          }
+        },
+        {
+          "path": "/models",
+          "query": {
+            "pageSize": "1000",
+            "pageToken": "second"
+          }
+        }
+      ],
+      "responses": [
+        {
+          "models": [
+            {
+              "displayName": "Embed",
+              "inputTokenLimit": 4096,
+              "name": "models/sample-embed",
+              "supportedGenerationMethods": [
+                "embedContent"
+              ],
+              "thinking": false
+            }
+          ],
+          "nextPageToken": "second"
+        },
+        {
+          "models": [
+            {
+              "name": "models/sample",
+              "supportedGenerationMethods": [
+                "embedContent",
+                "generateContent"
+              ],
+              "thinking": true
+            }
+          ]
+        }
+      ],
+      "scanner": "google-models"
+    },
+    {
+      "expected": {
+        "duplicates": 0,
+        "entries": [
+          {
+            "created": 1795341600000,
+            "id": "model:tag",
+            "reasoning": {
+              "style": "ollama",
+              "supported": true
+            }
+          },
+          {
+            "id": "model:small",
+            "reasoning": {
+              "style": "ollama",
+              "supported": false
+            }
+          }
+        ],
+        "pages": 1
+      },
+      "requests": [
+        {
+          "path": "/api/tags"
+        }
+      ],
+      "responses": [
+        {
+          "models": [
+            {
+              "capabilities": [
+                "thinking"
+              ],
+              "details": {
+                "family": "fixture"
+              },
+              "modified_at": "2026-11-22T12:00:00+02:00",
+              "name": "model:tag"
+            },
+            {
+              "capabilities": [
+                "completion"
+              ],
+              "modified_at": null,
+              "name": "model:small"
+            }
+          ]
+        }
+      ],
+      "scanner": "ollama-tags"
+    },
+    {
+      "expected": {
+        "reason": "invalid_entry",
+        "result": "failed:invalid"
+      },
+      "requests": [
+        {
+          "path": "/api/tags"
+        }
+      ],
+      "responses": [
+        {
+          "models": [
+            {
+              "details": {
+                "family": 17
+              },
+              "name": "test"
+            }
+          ]
+        }
+      ],
+      "scanner": "ollama-tags"
+    },
+    {
+      "expected": {
+        "httpStatus": 429,
+        "reason": "rate_limited",
+        "result": "failed:server"
+      },
+      "requests": [
+        {
+          "path": "/models"
+        }
+      ],
+      "responses": [
+        {
+          "error": {
+            "status": 429
+          }
+        }
+      ],
+      "scanner": "openai-models"
+    },
+    {
+      "expected": {
+        "reason": "invalid_entry",
+        "result": "failed:invalid"
+      },
+      "requests": [
+        {
+          "path": "/models",
+          "query": {
+            "pageSize": "1000"
+          }
+        }
+      ],
+      "responses": [
+        {
+          "models": [
+            {
+              "name": "models/"
+            }
+          ]
+        }
+      ],
+      "scanner": "google-models"
+    },
+    {
+      "expected": {
+        "reason": "invalid_entry",
+        "result": "failed:invalid"
+      },
+      "requests": [
+        {
+          "path": "/api/tags"
+        }
+      ],
+      "responses": [
+        {
+          "models": [
+            {
+              "details": {
+                "family": "alpha\nbeta"
+              },
+              "name": "example"
+            }
+          ]
+        }
+      ],
+      "scanner": "ollama-tags"
+    },
+    {
+      "expected": {
+        "reason": "invalid_entry",
+        "result": "failed:invalid"
+      },
+      "requests": [
+        {
+          "path": "/api/tags"
+        }
+      ],
+      "responses": [
+        {
+          "models": [
+            {
+              "details": {
+                "family": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "name": "example"
+            }
+          ]
+        }
+      ],
+      "scanner": "ollama-tags"
+    },
+    {
+      "expected": {
+        "reason": "invalid_entry",
+        "result": "failed:invalid"
+      },
+      "requests": [
+        {
+          "path": "/models"
+        }
+      ],
+      "responses": [
+        {
+          "data": [
+            {
+              "id": "two words"
+            }
+          ]
+        }
+      ],
+      "scanner": "openai-models"
+    },
+    {
+      "expected": {
+        "reason": "invalid_entry",
+        "result": "failed:invalid"
+      },
+      "requests": [
+        {
+          "path": "/models"
+        }
+      ],
+      "responses": [
+        {
+          "data": [
+            {
+              "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ]
+        }
+      ],
+      "scanner": "openai-models"
+    }
+  ],
+  "display": {
+    "expected-divergence": "P4D-266",
+    "input": {
+      "data": [
+        {
+          "id": "sample",
+          "name": "Report A​"
+        }
+      ]
+    },
+    "observed": {
+      "duplicates": 0,
+      "entries": [
+        {
+          "displayName": "Report A​",
+          "id": "sample"
+        }
+      ],
+      "pages": 1
+    }
+  },
+  "entryLimit": [
+    {
+      "count": 5000,
+      "expected": {
+        "duplicates": 4999
+      },
+      "sample": {
+        "id": "example"
+      }
+    },
+    {
+      "count": 5001,
+      "expected": {
+        "reason": "too_many_entries"
+      },
+      "sample": {
+        "id": "example"
+      }
+    }
+  ],
+  "source": "packages/core/src/discovery/scanners"
+}

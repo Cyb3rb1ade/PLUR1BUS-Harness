@@ -1,0 +1,671 @@
+{
+  "agent": "fixture-web-fetch/1",
+  "cases": [
+    {
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/page"
+          },
+          "response": {
+            "chunksBase64": [
+              "PG1haW4+PGhlYWRlcj48aDE+RWRpdGlvbjwvaDE+PC9oZWFkZXI+PHA+UmVhZCA8YSBocmVmPSIvbm90ZXMiPnRoZSBub3RlczwvYT4uPC9wPjxoMj5Mb2NhbDwvaDI+PHA+VGhlIHRvd24gaGFsbCBoYXMgb3BlbmVkLjwvcD48L21haW4+"
+            ],
+            "headers": {
+              "content-type": "text/html"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "section-and-links",
+      "steps": [
+        {
+          "agentId": "reader-a",
+          "expected": {
+            "contentType": "text/html",
+            "fetchedAt": "2026-11-23T10:00:00.000Z",
+            "finalUrl": "<origin>/page",
+            "fromCache": false,
+            "markdown": "## Local\n\nThe town hall has opened.",
+            "provenance": {
+              "fetchedAt": "2026-11-23T10:00:00.000Z",
+              "source": "web",
+              "trust": "untrusted",
+              "url": "<origin>/page"
+            },
+            "renderUsed": false,
+            "sections": [
+              {
+                "id": "s0",
+                "title": "Edition",
+                "tokens": 15
+              },
+              {
+                "id": "s1",
+                "title": "Local",
+                "tokens": 9
+              }
+            ],
+            "status": 200
+          },
+          "options": {
+            "section": "Local"
+          },
+          "path": "/page"
+        }
+      ],
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/page"
+          },
+          "response": {
+            "chunksBase64": [
+              "eyJ6IjoxLjAsIjIiOiJiIiwiMSI6ImEiLCJ6Ijo0LCJuZXN0ZWQiOnsic2Vjb25kIjpmYWxzZSwiZmlyc3QiOm51bGx9fQ=="
+            ],
+            "headers": {
+              "content-type": "application/json; charset=utf-8"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "guarded-json-order",
+      "steps": [
+        {
+          "agentId": "reader-a",
+          "expected": {
+            "contentType": "application/json",
+            "fetchedAt": "2026-11-23T10:00:00.000Z",
+            "finalUrl": "<origin>/page",
+            "fromCache": false,
+            "markdown": "{\n  \"1\": \"a\",\n  \"2\": \"b\",\n  \"z\": 4,\n  \"nested\": {\n    \"second\": false,\n    \"first\": null\n  }\n}",
+            "provenance": {
+              "fetchedAt": "2026-11-23T10:00:00.000Z",
+              "source": "web",
+              "trust": "untrusted",
+              "url": "<origin>/page"
+            },
+            "renderUsed": false,
+            "sections": [
+              {
+                "id": "s0",
+                "title": "(start)",
+                "tokens": 24
+              }
+            ],
+            "status": 200
+          },
+          "options": {},
+          "path": "/page"
+        }
+      ],
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/page"
+          },
+          "response": {
+            "chunksBase64": [
+              "PG1haW4+PGhlYWRlcj48aDE+RWRpdGlvbjwvaDE+PC9oZWFkZXI+PHA+UmVhZCA8YSBocmVmPSIvbm90ZXMiPnRoZSBub3RlczwvYT4uPC9wPjxoMj5Mb2NhbDwvaDI+PHA+VGhlIHRvd24gaGFsbCBoYXMgb3BlbmVkLjwvcD48L21haW4+"
+            ],
+            "headers": {
+              "content-type": "text/html"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "raw-html",
+      "steps": [
+        {
+          "agentId": "reader-a",
+          "expected": {
+            "contentType": "text/html",
+            "fetchedAt": "2026-11-23T10:00:00.000Z",
+            "finalUrl": "<origin>/page",
+            "fromCache": false,
+            "markdown": "<main><header><h1>Edition</h1></header><p>Read <a href=\"/notes\">the notes</a>.</p><h2>Local</h2><p>The town hall has opened.</p></main>",
+            "provenance": {
+              "fetchedAt": "2026-11-23T10:00:00.000Z",
+              "source": "web",
+              "trust": "untrusted",
+              "url": "<origin>/page"
+            },
+            "renderUsed": false,
+            "sections": [
+              {
+                "id": "s0",
+                "title": "(start)",
+                "tokens": 34
+              }
+            ],
+            "status": 200
+          },
+          "options": {
+            "mode": "raw"
+          },
+          "path": "/page"
+        }
+      ],
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/page"
+          },
+          "response": {
+            "chunksBase64": [
+              "PCFET0NUWVBFIGh0bWw+PGh0bWw+PG1haW4+PGhlYWRlcj48aDE+RWRpdGlvbjwvaDE+PC9oZWFkZXI+PHA+UmVhZCA8YSBocmVmPSIvbm90ZXMiPnRoZSBub3RlczwvYT4uPC9wPjxoMj5Mb2NhbDwvaDI+PHA+VGhlIHRvd24gaGFsbCBoYXMgb3BlbmVkLjwvcD48L21haW4+PC9odG1sPg=="
+            ],
+            "headers": {
+              "content-type": "application/octet-stream"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "html-from-generic-type",
+      "steps": [
+        {
+          "agentId": "reader-a",
+          "expected": {
+            "contentType": "text/html",
+            "fetchedAt": "2026-11-23T10:00:00.000Z",
+            "finalUrl": "<origin>/page",
+            "fromCache": false,
+            "markdown": "# Edition\n\nRead [the notes](<origin>/notes).\n\n## Local\n\nThe town hall has opened.",
+            "provenance": {
+              "fetchedAt": "2026-11-23T10:00:00.000Z",
+              "source": "web",
+              "trust": "untrusted",
+              "url": "<origin>/page"
+            },
+            "renderUsed": false,
+            "sections": [
+              {
+                "id": "s0",
+                "title": "Edition",
+                "tokens": 15
+              },
+              {
+                "id": "s1",
+                "title": "Local",
+                "tokens": 9
+              }
+            ],
+            "status": 200
+          },
+          "options": {},
+          "path": "/page"
+        }
+      ],
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/page"
+          },
+          "response": {
+            "chunksBase64": [
+              "PHA+QSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gQSBwcmludGVkIGVkaXRpb24uIEEgcHJpbnRlZCBlZGl0aW9uLiBBIHByaW50ZWQgZWRpdGlvbi4gPC9wPg=="
+            ],
+            "headers": {
+              "content-type": "text/html"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "maxExtractedTokens": 128,
+      "name": "html-output-over-budget",
+      "steps": [
+        {
+          "agentId": "reader-a",
+          "expected": {
+            "code": "too-large"
+          },
+          "options": {},
+          "path": "/page"
+        }
+      ],
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/page"
+          },
+          "response": {
+            "chunksBase64": [
+              "UGxlYXNlIHRyeSBhZ2FpbiBsYXRlci4="
+            ],
+            "headers": {
+              "content-type": "text/plain",
+              "retry-after": "7"
+            },
+            "status": 429
+          }
+        }
+      ],
+      "name": "rate-limit",
+      "steps": [
+        {
+          "agentId": "reader-a",
+          "expected": {
+            "code": "rate-limited",
+            "retryAfterSeconds": 7,
+            "status": 429
+          },
+          "options": {},
+          "path": "/page"
+        }
+      ],
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/page"
+          },
+          "response": {
+            "chunksBase64": [
+              "U2VjdGlvbiAxIGhhcyBhIHJlYWRhYmxlIHNlbnRlbmNlIGFuZCBhIHNob3J0IGRldGFpbC4g8J+MmQoKU2VjdGlvbiAyIGhhcyBhIHJlYWRhYmxlIHNlbnRlbmNlIGFuZCBhIHNob3J0IGRldGFpbC4g8J+MmQoKU2VjdGlvbiAzIGhhcyBhIHJlYWRhYmxlIHNlbnRlbmNlIGFuZCBhIHNob3J0IGRldGFpbC4g8J+MmQoKU2VjdGlvbiA0IGhhcyBhIHJlYWRhYmxlIHNlbnRlbmNlIGFuZCBhIHNob3J0IGRldGFpbC4g8J+MmQoKU2VjdGlvbiA1IGhhcyBhIHJlYWRhYmxlIHNlbnRlbmNlIGFuZCBhIHNob3J0IGRldGFpbC4g8J+MmQoKU2VjdGlvbiA2IGhhcyBhIHJlYWRhYmxlIHNlbnRlbmNlIGFuZCBhIHNob3J0IGRldGFpbC4g8J+MmQoKU2VjdGlvbiA3IGhhcyBhIHJlYWRhYmxlIHNlbnRlbmNlIGFuZCBhIHNob3J0IGRldGFpbC4g8J+MmQoKU2VjdGlvbiA4IGhhcyBhIHJlYWRhYmxlIHNlbnRlbmNlIGFuZCBhIHNob3J0IGRldGFpbC4g8J+MmQoKU2VjdGlvbiA5IGhhcyBhIHJlYWRhYmxlIHNlbnRlbmNlIGFuZCBhIHNob3J0IGRldGFpbC4g8J+MmQoKU2VjdGlvbiAxMCBoYXMgYSByZWFkYWJsZSBzZW50ZW5jZSBhbmQgYSBzaG9ydCBkZXRhaWwuIPCfjJkKClNlY3Rpb24gMTEgaGFzIGEgcmVhZGFibGUgc2VudGVuY2UgYW5kIGEgc2hvcnQgZGV0YWlsLiDwn4yZCgpTZWN0aW9uIDEyIGhhcyBhIHJlYWRhYmxlIHNlbnRlbmNlIGFuZCBhIHNob3J0IGRldGFpbC4g8J+MmQoKU2VjdGlvbiAxMyBoYXMgYSByZWFkYWJsZSBzZW50ZW5jZSBhbmQgYSBzaG9ydCBkZXRhaWwuIPCfjJkKClNlY3Rpb24gMTQgaGFzIGEgcmVhZGFibGUgc2VudGVuY2UgYW5kIGEgc2hvcnQgZGV0YWlsLiDwn4yZCgpTZWN0aW9uIDE1IGhhcyBhIHJlYWRhYmxlIHNlbnRlbmNlIGFuZCBhIHNob3J0IGRldGFpbC4g8J+MmQoKU2VjdGlvbiAxNiBoYXMgYSByZWFkYWJsZSBzZW50ZW5jZSBhbmQgYSBzaG9ydCBkZXRhaWwuIPCfjJkKClNlY3Rpb24gMTcgaGFzIGEgcmVhZGFibGUgc2VudGVuY2UgYW5kIGEgc2hvcnQgZGV0YWlsLiDwn4yZCgpTZWN0aW9uIDE4IGhhcyBhIHJlYWRhYmxlIHNlbnRlbmNlIGFuZCBhIHNob3J0IGRldGFpbC4g8J+MmQ=="
+            ],
+            "headers": {
+              "content-type": "text/plain"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "agent-bound-cursor-no-second-request",
+      "steps": [
+        {
+          "agentId": "reader-a",
+          "expected": {
+            "contentType": "text/plain",
+            "cursor": "010203040506.348",
+            "fetchedAt": "2026-11-23T10:00:00.000Z",
+            "finalUrl": "<origin>/page",
+            "fromCache": false,
+            "markdown": "Section 1 has a readable sentence and a short detail. 🌙\n\nSection 2 has a readable sentence and a short detail. 🌙\n\nSection 3 has a readable sentence and a short detail. 🌙\n\nSection 4 has a readable sentence and a short detail. 🌙\n\nSection 5 has a readable sentence and a short detail. 🌙\n\nSection 6 has a readable sentence and a short detail. 🌙",
+            "provenance": {
+              "fetchedAt": "2026-11-23T10:00:00.000Z",
+              "source": "web",
+              "trust": "untrusted",
+              "url": "<origin>/page"
+            },
+            "renderUsed": false,
+            "sections": [
+              {
+                "id": "s0",
+                "title": "(start)",
+                "tokens": 263
+              }
+            ],
+            "status": 200
+          },
+          "options": {
+            "maxTokens": 100
+          },
+          "path": "/page"
+        },
+        {
+          "agentId": "reader-b",
+          "expected": {
+            "code": "cursor-expired"
+          },
+          "options": {
+            "cursor": "010203040506.348",
+            "maxTokens": 100
+          },
+          "path": "/page"
+        },
+        {
+          "agentId": "reader-a",
+          "expected": {
+            "contentType": "text/plain",
+            "cursor": "010203040506.699",
+            "fetchedAt": "2026-11-23T10:00:00.000Z",
+            "finalUrl": "<origin>/page",
+            "fromCache": true,
+            "markdown": "Section 7 has a readable sentence and a short detail. 🌙\n\nSection 8 has a readable sentence and a short detail. 🌙\n\nSection 9 has a readable sentence and a short detail. 🌙\n\nSection 10 has a readable sentence and a short detail. 🌙\n\nSection 11 has a readable sentence and a short detail. 🌙\n\nSection 12 has a readable sentence and a short detail. 🌙",
+            "provenance": {
+              "fetchedAt": "2026-11-23T10:00:00.000Z",
+              "source": "web",
+              "trust": "untrusted",
+              "url": "<origin>/page"
+            },
+            "renderUsed": false,
+            "sections": [
+              {
+                "id": "s0",
+                "title": "(start)",
+                "tokens": 263
+              }
+            ],
+            "status": 200
+          },
+          "options": {
+            "cursor": "010203040506.348",
+            "maxTokens": 100
+          },
+          "path": "/page"
+        }
+      ],
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/robots.txt"
+          },
+          "response": {
+            "chunksBase64": [
+              "VXNlci1hZ2VudDogKgpEaXNhbGxvdzogL2RyYWZ0Cg=="
+            ],
+            "headers": {
+              "content-type": "text/plain"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/page"
+          },
+          "response": {
+            "chunksBase64": [],
+            "headers": {
+              "location": "/edition"
+            },
+            "status": 302
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/edition"
+          },
+          "response": {
+            "chunksBase64": [
+              "PG1haW4+PGhlYWRlcj48aDE+RWRpdGlvbjwvaDE+PC9oZWFkZXI+PHA+UmVhZCA8YSBocmVmPSIvbm90ZXMiPnRoZSBub3RlczwvYT4uPC9wPjxoMj5Mb2NhbDwvaDI+PHA+VGhlIHRvd24gaGFsbCBoYXMgb3BlbmVkLjwvcD48L21haW4+"
+            ],
+            "headers": {
+              "content-type": "text/html"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/edition"
+          },
+          "response": {
+            "chunksBase64": [
+              "PG1haW4+PGhlYWRlcj48aDE+RWRpdGlvbjwvaDE+PC9oZWFkZXI+PHA+UmVhZCA8YSBocmVmPSIvbm90ZXMiPnRoZSBub3RlczwvYT4uPC9wPjxoMj5Mb2NhbDwvaDI+PHA+VGhlIHRvd24gaGFsbCBoYXMgb3BlbmVkLjwvcD48L21haW4+"
+            ],
+            "headers": {
+              "content-type": "text/html"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "crawl-cache-and-redirect",
+      "steps": [
+        {
+          "agentId": "reader-a",
+          "expected": {
+            "contentType": "text/html",
+            "fetchedAt": "2026-11-23T10:00:00.000Z",
+            "finalUrl": "<origin>/edition",
+            "fromCache": false,
+            "markdown": "# Edition\n\nRead [the notes](<origin>/notes).\n\n## Local\n\nThe town hall has opened.",
+            "provenance": {
+              "fetchedAt": "2026-11-23T10:00:00.000Z",
+              "source": "web",
+              "trust": "untrusted",
+              "url": "<origin>/edition"
+            },
+            "renderUsed": false,
+            "sections": [
+              {
+                "id": "s0",
+                "title": "Edition",
+                "tokens": 15
+              },
+              {
+                "id": "s1",
+                "title": "Local",
+                "tokens": 9
+              }
+            ],
+            "status": 200
+          },
+          "options": {
+            "crawl": true
+          },
+          "path": "/page"
+        },
+        {
+          "agentId": "reader-a",
+          "expected": {
+            "contentType": "text/html",
+            "fetchedAt": "2026-11-23T10:00:00.000Z",
+            "finalUrl": "<origin>/edition",
+            "fromCache": false,
+            "markdown": "# Edition\n\nRead [the notes](<origin>/notes).\n\n## Local\n\nThe town hall has opened.",
+            "provenance": {
+              "fetchedAt": "2026-11-23T10:00:00.000Z",
+              "source": "web",
+              "trust": "untrusted",
+              "url": "<origin>/edition"
+            },
+            "renderUsed": false,
+            "sections": [
+              {
+                "id": "s0",
+                "title": "Edition",
+                "tokens": 15
+              },
+              {
+                "id": "s1",
+                "title": "Local",
+                "tokens": 9
+              }
+            ],
+            "status": 200
+          },
+          "options": {
+            "crawl": true
+          },
+          "path": "/edition"
+        },
+        {
+          "agentId": "reader-a",
+          "expected": {
+            "code": "robots-disallowed"
+          },
+          "options": {
+            "crawl": true
+          },
+          "path": "/draft"
+        }
+      ],
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/robots.txt"
+          },
+          "response": {
+            "chunksBase64": [
+              "VXNlci1hZ2VudDogKgpEaXNhbGxvdzogL2RyYWZ0Cg=="
+            ],
+            "headers": {
+              "content-type": "text/plain"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/page"
+          },
+          "response": {
+            "chunksBase64": [],
+            "headers": {
+              "location": "/draft"
+            },
+            "status": 302
+          }
+        }
+      ],
+      "name": "crawl-refusal-after-a-regular-redirect",
+      "steps": [
+        {
+          "agentId": "reader-a",
+          "expected": {
+            "code": "robots-disallowed"
+          },
+          "options": {
+            "crawl": true
+          },
+          "path": "/page"
+        }
+      ],
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/robots.txt"
+          },
+          "response": {
+            "chunksBase64": [
+              "Tm90IGZvdW5k"
+            ],
+            "status": 404
+          }
+        },
+        {
+          "request": {
+            "method": "GET",
+            "path": "/page"
+          },
+          "response": {
+            "chunksBase64": [
+              "PG1haW4+PGhlYWRlcj48aDE+RWRpdGlvbjwvaDE+PC9oZWFkZXI+PHA+UmVhZCA8YSBocmVmPSIvbm90ZXMiPnRoZSBub3RlczwvYT4uPC9wPjxoMj5Mb2NhbDwvaDI+PHA+VGhlIHRvd24gaGFsbCBoYXMgb3BlbmVkLjwvcD48L21haW4+"
+            ],
+            "headers": {
+              "content-type": "text/html"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "missing-robots",
+      "steps": [
+        {
+          "agentId": "reader-a",
+          "expected": {
+            "contentType": "text/html",
+            "fetchedAt": "2026-11-23T10:00:00.000Z",
+            "finalUrl": "<origin>/page",
+            "fromCache": false,
+            "markdown": "# Edition\n\nRead [the notes](<origin>/notes).\n\n## Local\n\nThe town hall has opened.",
+            "provenance": {
+              "fetchedAt": "2026-11-23T10:00:00.000Z",
+              "source": "web",
+              "trust": "untrusted",
+              "url": "<origin>/page"
+            },
+            "renderUsed": false,
+            "sections": [
+              {
+                "id": "s0",
+                "title": "Edition",
+                "tokens": 15
+              },
+              {
+                "id": "s1",
+                "title": "Local",
+                "tokens": 9
+              }
+            ],
+            "status": 200
+          },
+          "options": {
+            "crawl": true
+          },
+          "path": "/page"
+        }
+      ],
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "method": "GET",
+            "path": "/robots.txt"
+          },
+          "response": {
+            "chunksBase64": [
+              "UGxlYXNlIHRyeSBhZ2FpbiBsYXRlci4="
+            ],
+            "status": 503
+          }
+        }
+      ],
+      "name": "temporarily-unavailable-robots",
+      "steps": [
+        {
+          "agentId": "reader-a",
+          "expected": {
+            "code": "robots-disallowed"
+          },
+          "options": {
+            "crawl": true
+          },
+          "path": "/page"
+        }
+      ],
+      "transport": "http"
+    }
+  ],
+  "nowMs": 1795428000000,
+  "source": "packages/core/src/tools/web/fetch.ts"
+}

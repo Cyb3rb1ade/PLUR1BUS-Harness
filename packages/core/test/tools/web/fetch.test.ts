@@ -17,6 +17,19 @@ const send = (ct: string, body: string | Buffer, status = 200, extra: Record<str
 };
 
 describe("web.fetch: happy path", () => {
+  it("charges the normalized inline code against the token budget", async () => {
+    const html = "<p>Edition <code>local" + " ".repeat(5000) + "copy</code></p>";
+    const server = await startStub(send("text/html", html));
+    try {
+      const result = await mk({ userAgent: "fixture", maxExtractedTokens: 128 })
+        .fetch({ url: "http://127.0.0.1:" + server.port + "/edition" }, { agentId: "fixture" });
+      assert.equal(result.markdown, "Edition `local copy`");
+      assert.equal(result.sections[0]?.tokens, 5);
+    } finally {
+      await server.close();
+    }
+  });
+
   it("returns Markdown, metadata, sections and a provenance envelope; sends the honest User-Agent", async () => {
     const s = await startStub(send("text/html; charset=utf-8", page("<main><h1>Hello</h1><p>World <a href='/x'>link</a></p></main>")));
     try {

@@ -1286,3 +1286,702 @@ under R-K-33b. See [P4D-164](#p4d-164).
 | <a id="p4d-192"></a>P4D-192 | K11-D9 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | info | flip | The D2 golden test compares capability counters for identical events. The dispatch path that produces those events in a live turn still needs wiring. |
 | <a id="p4d-193"></a>P4D-193 | K11-D10 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | info | Rust design | The Rust-owned receipt database uses WAL. Marker checks cover the database and sidecars for accidental content. |
 | <a id="p4d-194"></a>P4D-194 | K11-D11 | [P4-45](../superpowers/plans/phase4/MODULE-MAP.md#p4-k-libraries) · `crates/plur1bus-core/src/decision/receipts/` | info | Rust design | A receipt records the injected clock at write time rather than trusting a host-supplied data timestamp. |
+
+<a id="p4d-203"></a>
+
+## P4D-203 — Hostctl shell control inputs (R-K-34)
+
+Rust excludes BASHOPTS, SHELLOPTS and PS4 from inherited and requested Hostctl
+environment values. The literal proc.shell subset excludes the arithmetic
+assignment builtin. The TypeScript admission policy has the earlier rules.
+
+<a id="p4d-195"></a>
+
+## P4D-195 — provider header redaction after normalization
+
+TypeScript builds its provider-error redaction targets from the original credential and configured
+extra headers. HTTP header normalization can change that spelling, so a provider error that
+includes the corresponding sent value can retain it. The Rust library redacts the sent value
+and the original. The provider exporter pins the two outcomes with synthetic markers on a
+loopback fixture.
+
+<a id="p4d-196"></a>
+
+## P4D-196 — invalid reasoning descriptors
+
+The directive builder can receive catalog data outside its declared TypeScript types. The recorded
+cases cover a string toggle, a truthy non-boolean adaptive flag, an unknown kind kept with an adaptive
+flag, and missing or numeric-string budget bounds. The adapter already validates its wire directive.
+Rust uses a boolean toggle, enables adaptive thinking only for a declared effort flag, and requires
+numeric budget bounds. The six catalog cases are recorded from the real TypeScript builder. A null
+effort value falls back to the chosen level in both languages.
+
+<a id="p4d-202"></a>
+
+## P4D-202 — cloud voice JSON responses have no byte limit
+
+Security, W3, reported from static review. The voice HTTP client calls
+`Response.json()` on a successful response. The production voice transport
+passes the body stream through to the client. The headers deadline has already
+ended by the time parsing starts. Listing voices limits the number of pages,
+but accepts the full contents of each page before iterating its entries. An
+oversized response can exhaust process memory. No live provider or stress
+test was used. See [HTTP parsing](../../packages/voice-providers/src/http.ts),
+[voice transport](../../packages/core/src/voice/transport.ts) and
+[voice listing](../../packages/voice-providers/src/providers/elevenlabs.ts).
+
+R-W-12 requires a 1 MiB decoded byte limit on each successful JSON body and
+one absolute deadline covering both headers and the complete body. The
+Rust reader checks the limit before parsing and reports overflow as an
+unretryable `bad_response`. Provider error bodies are dropped unread.
+
+<a id="p4d-204"></a>
+
+## P4D-204 — buffered cloud voice audio
+
+The Rust buffered audio path reads at most 4 MiB decoded bytes. It shares the
+absolute request deadline across headers and body. Polly uses the same audio
+limit and delegates signed calls to a host port that must honor that deadline.
+
+<a id="p4d-205"></a>
+
+## P4D-205 — structured realtime voice messages
+
+Each assembled structured voice message is limited to 1 MiB, including
+fragmented WebSocket messages. The host supplies finite handshake and I/O
+deadlines. The runtime delivers decoded events on demand.
+
+<a id="p4d-206"></a>
+
+## P4D-206 — Gemini realtime credentials
+
+The Rust Gemini handshake accepts only the header form of the credential.
+The TypeScript gateway fallback can put credentials in a URL query. The
+Rust host can use a gateway that forwards the credential header.
+
+<a id="p4d-207"></a>
+
+## P4D-207 — robots.txt byte ceiling
+
+The TypeScript crawl path limits the fetched body to 512 KiB and passes up
+to 500 Ki UTF-16 code units to the parser. The Rust parser rejects a complete
+body over 500 KiB of UTF-8 bytes. Its eventual fetch port must limit decoded
+bytes before parsing and map overflow to a denied crawl, keeping an incomplete
+policy out of the crawler's cache.
+
+<a id="p4d-208"></a>
+
+## P4D-208 — stdio MCP bridge HTTP replies
+
+The local stdio server calls `fetch` and buffers the API's response with
+`Response.text()`. This forwarding path has no explicit body byte ceiling
+or deadline. The Rust JSON reader enforces 1 MiB on decoded replies and uses
+the request's absolute deadline for every read. Rejected HTTP statuses return
+only their numeric code. The host connection must enforce the deadline while
+blocked in a read and release the body after a failure.
+
+<a id="p4d-209"></a>
+
+## P4D-209 — A2A Agent Card advertisement boundary
+
+The Rust card builder requires agent opt-in at the projection boundary,
+validates an HTTP(S) base URL without user information, query or fragment,
+and excludes path-navigation identities. The TypeScript handler enforces
+opt-in before it invokes the builder. The Rust field limits count UTF-16
+units and stop before a scalar that would cross the limit. TypeScript slicing
+can emit a lone surrogate at that boundary.
+
+<a id="p4d-210"></a>
+
+## P4D-210 — cloud synthesis stream deadline and completion
+
+The Rust HTTP audio stream reads one decoded chunk at a time under the
+request's absolute deadline. WebSocket synthesis uses the same absolute
+deadline for writes and reads, admits structured frames up to the
+P4D-205 ceiling, and exposes usage only after the text input and the provider's
+final frame both complete. The TypeScript HTTP deadline ends at the headers.
+The TypeScript socket consumer queues audio frames asynchronously. The native
+host owns the ordering of calls to the blocking dialogue.
+
+<a id="p4d-211"></a>
+
+## P4D-211 — streaming text admission and usage identifiers
+
+The Rust Polly sentence splitter admits up to 1 MiB per input delta and
+keeps up to 1 MiB of unfinished text. Individual signed requests use Polly's
+3,000 UTF-16 code unit ceiling. The TypeScript sentence splitter has no bound
+on unfinished text. The Rust realtime host supplies the Gemini session
+identifier used to deduplicate usage events. Audio and transcripts remain
+application data and are omitted from event Debug output.
+
+<a id="p4d-212"></a>
+
+## P4D-212 — retry after publishing a media result
+
+The TypeScript JobRunner can publish a result and then persist a failed job when
+budget settlement fails. Recovery scans queued and running jobs, so it never
+reconciles that failed row with its already published output. The Rust runner
+returns the settlement error with the durable row still running. On recovery it
+finds the output, retries settlement under the same job id, and persists the
+success without calling the provider again. The budget port owns durable,
+idempotent settlement. The focused Rust failure test covers the retry boundary.
+
+<a id="p4d-219"></a>
+
+## P4D-219 — Polly diagnostic body admission
+
+The TypeScript SDK may read an AWS diagnostics body before classifying a
+failure. The Rust transport classifies a known error header without reading
+the body. A body-only error is decoded under the original request deadline
+and limited to 64 KiB. Overflow yields `bad_response`. Provider message text
+is discarded. The boundary and delayed-body tests cover both restrictions.
+
+<a id="p4d-220"></a>
+
+## P4D-220 — generated media manifest admission
+
+The Rust output store bounds a generated manifest to 1 MiB when reading it.
+The storage port applies the size limit during the read. The library checks
+the returned size, schema and output identity before handing the manifest to
+its caller, and applies the same bound before publishing new manifests.
+
+<a id="p4d-221"></a>
+
+## P4D-221 — document review font family matching
+
+The TypeScript font check in the document library compares lowercased
+font references against the original case of the embedded families. This
+reports an error for embedded Inter. Rust normalizes both names and still
+flags families absent from the document and the system fallback list. The
+fixture records the TypeScript finding. The Rust check also resolves the
+template's three CSS font variables against their declared family lists.
+
+<a id="p4d-222"></a>
+
+## P4D-222 — document widow check with inline markup
+
+The Chromium layout check addresses the last words of each paragraph
+relative to the complete paragraph text. The TypeScript script applies
+those offsets to the first child alone. A paragraph with emphasis or a
+link can therefore abort the check. The Rust asset maps word offsets to
+the corresponding text nodes before comparing line positions.
+
+<a id="p4d-223"></a>
+
+## P4D-223 — media adapter structured response and diagnostics limits
+
+The TypeScript media transport reads successful JSON and diagnostic responses
+under one 64 MiB limit. Under R-W-13 the Rust transport bounds decoded JSON
+at 1 MiB and diagnostic bodies at 64 KiB. Declared lengths can reject early.
+The reader counts the bytes it receives, including after gzip decoding.
+HTTP setup, retry waits and body reads share the absolute operation deadline.
+An in-flight blocking read can defer cancellation until that deadline (R-W-9).
+The adapters apply separate file limits to binary media.
+
+
+<a id="p4d-224"></a>
+
+## P4D-224 — managed discovery reuses the Apple FM body cap
+
+The managed Unix transport shares the provider connector's one MiB ceiling
+and keeps the original deadline through body EOF. A response above the cap
+returns `response_too_large`; the TypeScript discovery path allows four MiB.
+TCP discovery retains the TypeScript four MiB per-page and eight MiB total
+bounds. Provider error bodies are not read by the Rust scanner.
+
+<a id="p4d-226"></a>
+
+## P4D-226 — discovery transport diagnostics
+
+The Rust scanner binds a credential lease to its authorized origin before
+admitting a request. Its errors omit headers and response bodies. If the
+signed catalogue falls back to an authenticated cached view after a transport
+failure, Rust preserves the failure code and uses a generic diagnostic message.
+The TypeScript view can name the request host.
+
+<a id="p4d-227"></a>
+
+## P4D-227 — guarded web transport response bounds
+
+The Rust web transport admits up to four nested content encodings and keeps
+diagnostic response prefixes at or below 64 KiB. The TypeScript client permits
+a coding list of arbitrary depth and uses the diagnostic limit supplied by its
+caller. Body decoding and each authorized redirect share the original
+deadline. A blocking read can defer cancellation until that deadline (R-W-9).
+
+<a id="p4d-228"></a>
+
+## P4D-228 — readable HTML table admission
+
+The Rust renderer refuses table grids whose padded projection would exceed
+300,000 cells. It retains the legacy HTML element and nesting limits.
+Oversized tables fail the extraction as a whole. The TypeScript renderer
+does not apply a separate bound to the padded table grid.
+
+<a id="p4d-229"></a>
+
+## P4D-229 — MCP HTTP response deadlines and limits
+
+The generic Rust MCP backend reads structured HTTP replies up to the 16 MiB
+SDK ceiling and caps error replies at 64 KiB. It applies a single finite
+deadline from the egress decision through the last read and counts raw SSE
+event bytes before parsing. The composed connection keeps the TypeScript
+1 MiB frame limit. The HTTP adapter asks for identity coding and rejects
+other encodings. Error diagnostics contain status and category. The adapter
+discards peer-provided error text and arbitrary error data. It keeps only
+known version names for a bounded discovery fallback.
+
+<a id="p4d-230"></a>
+
+## P4D-230 — bounds for MCP OAuth exchanges
+
+Rust applies a finite, shared deadline to discovery, the authorization
+interaction and token exchange. It accepts at most 1 MiB of structured
+metadata or token data and at most 64 KiB from unsuccessful replies. The
+credential-free discovery and token requests use the pinned HTTP transport.
+Errors retain a fixed category and omit response bodies.
+
+<a id="p4d-231"></a>
+
+## P4D-231 — deadline for incomplete MCP stdio frames
+
+Rust keeps the 1 MiB line boundary and sets one deadline when an incomplete
+line starts. The deadline survives read cancellation and applies to the
+remainder of that line. If a send stops after taking the writer, the stream
+closes so a partial write cannot prefix a new frame. Process-group termination
+and stderr ownership remain with the launcher port.
+
+<a id="p4d-232"></a>
+
+## P4D-232 — MCP runtime request IDs and SDK logging
+
+The rmcp client numbers its own modern requests from zero. The TypeScript
+modern peer numbers them from one. The IDs are local correlation values,
+and the replay accounts for the offset while comparing the other request
+bytes. The Rust SDK runs on a dedicated thread with a scoped tracing
+dispatcher so that SDK events carrying peer data cannot enter host logs.
+The host still applies the shared wire-record filter to the HTTP library.
+
+<a id="p4d-233"></a>
+
+## P4D-233 — content-free MCP server diagnostics
+
+The Rust HTTP protocol uses the same JSON-RPC codes for mismatched
+MCP parameter headers. Its message omits parameter-header names and
+values. Tool lookup likewise uses one response for both an unavailable
+tool and a name the actor is not allowed to use.
+
+<a id="p4d-234"></a>
+
+## P4D-234 — MCP tool output schema admission
+
+Like TypeScript, the native client checks a structural copy of a tool's output
+schema with regex keywords removed. Rust also refuses schema references and
+caps schema and instance nodes, nesting, container sizes and validation work.
+The original descriptor remains available to the caller. A refused schema
+does not authorize the call. Validation errors omit peer diagnostics and
+response contents.
+
+<a id="p4d-235"></a>
+
+## P4D-235 — Signed A2A 1.0 cards and peer pins
+
+The Rust library validates typed fields before serializing the SDK's signed
+card projection. It rejects ambiguous camelCase and snake_case fields,
+ambiguous security alternatives, coercions of malformed field types, and
+non-scalar Unicode. The original TypeScript SDK coerces some malformed
+fields. Rust uses the registered key, key ID and RFC 7638 fingerprint. The
+single usable JSON-RPC 1.0 endpoint must share the registered card origin.
+The host records explicit human confirmation bound to the peer revision,
+key fingerprint and endpoint. Each operation verifies the card again.
+
+<a id="p4d-236"></a>
+
+## P4D-236 — A2A 0.3 request and event boundaries
+
+The Rust HTTP adapter refuses non-loopback bindings or an unmatched Host
+before reading an incoming body. It retains the one MiB request cap and
+the smaller limits for Parts. Diagnostic messages use fixed text for
+unsupported Parts, with a 128-unit limit on echoed RPC IDs. The TypeScript
+implementation echoes an unsupported kind and accepts longer string IDs.
+File URI parts are references. Push endpoints with URL fragments are
+refused. The host owns task policy and the filesystem and must enforce the
+provided absolute deadline. A response stream binds to the admitted task
+and context, and releases its subscription on disconnect, expiry or final
+status. Disconnect leaves the task available to a new subscription.
+
+<a id="p4d-237"></a>
+
+## P4D-237 — A2A 1.0 outbound lease and response bounds
+
+The existing Core defaults are 128 KiB for card JSON and 16 KiB each for
+requests and replies. The explicit Core maximum for requests and replies
+is 64 KiB. The Rust transport applies its reply cap to the entire SSE
+response including framing and verifies each event's correlation and task
+scope. An incomplete stream is a protocol error. Under R-W-9, cancellation
+during blocking I/O can be observed as late as the unchanged original
+deadline. The client re-admits each same-origin card redirect. An
+unsuccessful POST is never sent again by the library. Non-success response
+bodies are dropped, and a response error carries only its validated numeric
+RPC code. The host settles attempted writes with unknown outcomes against
+the reservation and uses the shared wire logger from R-W-11.
+
+<a id="p4d-238"></a>
+
+## P4D-238 — Reflected A2A credential representations
+
+The peer client masks known operation credentials and their canonical
+encodings in decoded JSON before returning output. It drops object fields
+whose names would copy a credential. Expansion from replacement text is
+bounded by the same output limit. The trusted host's output redactor
+remains responsible for wider Core secret/PII policy.
+
+<a id="p4d-239"></a>
+
+## P4D-239 — Web result presentation and cancellation
+
+The Rust fetch presenter applies the current redaction context to both
+locations of the final URL and to the content type on fresh and cached
+reads. Search providers mask reflected forms of their own credential
+leases in result text and discard result URLs containing those forms.
+JSON formatting charges UTF-16 output units before appending tokens and
+indentation, then reports the ordinary extraction limit if the projection
+would exceed it. The HTTP adapter also checks the original deadline and
+cancellation after receiving headers, before any bodyless result or
+redirect can leave the transport.
+
+<a id="p4d-240"></a>
+
+## P4D-240 — MCP registry cache admission and HTTP diagnostic IDs
+
+Reading a cached tool list requires current host admission and time in
+the request window. The library checks retirement and time again after
+redaction. Cache admission alone never opens a connection. Modern and
+legacy MCP HTTP requests use the same 128 UTF-16 unit limit on echoed
+string request IDs. The TypeScript server accepts longer IDs.
+
+<a id="p4d-241"></a>
+
+## P4D-241 — IMAP response metadata budget
+
+The TypeScript client limits individual literals. The Rust client also
+limits decoded metadata across a command response to 1 MiB under R-W-13,
+including an IDLE exchange. Mail payload keeps its 50 MiB per-literal
+limit and shares the existing 64 MiB total with metadata. The reader
+charges literal bytes before allocating their buffer. The existing
+SMTP/IMAP error projection uses static protocol descriptions.
+
+<a id="p4d-242"></a>
+
+## P4D-242 — MCP reply backpressure (R-W-16)
+
+The client and stdio server admit up to 64 outstanding peer requests per
+connection. They account separately for retained request IDs and for completed
+replies awaiting a write. At 1 MiB of encoded unwritten replies, admission
+pauses until the writer drains. Completing or cancelling an incoming request
+releases its slot. Host computation can outlast the closing deadline. The
+host must bound the work performed for the 64 admitted requests at the flip.
+
+<a id="p4d-243"></a>
+
+## P4D-243 — MCP event stream reconnect budget (R-W-17)
+
+The Rust HTTP adapter waits at least one second between attempts, doubles that
+delay up to 60 seconds and fails after ten consecutive reconnects without a
+received protocol message. Server retry hints are clamped to the same range.
+The TypeScript implementation has no equivalent bound across successfully
+opened streams.
+
+<a id="p4d-244"></a>
+
+## P4D-244 — MCP and discovery display text (R-W-25)
+
+The Rust MCP descriptor removes invisible display controls from names, titles
+and descriptions. It rejects an empty or ambiguous name after cleaning, and
+uses the original wire name on the connection. Unicode truncation keeps
+complete scalars. Only the supported descriptor fields are projected, including
+an optional `ui://` resource name. The shared display rule also applies to
+model labels when ported in W5.
+
+<a id="p4d-245"></a>
+
+## P4D-245 — MCP call cancellation and connection lifecycle at the flip
+
+The Rust library limits calls to at most 600 seconds and returns on deadline.
+The flip must expose per-call cancellation and terminate the corresponding
+connection and owned process tree on deadline or cancellation, as the
+TypeScript path does. It must notify the registry promptly of termination so
+idle caches and restart state follow the connection.
+
+<a id="p4d-246"></a>
+
+## P4D-246 — MCP session and resume identifiers
+
+Rust accepts only visible ASCII and at most 1 KiB for a peer's session ID
+or a nonempty SSE event ID before retaining it. Empty SSE IDs still clear
+the resume cursor. Plain-HTTP `localhost` admitted by the host must also be
+pinned to loopback.
+
+<a id="p4d-247"></a>
+
+## P4D-247 — Incremental speech sentence boundaries (W3-R1)
+
+The Rust Polly sentence and word scanner keeps its offset between deltas.
+It checks the caller's cancellation and deadline within each scan and retains
+the 1 MiB ceilings on one delta and unfinished text. The TypeScript chunker
+can rescan an unfinished numeric lookahead across deltas.
+
+<a id="p4d-248"></a>
+
+## P4D-248 — Replay policy after sending synthesis input (R-W-22)
+
+Rust retries a body-carrying operation only after HTTP 429 or 503 with a
+valid Retry-After. A transport failure may occur after the vendor has accepted
+the input. This differs from the TypeScript HTTP client. Once audio has
+been delivered, the original error code is preserved and the error is no longer
+retryable. Deadline expiry while reading audio has code `timeout`. The host
+must decide whether to resubmit a paid request after a network failure before
+the first audio chunk. The provider may already have accepted the body.
+
+<a id="p4d-249"></a>
+
+## P4D-249 — Cumulative synthesis stream limits (R-W-23)
+
+The port or WebSocket settings can set a total decoded audio limit and a
+maximum duration for HTTP, Polly, WebSocket synthesis, and realtime streams.
+Rust defaults to 64 MiB and at most 600 seconds. It rejects a chunk before
+delivery when the chunk would exceed the remaining budget. Host overrides
+are capped at 1 GiB. The error code is `stream_limit`. Polly checks the
+remaining budget before submitting the next signed request. The realtime
+deadline applies to the whole session, so a host continuing a longer
+conversation must open a new session.
+
+<a id="p4d-250"></a>
+
+## P4D-250 — Bounded HTML formatting and extraction (R-W-15)
+
+Rust gives retained Markdown blocks, inline buffers and table cell text a
+shared budget of four UTF-16 units per configured extraction token plus
+4,096 units of lookahead, capped at the default response body limit. It
+collapses consecutive blank lines in preformatted blocks before charging
+them where no enclosing list or quotation will prefix the lines.
+Intermediate output can still reach the budget before final whitespace
+trimming. TypeScript checks the token count after rendering.
+
+Error responses use a separate budget of 4,096 UTF-16 units for HTML
+diagnostics. Both rendering paths check the fetch deadline and caller
+cancellation. Exhausting the diagnostic budget preserves the HTTP status
+classification. Interruption propagates as a timeout.
+
+<a id="p4d-251"></a>
+
+## P4D-251 — Private Chromium pipe and document resource policy (R-W-26)
+
+Rust uses the Chromium DevTools pipe and attaches to a single private target.
+It supplies the document through interception, without opening a DevTools
+listener. The content policy allows inline styles and embedded fonts and
+images. The installed Paged.js asset is read from the trusted host path and
+evaluated through the controlled session. Fetch interception checks redirects and
+ordinary subresource requests. The document CSP blocks script execution and
+connections, including script-created workers and WebRTC. Chromium's resolver
+rules block name resolution for other connections, including preconnects.
+The review found that interception alone did not cover WebSockets, shared
+workers, STUN or preconnects. The system proxy is a separate host boundary.
+The launcher clears the inherited environment and assigns a fresh home, temp,
+profile and crash directory for each render. On macOS it also sets
+`MAC_CHROMIUM_TMPDIR` for Chromium and `CFFIXED_USER_HOME` for Foundation.
+The renderer disables crash reporting and component updates and uses the mock
+keychain on macOS. The driver removes the private directory after the process
+exits.
+The driver caps the deadline at 600 seconds and checks cancellation while
+waiting on the pipe. On Windows the process launcher uses the configured Node
+binary to attach the Chromium pipe descriptors.
+
+<a id="p4d-252"></a>
+
+## P4D-252 — Escaped document text survives assembly (R-W-27)
+
+The Rust templates preserve attribute-like text after escaping. The TypeScript
+post-processing pass can remove part of that text. The Rust document policy
+described in P4D-251 also applies to document inputs outside template assembly.
+
+<a id="p4d-253"></a>
+
+## P4D-253 — Bound Telegram REST responses (R-W-13)
+
+The Rust Telegram client accepts up to 1 MiB of structured response data and
+64 KiB of diagnostic response data. The request deadline covers the body.
+TypeScript reads REST JSON without these byte limits. An oversized diagnostic
+body is discarded; the HTTP status and available retry header still apply.
+
+<a id="p4d-254"></a>
+
+## P4D-254 — Bound Slack REST responses (R-W-13)
+
+The Rust Slack client accepts up to 1 MiB of structured response data and
+64 KiB of diagnostic response data. The request deadline covers the body.
+TypeScript reads REST JSON without these byte limits. An oversized diagnostic
+body is discarded; the HTTP status and available retry header still apply.
+
+<a id="p4d-255"></a>
+
+## P4D-255 — Bound Discord REST responses (R-W-13)
+
+The Rust Discord client accepts up to 1 MiB of structured response data and
+64 KiB of diagnostic response data. The request deadline covers the body.
+TypeScript reads REST JSON without these byte limits. An oversized diagnostic
+body is discarded; the HTTP status and available retry header still apply.
+
+<a id="p4d-256"></a>
+
+## P4D-256 — Bind IMAP message bodies to the requested UID
+
+Rust delivers a FETCH body only when the same untagged response names the
+requested UID. TypeScript can take a BODY[] found in another FETCH response.
+A server that omits the UID from the FETCH response cannot deliver that body.
+
+<a id="p4d-257"></a>
+
+## P4D-257 — Drop an incomplete IMAP literal stream
+
+Rust drops the underlying stream when a literal read ends early. In IDLE,
+it returns the timeout to the caller. A timeout while waiting for the next
+response still permits DONE if the stream is synchronized.
+
+<a id="p4d-258"></a>
+
+## P4D-258 — Bound aggregate IMAP reply data
+
+The Rust client bounds literal data and metadata together at 64 MiB, limits
+each literal to 50 MiB and permits at most 8192 literals per response or 8192
+untagged responses per command. TypeScript limits each literal without these
+aggregate ceilings. P4D-241 documents the separate 1 MiB metadata ceiling.
+
+<a id="p4d-259"></a>
+
+## P4D-259 — Apply the MIME part budget across the tree
+
+Rust counts parts across a message and passes the remaining budget into
+each multipart. TypeScript applies the limit separately in each multipart.
+
+<a id="p4d-260"></a>
+
+## P4D-260 — Bound MIME HTML input by UTF-8 bytes
+
+The Rust renderer takes at most 1 MiB of HTML at a UTF-8 character boundary.
+TypeScript caps this input by UTF-16 code units. Rust may shorten multibyte
+HTML earlier.
+
+<a id="p4d-261"></a>
+
+## P4D-261 — Require TLS for remote A2A peers (R-W-19)
+
+The Rust peer client refuses HTTP on a non-loopback socket unless policy
+expressly allows cleartext for that registered peer. The check runs before
+reading the bearer on discovery, each card redirect and every operation.
+TypeScript accepts registered HTTP peers without this separate switch.
+
+<a id="p4d-262"></a>
+
+## P4D-262 — Bound A2A push delivery (R-W-20)
+
+Rust bounds the serialized task at 1 MiB and the diagnostic response at
+64 KiB. It validates and pins each redirect target, refuses user information
+and fragments, and removes both credential headers when the origin changes.
+TypeScript discards the body. Rust uses a bounded reader, preserving the
+status decision when a diagnostic reply is oversized or ends early.
+
+<a id="p4d-263"></a>
+
+## P4D-263 — A2A JSON and card admission
+
+The Rust endpoint rejects numbers outside the finite f64 range and unpaired
+Unicode surrogates as parse errors. The TypeScript parser accepts these JSON
+tokens. The Rust peer card verifier also rejects control characters in
+`kid`, overlong URLs and a JSON-RPC 1.0 interface with no URL.
+
+<a id="p4d-264"></a>
+
+## P4D-264 — Bind plaintext discovery to explicit configuration (R-W-24)
+
+Rust permits remote HTTP only when the host confirms the base URL was
+explicitly configured and the scan carries no lease. TypeScript enforces the
+credential condition through its transport policy. Rust also refuses
+abbreviated IPv4 or IPv4-mapped loopback aliases such as `127.1` and
+`[::ffff:127.0.0.1]`.
+
+<a id="p4d-265"></a>
+
+## P4D-265 — Observe discovery cancellation while reading (R-W-9a)
+
+Discovery checks cancellation before and after body and decoder reads.
+The shared connector polls an in-progress connection or socket operation
+in slices of at most 100 ms. The caller samples its cancellation predicate
+at most 25 ms apart while the worker is waiting. TypeScript forwards an
+abort signal to its asynchronous transport. The total scan budget is
+60 seconds and the maximum for a page is 15 seconds.
+
+<a id="p4d-266"></a>
+
+## P4D-266 — Sanitize model-server display names (R-W-25)
+
+Model scanners first apply the TypeScript admission rule to the original
+name. A C0, DEL or C1 control character or a length above 512 UTF-8 bytes
+fails the complete scan with `invalid_entry`. Accepted names and MCP display
+fields share a Unicode projection that removes control, format, private-use,
+unassigned, line-separator, paragraph-separator and default-ignorable
+characters. Model IDs retain their own grammar. An empty projected name
+falls back to the model ID.
+
+
+<a id="p4d-267"></a>
+
+## P4D-267 — Bounded per-host crawl reservations (W6-N5)
+
+Rust keeps up to 1,024 host reservations. On overflow it removes expired
+reservations first, then evicts the oldest remaining reservation by sequence
+number if needed. A subsequent visit to that evicted host starts a fresh
+reservation. TypeScript can retain more hosts when all reservations are live.
+
+<a id="p4d-268"></a>
+
+## P4D-268 — Reject HTML beyond the parser depth limit (W6-R3)
+
+Rust returns `too-large` when an element would exceed the parser stack limit
+of 200 open elements, excluding the document root. The TypeScript extractor can
+flatten further nesting. Rust also caps parsed elements and the table grid
+at 300,000 each.
+
+
+<a id="p4d-269"></a>
+
+## P4D-269 — Page IMAP UID searches (R-W-28)
+
+The wire library requests UIDs by message sequence number. A single call
+delivers up to 4,096 existing messages and continues from the last UID
+accepted by the consumer. The server may request smaller pages with
+`[LIMIT]`. When an expunge invalidates a sequence position, the next call
+locates the saved UID boundary using binary search on existing messages.
+The 64 KiB response line limit applies throughout. TypeScript issues an
+open-ended search and can receive a longer reply line.
+
+<a id="p4d-270"></a>
+
+## P4D-270 — Discord outbound message and upload restrictions (W2-N1, W2-N6)
+
+Rust checks path segments before identifying routes and rate-limit buckets.
+It rejects dot segments, doubled separators, and encoded dots or separators.
+Outgoing message objects, including webhook sends and nested message fields,
+receive an empty mention policy. Re-encoding removes duplicate JSON keys.
+File uploads require a prepared message part and an ASCII filename containing
+only letters, digits, period, dash or underscore. TypeScript sanitizes its
+filenames and uses a narrower set of webhook routes.
+
+<a id="p4d-271"></a>
+
+## P4D-271 — Whole MCP tool result size (W7-N2)
+
+TypeScript charges content and structured data before adding provenance. The Rust
+registry also measures the final serialized UTF-8 result, including its envelope,
+unknown blocks and retained metadata. A result exactly at the configured limit
+is valid. The caller receives `ResultLimit` when the result would exceed it.

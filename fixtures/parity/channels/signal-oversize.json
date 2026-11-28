@@ -1,0 +1,40 @@
+{
+  "calls": [
+    {
+      "method": "listGroups",
+      "paramsJson": "{}",
+      "timeout": 2000
+    }
+  ],
+  "exchanges": [
+    {
+      "receiveChunksBase64": [
+        "eHh4eHh4eHh4eHh4eHh4eA==",
+        "eHh4eHh4eHh4eHh4eHh4eHg="
+      ],
+      "sendBase64": [
+        "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjEsIm1ldGhvZCI6Imxpc3RHcm91cHMiLCJwYXJhbXMiOnt9fQo="
+      ]
+    }
+  ],
+  "expected": {
+    "closures": [
+      "oversize"
+    ],
+    "notifications": [],
+    "outcomes": [
+      {
+        "error": {
+          "kind": "disconnected",
+          "message": "signal daemon connection closed"
+        },
+        "id": 1
+      }
+    ]
+  },
+  "exporter": "scripts/parity/export-channels.ts",
+  "maxLineBytes": 32,
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/channels-signal/src/rpc.ts",
+  "transport": "lines"
+}

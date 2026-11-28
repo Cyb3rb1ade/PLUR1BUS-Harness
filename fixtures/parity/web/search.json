@@ -1,0 +1,750 @@
+{
+  "agent": "fixture-web-search/1",
+  "cases": [
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "identity",
+              "connection": "close",
+              "user-agent": "fixture-web-search/1",
+              "x-subscription-token": "<credential>"
+            },
+            "method": "GET",
+            "path": "/brave?q=caf%C3%A9+%26+reports+site%3Anews.fixture.invalid&count=4&result_filter=web&freshness=pw&search_lang=de"
+          },
+          "response": {
+            "chunksBase64": [
+              "eyJ3ZWIiOnsicmVzdWx0cyI6W3sidGl0bGUiOiI8Yj5Ub3duIGhhbGw8L2I+ICZhbXA7IE5vdGVzIiwidXJsIjoiaHR0cHM6Ly9uZXdzLmZpeHR1cmUuaW52YWxpZC9lZGl0aW9uI2xvY2FsIiwiZGVzY3JpcHRpb24iOiJPbmUgJmx0O2kmZ3Q7ZWRpdGlvbiZsdDsvaSZndDsiLCJwYWdlX2FnZSI6IjIwMjYtMTEtMjBUMDA6MDA6MDAifSx7InRpdGxlIjoiRHVwbGljYXRlIiwidXJsIjoiaHR0cHM6Ly9uZXdzLmZpeHR1cmUuaW52YWxpZC9lZGl0aW9uIn0seyJ0aXRsZSI6Ik90aGVyIHNvdXJjZSIsInVybCI6Imh0dHBzOi8vb3RoZXIuZml4dHVyZS5pbnZhbGlkL2FydGljbGUifV19fQ=="
+            ],
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "brave-normalization",
+      "outcomes": [
+        {
+          "failure": null,
+          "vendor": "brave"
+        }
+      ],
+      "sleeps": [],
+      "steps": [
+        {
+          "provenance": {
+            "provider": "brave",
+            "retrievedAt": "2026-11-23T10:00:00.000Z",
+            "source": "web.search",
+            "trust": "untrusted"
+          },
+          "provider": "brave",
+          "results": [
+            {
+              "publishedAt": "2026-11-20T00:00:00.000Z",
+              "snippet": "One edition",
+              "source": "news.fixture.invalid",
+              "title": "Town hall & Notes",
+              "url": "https://news.fixture.invalid/edition#local"
+            }
+          ],
+          "skipped": []
+        }
+      ],
+      "traces": [
+        {
+          "ms": 0,
+          "provider": "brave",
+          "queryChars": 14,
+          "results": 1,
+          "skipped": [],
+          "tool": "web.search"
+        }
+      ],
+      "transport": "http",
+      "vendors": [
+        "brave"
+      ]
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "eyJxdWVyeSI6ImNhZsOpICYgcmVwb3J0cyIsIm1heF9yZXN1bHRzIjo0LCJzZWFyY2hfZGVwdGgiOiJiYXNpYyIsInRvcGljIjoiZ2VuZXJhbCIsImluY2x1ZGVfYW5zd2VyIjpmYWxzZSwiaW5jbHVkZV9yYXdfY29udGVudCI6ZmFsc2UsImluY2x1ZGVfaW1hZ2VzIjpmYWxzZSwidGltZV9yYW5nZSI6IndlZWsiLCJpbmNsdWRlX2RvbWFpbnMiOlsibmV3cy5maXh0dXJlLmludmFsaWQiXX0=",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "identity",
+              "authorization": "Bearer <credential>",
+              "connection": "close",
+              "content-length": "221",
+              "content-type": "application/json",
+              "user-agent": "fixture-web-search/1"
+            },
+            "method": "POST",
+            "path": "/tavily"
+          },
+          "response": {
+            "chunksBase64": [
+              "eyJyZXN1bHRzIjpbeyJ0aXRsZSI6IjxiPlRvd24gaGFsbDwvYj4gJmFtcDsgTm90ZXMiLCJ1cmwiOiJodHRwczovL25ld3MuZml4dHVyZS5pbnZhbGlkL2VkaXRpb24jbG9jYWwiLCJjb250ZW50IjoiQnJpZWYgbm90ZXMiLCJwdWJsaXNoZWRfZGF0ZSI6IjIwMjYtMTEtMjAifV19"
+            ],
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "tavily-json",
+      "outcomes": [
+        {
+          "failure": null,
+          "vendor": "tavily"
+        }
+      ],
+      "sleeps": [],
+      "steps": [
+        {
+          "provenance": {
+            "provider": "tavily",
+            "retrievedAt": "2026-11-23T10:00:00.000Z",
+            "source": "web.search",
+            "trust": "untrusted"
+          },
+          "provider": "tavily",
+          "results": [
+            {
+              "publishedAt": "2026-11-20T00:00:00.000Z",
+              "snippet": "Brief notes",
+              "source": "news.fixture.invalid",
+              "title": "Town hall & Notes",
+              "url": "https://news.fixture.invalid/edition#local"
+            }
+          ],
+          "skipped": []
+        }
+      ],
+      "traces": [
+        {
+          "ms": 0,
+          "provider": "tavily",
+          "queryChars": 14,
+          "results": 1,
+          "skipped": [],
+          "tool": "web.search"
+        }
+      ],
+      "transport": "http",
+      "vendors": [
+        "tavily"
+      ]
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "eyJxdWVyeSI6ImNhZsOpICYgcmVwb3J0cyIsIm51bVJlc3VsdHMiOjQsInR5cGUiOiJhdXRvIiwiY29udGVudHMiOnsidGV4dCI6eyJtYXhDaGFyYWN0ZXJzIjo2MDB9fSwiaW5jbHVkZURvbWFpbnMiOlsibmV3cy5maXh0dXJlLmludmFsaWQiXSwic3RhcnRQdWJsaXNoZWREYXRlIjoiMjAyNi0xMS0xNlQxMDowMDowMC4wMDBaIn0=",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "identity",
+              "connection": "close",
+              "content-length": "188",
+              "content-type": "application/json",
+              "user-agent": "fixture-web-search/1",
+              "x-api-key": "<credential>"
+            },
+            "method": "POST",
+            "path": "/exa"
+          },
+          "response": {
+            "chunksBase64": [
+              "eyJyZXN1bHRzIjpbeyJ0aXRsZSI6IjxiPlRvd24gaGFsbDwvYj4gJmFtcDsgTm90ZXMiLCJ1cmwiOiJodHRwczovL25ld3MuZml4dHVyZS5pbnZhbGlkL2VkaXRpb24jbG9jYWwiLCJoaWdobGlnaHRzIjpbIkZpcnN0IG5vdGUiLCJTZWNvbmQgbm90ZSJdLCJwdWJsaXNoZWREYXRlIjoiMjAyNi0xMS0yMVQxMDoyMDowMCJ9XX0="
+            ],
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "exa-json",
+      "outcomes": [
+        {
+          "failure": null,
+          "vendor": "exa"
+        }
+      ],
+      "sleeps": [],
+      "steps": [
+        {
+          "provenance": {
+            "provider": "exa",
+            "retrievedAt": "2026-11-23T10:00:00.000Z",
+            "source": "web.search",
+            "trust": "untrusted"
+          },
+          "provider": "exa",
+          "results": [
+            {
+              "publishedAt": "2026-11-21T10:20:00.000Z",
+              "snippet": "First note … Second note",
+              "source": "news.fixture.invalid",
+              "title": "Town hall & Notes",
+              "url": "https://news.fixture.invalid/edition#local"
+            }
+          ],
+          "skipped": []
+        }
+      ],
+      "traces": [
+        {
+          "ms": 0,
+          "provider": "exa",
+          "queryChars": 14,
+          "results": 1,
+          "skipped": [],
+          "tool": "web.search"
+        }
+      ],
+      "transport": "http",
+      "vendors": [
+        "exa"
+      ]
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "identity",
+              "connection": "close",
+              "user-agent": "fixture-web-search/1"
+            },
+            "method": "GET",
+            "path": "/searxng/search?q=caf%C3%A9+%26+reports+site%3Anews.fixture.invalid&format=json&pageno=1&language=de-CH&time_range=month"
+          },
+          "response": {
+            "chunksBase64": [
+              "eyJyZXN1bHRzIjpbeyJ0aXRsZSI6IjxiPlRvd24gaGFsbDwvYj4gJmFtcDsgTm90ZXMiLCJ1cmwiOiJodHRwczovL25ld3MuZml4dHVyZS5pbnZhbGlkL2VkaXRpb24jbG9jYWwiLCJjb250ZW50IjoiU3luZGljYXRlZCBub3RlIiwicHVibGlzaGVkRGF0ZSI6IjIwMjYtMTEtMjJUMTk6MDA6MDBaIn1dfQ=="
+            ],
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "searxng-path",
+      "outcomes": [
+        {
+          "failure": null,
+          "vendor": "searxng"
+        }
+      ],
+      "sleeps": [],
+      "steps": [
+        {
+          "provenance": {
+            "provider": "searxng",
+            "retrievedAt": "2026-11-23T10:00:00.000Z",
+            "source": "web.search",
+            "trust": "untrusted"
+          },
+          "provider": "searxng",
+          "results": [
+            {
+              "publishedAt": "2026-11-22T19:00:00.000Z",
+              "snippet": "Syndicated note",
+              "source": "news.fixture.invalid",
+              "title": "Town hall & Notes",
+              "url": "https://news.fixture.invalid/edition#local"
+            }
+          ],
+          "skipped": []
+        }
+      ],
+      "traces": [
+        {
+          "ms": 0,
+          "provider": "searxng",
+          "queryChars": 14,
+          "results": 1,
+          "skipped": [],
+          "tool": "web.search"
+        }
+      ],
+      "transport": "http",
+      "vendors": [
+        "searxng"
+      ]
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "eyJxdWVyeSI6ImNhZsOpICYgcmVwb3J0cyIsIm1heF9yZXN1bHRzIjo0LCJzZWFyY2hfZGVwdGgiOiJiYXNpYyIsInRvcGljIjoiZ2VuZXJhbCIsImluY2x1ZGVfYW5zd2VyIjpmYWxzZSwiaW5jbHVkZV9yYXdfY29udGVudCI6ZmFsc2UsImluY2x1ZGVfaW1hZ2VzIjpmYWxzZSwidGltZV9yYW5nZSI6IndlZWsiLCJpbmNsdWRlX2RvbWFpbnMiOlsibmV3cy5maXh0dXJlLmludmFsaWQiXX0=",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "identity",
+              "authorization": "Bearer <credential>",
+              "connection": "close",
+              "content-length": "221",
+              "content-type": "application/json",
+              "user-agent": "fixture-web-search/1"
+            },
+            "method": "POST",
+            "path": "/tavily"
+          },
+          "response": {
+            "chunksBase64": [
+              "eyJyZWFzb24iOiI8Y3JlZGVudGlhbD4ifQ=="
+            ],
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 503
+          }
+        },
+        {
+          "request": {
+            "bodyBase64": "eyJxdWVyeSI6ImNhZsOpICYgcmVwb3J0cyIsIm51bVJlc3VsdHMiOjQsInR5cGUiOiJhdXRvIiwiY29udGVudHMiOnsidGV4dCI6eyJtYXhDaGFyYWN0ZXJzIjo2MDB9fSwiaW5jbHVkZURvbWFpbnMiOlsibmV3cy5maXh0dXJlLmludmFsaWQiXSwic3RhcnRQdWJsaXNoZWREYXRlIjoiMjAyNi0xMS0xNlQxMDowMDowMC4wMDBaIn0=",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "identity",
+              "connection": "close",
+              "content-length": "188",
+              "content-type": "application/json",
+              "user-agent": "fixture-web-search/1",
+              "x-api-key": "<credential>"
+            },
+            "method": "POST",
+            "path": "/exa"
+          },
+          "response": {
+            "chunksBase64": [
+              "eyJyZXN1bHRzIjpbeyJ0aXRsZSI6IjxiPlRvd24gaGFsbDwvYj4gJmFtcDsgTm90ZXMiLCJ1cmwiOiJodHRwczovL25ld3MuZml4dHVyZS5pbnZhbGlkL2VkaXRpb24jbG9jYWwiLCJoaWdobGlnaHRzIjpbIkZpcnN0IG5vdGUiLCJTZWNvbmQgbm90ZSJdLCJwdWJsaXNoZWREYXRlIjoiMjAyNi0xMS0yMVQxMDoyMDowMCJ9XX0="
+            ],
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "fallback-to-next-provider",
+      "outcomes": [
+        {
+          "failure": {
+            "code": "http-error",
+            "status": 503
+          },
+          "vendor": "tavily"
+        },
+        {
+          "failure": null,
+          "vendor": "exa"
+        }
+      ],
+      "sleeps": [],
+      "steps": [
+        {
+          "provenance": {
+            "provider": "exa",
+            "retrievedAt": "2026-11-23T10:00:00.000Z",
+            "source": "web.search",
+            "trust": "untrusted"
+          },
+          "provider": "exa",
+          "results": [
+            {
+              "publishedAt": "2026-11-21T10:20:00.000Z",
+              "snippet": "First note … Second note",
+              "source": "news.fixture.invalid",
+              "title": "Town hall & Notes",
+              "url": "https://news.fixture.invalid/edition#local"
+            }
+          ],
+          "skipped": [
+            {
+              "provider": "tavily",
+              "reason": "error"
+            }
+          ]
+        }
+      ],
+      "traces": [
+        {
+          "ms": 0,
+          "provider": "exa",
+          "queryChars": 14,
+          "results": 1,
+          "skipped": [
+            {
+              "provider": "tavily",
+              "reason": "error"
+            }
+          ],
+          "tool": "web.search"
+        }
+      ],
+      "transport": "http",
+      "vendors": [
+        "tavily",
+        "exa"
+      ]
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "identity",
+              "connection": "close",
+              "user-agent": "fixture-web-search/1",
+              "x-subscription-token": "<credential>"
+            },
+            "method": "GET",
+            "path": "/brave?q=caf%C3%A9+%26+reports+site%3Anews.fixture.invalid&count=4&result_filter=web&freshness=pw&search_lang=de"
+          },
+          "response": {
+            "chunksBase64": [],
+            "headers": {
+              "content-type": "application/json",
+              "retry-after": "1"
+            },
+            "status": 429
+          }
+        },
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "identity",
+              "connection": "close",
+              "user-agent": "fixture-web-search/1",
+              "x-subscription-token": "<credential>"
+            },
+            "method": "GET",
+            "path": "/brave?q=caf%C3%A9+%26+reports+site%3Anews.fixture.invalid&count=4&result_filter=web&freshness=pw&search_lang=de"
+          },
+          "response": {
+            "chunksBase64": [
+              "eyJ3ZWIiOnsicmVzdWx0cyI6W3sidGl0bGUiOiI8Yj5Ub3duIGhhbGw8L2I+ICZhbXA7IE5vdGVzIiwidXJsIjoiaHR0cHM6Ly9uZXdzLmZpeHR1cmUuaW52YWxpZC9lZGl0aW9uI2xvY2FsIiwiZGVzY3JpcHRpb24iOiJPbmUgJmx0O2kmZ3Q7ZWRpdGlvbiZsdDsvaSZndDsiLCJwYWdlX2FnZSI6IjIwMjYtMTEtMjBUMDA6MDA6MDAifSx7InRpdGxlIjoiRHVwbGljYXRlIiwidXJsIjoiaHR0cHM6Ly9uZXdzLmZpeHR1cmUuaW52YWxpZC9lZGl0aW9uIn0seyJ0aXRsZSI6Ik90aGVyIHNvdXJjZSIsInVybCI6Imh0dHBzOi8vb3RoZXIuZml4dHVyZS5pbnZhbGlkL2FydGljbGUifV19fQ=="
+            ],
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "short-rate-limit-retry",
+      "outcomes": [
+        {
+          "failure": null,
+          "vendor": "brave"
+        }
+      ],
+      "sleeps": [
+        1000
+      ],
+      "steps": [
+        {
+          "provenance": {
+            "provider": "brave",
+            "retrievedAt": "2026-11-23T10:00:01.000Z",
+            "source": "web.search",
+            "trust": "untrusted"
+          },
+          "provider": "brave",
+          "results": [
+            {
+              "publishedAt": "2026-11-20T00:00:00.000Z",
+              "snippet": "One edition",
+              "source": "news.fixture.invalid",
+              "title": "Town hall & Notes",
+              "url": "https://news.fixture.invalid/edition#local"
+            }
+          ],
+          "skipped": []
+        }
+      ],
+      "traces": [
+        {
+          "ms": 1000,
+          "provider": "brave",
+          "queryChars": 14,
+          "results": 1,
+          "skipped": [],
+          "tool": "web.search"
+        }
+      ],
+      "transport": "http",
+      "vendors": [
+        "brave"
+      ]
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "identity",
+              "connection": "close",
+              "user-agent": "fixture-web-search/1",
+              "x-subscription-token": "<credential>"
+            },
+            "method": "GET",
+            "path": "/brave?q=caf%C3%A9+%26+reports+site%3Anews.fixture.invalid&count=4&result_filter=web&freshness=pw&search_lang=de"
+          },
+          "response": {
+            "chunksBase64": [
+              "eyJyZWFzb24iOiI8Y3JlZGVudGlhbD4ifQ=="
+            ],
+            "headers": {
+              "content-type": "application/json",
+              "retry-after": "60"
+            },
+            "status": 429
+          }
+        }
+      ],
+      "name": "persistent-rate-limit",
+      "outcomes": [
+        {
+          "failure": {
+            "code": "rate-limited",
+            "retryAfterSeconds": 60,
+            "status": 429
+          },
+          "vendor": "brave"
+        },
+        {
+          "failure": {
+            "code": "rate-limited",
+            "retryAfterSeconds": 60
+          },
+          "vendor": "brave"
+        }
+      ],
+      "sleeps": [],
+      "steps": [
+        {
+          "code": "provider-failed"
+        },
+        {
+          "code": "provider-failed"
+        }
+      ],
+      "traces": [
+        {
+          "error": "provider-failed",
+          "ms": 0,
+          "queryChars": 14,
+          "skipped": [
+            {
+              "provider": "brave",
+              "reason": "error"
+            }
+          ],
+          "tool": "web.search"
+        },
+        {
+          "error": "provider-failed",
+          "ms": 0,
+          "queryChars": 14,
+          "skipped": [
+            {
+              "provider": "brave",
+              "reason": "error"
+            }
+          ],
+          "tool": "web.search"
+        }
+      ],
+      "transport": "http",
+      "vendors": [
+        "brave"
+      ]
+    },
+    {
+      "exchanges": [],
+      "missingKey": true,
+      "name": "missing-key",
+      "outcomes": [
+        {
+          "failure": {
+            "code": "no-provider"
+          },
+          "vendor": "tavily"
+        }
+      ],
+      "sleeps": [],
+      "steps": [
+        {
+          "code": "provider-failed"
+        }
+      ],
+      "traces": [
+        {
+          "error": "provider-failed",
+          "ms": 0,
+          "queryChars": 14,
+          "skipped": [
+            {
+              "provider": "tavily",
+              "reason": "error"
+            }
+          ],
+          "tool": "web.search"
+        }
+      ],
+      "transport": "http",
+      "vendors": [
+        "tavily"
+      ]
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "eyJxdWVyeSI6ImNhZsOpICYgcmVwb3J0cyIsIm51bVJlc3VsdHMiOjQsInR5cGUiOiJhdXRvIiwiY29udGVudHMiOnsidGV4dCI6eyJtYXhDaGFyYWN0ZXJzIjo2MDB9fSwiaW5jbHVkZURvbWFpbnMiOlsibmV3cy5maXh0dXJlLmludmFsaWQiXSwic3RhcnRQdWJsaXNoZWREYXRlIjoiMjAyNi0xMS0xNlQxMDowMDowMC4wMDBaIn0=",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "identity",
+              "connection": "close",
+              "content-length": "188",
+              "content-type": "application/json",
+              "user-agent": "fixture-web-search/1",
+              "x-api-key": "<credential>"
+            },
+            "method": "POST",
+            "path": "/exa"
+          },
+          "response": {
+            "chunksBase64": [],
+            "headers": {
+              "content-type": "application/json",
+              "location": "/after"
+            },
+            "status": 302
+          }
+        }
+      ],
+      "name": "redirect-refusal",
+      "outcomes": [
+        {
+          "failure": {
+            "code": "http-error",
+            "status": 302
+          },
+          "vendor": "exa"
+        }
+      ],
+      "sleeps": [],
+      "steps": [
+        {
+          "code": "provider-failed"
+        }
+      ],
+      "traces": [
+        {
+          "error": "provider-failed",
+          "ms": 0,
+          "queryChars": 14,
+          "skipped": [
+            {
+              "provider": "exa",
+              "reason": "error"
+            }
+          ],
+          "tool": "web.search"
+        }
+      ],
+      "transport": "http",
+      "vendors": [
+        "exa"
+      ]
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "identity",
+              "connection": "close",
+              "user-agent": "fixture-web-search/1",
+              "x-subscription-token": "<credential>"
+            },
+            "method": "GET",
+            "path": "/brave?q=caf%C3%A9+%26+reports+site%3Anews.fixture.invalid&count=4&result_filter=web&freshness=pw&search_lang=de"
+          },
+          "response": {
+            "chunksBase64": [
+              "ew=="
+            ],
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "invalid-provider-json",
+      "outcomes": [
+        {
+          "failure": {
+            "code": "http-error"
+          },
+          "vendor": "brave"
+        }
+      ],
+      "sleeps": [],
+      "steps": [
+        {
+          "code": "provider-failed"
+        }
+      ],
+      "traces": [
+        {
+          "error": "provider-failed",
+          "ms": 0,
+          "queryChars": 14,
+          "skipped": [
+            {
+              "provider": "brave",
+              "reason": "error"
+            }
+          ],
+          "tool": "web.search"
+        }
+      ],
+      "transport": "http",
+      "vendors": [
+        "brave"
+      ]
+    }
+  ],
+  "nowMs": 1795428000000,
+  "query": {
+    "count": 4,
+    "freshness": "week",
+    "lang": "de-CH",
+    "query": "  café & reports  ",
+    "site": "NEWS.fixture.invalid"
+  },
+  "source": "packages/core/src/tools/web/search.ts"
+}

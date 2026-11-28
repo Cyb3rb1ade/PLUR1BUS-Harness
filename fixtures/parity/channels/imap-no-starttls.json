@@ -1,0 +1,29 @@
+{
+  "exchanges": [
+    {
+      "receiveChunksBase64": [
+        "KiBPSyBbQ0FQQUJJTElUWSBJTUFQNHJldjFdIGZha2UgcmVhZHkNCg=="
+      ],
+      "sendBase64": []
+    },
+    {
+      "receiveChunksBase64": [
+        "KiBDQVBBQklMSVRZIElNQVA0cmV2MSBBVVRIPVBMQUlOIElETEUNCkEwMDAxIE9LIGRvbmUNCg=="
+      ],
+      "sendBase64": [
+        "QTAwMDEgQ0FQQUJJTElUWQ0K"
+      ]
+    }
+  ],
+  "expected": {
+    "error": {
+      "kind": "tls",
+      "message": "server does not offer STARTTLS; credentials not sent"
+    }
+  },
+  "exporter": "scripts/parity/export-channels.ts",
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/channels-email/src/imap.ts",
+  "transport": "lines",
+  "upgrades": []
+}

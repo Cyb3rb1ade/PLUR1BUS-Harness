@@ -1,0 +1,641 @@
+// W3. Record calls from the production TypeScript catalog adapters.
+import { fileURLToPath } from "node:url";
+import { createElevenLabs } from "../../packages/voice-providers/src/providers/elevenlabs.ts";
+import { createGeminiLive } from "../../packages/voice-providers/src/providers/gemini.ts";
+import { createGrokVoice } from "../../packages/voice-providers/src/providers/grok.ts";
+import { createPolly, type PollyClientLike } from "../../packages/voice-providers/src/providers/polly.ts";
+import { VoiceProviderError } from "../../packages/voice-providers/src/errors.ts";
+import { createVoiceProviders, discover, lookupProvider } from "../../packages/voice-providers/src/registry.ts";
+import { startFakeVendor, type FakeSocket } from "../../packages/voice-providers/test/helpers/fake-vendor.ts";
+import { startStub } from "../../packages/providers/test/helpers/stub.ts";
+import { exporterMain } from "./lib.mjs";
+
+const fixtureKey = "synthetic-voice-credential";
+const keyHeaders = ["xi-api-key", "x-goog-api-key", "authorization"];
+function recordedAuthHeaders(headers: Record<string, unknown>) {
+  return Object.fromEntries(keyHeaders.flatMap(key => {
+    const value = headers[key];
+    return typeof value === "string" ? [[key, value.replaceAll(fixtureKey, "<credential>")]] : [];
+  }));
+}
+
+async function captureRegistry() {
+  const responses = [
+    { status: 401, body: { detail: fixtureKey } },
+    { status: 200, body: { voices: [{ voice_id: "fixture-voice" }] } },
+    { status: 200, body: [] },
+  ];
+  const stub = await startStub((_request, reply) => {
+    const response = responses[stub.requests.length - 1];
+    if (!response) throw new Error("Unexpected cloud voice discovery request");
+    reply.writeHead(response.status, { "content-type": "application/json" });
+    reply.end(JSON.stringify(response.body));
+  });
+  try {
+    const references: string[] = [];
+    const registry = createVoiceProviders({
+      elevenlabs: { enabled: true, apiKeyRef: "eleven-fixture", baseUrl: stub.baseUrl, defaultSttModel: "scribe_fixture" },
+      xai: { enabled: true },
+      gemini: { enabled: true, apiKeyRef: "gemini-fixture", baseUrl: stub.baseUrl },
+      polly: { enabled: true },
+    }, {
+      getSecret: async ref => {
+        references.push(ref);
+        if (ref === "gemini-fixture") throw new Error(fixtureKey);
+        return fixtureKey;
+      },
+      pollyClientFactory: async () => ({
+        async synthesize() { throw new Error("Unexpected Polly synthesis"); },
+        async describeVoices() { return { Voices: [{ Id: "polly-fixture", SupportedEngines: ["neural"] }] }; },
+      }),
+    });
+    const expected = await discover(registry);
+    return {
+      transport: "http",
+      status: registry.status,
+      references,
+      known: ([
+        ["asr", "elevenlabs"], ["tts", "polly"], ["realtime", "gemini"],
+        ["realtime", "xai"], ["tts", "gemini"], ["asr", "constructor"],
+      ] as const).map(([kind, id]) => Boolean(lookupProvider(registry, kind, id))),
+      expected,
+      exchanges: stub.requests.map((request, index) => ({
+        request: {
+          method: request.method, path: request.url,
+          headers: { "xi-api-key": String(request.headers["xi-api-key"]).replaceAll(fixtureKey, "<credential>") },
+        },
+        response: {
+          status: responses[index]!.status,
+          body: JSON.parse(JSON.stringify(responses[index]!.body).replaceAll(fixtureKey, "<credential>")),
+        },
+      })),
+    };
+  } finally {
+    await stub.close();
+  }
+}
+
+async function captureModelSelection(vendor: "xai" | "gemini", reply: Reply, override?: string) {
+  const ready = vendor === "xai" ? { type: "session.created" } : { setupComplete: {} };
+  const server = await startFakeVendor({
+    http: (_request, response) => {
+      response.writeHead(reply.status ?? 200, { "content-type": "application/json" });
+      response.end(JSON.stringify(reply.body));
+    },
+    ws: socket => { void socket.waitFor(1).then(() => socket.send(ready)); },
+  });
+  const authHeader = vendor === "xai" ? "authorization" : "x-goog-api-key";
+  const recordedHeader = (headers: Record<string, unknown>) => ({
+    [authHeader]: String(headers[authHeader]).replaceAll(fixtureKey, "<credential>"),
+  });
+  let session;
+  try {
+    const config = { baseUrl: server.httpUrl, apiKeyRef: "fixture", getSecret: async () => fixtureKey };
+    const provider = vendor === "xai" ? createGrokVoice(config) : createGeminiLive(config);
+    session = await provider.connect({ ...(override ? { model: override } : {}), signal: AbortSignal.timeout(3000) });
+    const event = (await session.events[Symbol.asyncIterator]().next()).value;
+    if (event?.type !== "ready") throw new Error("Expected realtime readiness after model selection");
+    const socket = server.sockets[0]!;
+    const frames = socket.jsonFrames();
+    const model = vendor === "xai" ? new URL(socket.req.url!, server.httpUrl).searchParams.get("model")
+      : (frames[0] as { setup: { model: string } }).setup.model;
+    return {
+      vendor, ...(override ? { override } : {}), expected: model,
+      http: {
+        transport: "http",
+        exchanges: server.requests.map(request => ({
+          request: { method: request.method, path: request.url, headers: recordedHeader(request.headers) },
+          response: { status: reply.status ?? 200, body: reply.body },
+        })),
+      },
+      socket: {
+        transport: "websocket", request: { path: socket.req.url, headers: recordedHeader(socket.req.headers) },
+        exchanges: [{ send: frames, sendText: socket.received, receive: [ready] }],
+      },
+    };
+  } finally {
+    await session?.close();
+    await server.close();
+  }
+}
+
+type Operation = "eleven-voices" | "eleven-models" | "eleven-asr-models" | "gemini-models" | "xai-models";
+type Reply = { status?: number; body: unknown };
+
+async function capture(operation: Operation, responses: Reply[]) {
+  let sent = 0;
+  const stub = await startStub((_request, reply) => {
+    const response = responses[sent++];
+    if (!response) throw new Error("Unexpected voice request");
+    reply.writeHead(response.status ?? 200, { "content-type": "application/json" });
+    reply.end(JSON.stringify(response.body));
+  });
+  try {
+    const options = { baseUrl: stub.baseUrl, apiKeyRef: "fixture", getSecret: async () => fixtureKey };
+    let expected;
+    try {
+      if (operation === "eleven-voices") expected = { result: await createElevenLabs(options).tts.listVoices!() };
+      else if (operation === "eleven-models") expected = { result: await createElevenLabs(options).tts.listModels!() };
+      else if (operation === "eleven-asr-models") expected = { result: await createElevenLabs(options).asr.listModels!() };
+      else if (operation === "gemini-models") expected = { result: await createGeminiLive(options).listModels!() };
+      else expected = { result: await createGrokVoice(options).listModels!() };
+    } catch (error) {
+      if (!(error instanceof VoiceProviderError)) throw error;
+      expected = { code: error.code, retryable: error.retryable };
+    }
+    if (sent !== responses.length) throw new Error(`Expected ${responses.length} requests, received ${sent}`);
+    return {
+      operation,
+      expected,
+      exchanges: stub.requests.map((request, index) => ({
+        request: {
+          method: request.method,
+          path: request.url,
+          headers: Object.fromEntries(keyHeaders.flatMap((key) => {
+            const value = request.headers[key];
+            return typeof value === "string" ? [[key, value.replaceAll(fixtureKey, "<credential>")]] : [];
+          })),
+        },
+        response: { status: responses[index]!.status ?? 200,
+          body: JSON.parse(JSON.stringify(responses[index]!.body).replaceAll(fixtureKey, "<credential>")) },
+      })),
+    };
+  } finally {
+    await stub.close();
+  }
+}
+
+async function captureSynthesis(stream = false) {
+  const bytes = Buffer.from([0, 1, 2, 255]);
+  const stub = await startStub((_request, reply) => {
+    reply.writeHead(200, { "content-type": "application/octet-stream" });
+    reply.end(bytes);
+  });
+  try {
+    const reports: import("../../packages/voice-providers/src/types.ts").UsageReport[] = [];
+    const provider = createElevenLabs({
+      baseUrl: stub.baseUrl,
+      apiKeyRef: "fixture",
+      getSecret: async () => fixtureKey,
+      zeroRetention: true,
+      usage: (report) => reports.push(report),
+    });
+    const voiceSettings = { stability: 0.5, use_speaker_boost: true, similarity_boost: 0.75 };
+    const input = { text: "A fixture voice 👋", voice: "synthetic/a b", language: "en", voiceSettingsEntries: Object.entries(voiceSettings) };
+    const options = { voice: input.voice, language: input.language, voiceSettings };
+    const buffered = async () => await provider.tts.synthesize(input.text, options);
+    const streamed = async () => {
+      const chunks = [];
+      for await (const chunk of provider.tts.synthesizeStream(input.text, options)) chunks.push(chunk);
+      const first = chunks[0];
+      const usage = reports[0];
+      if (!first || !usage) throw new Error("Expected audio and TTS usage from the HTTP stream");
+      return { ...first, data: Buffer.concat(chunks.map(chunk => chunk.data)), usage };
+    };
+    const actual = await (stream ? streamed() : buffered());
+    if (stub.requests.length !== 1) throw new Error("Expected a single buffered synthesis request");
+    const request = stub.requests[0]!;
+    return {
+      schema: "plur1bus.parity-wire/1",
+      exporter: "scripts/parity/export-voice.ts",
+      transport: "http",
+      input,
+      expected: {
+        dataBase64: Buffer.from(actual.data).toString("base64"),
+        format: actual.format, sampleRate: actual.sampleRate, usage: actual.usage,
+      },
+      exchanges: [{
+        request: {
+          method: request.method, path: request.url, bodyText: request.body,
+          headers: { "accept": request.headers["accept"], "content-type": request.headers["content-type"],
+            "xi-api-key": String(request.headers["xi-api-key"]).replaceAll(fixtureKey, "<credential>") },
+        },
+        response: { status: 200, headers: { "content-type": "application/octet-stream" },
+          chunksBase64: [bytes.toString("base64")] },
+      }],
+    };
+  } finally {
+    await stub.close();
+  }
+}
+
+async function captureSocketSynthesis() {
+  const input = {
+    text: ["A fixture ", "", "voice 🎙"], voice: "synthetic/a b", language: "en",
+    voiceSettings: { stability: 0.5, similarity_boost: 0.75 },
+  };
+  const frames = [{ audio: "AQIA" }, { audio: "/wA=", isFinal: true }];
+  const server = await startFakeVendor({
+    ws: socket => { void socket.waitFor(5).then(() => frames.forEach(frame => socket.send(frame))); },
+  });
+  const reports: import("../../packages/voice-providers/src/types.ts").UsageReport[] = [];
+  const provider = createElevenLabs({
+    baseUrl: server.httpUrl, apiKeyRef: "fixture", getSecret: async () => fixtureKey,
+    zeroRetention: true, usage: report => reports.push(report),
+  });
+  const signal = AbortSignal.timeout(3000);
+  try {
+    const chunks = [];
+    for await (const chunk of provider.tts.synthesizeStream((async function* () {
+      yield* input.text;
+    })(), { ...input, signal })) {
+      chunks.push({ dataBase64: Buffer.from(chunk.data).toString("base64"), format: chunk.format, sampleRate: chunk.sampleRate });
+    }
+    const peer = server.sockets[0]!;
+    return {
+      schema: "plur1bus.parity-wire/1", exporter: "scripts/parity/export-voice.ts",
+      transport: "websocket", input: { ...input, voiceSettingsEntries: Object.entries(input.voiceSettings) },
+      request: { path: peer.req.url, headers: { "xi-api-key": String(peer.req.headers["xi-api-key"]).replaceAll(fixtureKey, "<credential>") } },
+      expected: { chunks, usage: reports[0] },
+      exchanges: [{ send: peer.jsonFrames(), sendText: peer.received, receive: frames }],
+    };
+  } finally {
+    await server.close();
+  }
+}
+
+async function captureRetry() {
+  const nowMs = Date.parse("Sun, 22 Nov 2026 12:00:00 GMT");
+  const cases = [
+    [
+      { status: 429, after: "0.250" },
+      { status: 503, after: "Sun, 22 Nov 2026 12:00:02 GMT" },
+      { status: 200 },
+    ],
+    [
+      { status: 503, after: "90" },
+      { status: 503 },
+      { status: 429, after: "99999" },
+    ],
+  ];
+  const scenarios = [];
+  for (const replies of cases) {
+    let next = 0;
+    const waits: number[] = [];
+    const stub = await startStub((_request, response) => {
+      const reply = replies[next++]!;
+      response.writeHead(reply.status, { "content-type": "application/json",
+        ...(reply.after === undefined ? {} : { "retry-after": reply.after }) });
+      response.end(JSON.stringify(reply.status === 200 ? [] : { error: "fixture refused" }));
+    });
+    try {
+      const provider = createElevenLabs({
+        baseUrl: stub.baseUrl, apiKeyRef: "fixture", getSecret: async () => fixtureKey,
+        sleep: async ms => { waits.push(ms); }, now: () => nowMs,
+      });
+      let expected;
+      try {
+        expected = { models: await provider.tts.listModels!() };
+      } catch (error) {
+        if (!(error instanceof VoiceProviderError)) throw error;
+        expected = { code: error.code, retryAfterMs: error.retryAfterMs };
+      }
+      if (next !== replies.length) throw new Error("Unexpected number of retry attempts");
+      scenarios.push({ expected, waits, exchanges: stub.requests.map((request, i) => ({
+        request: { method: request.method, path: request.url,
+          headers: { "xi-api-key": String(request.headers["xi-api-key"]).replaceAll(fixtureKey, "<credential>") } },
+        response: { status: replies[i]!.status,
+          headers: replies[i]!.after === undefined ? {} : { "retry-after": replies[i]!.after },
+          body: replies[i]!.status === 200 ? [] : { error: "fixture refused" } },
+      })) });
+    } finally {
+      await stub.close();
+    }
+  }
+  return { schema: "plur1bus.parity-wire/1", exporter: "scripts/parity/export-voice.ts", nowMs, scenarios };
+}
+
+async function captureTranscription() {
+  const pcm = Uint8Array.from([1, 0, 2, 0, 3, 0]);
+  const sampleRate = 16000;
+  const fixtureBoundary = "voice-fixture-multipart";
+  const reply = { text: "Fixture transcript", language_code: "en",
+    words: [{ type: "word", text: "Fixture", start: 0.1, end: 0.25 }, { type: "spacing", text: " " }] };
+  let exchange;
+  const provider = createElevenLabs({
+    baseUrl: "http://localhost",
+    apiKeyRef: "fixture",
+    getSecret: async () => fixtureKey,
+    zeroRetention: true,
+    fetch: async (url, init) => {
+      const request = new Request(url, init);
+      const type = request.headers.get("content-type")!;
+      const boundary = type.split("boundary=")[1]!;
+      const wire = Buffer.from(await request.arrayBuffer()).toString("latin1").replaceAll(boundary, fixtureBoundary);
+      exchange = {
+        request: { method: request.method, path: new URL(url).pathname + new URL(url).search,
+          headers: { "content-type": type.replace(boundary, fixtureBoundary), "xi-api-key": "<credential>" },
+          bodyBase64: Buffer.from(wire, "latin1").toString("base64") },
+        response: { status: 200, body: reply },
+      };
+      return new Response(JSON.stringify(reply), { status: 200 });
+    },
+  });
+  const actual = await provider.asr.transcribe({ data: pcm, format: "pcm16", sampleRate }, { language: "en", timestamps: true });
+  if (!exchange) throw new Error("Missing transcription request");
+  return { schema: "plur1bus.parity-wire/1", exporter: "scripts/parity/export-voice.ts", transport: "http",
+    input: { pcm: [...pcm], sampleRate, fixtureBoundary }, expected: actual, exchanges: [exchange] };
+}
+
+async function captureRealtime(vendor: "grok" | "gemini" | "eleven-asr") {
+  const pcm = Uint8Array.from([1, 0, 2, 0]);
+  const model = vendor === "eleven-asr" ? "scribe_v2_realtime" : "fixture-live";
+  const sampleRate = 16000;
+  const ready = vendor === "grok" ? { type: "session.created" } : vendor === "gemini"
+    ? { setupComplete: {} } : { message_type: "session_started" };
+  const answer = vendor === "grok" ? { type: "response.audio.delta", delta: "AQACAA==" } : vendor === "gemini"
+    ? { serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: "audio/pcm;rate=24000", data: "AQACAA==" } }] } } }
+    : { message_type: "committed_transcript", text: "Fixture transcript" };
+  const hasSetup = vendor !== "eleven-asr";
+  const reply = async (socket: FakeSocket) => {
+    if (hasSetup) await socket.waitFor(1);
+    socket.send(ready);
+    await socket.waitFor(hasSetup ? 2 : 1);
+    socket.send(answer);
+  };
+  const server = await startFakeVendor({ ws: (socket) => { void reply(socket); } });
+  const abort = new AbortController();
+  const timeout = setTimeout(() => abort.abort(), 3000);
+  try {
+    const config = { baseUrl: server.httpUrl, apiKeyRef: "fixture", getSecret: async () => fixtureKey, defaultModel: model };
+    const session = vendor === "eleven-asr"
+      ? await createElevenLabs(config).asr.openStream({ model, sampleRate, signal: abort.signal })
+      : await (vendor === "grok" ? createGrokVoice(config) : createGeminiLive(config))
+        .connect({ model, inputSampleRate: sampleRate, signal: abort.signal });
+    try {
+      const stream = session.events[Symbol.asyncIterator]();
+      const first = (await stream.next()).value;
+      if (first?.type !== "ready") throw new Error("Missing realtime readiness");
+      session.sendAudio(pcm);
+      const second = (await stream.next()).value;
+      if (second?.type !== "audio" && second?.type !== "final") throw new Error("Missing realtime data");
+      const peer = server.sockets[0]!;
+      const frames = peer.jsonFrames();
+      return {
+        schema: "plur1bus.parity-wire/1", exporter: "scripts/parity/export-voice.ts", transport: "websocket",
+        input: { vendor, model, sampleRate, pcm: [...pcm] },
+        request: { path: peer.req.url, headers: Object.fromEntries(keyHeaders.flatMap((key) => {
+          const value = peer.req.headers[key];
+          return typeof value === "string" ? [[key, value.replaceAll(fixtureKey, "<credential>")]] : [];
+        })) },
+        expected: [first, second.type === "audio"
+          ? { type: "audio", bytes: [...second.chunk.data], sampleRate: second.chunk.sampleRate }
+          : second],
+        exchanges: [
+          { send: hasSetup ? [frames[0]] : [], sendText: peer.received.slice(0, hasSetup ? 1 : 0), receive: [ready] },
+          { send: [frames[hasSetup ? 1 : 0]], sendText: peer.received.slice(hasSetup ? 1 : 0, hasSetup ? 2 : 1), receive: [answer] },
+        ],
+      };
+    } finally {
+      await session.close();
+    }
+  } finally {
+    clearTimeout(timeout);
+    await server.close();
+  }
+}
+
+async function captureDialogue(vendor: "grok" | "gemini" | "eleven-asr") {
+  const asr = vendor === "eleven-asr";
+  const model = asr ? "scribe_v2_realtime" : "fixture-live";
+  const input = { vendor, model, language: "de", pcm: [1, 0, 2, 0], sampleRate: 16000, text: "A fixture turn",
+    voice: "fixture-voice", instructions: "Respond in German.", description: "Read a fixture",
+    callId: "call-1", tool: "lookup", result: { found: true } };
+  const ready = vendor === "grok" ? { type: "session.created" } : asr
+    ? { message_type: "session_started" } : { setupComplete: {} };
+  const response = vendor === "grok" ? [
+    { type: "response.audio_transcript.delta", delta: "Hallo " },
+    { type: "response.audio_transcript.delta", delta: "Welt" },
+    { type: "response.audio_transcript.done" },
+    { type: "response.function_call_arguments.done", call_id: input.callId, name: input.tool, arguments: '{"term":"example"}' },
+  ] : asr ? [
+    { message_type: "partial_transcript", text: "Hallo" },
+    { message_type: "committed_transcript", text: "Skip when timestamps were requested" },
+    { message_type: "committed_transcript_with_timestamps", text: "Hallo Welt", language_code: "de",
+      words: [{ text: "Hallo", start: 0.125, end: 0.4, type: "word" }, { text: " ", type: "spacing" }] },
+  ] : [
+    { serverContent: { inputTranscription: { text: "Hallo " } } },
+    { serverContent: { inputTranscription: { text: "Welt" }, outputTranscription: { text: "Guten Tag" } } },
+    { toolCall: { functionCalls: [{ id: input.callId, name: input.tool, args: { term: "example" } }] } },
+  ];
+  const done = vendor === "grok" ? [
+    { type: "response.done", response: { id: "turn-1", usage: { input_tokens: 7, output_tokens: 4 } } },
+  ] : [
+    { usageMetadata: { promptTokenCount: 3, responseTokenCount: 1 } },
+    { serverContent: { turnComplete: true }, usageMetadata: { promptTokenCount: 7, responseTokenCount: 4 } },
+  ];
+  const setupFrames = asr ? 0 : 1;
+  const requestFrames = vendor === "gemini" ? 1 : 2;
+  const resultFrames = vendor === "grok" ? 2 : 1;
+  const server = await startFakeVendor({ ws: socket => { void (async () => {
+    if (setupFrames) await socket.waitFor(setupFrames);
+    socket.send(ready);
+    await socket.waitFor(setupFrames + requestFrames);
+    response.forEach(frame => socket.send(frame));
+    if (!asr) {
+      await socket.waitFor(setupFrames + requestFrames + resultFrames);
+      done.forEach(frame => socket.send(frame));
+    }
+  })(); } });
+  const signal = AbortSignal.timeout(3000);
+  const config = { baseUrl: server.httpUrl, apiKeyRef: "fixture", getSecret: async () => fixtureKey };
+  let session;
+  try {
+    session = asr
+      ? await createElevenLabs({ ...config, zeroRetention: true }).asr.openStream({
+        model, sampleRate: input.sampleRate, language: input.language, timestamps: true, signal,
+      })
+      : await (vendor === "grok" ? createGrokVoice(config) : createGeminiLive(config))
+        .connect({ model, voice: input.voice, instructions: input.instructions, inputSampleRate: input.sampleRate,
+          tools: [{ name: input.tool, description: input.description }], signal });
+    const stream = session.events[Symbol.asyncIterator]();
+    const events = [];
+    const take = async (count: number) => {
+      for (let i = 0; i < count; i++) {
+        const event = (await stream.next()).value;
+        if (!event || event.type === "error") throw new Error("Fixture dialogue ended unexpectedly");
+        if (event.type === "usage" && vendor === "gemini") {
+          events.push({ ...event, report: { ...event.report, eventId: event.report.eventId.replace(/^gemini:[^:]+:/, "gemini:<session>:") } });
+        } else events.push(event);
+      }
+    };
+    await take(1);
+    if ("commit" in session) {
+      session.sendAudio(Uint8Array.from(input.pcm)); session.commit();
+      await take(2);
+    } else {
+      session.sendText(input.text); await take(4);
+      session.submitToolResult(input.callId, input.result);
+      await take(vendor === "grok" ? 2 : 4);
+    }
+    const peer = server.sockets[0]!;
+    const sent = peer.jsonFrames();
+    const split = setupFrames + requestFrames;
+    return {
+      schema: "plur1bus.parity-wire/1", exporter: "scripts/parity/export-voice.ts", transport: "websocket",
+      input, request: { path: peer.req.url, headers: recordedAuthHeaders(peer.req.headers) }, expected: events,
+      exchanges: [
+        { send: sent.slice(0, setupFrames), sendText: peer.received.slice(0, setupFrames), receive: [ready] },
+        { send: sent.slice(setupFrames, split), sendText: peer.received.slice(setupFrames, split), receive: response },
+        ...(!asr ? [{ send: sent.slice(split), sendText: peer.received.slice(split), receive: done }] : []),
+      ],
+    };
+  } finally {
+    await session?.close();
+    await server.close();
+  }
+}
+
+async function captureRealtimeControl(vendor: "grok" | "gemini") {
+  const grok = vendor === "grok";
+  const input = { vendor, model: "fixture-live", pcm: [2, 0], inputSampleRate: 16000 };
+  const ready = grok ? { type: "session.created" } : { setupComplete: {} };
+  const response = grok ? [
+    { type: "input_audio_buffer.speech_started" },
+  ] : [
+    { serverContent: { modelTurn: { parts: [{ inlineData: { data: "AQI=", mimeType: "audio/pcm;rate=24000" } }] } } },
+    { serverContent: { interrupted: true } },
+    { serverContent: { modelTurn: { parts: [{ inlineData: { data: "AwQ=", mimeType: "audio/pcm;rate=24000" } }] } } },
+  ];
+  const closeCode = grok ? 1008 : 1001;
+  const server = await startFakeVendor({ ws: socket => { void (async () => {
+    await socket.waitFor(1);
+    socket.send(ready);
+    await socket.waitFor(2);
+    response.forEach(frame => socket.send(frame));
+    socket.close(closeCode);
+  })(); } });
+  let session;
+  try {
+    const config = { baseUrl: server.httpUrl, apiKeyRef: "fixture", getSecret: async () => fixtureKey };
+    const provider = grok ? createGrokVoice(config) : createGeminiLive(config);
+    session = await provider.connect({ model: input.model, inputSampleRate: input.inputSampleRate,
+      signal: AbortSignal.timeout(3000) });
+    const events = session.events[Symbol.asyncIterator]();
+    const first = (await events.next()).value;
+    if (first?.type !== "ready") throw new Error("Expected readiness before interruption");
+    session.interrupt();
+    if (!grok) session.sendAudio(Uint8Array.from(input.pcm));
+    const expected: unknown[] = [first];
+    for (;;) {
+      const event = (await events.next()).value;
+      if (!event) throw new Error("Expected the remote close event");
+      if (event.type === "audio") expected.push({ type: "audio", bytes: Array.from(event.chunk.data), sampleRate: event.chunk.sampleRate });
+      else if (event.type === "error") expected.push({ type: "error", code: event.error.code });
+      else expected.push(event);
+      if (event.type === "closed") break;
+    }
+    const peer = server.sockets[0]!;
+    const sent = peer.jsonFrames();
+    return {
+      transport: "websocket", input, closeCode, expected,
+      request: { path: peer.req.url, headers: recordedAuthHeaders(peer.req.headers) },
+      exchanges: [
+        { send: sent.slice(0, 1), sendText: peer.received.slice(0, 1), receive: [ready] },
+        { send: sent.slice(1), sendText: peer.received.slice(1), receive: response },
+      ],
+    };
+  } finally {
+    await session?.close();
+    await server.close();
+  }
+}
+
+async function capturePolly() {
+  const input = { text: "Eine Teststimme 🎙", voice: "FixtureVoice", language: "de-DE" };
+  const audio = Uint8Array.of(1, 4, 6, 9);
+  const pages = [
+    { Voices: [
+      { Id: "fixture-a", Name: "Fixture A", LanguageCode: "de-DE", AdditionalLanguageCodes: ["en-US"], Gender: "Female", SupportedEngines: ["neural"] },
+      { Name: "Missing ID" },
+    ], NextToken: "second-page" },
+    { Voices: [{ Id: "fixture-b", SupportedEngines: ["standard", "neural"] }] },
+  ];
+  const synthesisRequests: Parameters<PollyClientLike["synthesize"]>[0][] = [];
+  const listRequests: Parameters<PollyClientLike["describeVoices"]>[0][] = [];
+  const provider = createPolly({
+    clientFactory: async () => ({
+      async synthesize(params) { synthesisRequests.push(params); return audio; },
+      async describeVoices(params) { listRequests.push(params); return params.NextToken ? pages[1]! : pages[0]!; },
+    }),
+  });
+  const { data, ...result } = await provider.synthesize(input.text, { voice: input.voice, language: input.language });
+  const voices = await provider.listVoices!();
+  const models = await provider.listModels!();
+  const stream = { chunks: ["Dr. Ve", "ga met Alice. ", "A note at 3.", "14 follows. ", "Then one, two, three, four and five"], maxWords: 5 };
+  const streamStart = synthesisRequests.length;
+  const speech = createPolly({
+    maxWords: stream.maxWords,
+    clientFactory: async () => ({
+      async synthesize(params) { synthesisRequests.push(params); return audio; },
+      async describeVoices() { throw new Error("unexpected catalog call"); },
+    }),
+  });
+  const streamAudio = [];
+  for await (const chunk of speech.synthesizeStream((async function* () { yield* stream.chunks; })(), { voice: input.voice })) {
+    streamAudio.push({ bytes: Array.from(chunk.data), format: chunk.format, sampleRate: chunk.sampleRate });
+  }
+  const streamRequests = synthesisRequests.splice(streamStart);
+  return { input, pages, synthesisRequests, listRequests, stream, streamRequests, expected: {
+    ...result, data: Array.from(data), voices, models, streamAudio,
+  } };
+}
+
+export async function buildVoiceFixtures() {
+  return {
+    synthesis: await captureSynthesis(),
+    "synthesis-http-stream": await captureSynthesis(true),
+    "synthesis-ws-stream": await captureSocketSynthesis(),
+    polly: await capturePolly(),
+    "http-retry": await captureRetry(),
+    "grok-realtime": await captureRealtime("grok"),
+    "grok-dialogue": await captureDialogue("grok"),
+    "gemini-dialogue": await captureDialogue("gemini"),
+    "eleven-asr-dialogue": await captureDialogue("eleven-asr"),
+    "gemini-realtime": await captureRealtime("gemini"),
+    "eleven-asr-realtime": await captureRealtime("eleven-asr"),
+    transcription: await captureTranscription(),
+    registry: await captureRegistry(),
+    "model-selection": [
+      await captureModelSelection("xai", { body: { data: [{ id: "fixture-text" }, { id: "fixture-voice" }] } }),
+      await captureModelSelection("gemini", { body: { models: [
+        { name: "models/plain", supportedGenerationMethods: ["bidiGenerateContent"] },
+        { name: "models/fixture-native-audio", supportedGenerationMethods: ["bidiGenerateContent"] },
+      ] } }),
+      await captureModelSelection("gemini", { status: 404, body: { detail: "synthetic" } }),
+      await captureModelSelection("xai", { body: { data: [] } }, "fixture-explicit"),
+    ],
+    "realtime-control": [await captureRealtimeControl("grok"), await captureRealtimeControl("gemini")],
+    catalog: {
+      schema: "plur1bus.parity-wire/1",
+      exporter: "scripts/parity/export-voice.ts",
+      scenarios: [
+        await capture("eleven-voices", [
+          { body: { voices: [{ voice_id: "voice-a", name: "A", labels: { language: "en", gender: "neutral" },
+            verified_languages: [{ language: "en" }, { language: "de" }] }], has_more: true, next_page_token: "next + page" } },
+          { body: { voices: [{ voice_id: "voice-b" }], has_more: false } },
+        ]),
+        await capture("eleven-models", [{ body: [
+          { model_id: "variant", name: "Model", can_do_text_to_speech: true, languages: [{ language_id: "en" }] },
+          { model_id: "scribe-only" },
+        ] }]),
+        await capture("eleven-asr-models", [{ body: [
+          { model_id: "scribe-synthetic", languages: [{ language_id: "de" }] },
+          { model_id: "voice-synthetic", can_do_text_to_speech: true },
+        ] }]),
+        await capture("eleven-asr-models", [{ body: [] }]),
+        await capture("gemini-models", [
+          { body: { models: [{ name: "models/live", supportedGenerationMethods: ["bidiGenerateContent"] }], nextPageToken: "two /" } },
+          { body: { models: [{ name: "models/text", displayName: "Text" }] } },
+        ]),
+        await capture("xai-models", [{ body: { data: [{ id: "fixture-voice" }, { id: "fixture-text" }] } }]),
+        await capture("eleven-voices", [{ status: 401, body: { error: fixtureKey } }]),
+        await capture("xai-models", [{ status: 404, body: { error: fixtureKey } }]),
+      ],
+    },
+  };
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  process.exitCode = await exporterMain({ area: "voice", build: buildVoiceFixtures });
+}

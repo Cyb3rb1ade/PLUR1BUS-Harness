@@ -1,0 +1,66 @@
+{
+  "exchanges": [
+    {
+      "request": {
+        "bodyText": "{\"model\":\"fixture-model\",\"modalities\":[\"image\",\"text\"],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"A paper tree 🌳\"}]}],\"image_config\":{\"aspect_ratio\":\"1:1\"}}",
+        "headers": {
+          "content-type": "application/json"
+        },
+        "method": "POST",
+        "path": "/chat/completions"
+      },
+      "response": {
+        "body": {
+          "choices": [
+            {
+              "message": {
+                "images": [
+                  {
+                    "image_url": {
+                      "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg=="
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "status": 200
+      }
+    }
+  ],
+  "expected": {
+    "checkpoints": [],
+    "files": [
+      {
+        "bytes": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
+        "format": "png"
+      }
+    ],
+    "metadata": {
+      "adapter": "openrouter",
+      "model": "fixture-model"
+    },
+    "partial": false,
+    "progress": [
+      {
+        "fraction": 0,
+        "stage": "running"
+      },
+      {
+        "fraction": 0.9,
+        "stage": "downloading"
+      }
+    ]
+  },
+  "input": {
+    "id": "openrouter",
+    "model": "fixture-model",
+    "request": {
+      "aspect": "1:1",
+      "prompt": "A paper tree 🌳"
+    }
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "transport": "http"
+}

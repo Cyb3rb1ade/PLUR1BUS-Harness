@@ -106,7 +106,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | `packages/channels-telegram` | 10 | 12 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
 | `packages/config-schema` | 10 | 42 | 0 | 0 | 0 | 0 | 0 | 10 | 0 |
 | `packages/core` | 801 | 1081 | 1 | 662 | 2 | 3 | 2 | 132 | 0 |
-| `packages/documents` | 14 | 9 | 2 | 14 | 0 | 0 | 0 | 0 | 0 |
+| `packages/documents` | 14 | 9 | 3 | 14 | 0 | 0 | 0 | 0 | 0 |
 | `packages/embedding-adapters` | 27 | 25 | 0 | 0 | 0 | 27 | 0 | 0 | 0 |
 | `packages/hostctl` | 10 | 21 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
 | `packages/log-schema` | 3 | 6 | 0 | 0 | 3 | 0 | 0 | 0 | 0 |
@@ -124,12 +124,12 @@ A test file with no mode carries a reason instead (test support, a package that 
 
 | Mode | Test files |
 |---|---:|
-| `V` | 555 |
-| `T` | 903 |
+| `V` | 554 |
+| `T` | 918 |
 | `S` | 0 |
-| `W` | 414 |
+| `W` | 399 |
 | `B` | 167 |
-| no mode, with a reason | 129 |
+| no mode, with a reason | 121 |
 | unassigned owner | 0 |
 | **all** | **1644** |
 
@@ -2172,7 +2172,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/tools/web/ip-display.test.ts` | V,W | ip classification, robots, extraction (V); fetch and search exchanges (W) |
 | `packages/core/test/tools/web/ip-vectors.test.ts` | V,W | ip classification, robots, extraction (V); fetch and search exchanges (W) |
 | `packages/core/test/tools/web/ip.test.ts` | V,W | ip classification, robots, extraction (V); fetch and search exchanges (W) |
-| `packages/core/test/tools/web/robots.test.ts` | V,W | ip classification, robots, extraction (V); fetch and search exchanges (W) |
+| `packages/core/test/tools/web/robots.test.ts` | V,W | robots decisions (V), recorded pacing and redirect admission (W) |
 | `packages/core/test/tools/web/search-http.test.ts` | V,W | ip classification, robots, extraction (V); fetch and search exchanges (W) |
 | `packages/core/test/tools/web/search-providers.test.ts` | V,W | ip classification, robots, extraction (V); fetch and search exchanges (W) |
 | `packages/core/test/tools/web/search.test.ts` | V,W | ip classification, robots, extraction (V); fetch and search exchanges (W) |
@@ -2472,47 +2472,47 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 
 | File | Mode | Reason |
 |---|---|---|
-| `packages/core/test/catalog/ext-index/ext-index.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/catalog/helpers.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/catalog/index-entries.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/catalog/model-metadata.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/catalog/signing.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/catalog/trust.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/catalog/voice-catalog.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/apple-fm-core.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/apple-fm.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/audit-b04-alias-contest.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/audit-b04-job.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/audit-b04-null-fields.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/audit-b04-overrides.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/audit-b04-scheduler-timers.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/audit-b04-service.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/audit-b04-store-size.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/catalog-store.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/core-discovery.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/d111-events.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/discovery-e2e.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/egress-adapter.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/events-logger.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/fake-clock.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/fixtures/redaction-lifecycle.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/helpers/definition.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/helpers/fake-http.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/http.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/local-only-scan.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/metadata.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/overrides.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/real-adapters.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/real-core.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/reasoning.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/reconcile.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/redaction-lifecycle.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/roles.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/scanners.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/schedule.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/scheduler.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/service.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
-| `packages/core/test/discovery/validate.test.ts` | V,W,T | scanner exchanges (W), reconcile (V), models.* (T) |
+| `packages/core/test/catalog/ext-index/ext-index.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/catalog/helpers.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/catalog/index-entries.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/catalog/model-metadata.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/catalog/signing.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/catalog/trust.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/catalog/voice-catalog.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/apple-fm-core.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/apple-fm.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/audit-b04-alias-contest.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/audit-b04-job.test.ts` | T | models.* and discovery state, timers and publication through the Core host at flip |
+| `packages/core/test/discovery/audit-b04-null-fields.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/audit-b04-overrides.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/audit-b04-scheduler-timers.test.ts` | T | models.* and discovery state, timers and publication through the Core host at flip |
+| `packages/core/test/discovery/audit-b04-service.test.ts` | T | models.* and discovery state, timers and publication through the Core host at flip |
+| `packages/core/test/discovery/audit-b04-store-size.test.ts` | T | models.* and discovery state, timers and publication through the Core host at flip |
+| `packages/core/test/discovery/catalog-store.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/core-discovery.test.ts` | T | models.* and discovery state, timers and publication through the Core host at flip |
+| `packages/core/test/discovery/d111-events.test.ts` | T | models.* and discovery state, timers and publication through the Core host at flip |
+| `packages/core/test/discovery/discovery-e2e.test.ts` | T | models.* and discovery state, timers and publication through the Core host at flip |
+| `packages/core/test/discovery/egress-adapter.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/events-logger.test.ts` | T | models.* and discovery state, timers and publication through the Core host at flip |
+| `packages/core/test/discovery/fake-clock.test.ts` | T | models.* and discovery state, timers and publication through the Core host at flip |
+| `packages/core/test/discovery/fixtures/redaction-lifecycle.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/helpers/definition.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/helpers/fake-http.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/http.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/local-only-scan.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/metadata.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/overrides.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/real-adapters.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/real-core.test.ts` | T | models.* and discovery state, timers and publication through the Core host at flip |
+| `packages/core/test/discovery/reasoning.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/reconcile.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/redaction-lifecycle.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/roles.test.ts` | V | model identity, aliases and role warnings |
+| `packages/core/test/discovery/scanners.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
+| `packages/core/test/discovery/schedule.test.ts` | T | models.* and discovery state, timers and publication through the Core host at flip |
+| `packages/core/test/discovery/scheduler.test.ts` | T | models.* and discovery state, timers and publication through the Core host at flip |
+| `packages/core/test/discovery/service.test.ts` | T | models.* and discovery state, timers and publication through the Core host at flip |
+| `packages/core/test/discovery/validate.test.ts` | V,W,T | scanner and catalog exchanges (W), reconcile, roles and metadata (V), Core-hosted state and RPC (T) |
 | `packages/core/test/models-rpc.test.ts` | T | plan P4-44 (models-rpc) |
 
 ### P4-50 — Collaboration, the coding surface and the team shell
@@ -2752,15 +2752,15 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 |---|---|---|
 | `packages/core/test/composition/documents.test.ts` | T | media and documents wiring |
 | `packages/core/test/composition/media.test.ts` | T | media and documents wiring |
-| `packages/documents/test/brand.test.ts` | — | rendering is covered by the documents-golden CI job (PDF goldens) until the Rust driver renders them |
-| `packages/documents/test/checks.test.ts` | — | rendering is covered by the documents-golden CI job (PDF goldens) until the Rust driver renders them |
-| `packages/documents/test/golden-diff.test.ts` | — | rendering is covered by the documents-golden CI job (PDF goldens) until the Rust driver renders them |
-| `packages/documents/test/render-e2e.test.ts` | — | rendering is covered by the documents-golden CI job (PDF goldens) until the Rust driver renders them |
-| `packages/documents/test/render.test.ts` | — | rendering is covered by the documents-golden CI job (PDF goldens) until the Rust driver renders them |
-| `packages/documents/test/review-e2e.test.ts` | — | rendering is covered by the documents-golden CI job (PDF goldens) until the Rust driver renders them |
-| `packages/documents/test/templates.test.ts` | — | rendering is covered by the documents-golden CI job (PDF goldens) until the Rust driver renders them |
-| `packages/documents/test/tokens.test.ts` | — | rendering is covered by the documents-golden CI job (PDF goldens) until the Rust driver renders them |
-| `packages/documents/test/typst.test.ts` | — | rendering is covered by the documents-golden CI job (PDF goldens) until the Rust driver renders them |
+| `packages/documents/test/brand.test.ts` | V | brand normalization, document checks, templates and generated CSS |
+| `packages/documents/test/checks.test.ts` | V | brand normalization, document checks, templates and generated CSS |
+| `packages/documents/test/golden-diff.test.ts` | V,W | assembled HTML and recorded Chromium CDP (V/W), with PDF goldens from the Rust driver |
+| `packages/documents/test/render-e2e.test.ts` | V,W | assembled HTML and recorded Chromium CDP (V/W), with PDF goldens from the Rust driver |
+| `packages/documents/test/render.test.ts` | V,W | assembled HTML and recorded Chromium CDP (V/W), with PDF goldens from the Rust driver |
+| `packages/documents/test/review-e2e.test.ts` | V,W | assembled HTML and recorded Chromium CDP (V/W), with PDF goldens from the Rust driver |
+| `packages/documents/test/templates.test.ts` | V | brand normalization, document checks, templates and generated CSS |
+| `packages/documents/test/tokens.test.ts` | V | brand normalization, document checks, templates and generated CSS |
+| `packages/documents/test/typst.test.ts` | — | the Typst CLI remains an optional host renderer; the W4 wire card covers the Chromium driver |
 | `packages/media/test/adapters-config.test.ts` | W,T | plan P4-53 |
 | `packages/media/test/adapters-contract.test.ts` | W,T | plan P4-53 |
 | `packages/media/test/adapters-coreml-jsonl.coverage.test.ts` | W,T | plan P4-53 |
@@ -2798,7 +2798,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/media/test/store-uploads.test.ts` | W,T | plan P4-53 |
 | `packages/media/test/store.coverage.test.ts` | W,T | plan P4-53 |
 | `packages/media/test/transport.test.ts` | W,T | plan P4-53 |
-| `packages/media/test/units.coverage.test.ts` | W,T | plan P4-53 |
+| `packages/media/test/units.coverage.test.ts` | V | requested and delivered media units |
 | `packages/media/test/upload-index.test.ts` | W,T | plan P4-53 |
 | `packages/media/test/video-native.test.ts` | W,T | plan P4-53 |
 | `packages/media/test/video.test.ts` | W,T | plan P4-53 |
@@ -2987,43 +2987,43 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 |---|---|---|
 | `packages/core/test/composition/mcp-visibility.test.ts` | W | protocol exposure |
 | `packages/core/test/composition/protocols-d109.test.ts` | W | protocol exposure |
-| `packages/core/test/mcp/auth-gaps.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/auth-interaction.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/auth-required.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/auth-sessions.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/auth.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/capabilities.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/config.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/connection.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/dual-conformance.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/extensions.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/helpers/dual-fixture.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/helpers/fake-clock.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/helpers/fixture-http.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/helpers/fixture-server.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/helpers/fixture-stdio.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/helpers/util.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/http-egress.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/http-legacy-conformance.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/interpreter-flags.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/leased-env.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/notifications.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/output-schema.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/ports-conformance.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/provenance.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/reconnect.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/redact.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/registry-complete.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/registry-provenance.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/registry-races.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/registry.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/robustness.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/secrets.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/stderr-d111.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/stdio-hardening.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/stdio-server.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/timeouts.test.ts` | W | stdio and HTTP MCP sessions |
-| `packages/core/test/mcp/windows-job.test.ts` | W | stdio and HTTP MCP sessions |
+| `packages/core/test/mcp/auth-gaps.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/auth-interaction.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/auth-required.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/auth-sessions.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/auth.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/capabilities.test.ts` | T,W | registry and connection ports (W), Core installation and process wiring at flip (T) |
+| `packages/core/test/mcp/config.test.ts` | T,W | registry and connection ports (W), Core installation and process wiring at flip (T) |
+| `packages/core/test/mcp/connection.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/dual-conformance.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/extensions.test.ts` | T,W | registry and connection ports (W), Core installation and process wiring at flip (T) |
+| `packages/core/test/mcp/helpers/dual-fixture.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/helpers/fake-clock.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/helpers/fixture-http.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/helpers/fixture-server.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/helpers/fixture-stdio.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/helpers/util.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/http-egress.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/http-legacy-conformance.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/interpreter-flags.test.ts` | T,W | registry and connection ports (W), Core installation and process wiring at flip (T) |
+| `packages/core/test/mcp/leased-env.test.ts` | T,W | registry and connection ports (W), Core installation and process wiring at flip (T) |
+| `packages/core/test/mcp/notifications.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/output-schema.test.ts` | V | the structural output contract, bounded in the Rust session library |
+| `packages/core/test/mcp/ports-conformance.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/provenance.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/reconnect.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/redact.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/registry-complete.test.ts` | T,W | registry and connection ports (W), Core installation and process wiring at flip (T) |
+| `packages/core/test/mcp/registry-provenance.test.ts` | T,W | registry and connection ports (W), Core installation and process wiring at flip (T) |
+| `packages/core/test/mcp/registry-races.test.ts` | T,W | registry and connection ports (W), Core installation and process wiring at flip (T) |
+| `packages/core/test/mcp/registry.test.ts` | T,W | registry and connection ports (W), Core installation and process wiring at flip (T) |
+| `packages/core/test/mcp/robustness.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/secrets.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/stderr-d111.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/stdio-hardening.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/stdio-server.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/timeouts.test.ts` | W | stdio, HTTP, server and authentication exchanges |
+| `packages/core/test/mcp/windows-job.test.ts` | T,W | registry and connection ports (W), Core installation and process wiring at flip (T) |
 | `packages/core/test/tools/mcp-bridge.test.ts` | W | plan P4-70 |
 
 ### P4-71 — ACP server, ACP client and external agents
@@ -3079,31 +3079,31 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 
 | File | Mode | Reason |
 |---|---|---|
-| `packages/core/test/a2a/a2a-card.coverage.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/a2a-handler.coverage.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/a2a-index.coverage.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/a2a-push.coverage.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/a2a-server.coverage.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/a2a-tasks.coverage.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/a2a-turn-port.coverage.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/audit-b01.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/card.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/conformance.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/early-refusal.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/helpers.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/limits.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/no-production-markers.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/outbound-client.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/peer-card.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/peer-client.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/peer-store.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/protocol-leak.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/push.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/secret-leak.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/security.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/server.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/stream.test.ts` | W | peer exchanges against the fixture peer |
-| `packages/core/test/a2a/tasks.test.ts` | W | peer exchanges against the fixture peer |
+| `packages/core/test/a2a/a2a-card.coverage.test.ts` | V | public card projection and schema |
+| `packages/core/test/a2a/a2a-handler.coverage.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/a2a-index.coverage.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/a2a-push.coverage.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/a2a-server.coverage.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/a2a-tasks.coverage.test.ts` | W,T | recorded task and peer exchanges (W), host-owned task state and delegation at flip (T) |
+| `packages/core/test/a2a/a2a-turn-port.coverage.test.ts` | T | the Core host owns durable peer updates and session turns at flip |
+| `packages/core/test/a2a/audit-b01.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/card.test.ts` | V,W | public card projection (V) and recorded served card routes (W) |
+| `packages/core/test/a2a/conformance.test.ts` | W,T | recorded task and peer exchanges (W), host-owned task state and delegation at flip (T) |
+| `packages/core/test/a2a/early-refusal.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/helpers.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/limits.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/no-production-markers.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/outbound-client.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/peer-card.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/peer-client.test.ts` | W,T | recorded task and peer exchanges (W), host-owned task state and delegation at flip (T) |
+| `packages/core/test/a2a/peer-store.test.ts` | T | the Core host owns durable peer updates and session turns at flip |
+| `packages/core/test/a2a/protocol-leak.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/push.test.ts` | W,T | recorded task and peer exchanges (W), host-owned task state and delegation at flip (T) |
+| `packages/core/test/a2a/secret-leak.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/security.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/server.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/stream.test.ts` | W | peer and endpoint exchanges against the fixture peers |
+| `packages/core/test/a2a/tasks.test.ts` | W,T | recorded task and peer exchanges (W), host-owned task state and delegation at flip (T) |
 
 ### P4-80a — API server core
 
@@ -3521,6 +3521,7 @@ Neither `src` nor tests; kept visible so nothing hides.
 | File | What |
 |---|---|
 | `packages/core/bench/rewind-checkpoints.ts` | benchmark script, not harness runtime |
+| `packages/documents/scripts/golden-samples.ts` | golden-render script of the documents-golden CI job |
 | `packages/documents/scripts/golden.ts` | golden-render script of the documents-golden CI job |
 | `packages/documents/scripts/png-diff.ts` | golden-render script of the documents-golden CI job |
 | `packages/module-fixture/build.mjs` | fixture module entry point |

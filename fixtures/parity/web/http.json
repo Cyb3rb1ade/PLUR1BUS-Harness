@@ -1,0 +1,649 @@
+{
+  "accept": "text/plain,application/json",
+  "agent": "fixture-web-tools/1",
+  "cases": [
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [
+              "YSBub3JtYWwgZml4dHVyZSBwYWdl"
+            ],
+            "headers": {
+              "content-type": "text/plain"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "bodyBase64": "YSBub3JtYWwgZml4dHVyZSBwYWdl",
+        "path": "/current",
+        "redirects": [],
+        "status": 200
+      },
+      "name": "plain",
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [
+              "cmVkaXJlY3QgYm9keQ=="
+            ],
+            "headers": {
+              "location": "/archive?view=short"
+            },
+            "status": 302
+          }
+        },
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/archive?view=short"
+          },
+          "response": {
+            "chunksBase64": [
+              "YSBub3JtYWwgZml4dHVyZSBwYWdl"
+            ],
+            "headers": {
+              "content-type": "text/plain"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "bodyBase64": "YSBub3JtYWwgZml4dHVyZSBwYWdl",
+        "path": "/archive?view=short",
+        "redirects": [
+          "/current"
+        ],
+        "status": 200
+      },
+      "name": "relative-redirect",
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [
+              "cmVkaXJlY3QgYm9keQ=="
+            ],
+            "headers": {
+              "location": "/archive?view=short"
+            },
+            "status": 302
+          }
+        },
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/archive?view=short"
+          },
+          "response": {
+            "chunksBase64": [
+              "cmVkaXJlY3QgYm9keQ=="
+            ],
+            "headers": {
+              "location": "/archive?view=short"
+            },
+            "status": 302
+          }
+        }
+      ],
+      "expected": {
+        "code": "too-many-redirects"
+      },
+      "name": "one-redirect-limit",
+      "options": {
+        "maxRedirects": 1
+      },
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [
+              "cmVkaXJlY3QgYm9keQ=="
+            ],
+            "headers": {
+              "location": "/archive?view=short"
+            },
+            "status": 302
+          }
+        }
+      ],
+      "expected": {
+        "bodyBase64": "",
+        "path": "/current",
+        "redirects": [],
+        "status": 302
+      },
+      "name": "manual-redirect",
+      "options": {
+        "redirect": "manual"
+      },
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [
+              "cmVkaXJlY3QgYm9keQ=="
+            ],
+            "headers": {
+              "location": "/archive?view=short"
+            },
+            "status": 302
+          }
+        }
+      ],
+      "expected": {
+        "code": "invalid-url"
+      },
+      "name": "refuse-redirect",
+      "options": {
+        "redirect": "error"
+      },
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "YW5zd2VyPWJsdWU=",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "authorization": "<credential>",
+              "connection": "close",
+              "content-length": "11",
+              "content-type": "text/plain",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "POST",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [
+              "cmVkaXJlY3QgYm9keQ=="
+            ],
+            "headers": {
+              "location": "/archive?view=short"
+            },
+            "status": 302
+          }
+        }
+      ],
+      "expected": {
+        "bodyBase64": "",
+        "path": "/current",
+        "redirects": [],
+        "status": 302
+      },
+      "name": "submitted-form",
+      "options": {
+        "body": "answer=blue",
+        "headers": {
+          "authorization": "<credential>",
+          "content-type": "text/plain"
+        },
+        "method": "POST"
+      },
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [
+              "YSBub3JtYWwgZml4dHVyZSBwYWdl"
+            ],
+            "status": 429
+          }
+        }
+      ],
+      "expected": {
+        "bodyBase64": "YSBub3I=",
+        "path": "/current",
+        "redirects": [],
+        "status": 429
+      },
+      "name": "diagnostic-prefix",
+      "options": {
+        "errorBodyBytes": 5
+      },
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [
+              "YSBub3JtYWwgZml4dHVyZSBwYWdl"
+            ],
+            "headers": {
+              "content-encoding": "gzip"
+            },
+            "status": 503
+          }
+        }
+      ],
+      "expected": {
+        "bodyBase64": "",
+        "path": "/current",
+        "redirects": [],
+        "status": 503
+      },
+      "name": "invalid-diagnostic-encoding",
+      "options": {
+        "errorBodyBytes": 8
+      },
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [
+              "H4sIAAAAAAAAE0tUyMsvyk3MUUjLrCgpLUpVKEhMTwUA8nSIsBUAAAA="
+            ],
+            "headers": {
+              "content-encoding": "gzip",
+              "content-type": "text/plain"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "bodyBase64": "YSBub3JtYWwgZml4dHVyZSBwYWdl",
+        "path": "/current",
+        "redirects": [],
+        "status": 200
+      },
+      "name": "stream-decoding",
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [
+              "CxSAH4sIAAAAAAAAE0tUyMsvyk3MUUjLrCgpLUpVKEhMTwUA8nSIsBUAAAAD"
+            ],
+            "headers": {
+              "content-encoding": "gzip, br",
+              "content-type": "text/plain"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "bodyBase64": "YSBub3JtYWwgZml4dHVyZSBwYWdl",
+        "path": "/current",
+        "redirects": [],
+        "status": 200
+      },
+      "name": "encoding-order",
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [
+              "H4sIAAAAAAAAE0tUyMsvyk3MUUjLrCgpLUpVKEhMTwUA8nSIsBUAAAA="
+            ],
+            "headers": {
+              "content-encoding": "gzip",
+              "content-type": "text/plain"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "code": "too-large"
+      },
+      "name": "decoded-cap",
+      "options": {
+        "maxBytes": 5
+      },
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [
+              "YSBub3JtYWwgZml4dHVyZSBwYWdl"
+            ],
+            "headers": {
+              "content-type": "text/plain"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "code": "too-large"
+      },
+      "name": "declared-cap",
+      "options": {
+        "maxBytes": 5
+      },
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [
+              "YSBub3JtYWwgZml4dHVyZSBwYWdl"
+            ],
+            "headers": {
+              "content-type": "text/plain"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "bodyBase64": "",
+        "path": "/current",
+        "redirects": [],
+        "status": 200
+      },
+      "name": "status-only",
+      "options": {
+        "discardBody": true
+      },
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "HEAD",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [
+              "YSBub3JtYWwgZml4dHVyZSBwYWdl"
+            ],
+            "headers": {
+              "content-type": "text/plain"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "bodyBase64": "",
+        "path": "/current",
+        "redirects": [],
+        "status": 200
+      },
+      "name": "head",
+      "options": {
+        "method": "HEAD"
+      },
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunksBase64": [],
+            "status": 304
+          }
+        }
+      ],
+      "expected": {
+        "bodyBase64": "",
+        "path": "/current",
+        "redirects": [],
+        "status": 304
+      },
+      "name": "not-modified",
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "text/plain,application/json",
+              "accept-encoding": "gzip, deflate, br",
+              "connection": "close",
+              "user-agent": "fixture-web-tools/1"
+            },
+            "method": "GET",
+            "path": "/current"
+          },
+          "response": {
+            "chunkGapMs": 700,
+            "chunksBase64": [
+              "YQ==",
+              "IG5vcm1hbCBmaXh0dXJlIHBhZ2U="
+            ],
+            "headers": {
+              "content-type": "text/plain"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "expected": {
+        "code": "timeout"
+      },
+      "name": "body-deadline",
+      "options": {
+        "timeoutMs": 300
+      },
+      "requestPath": "/current",
+      "transport": "http"
+    },
+    {
+      "credentials": {
+        "password": "fixture-password",
+        "username": "fixture-user"
+      },
+      "exchanges": [],
+      "expected": {
+        "code": "invalid-url"
+      },
+      "name": "url-credentials",
+      "requestPath": "/current",
+      "transport": "http"
+    }
+  ],
+  "source": "packages/core/src/tools/web/http.ts"
+}

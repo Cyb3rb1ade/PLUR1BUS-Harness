@@ -1,0 +1,297 @@
+{
+  "cases": [
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjEsIm1ldGhvZCI6InNlcnZlci9kaXNjb3ZlciIsInBhcmFtcyI6eyJfbWV0YSI6eyJpby5tb2RlbGNvbnRleHRwcm90b2NvbC9wcm90b2NvbFZlcnNpb24iOiIyMDI2LTA3LTI4IiwiaW8ubW9kZWxjb250ZXh0cHJvdG9jb2wvY2xpZW50Q2FwYWJpbGl0aWVzIjp7fSwiaW8ubW9kZWxjb250ZXh0cHJvdG9jb2wvY2xpZW50SW5mbyI6eyJuYW1lIjoicGx1cjFidXMtaGFybmVzcyIsInZlcnNpb24iOiIwLjEuMCJ9fX19",
+            "headers": {
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "mcp-method": "server/discover",
+              "mcp-protocol-version": "2026-07-28"
+            },
+            "method": "POST",
+            "path": "/mcp"
+          },
+          "response": {
+            "chunksBase64": [
+              "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjEsInJlc3VsdCI6eyJyZXN1bHRUeXBlIjoiY29tcGxldGUiLCJ0dGxNcyI6MCwiY2FjaGVTY29wZSI6InByaXZhdGUiLCJzdXBwb3J0ZWRWZXJzaW9ucyI6WyIyMDI2LTA3LTI4Il0sImNhcGFiaWxpdGllcyI6eyJ0b29scyI6e30sInJlc291cmNlcyI6e30sInByb21wdHMiOnt9fSwiX21ldGEiOnsiaW8ubW9kZWxjb250ZXh0cHJvdG9jb2wvc2VydmVySW5mbyI6eyJuYW1lIjoiY29uZm9ybWFuY2UiLCJ2ZXJzaW9uIjoiMSJ9fX19"
+            ],
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "bodyBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjIsIm1ldGhvZCI6InRvb2xzL2xpc3QiLCJwYXJhbXMiOnsiX21ldGEiOnsiaW8ubW9kZWxjb250ZXh0cHJvdG9jb2wvcHJvdG9jb2xWZXJzaW9uIjoiMjAyNi0wNy0yOCIsImlvLm1vZGVsY29udGV4dHByb3RvY29sL2NsaWVudENhcGFiaWxpdGllcyI6e30sImlvLm1vZGVsY29udGV4dHByb3RvY29sL2NsaWVudEluZm8iOnsibmFtZSI6InBsdXIxYnVzLWhhcm5lc3MiLCJ2ZXJzaW9uIjoiMC4xLjAifX19fQ==",
+            "headers": {
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "mcp-method": "tools/list",
+              "mcp-protocol-version": "2026-07-28"
+            },
+            "method": "POST",
+            "path": "/mcp"
+          },
+          "response": {
+            "chunksBase64": [
+              "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjIsInJlc3VsdCI6eyJyZXN1bHRUeXBlIjoiY29tcGxldGUiLCJ0dGxNcyI6MCwiY2FjaGVTY29wZSI6InByaXZhdGUiLCJ0b29scyI6W3sibmFtZSI6ImVjaG8iLCJpbnB1dFNjaGVtYSI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0ZXh0Ijp7InR5cGUiOiJzdHJpbmciLCJ4LW1jcC1oZWFkZXIiOiJUZXh0In19fSwib3V0cHV0U2NoZW1hIjp7InR5cGUiOiJvYmplY3QiLCJyZXF1aXJlZCI6WyJhbnN3ZXIiXSwicHJvcGVydGllcyI6eyJhbnN3ZXIiOnsidHlwZSI6InN0cmluZyJ9fX19XX19"
+            ],
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "bodyBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjMsIm1ldGhvZCI6InRvb2xzL2NhbGwiLCJwYXJhbXMiOnsibmFtZSI6ImVjaG8iLCJhcmd1bWVudHMiOnsidGV4dCI6ImNhZsOpIn0sIl9tZXRhIjp7ImlvLm1vZGVsY29udGV4dHByb3RvY29sL3Byb3RvY29sVmVyc2lvbiI6IjIwMjYtMDctMjgiLCJpby5tb2RlbGNvbnRleHRwcm90b2NvbC9jbGllbnRDYXBhYmlsaXRpZXMiOnt9LCJpby5tb2RlbGNvbnRleHRwcm90b2NvbC9jbGllbnRJbmZvIjp7Im5hbWUiOiJwbHVyMWJ1cy1oYXJuZXNzIiwidmVyc2lvbiI6IjAuMS4wIn19fX0=",
+            "headers": {
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "mcp-method": "tools/call",
+              "mcp-name": "echo",
+              "mcp-param-text": "=?base64?Y2Fmw6k=?=",
+              "mcp-protocol-version": "2026-07-28"
+            },
+            "method": "POST",
+            "path": "/mcp"
+          },
+          "response": {
+            "chunksBase64": [
+              "OiBmaXh0dXJlDQppZDogY29tcGxldGUNCmV2ZW50OiBtZXNzYWdlDQpkYXRhOiB7Impzb25ycGMiOiIyLjAiLCJpZCI6MywicmVzdWx0Ijp7InJlc3VsdFR5cGUiOiJjb21wbGV0ZSIsImNvbnRlbnQiOlt7InR5cGUiOiJ0ZXh0IiwidGV4dCI6Im9rIn1dLCJzdHJ1Y3R1cmVkQ29udGVudCI6eyJhbnN3ZXIiOiJjYWbDqSJ9fX0NCg0K"
+            ],
+            "headers": {
+              "content-type": "text/event-stream"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "bodyBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjQsIm1ldGhvZCI6InJlc291cmNlcy9yZWFkIiwicGFyYW1zIjp7InVyaSI6InRlc3Q6Ly9vbmUiLCJfbWV0YSI6eyJpby5tb2RlbGNvbnRleHRwcm90b2NvbC9wcm90b2NvbFZlcnNpb24iOiIyMDI2LTA3LTI4IiwiaW8ubW9kZWxjb250ZXh0cHJvdG9jb2wvY2xpZW50Q2FwYWJpbGl0aWVzIjp7fSwiaW8ubW9kZWxjb250ZXh0cHJvdG9jb2wvY2xpZW50SW5mbyI6eyJuYW1lIjoicGx1cjFidXMtaGFybmVzcyIsInZlcnNpb24iOiIwLjEuMCJ9fX19",
+            "headers": {
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "mcp-method": "resources/read",
+              "mcp-name": "test://one",
+              "mcp-protocol-version": "2026-07-28"
+            },
+            "method": "POST",
+            "path": "/mcp"
+          },
+          "response": {
+            "chunksBase64": [
+              "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjQsInJlc3VsdCI6eyJyZXN1bHRUeXBlIjoiY29tcGxldGUiLCJ0dGxNcyI6MCwiY2FjaGVTY29wZSI6InByaXZhdGUiLCJjb250ZW50cyI6W3sidXJpIjoidGVzdDovL29uZSIsInRleHQiOiJyZXNvdXJjZSJ9XX19"
+            ],
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "bodyBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjUsIm1ldGhvZCI6InByb21wdHMvZ2V0IiwicGFyYW1zIjp7Im5hbWUiOiJncmVldCIsImFyZ3VtZW50cyI6e30sIl9tZXRhIjp7ImlvLm1vZGVsY29udGV4dHByb3RvY29sL3Byb3RvY29sVmVyc2lvbiI6IjIwMjYtMDctMjgiLCJpby5tb2RlbGNvbnRleHRwcm90b2NvbC9jbGllbnRDYXBhYmlsaXRpZXMiOnt9LCJpby5tb2RlbGNvbnRleHRwcm90b2NvbC9jbGllbnRJbmZvIjp7Im5hbWUiOiJwbHVyMWJ1cy1oYXJuZXNzIiwidmVyc2lvbiI6IjAuMS4wIn19fX0=",
+            "headers": {
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "mcp-method": "prompts/get",
+              "mcp-name": "greet",
+              "mcp-protocol-version": "2026-07-28"
+            },
+            "method": "POST",
+            "path": "/mcp"
+          },
+          "response": {
+            "chunksBase64": [
+              "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjUsInJlc3VsdCI6eyJyZXN1bHRUeXBlIjoiY29tcGxldGUiLCJtZXNzYWdlcyI6W3sicm9sZSI6InVzZXIiLCJjb250ZW50Ijp7InR5cGUiOiJ0ZXh0IiwidGV4dCI6ImhlbGxvIn19XX19"
+            ],
+            "headers": {
+              "content-type": "application/json"
+            },
+            "status": 200
+          }
+        }
+      ],
+      "name": "modern",
+      "observed": {
+        "prompt": {
+          "messages": [
+            {
+              "content": {
+                "text": "hello",
+                "type": "text"
+              },
+              "role": "user"
+            }
+          ],
+          "resultType": "complete"
+        },
+        "resource": {
+          "cacheScope": "private",
+          "contents": [
+            {
+              "text": "resource",
+              "uri": "test://one"
+            }
+          ],
+          "resultType": "complete",
+          "ttlMs": 0
+        },
+        "result": {
+          "content": [
+            {
+              "text": "ok",
+              "type": "text"
+            }
+          ],
+          "resultType": "complete",
+          "structuredContent": {
+            "answer": "café"
+          }
+        },
+        "server": {
+          "name": "conformance",
+          "version": "1"
+        },
+        "tools": [
+          "echo"
+        ],
+        "version": "2026-07-28"
+      },
+      "transport": "http"
+    },
+    {
+      "exchanges": [
+        {
+          "request": {
+            "bodyBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjAsIm1ldGhvZCI6ImluaXRpYWxpemUiLCJwYXJhbXMiOnsicHJvdG9jb2xWZXJzaW9uIjoiMjAyNS0xMS0yNSIsImNhcGFiaWxpdGllcyI6e30sImNsaWVudEluZm8iOnsibmFtZSI6InBsdXIxYnVzLWhhcm5lc3MiLCJ2ZXJzaW9uIjoiMC4xLjAifX19",
+            "headers": {
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json"
+            },
+            "method": "POST",
+            "path": "/mcp"
+          },
+          "response": {
+            "chunksBase64": [
+              "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjAsInJlc3VsdCI6eyJwcm90b2NvbFZlcnNpb24iOiIyMDI1LTExLTI1IiwiY2FwYWJpbGl0aWVzIjp7InRvb2xzIjp7fX0sInNlcnZlckluZm8iOnsibmFtZSI6ImZpeHR1cmUtbGVnYWN5IiwidmVyc2lvbiI6IjEifX19"
+            ],
+            "headers": {
+              "content-type": "application/json",
+              "mcp-session-id": "fixture-session"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "bodyBase64": "eyJqc29ucnBjIjoiMi4wIiwibWV0aG9kIjoibm90aWZpY2F0aW9ucy9pbml0aWFsaXplZCJ9",
+            "headers": {
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "mcp-protocol-version": "2025-11-25",
+              "mcp-session-id": "fixture-session"
+            },
+            "method": "POST",
+            "path": "/mcp"
+          },
+          "response": {
+            "chunksBase64": [],
+            "headers": {},
+            "status": 202
+          }
+        },
+        {
+          "request": {
+            "bodyBase64": "eyJqc29ucnBjIjoiMi4wIiwiaWQiOjEsIm1ldGhvZCI6InRvb2xzL2xpc3QiLCJwYXJhbXMiOnt9fQ==",
+            "headers": {
+              "accept": "application/json, text/event-stream",
+              "content-type": "application/json",
+              "mcp-protocol-version": "2025-11-25",
+              "mcp-session-id": "fixture-session"
+            },
+            "method": "POST",
+            "path": "/mcp"
+          },
+          "response": {
+            "chunksBase64": [
+              "aWQ6IHByaW1lZApyZXRyeTogMQpkYXRhOgoK"
+            ],
+            "headers": {
+              "content-type": "text/event-stream"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "application/json, text/event-stream",
+              "last-event-id": "primed",
+              "mcp-protocol-version": "2025-11-25",
+              "mcp-session-id": "fixture-session"
+            },
+            "method": "GET",
+            "path": "/mcp"
+          },
+          "response": {
+            "chunksBase64": [
+              "OiBmaXh0dXJlDQppZDogcmVzdWx0DQpldmVudDogbWVzc2FnZQ0KZGF0YTogeyJqc29ucnBjIjoiMi4wIiwiaWQiOjEsInJlc3VsdCI6eyJ0b29scyI6W119fQ0KDQo="
+            ],
+            "headers": {
+              "content-type": "text/event-stream"
+            },
+            "status": 200
+          }
+        },
+        {
+          "request": {
+            "bodyBase64": "",
+            "headers": {
+              "accept": "application/json, text/event-stream",
+              "mcp-protocol-version": "2025-11-25",
+              "mcp-session-id": "fixture-session"
+            },
+            "method": "DELETE",
+            "path": "/mcp"
+          },
+          "response": {
+            "chunksBase64": [],
+            "headers": {},
+            "status": 204
+          }
+        }
+      ],
+      "name": "legacy",
+      "observed": {
+        "deleted": 204,
+        "final": ": fixture\r\nid: result\r\nevent: message\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"tools\":[]}}\r\n\r\n",
+        "first": "id: primed\nretry: 1\ndata:\n\n",
+        "initialized": 202,
+        "ready": {
+          "id": 0,
+          "jsonrpc": "2.0",
+          "result": {
+            "capabilities": {
+              "tools": {}
+            },
+            "protocolVersion": "2025-11-25",
+            "serverInfo": {
+              "name": "fixture-legacy",
+              "version": "1"
+            }
+          }
+        },
+        "session": "fixture-session"
+      },
+      "transport": "http"
+    }
+  ],
+  "source": "packages/core/src/mcp"
+}

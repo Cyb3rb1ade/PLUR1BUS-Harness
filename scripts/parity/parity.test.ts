@@ -19,6 +19,20 @@ import { join } from "node:path";
 import { FIXTURE_ROOT, exporterMain, fixtureText, fixturePath, writeFixture } from "./lib.mjs";
 import { buildDispatcherVectors } from "./export-dispatcher.ts";
 import { buildWireFixtures } from "./export-wire.ts";
+import { buildProviderFixtures } from "./export-providers.ts";
+import { buildChannelFixtures } from "./export-channels.ts";
+import { buildVoiceFixtures } from "./export-voice.ts";
+import { recordPureDocuments } from "./export-documents.ts";
+import { recordMediaUnits } from "./export-media-units.ts";
+import { captureRoles } from "./export-discovery.ts";
+import { captureRobots } from "./export-robots.ts";
+import { recordBridge } from "./export-mcp-bridge.ts";
+import { recordCards } from "./export-a2a-card.ts";
+import { recordA2aProtocol } from "./export-a2a-protocol.ts";
+import { recordA2aClient } from "./export-a2a-client.ts";
+import { buildLocalProbeFixtures, buildLocalProviderFixtures } from "./export-provider-local.ts";
+import { buildProviderCacheFixtures } from "./export-provider-cache.ts";
+import { buildProviderRouterFixtures } from "./export-provider-router.ts";
 import { buildFormatVectors } from "./export-formats.ts";
 import { buildAuthVectors, credentials, substitute } from "./export-auth.ts";
 import { buildConfigVectors } from "./export-config.ts";
@@ -142,7 +156,7 @@ describe("dispatcher vectors (D120 T1 parity vectors)", () => {
 describe("wire fixtures (mode W, P4-03)", () => {
   it("the committed fixtures are exactly what the exporter records, and no minted secret survives", async () => {
     const built = await buildWireFixtures();
-    assert.deepEqual(Object.keys(built).sort(), ["openai-http", "voice-ws"]);
+    assert.deepEqual(Object.keys(built).sort(), ["openai-http", "openai-sse", "voice-ws", "voice-ws-server-first"]);
     for (const [name, data] of Object.entries(built)) {
       const text = readFileSync(fixturePath("wire", name), "utf8");
       assert.equal(text, fixtureText(data), `fixtures/parity/wire/${name}.json is stale: run scripts/parity/export-wire.ts`);
@@ -150,6 +164,76 @@ describe("wire fixtures (mode W, P4-03)", () => {
       assert.ok(!text.includes(["oai", "app_"].join("")), `${name}: a minted client id`);
       assert.doesNotMatch(text, /_token":\s*"(?!\[REDACTED)/, `${name}: an unredacted token value`);
     }
+  });
+});
+
+describe("cloud voice wire fixtures (W3)", () => {
+  it("commits each recording with credential placeholders", async () => {
+    for (const [name, data] of Object.entries(await buildVoiceFixtures())) {
+      const text = readFileSync(fixturePath("voice", name), "utf8");
+      assert.equal(text, fixtureText(data), `voice/${name}: committed recording is stale`);
+      assert.doesNotMatch(text, /synthetic-voice-credential/);
+    }
+  });
+});
+
+describe("recordings for the W4–W8 wire library slices", () => {
+  for (const [area, build] of [
+    ["documents", recordPureDocuments],
+    ["media", recordMediaUnits],
+    ["discovery", captureRoles],
+    ["webtools", captureRobots],
+    ["mcp", recordBridge],
+    ["a2a", recordCards],
+    ["a2a", recordA2aProtocol],
+    ["a2a", recordA2aClient],
+  ] as const) {
+    it(`regenerates ${area} fixtures from TypeScript`, async () => {
+      for (const [name, data] of Object.entries(await build())) {
+        const expected = readFileSync(fixturePath(area, name), "utf8");
+        assert.equal(expected, fixtureText(data), `${area}/${name}: committed recording is stale`);
+      }
+    });
+  }
+});
+
+describe("channel wire fixtures (W2)", () => {
+  it("commits every recorded exchange with credential placeholders", async () => {
+    const recordings = await buildChannelFixtures();
+    assert.equal(Object.keys(recordings).length, 18);
+    for (const [name, data] of Object.entries(recordings)) {
+      const text = readFileSync(fixturePath("channels", name), "utf8");
+      assert.equal(text, fixtureText(data), `channels/${name}: committed recording is stale`);
+      assert.doesNotMatch(text, /synthetic-(?:telegram|discord(?:-interaction)?|slack(?:-app)?|mail|relay)-marker/);
+    }
+  });
+});
+
+describe("provider wire fixtures (P4-41)", () => {
+  function assertRecorded(area: string, built: Record<string, unknown>, count: number): void {
+    assert.equal(Object.keys(built).length, count);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath(area, name), "utf8");
+      assert.equal(text, fixtureText(data), `${area}/${name}: committed recording is stale`);
+      assert.doesNotMatch(text, /fixture-credential/, `${area}/${name}: unredacted credential`);
+    }
+  }
+
+  it("records each vendor and its bodyless cases", async () => {
+    assertRecorded("providers", await buildProviderFixtures(), 8);
+  });
+
+  it("records keyless local model probing over HTTP", async () => {
+    assertRecorded("provider-local", await buildLocalProbeFixtures(), 1);
+  });
+
+  it("records AF1 over Unix HTTP", { skip: process.platform === "win32" }, async () => {
+    assertRecorded("provider-local", await buildLocalProviderFixtures(), 1);
+  });
+
+  it("records cache emission, routing and reasoning", async () => {
+    assertRecorded("provider-cache", buildProviderCacheFixtures(), 1);
+    assertRecorded("provider-router", await buildProviderRouterFixtures(), 2);
   });
 });
 
@@ -1388,5 +1472,223 @@ describe("Hostctl contract (P4-K K10b)", () => {
     const actual = readFileSync(fixturePath("host", "hostctl"), "utf8");
     assert.equal(actual, fixtureText(await buildHostctl()), "host/hostctl.json is stale");
     assert.ok(Buffer.byteLength(actual) < 1_048_576);
+  });
+});
+
+describe("media video codec process port (P4-W W4)", () => {
+  it("matches the production TypeScript process calls", async () => {
+    const { recordVideoProcess } = await import("./export-media-video.ts");
+    const expected = fixtureText((await recordVideoProcess())["video-process"]);
+    assert.equal(readFileSync(fixturePath("media", "video-process"), "utf8"), expected);
+  });
+});
+
+describe("media image codecs (P4-W W4)", () => {
+  it("matches the production TypeScript metadata and verification recordings", async () => {
+    const { recordMediaImages } = await import("./export-media-images.ts");
+    const expected = fixtureText(recordMediaImages()["image-codecs"]);
+    assert.equal(readFileSync(fixturePath("media", "image-codecs"), "utf8"), expected);
+  });
+});
+
+describe("media output publication (P4-W W4)", () => {
+  it("matches the TypeScript manifest, charge, refusal and pruning recording", async () => {
+    const { recordMediaStore } = await import("./export-media-store.ts");
+    const expected = fixtureText((await recordMediaStore())["output-store"]);
+    assert.equal(readFileSync(fixturePath("media", "output-store"), "utf8"), expected);
+  });
+});
+
+describe("media upload publication (P4-W W4)", () => {
+  it("matches the TypeScript upload, charge, raw bytes and deletion recording", async () => {
+    const { recordMediaUpload } = await import("./export-media-upload.ts");
+    const expected = fixtureText((await recordMediaUpload())["upload-store"]);
+    assert.equal(readFileSync(fixturePath("media", "upload-store"), "utf8"), expected);
+  });
+});
+
+describe("media HTTP transport (P4-W W4)", () => {
+  it("matches the production retry, status and binary exchanges", async () => {
+    const { recordMediaHttp } = await import("./export-media-http.ts");
+    const fixture = (await recordMediaHttp())["adapter-http"];
+    assert.equal(readFileSync(fixturePath("media", "adapter-http"), "utf8"),
+      fixtureText(fixture));
+  });
+});
+
+describe("media image provider protocols (P4-W W4)", () => {
+  it("matches the TypeScript adapter requests, progress and file bytes", async () => {
+    const { imageProviders, recordMediaImageWire } = await import("./export-media-image-wire.ts");
+    const cases = await recordMediaImageWire();
+    for (const provider of imageProviders) {
+      const name = "image-wire-" + provider;
+      assert.equal(readFileSync(fixturePath("media", name), "utf8"), fixtureText(cases[name]), provider);
+    }
+  });
+});
+
+describe("media multipart editing (P4-W W4)", () => {
+  it("matches the TypeScript request bytes after substituting its random boundary", async () => {
+    const { recordMediaMultipart } = await import("./export-media-multipart.ts");
+    assert.equal(readFileSync(fixturePath("media", "image-multipart"), "utf8"),
+      fixtureText((await recordMediaMultipart())["image-multipart"]));
+  });
+});
+
+describe("media model discovery (P4-W W4)", () => {
+  it("matches the image catalog, refresh fallback and local app states", async () => {
+    const { recordMediaDiscovery } = await import("./export-media-discovery.ts");
+    const expected = fixtureText((await recordMediaDiscovery())["media-discovery"]);
+    assert.equal(readFileSync(fixturePath("media", "media-discovery"), "utf8"), expected);
+  });
+});
+
+describe("CoreML helper protocols (P4-W W4)", () => {
+  it("matches the TypeScript helper launch, JSONL, legacy and cancellation recordings", async () => {
+    const { recordMediaCoreMl } = await import("./export-media-coreml.ts");
+    const cases = await recordMediaCoreMl();
+    assert.equal(readFileSync(fixturePath("media", "coreml-wire"), "utf8"), fixtureText(cases["coreml-wire"]));
+  });
+});
+
+describe("media video provider protocols (P4-W W4)", () => {
+  it("matches the TypeScript submission, checkpoint, poll and binary exchanges", async () => {
+    const { videoProviders, recordMediaVideoWire } = await import("./export-media-video-wire.ts");
+    const cases = await recordMediaVideoWire();
+    for (const provider of videoProviders) {
+      const name = "video-wire-" + provider;
+      assert.equal(readFileSync(fixturePath("media", name), "utf8"), fixtureText(cases[name]), provider);
+    }
+  });
+});
+
+describe("media video publication (P4-W W4)", () => {
+  it("matches the TypeScript video store, processor and byte accounting", async () => {
+    const { recordMediaVideoStore } = await import("./export-media-video-store.ts");
+    const expected = fixtureText((await recordMediaVideoStore())["video-store"]);
+    assert.equal(readFileSync(fixturePath("media", "video-store"), "utf8"), expected);
+  });
+});
+
+describe("media job orchestration (P4-W W4)", () => {
+  it("matches the production TypeScript job and budget port calls", async () => {
+    const { recordMediaJobs } = await import("./export-media-jobs.ts");
+    const expected = fixtureText((await recordMediaJobs())["job-runner"]);
+    assert.equal(readFileSync(fixturePath("media", "job-runner"), "utf8"), expected);
+  });
+  it("matches persisted Buffer and Uint8Array requests and adapter inputs", async () => {
+    const { recordMediaJobInputs } = await import("./export-media-job-inputs.ts");
+    const expected = fixtureText((await recordMediaJobInputs())["job-inputs"]);
+    assert.equal(readFileSync(fixturePath("media", "job-inputs"), "utf8"), expected);
+  });
+});
+
+describe("document template assembly (P4-W W4)", () => {
+  it("matches the authored TypeScript layouts before embedded fonts", async () => {
+    const { recordDocumentTemplates } = await import("./export-document-templates.ts");
+    const expected = fixtureText(recordDocumentTemplates().templates);
+    assert.equal(readFileSync(fixturePath("documents", "templates"), "utf8"), expected);
+  });
+  it("matches the TypeScript sanitizer observations for escaped document text", async () => {
+    const { recordDocumentSanitizer } = await import("./export-document-sanitizer.ts");
+    assert.equal(readFileSync(fixturePath("documents", "sanitizer"), "utf8"), fixtureText(recordDocumentSanitizer().sanitizer));
+  });
+  it("matches the full HTML with all shipped font faces", async () => {
+    const { recordDocumentTemplates } = await import("./export-document-templates.ts");
+    const expected = fixtureText(recordDocumentTemplates()["render-html"]);
+    assert.equal(readFileSync(fixturePath("documents", "render-html"), "utf8"), expected);
+  });
+});
+
+describe("document checks (P4-W W4)", () => {
+  it("matches the generated findings and authored Chromium check script", async () => {
+    const { recordDocumentChecks } = await import("./export-document-checks.ts");
+    assert.equal(readFileSync(fixturePath("documents", "checks"), "utf8"),
+      fixtureText(recordDocumentChecks().checks));
+  });
+});
+
+describe("Chromium rendering commands (P4-W W4)", () => {
+  it("matches the TypeScript PDF and screenshot command parameters", async () => {
+    const { recordDocumentCdp } = await import("./export-document-cdp.ts");
+    const expected = fixtureText((await recordDocumentCdp()).cdp);
+    assert.equal(readFileSync(fixturePath("documents", "cdp"), "utf8"), expected);
+  });
+});
+
+describe("discovery reconciliation and transport (P4-W W5)", () => {
+  it("matches the signed catalogue lifecycle and checkpoint transitions", async () => {
+    const { recordDiscoveryCatalog } = await import("./export-discovery-catalog.ts");
+    assert.equal(readFileSync(fixturePath("discovery", "catalog"), "utf8"), fixtureText((await recordDiscoveryCatalog()).catalog));
+  });
+  it("matches the scanner HTTP exchanges including response acceptance and redirects", async () => {
+    const { recordDiscoveryHttp } = await import("./export-discovery-http.ts");
+    assert.equal(readFileSync(fixturePath("discovery", "http"), "utf8"), fixtureText((await recordDiscoveryHttp()).http));
+  });
+  it("matches the production catalogue and override projections", async () => {
+    const { recordDiscoveryReconcile } = await import("./export-discovery-reconcile.ts");
+    assert.equal(readFileSync(fixturePath("discovery", "reconcile"), "utf8"), fixtureText(recordDiscoveryReconcile().reconcile));
+  });
+  it("matches the production scanner page exchanges", async () => {
+    const { recordDiscoveryScanners } = await import("./export-discovery-scanners.ts");
+    assert.equal(readFileSync(fixturePath("discovery", "scanners"), "utf8"), fixtureText((await recordDiscoveryScanners()).scanners));
+  });
+  it("matches the catalogue signature threshold and expiry decisions", async () => {
+    const { recordCatalogTrust } = await import("./export-discovery-trust.ts");
+    assert.equal(readFileSync(fixturePath("discovery", "trust"), "utf8"), fixtureText(recordCatalogTrust().trust));
+  });
+});
+
+describe("guarded web HTTP (P4-W W6)", () => {
+  it("matches TypeScript search provider requests, backoff and selection", async () => {
+    const { recordWebSearch } = await import("./export-web-search.ts");
+    assert.equal(readFileSync(fixturePath("web", "search"), "utf8"), fixtureText((await recordWebSearch()).search));
+  });
+  it("matches TypeScript fetch presentation, cursors and crawl stations", async () => {
+    const { recordWebFetch } = await import("./export-web-fetch.ts");
+    assert.equal(readFileSync(fixturePath("web", "fetch"), "utf8"), fixtureText((await recordWebFetch()).fetch));
+  });
+  it("matches the readable HTML projections from the real TypeScript extractor", async () => {
+    const { recordWebHtml } = await import("./export-web-html.ts");
+    assert.equal(readFileSync(fixturePath("web", "html"), "utf8"), fixtureText(recordWebHtml().html));
+  });
+  it("replays requests and ordinary responses from the real TypeScript transport", async () => {
+    const { recordWebHttp } = await import("./export-web-http.ts");
+    assert.equal(readFileSync(fixturePath("web", "http"), "utf8"), fixtureText((await recordWebHttp()).http));
+  });
+});
+
+describe("MCP HTTP exchanges (P4-W W7)", () => {
+  it("matches the TypeScript request-scoped and session-bound HTTP exchanges", async () => {
+    const { recordMcpHttp } = await import("./export-mcp-http.ts");
+    assert.equal(readFileSync(fixturePath("mcp", "http"), "utf8"), fixtureText((await recordMcpHttp()).http));
+  });
+});
+
+describe("MCP OAuth exchanges (P4-W W7)", () => {
+  it("matches the TypeScript PKCE, refresh and device-grant exchanges", async () => {
+    const { recordMcpAuth } = await import("./export-mcp-auth.ts");
+    assert.equal(readFileSync(fixturePath("mcp", "auth"), "utf8"), fixtureText((await recordMcpAuth()).auth));
+  });
+});
+
+describe("MCP server and stdio exchanges (P4-W W7)", () => {
+  it("matches the TypeScript server's modern and legacy results", async () => {
+    const { recordMcpServer } = await import("./export-mcp-server.ts");
+    assert.equal(readFileSync(fixturePath("mcp", "server"), "utf8"), fixtureText((await recordMcpServer()).server));
+  });
+  it("matches the TypeScript tool descriptor acceptances and refusals", async () => {
+    const { recordMcpDescriptors } = await import("./export-mcp-descriptors.ts");
+    assert.equal(readFileSync(fixturePath("mcp", "descriptors"), "utf8"), fixtureText((await recordMcpDescriptors()).descriptors));
+  });
+  it("matches the TypeScript result provenance and truncations", async () => {
+    const { recordMcpProvenance } = await import("./export-mcp-provenance.ts");
+    assert.equal(readFileSync(fixturePath("mcp", "provenance"), "utf8"), fixtureText((await recordMcpProvenance()).provenance));
+  });
+  it("matches the TypeScript stdio and bridge frames", async () => {
+    const { recordMcpStdio } = await import("./export-mcp-stdio.ts");
+    const { recordBridge } = await import("./export-mcp-bridge.ts");
+    assert.equal(readFileSync(fixturePath("mcp", "stdio"), "utf8"), fixtureText((await recordMcpStdio()).stdio));
+    assert.equal(readFileSync(fixturePath("mcp", "bridge"), "utf8"), fixtureText((await recordBridge()).bridge));
   });
 });

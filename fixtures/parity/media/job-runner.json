@@ -1,0 +1,820 @@
+{
+  "cases": [
+    {
+      "events": [
+        [
+          "claim"
+        ],
+        [
+          "get"
+        ],
+        [
+          "lookup-output"
+        ],
+        [
+          "reserve",
+          {
+            "quantity": 2,
+            "unit": "image"
+          }
+        ],
+        [
+          "put",
+          {
+            "progress": {
+              "fraction": 0,
+              "stage": "queued"
+            },
+            "state": "running"
+          }
+        ],
+        [
+          "adapter",
+          "generate",
+          null
+        ],
+        [
+          "put",
+          {
+            "checkpoint": {
+              "id": "fixture-provider-job",
+              "model": "fixture-model"
+            },
+            "progress": {
+              "fraction": 0,
+              "stage": "queued"
+            },
+            "state": "running"
+          }
+        ],
+        [
+          "put",
+          {
+            "checkpoint": {
+              "id": "fixture-provider-job",
+              "model": "fixture-model"
+            },
+            "progress": {
+              "fraction": 0.5,
+              "stage": "downloading"
+            },
+            "state": "running"
+          }
+        ],
+        [
+          "publish"
+        ],
+        [
+          "settle",
+          {
+            "quantity": 1,
+            "unit": "image"
+          }
+        ],
+        [
+          "put",
+          {
+            "checkpoint": {
+              "id": "fixture-provider-job",
+              "model": "fixture-model"
+            },
+            "output": {
+              "files": [
+                {
+                  "bytes": 3,
+                  "format": "png",
+                  "path": "0.png"
+                }
+              ]
+            },
+            "progress": {
+              "fraction": 1
+            },
+            "state": "succeeded"
+          }
+        ],
+        [
+          "release"
+        ]
+      ],
+      "expected": {
+        "checkpoint": {
+          "id": "fixture-provider-job",
+          "model": "fixture-model"
+        },
+        "output": {
+          "files": [
+            {
+              "bytes": 3,
+              "format": "png",
+              "path": "0.png"
+            }
+          ]
+        },
+        "progress": {
+          "fraction": 1
+        },
+        "state": "succeeded"
+      },
+      "input": {
+        "adapter": "fixture-adapter",
+        "createdAt": 100,
+        "id": "fixture-job",
+        "operation": "generate",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "request": {
+          "n": 2,
+          "prompt": "blue sky"
+        },
+        "state": "queued",
+        "updatedAt": 100
+      },
+      "name": "generate"
+    },
+    {
+      "events": [
+        [
+          "claim"
+        ],
+        [
+          "get"
+        ],
+        [
+          "lookup-output"
+        ],
+        [
+          "reserve",
+          {
+            "quantity": 2,
+            "unit": "image"
+          }
+        ],
+        [
+          "put",
+          {
+            "progress": {
+              "fraction": 0,
+              "stage": "queued"
+            },
+            "state": "running"
+          }
+        ],
+        [
+          "adapter",
+          "edit",
+          null
+        ],
+        [
+          "put",
+          {
+            "checkpoint": {
+              "id": "fixture-provider-job",
+              "model": "fixture-model"
+            },
+            "progress": {
+              "fraction": 0,
+              "stage": "queued"
+            },
+            "state": "running"
+          }
+        ],
+        [
+          "put",
+          {
+            "checkpoint": {
+              "id": "fixture-provider-job",
+              "model": "fixture-model"
+            },
+            "progress": {
+              "fraction": 0.5,
+              "stage": "downloading"
+            },
+            "state": "running"
+          }
+        ],
+        [
+          "publish"
+        ],
+        [
+          "settle",
+          {
+            "quantity": 1,
+            "unit": "image"
+          }
+        ],
+        [
+          "put",
+          {
+            "checkpoint": {
+              "id": "fixture-provider-job",
+              "model": "fixture-model"
+            },
+            "output": {
+              "files": [
+                {
+                  "bytes": 3,
+                  "format": "png",
+                  "path": "0.png"
+                }
+              ]
+            },
+            "progress": {
+              "fraction": 1
+            },
+            "state": "succeeded"
+          }
+        ],
+        [
+          "release"
+        ]
+      ],
+      "expected": {
+        "checkpoint": {
+          "id": "fixture-provider-job",
+          "model": "fixture-model"
+        },
+        "output": {
+          "files": [
+            {
+              "bytes": 3,
+              "format": "png",
+              "path": "0.png"
+            }
+          ]
+        },
+        "progress": {
+          "fraction": 1
+        },
+        "state": "succeeded"
+      },
+      "input": {
+        "adapter": "fixture-adapter",
+        "createdAt": 100,
+        "id": "fixture-job",
+        "operation": "edit",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "request": {
+          "n": 2,
+          "prompt": "blue sky"
+        },
+        "state": "queued",
+        "updatedAt": 100
+      },
+      "name": "edit"
+    },
+    {
+      "events": [
+        [
+          "claim"
+        ],
+        [
+          "get"
+        ],
+        [
+          "lookup-output"
+        ],
+        [
+          "reserve",
+          {
+            "quantity": 2,
+            "unit": "image"
+          }
+        ],
+        [
+          "put",
+          {
+            "checkpoint": {
+              "id": "fixture-provider-job",
+              "model": "fixture-model"
+            },
+            "progress": {
+              "fraction": 0,
+              "stage": "queued"
+            },
+            "state": "running"
+          }
+        ],
+        [
+          "adapter",
+          "resume",
+          {
+            "id": "fixture-provider-job",
+            "model": "fixture-model"
+          }
+        ],
+        [
+          "put",
+          {
+            "checkpoint": {
+              "id": "fixture-provider-job",
+              "model": "fixture-model"
+            },
+            "progress": {
+              "fraction": 0,
+              "stage": "queued"
+            },
+            "state": "running"
+          }
+        ],
+        [
+          "put",
+          {
+            "checkpoint": {
+              "id": "fixture-provider-job",
+              "model": "fixture-model"
+            },
+            "progress": {
+              "fraction": 0.5,
+              "stage": "downloading"
+            },
+            "state": "running"
+          }
+        ],
+        [
+          "publish"
+        ],
+        [
+          "settle",
+          {
+            "quantity": 1,
+            "unit": "image"
+          }
+        ],
+        [
+          "put",
+          {
+            "checkpoint": {
+              "id": "fixture-provider-job",
+              "model": "fixture-model"
+            },
+            "output": {
+              "files": [
+                {
+                  "bytes": 3,
+                  "format": "png",
+                  "path": "0.png"
+                }
+              ]
+            },
+            "progress": {
+              "fraction": 1
+            },
+            "state": "succeeded"
+          }
+        ],
+        [
+          "release"
+        ]
+      ],
+      "expected": {
+        "checkpoint": {
+          "id": "fixture-provider-job",
+          "model": "fixture-model"
+        },
+        "output": {
+          "files": [
+            {
+              "bytes": 3,
+              "format": "png",
+              "path": "0.png"
+            }
+          ]
+        },
+        "progress": {
+          "fraction": 1
+        },
+        "state": "succeeded"
+      },
+      "input": {
+        "adapter": "fixture-adapter",
+        "checkpoint": {
+          "id": "fixture-provider-job",
+          "model": "fixture-model"
+        },
+        "createdAt": 100,
+        "id": "fixture-job",
+        "operation": "generate",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "request": {
+          "n": 2,
+          "prompt": "blue sky"
+        },
+        "state": "running",
+        "updatedAt": 100
+      },
+      "name": "resume"
+    },
+    {
+      "events": [
+        [
+          "claim"
+        ],
+        [
+          "get"
+        ],
+        [
+          "lookup-output"
+        ],
+        [
+          "put",
+          {
+            "error": "interrupted",
+            "progress": {
+              "fraction": 0,
+              "stage": "queued"
+            },
+            "state": "failed"
+          }
+        ],
+        [
+          "release"
+        ]
+      ],
+      "expected": {
+        "error": "interrupted",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "state": "failed"
+      },
+      "input": {
+        "adapter": "fixture-adapter",
+        "createdAt": 100,
+        "id": "fixture-job",
+        "operation": "generate",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "request": {
+          "n": 2,
+          "prompt": "blue sky"
+        },
+        "state": "running",
+        "updatedAt": 100
+      },
+      "name": "resume-without-checkpoint"
+    },
+    {
+      "events": [
+        [
+          "claim"
+        ],
+        [
+          "get"
+        ],
+        [
+          "lookup-output"
+        ],
+        [
+          "settle",
+          {
+            "quantity": 1,
+            "unit": "image"
+          }
+        ],
+        [
+          "put",
+          {
+            "output": {
+              "files": [
+                {
+                  "bytes": 3,
+                  "format": "png",
+                  "path": "0.png"
+                }
+              ]
+            },
+            "progress": {
+              "fraction": 1
+            },
+            "state": "succeeded"
+          }
+        ],
+        [
+          "release"
+        ]
+      ],
+      "expected": {
+        "output": {
+          "files": [
+            {
+              "bytes": 3,
+              "format": "png",
+              "path": "0.png"
+            }
+          ]
+        },
+        "progress": {
+          "fraction": 1
+        },
+        "state": "succeeded"
+      },
+      "input": {
+        "adapter": "fixture-adapter",
+        "createdAt": 100,
+        "id": "fixture-job",
+        "operation": "generate",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "request": {
+          "n": 2,
+          "prompt": "blue sky"
+        },
+        "state": "running",
+        "updatedAt": 100
+      },
+      "name": "existing-output"
+    },
+    {
+      "events": [
+        [
+          "claim"
+        ],
+        [
+          "get"
+        ],
+        [
+          "put",
+          {
+            "progress": {
+              "fraction": 0,
+              "stage": "queued"
+            },
+            "state": "cancelled"
+          }
+        ],
+        [
+          "release"
+        ]
+      ],
+      "expected": {
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "state": "cancelled"
+      },
+      "input": {
+        "adapter": "fixture-adapter",
+        "createdAt": 100,
+        "id": "fixture-job",
+        "operation": "generate",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "request": {
+          "n": 2,
+          "prompt": "blue sky"
+        },
+        "state": "queued",
+        "updatedAt": 100
+      },
+      "name": "queued-cancel"
+    },
+    {
+      "events": [
+        [
+          "claim"
+        ],
+        [
+          "get"
+        ],
+        [
+          "lookup-output"
+        ],
+        [
+          "put",
+          {
+            "error": "cancelled",
+            "progress": {
+              "fraction": 0,
+              "stage": "queued"
+            },
+            "state": "cancelled"
+          }
+        ],
+        [
+          "release"
+        ]
+      ],
+      "expected": {
+        "error": "cancelled",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "state": "cancelled"
+      },
+      "input": {
+        "adapter": "fixture-adapter",
+        "createdAt": 100,
+        "id": "fixture-job",
+        "operation": "generate",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "request": {
+          "n": 2,
+          "prompt": "blue sky"
+        },
+        "state": "queued",
+        "updatedAt": 100
+      },
+      "name": "pre-aborted"
+    },
+    {
+      "events": [
+        [
+          "claim"
+        ],
+        [
+          "get"
+        ],
+        [
+          "lookup-output"
+        ],
+        [
+          "reserve",
+          {
+            "quantity": 2,
+            "unit": "image"
+          }
+        ],
+        [
+          "put",
+          {
+            "progress": {
+              "fraction": 0,
+              "stage": "queued"
+            },
+            "state": "running"
+          }
+        ],
+        [
+          "adapter",
+          "generate",
+          null
+        ],
+        [
+          "settle",
+          null
+        ],
+        [
+          "put",
+          {
+            "error": "backend_unavailable",
+            "progress": {
+              "fraction": 0,
+              "stage": "queued"
+            },
+            "state": "failed"
+          }
+        ],
+        [
+          "release"
+        ]
+      ],
+      "expected": {
+        "error": "backend_unavailable",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "state": "failed"
+      },
+      "input": {
+        "adapter": "fixture-adapter",
+        "createdAt": 100,
+        "id": "fixture-job",
+        "operation": "generate",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "request": {
+          "n": 2,
+          "prompt": "blue sky"
+        },
+        "state": "queued",
+        "updatedAt": 100
+      },
+      "name": "provider-failure"
+    },
+    {
+      "events": [
+        [
+          "claim"
+        ],
+        [
+          "get"
+        ],
+        [
+          "lookup-output"
+        ],
+        [
+          "reserve",
+          {
+            "quantity": 2,
+            "unit": "image"
+          }
+        ],
+        [
+          "put",
+          {
+            "progress": {
+              "fraction": 0,
+              "stage": "queued"
+            },
+            "state": "running"
+          }
+        ],
+        [
+          "adapter",
+          "generate",
+          null
+        ],
+        [
+          "put",
+          {
+            "checkpoint": {
+              "id": "fixture-provider-job",
+              "model": "fixture-model"
+            },
+            "progress": {
+              "fraction": 0,
+              "stage": "queued"
+            },
+            "state": "running"
+          }
+        ],
+        [
+          "settle",
+          null
+        ],
+        [
+          "put",
+          {
+            "checkpoint": {
+              "id": "fixture-provider-job",
+              "model": "fixture-model"
+            },
+            "error": "invalid_response",
+            "progress": {
+              "fraction": 0,
+              "stage": "queued"
+            },
+            "state": "failed"
+          }
+        ],
+        [
+          "release"
+        ]
+      ],
+      "expected": {
+        "checkpoint": {
+          "id": "fixture-provider-job",
+          "model": "fixture-model"
+        },
+        "error": "invalid_response",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "state": "failed"
+      },
+      "input": {
+        "adapter": "fixture-adapter",
+        "createdAt": 100,
+        "id": "fixture-job",
+        "operation": "generate",
+        "progress": {
+          "fraction": 0,
+          "stage": "queued"
+        },
+        "request": {
+          "n": 2,
+          "prompt": "blue sky"
+        },
+        "state": "queued",
+        "updatedAt": 100
+      },
+      "name": "invalid-progress"
+    }
+  ],
+  "source": "packages/media/src/jobs.ts"
+}

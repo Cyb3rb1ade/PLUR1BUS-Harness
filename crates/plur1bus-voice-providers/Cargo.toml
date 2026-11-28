@@ -1,0 +1,26 @@
+[package]
+name = "plur1bus-voice-providers"
+description = "Wire protocols for cloud voice providers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+base64 = "=0.22.1"
+plur1bus-channels = { path = "../plur1bus-channels", default-features = false, features = ["websocket"] }
+flate2 = "=1.1.10"
+log = { version = "=0.4.34", features = ["max_level_debug"] }
+plur1bus-providers = { path = "../plur1bus-providers" }
+serde.workspace = true
+serde_json.workspace = true
+ureq = { version = "=3.4.2", default-features = false, features = ["rustls", "platform-verifier"] }
+url = "=2.5.9"
+percent-encoding = "=2.3.2"
+
+[dev-dependencies]
+plur1bus-wire-fixtures = { path = "../plur1bus-wire-fixtures" }
+plur1bus-wire-log = { path = "../plur1bus-wire-log" }

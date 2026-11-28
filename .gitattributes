@@ -56,3 +56,6 @@ crates/plur1bus-engine/src/neo/episode-narrative-prompt.txt text eol=lf
 
 # Both Core and the standalone Engine consume the same catalogue classification.
 packages/rpc-schema/fixtures/engine-job-scope.json text eol=lf
+
+# Emitted verbatim in the document template parity fixtures.
+crates/plur1bus-documents/src/template-base.css text eol=lf

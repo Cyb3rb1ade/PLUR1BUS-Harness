@@ -1,0 +1,635 @@
+{
+  "cases": [
+    {
+      "card": {
+        "capabilities": {
+          "extensions": [
+            {
+              "description": "",
+              "params": {
+                "display": "🌱",
+                "nested": [
+                  "",
+                  null,
+                  false,
+                  0
+                ]
+              },
+              "required": true,
+              "uri": "urn:fixture:tags"
+            }
+          ],
+          "pushNotifications": true,
+          "streaming": false
+        },
+        "defaultInputModes": [
+          "text/plain"
+        ],
+        "defaultOutputModes": [
+          "text/plain"
+        ],
+        "description": "Public protocol example",
+        "iconUrl": "https://fixture-peer.example.invalid/symbol.png",
+        "name": "Fixture Agent",
+        "provider": {
+          "organization": "Fixture Org",
+          "url": "https://fixture-peer.example.invalid"
+        },
+        "securityRequirements": [
+          {
+            "schemes": {
+              "user": {
+                "list": [
+                  "chat"
+                ]
+              }
+            }
+          }
+        ],
+        "securitySchemes": {
+          "bearer": {
+            "scheme": {
+              "$case": "httpAuthSecurityScheme",
+              "value": {
+                "bearerFormat": "fixture",
+                "description": "",
+                "scheme": "bearer"
+              }
+            }
+          },
+          "client": {
+            "scheme": {
+              "$case": "oauth2SecurityScheme",
+              "value": {
+                "description": "",
+                "flows": {
+                  "flow": {
+                    "$case": "clientCredentials",
+                    "value": {
+                      "refreshUrl": "",
+                      "scopes": {
+                        "chat": "Chat"
+                      },
+                      "tokenUrl": "https://fixture-peer.example.invalid/token"
+                    }
+                  }
+                },
+                "oauth2MetadataUrl": ""
+              }
+            }
+          },
+          "user": {
+            "scheme": {
+              "$case": "oauth2SecurityScheme",
+              "value": {
+                "description": "",
+                "flows": {
+                  "flow": {
+                    "$case": "authorizationCode",
+                    "value": {
+                      "authorizationUrl": "https://fixture-peer.example.invalid/authorize",
+                      "pkceRequired": true,
+                      "refreshUrl": "",
+                      "scopes": {},
+                      "tokenUrl": "https://fixture-peer.example.invalid/token"
+                    }
+                  }
+                },
+                "oauth2MetadataUrl": ""
+              }
+            }
+          }
+        },
+        "signatures": [
+          {
+            "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImZpeHR1cmUta2V5IiwidHlwIjoiSldUIn0",
+            "signature": "1cKRovWh_tliv2G_2Ulk1UnwS8WhZZ-5BmjDYe6uh_TAy2mFokOcPkv6cth5riydW7DtX_MBPBodnewJtnq2AA"
+          }
+        ],
+        "skills": [
+          {
+            "description": "Café",
+            "examples": [],
+            "id": "chat",
+            "inputModes": [],
+            "name": "Chat",
+            "outputModes": [],
+            "securityRequirements": [],
+            "tags": [
+              "chat"
+            ]
+          }
+        ],
+        "supportedInterfaces": [
+          {
+            "protocolBinding": "JSONRPC",
+            "protocolVersion": "1.0",
+            "tenant": "",
+            "url": "https://fixture-peer.example.invalid/messages"
+          }
+        ],
+        "version": "1"
+      },
+      "expected": {
+        "endpoint": "https://fixture-peer.example.invalid/messages",
+        "fingerprint": "sha256:kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
+        "kid": "fixture-key"
+      },
+      "kid": "fixture-key",
+      "name": "verified",
+      "source": "https://fixture-peer.example.invalid/.well-known/agent-card.json"
+    },
+    {
+      "card": {
+        "capabilities": {
+          "extensions": [
+            {
+              "description": "",
+              "params": {
+                "display": "🌱",
+                "nested": [
+                  "",
+                  null,
+                  false,
+                  0
+                ]
+              },
+              "required": true,
+              "uri": "urn:fixture:tags"
+            }
+          ],
+          "pushNotifications": true,
+          "streaming": false
+        },
+        "defaultInputModes": [
+          "text/plain"
+        ],
+        "defaultOutputModes": [
+          "text/plain"
+        ],
+        "description": "Public protocol example",
+        "iconUrl": "https://fixture-peer.example.invalid/symbol.png",
+        "name": "Fixture Agent",
+        "provider": {
+          "organization": "Fixture Org",
+          "url": "https://fixture-peer.example.invalid"
+        },
+        "securityRequirements": [
+          {
+            "schemes": {
+              "user": {
+                "list": [
+                  "chat"
+                ]
+              }
+            }
+          }
+        ],
+        "securitySchemes": {
+          "bearer": {
+            "scheme": {
+              "$case": "httpAuthSecurityScheme",
+              "value": {
+                "bearerFormat": "fixture",
+                "description": "",
+                "scheme": "bearer"
+              }
+            }
+          },
+          "client": {
+            "scheme": {
+              "$case": "oauth2SecurityScheme",
+              "value": {
+                "description": "",
+                "flows": {
+                  "flow": {
+                    "$case": "clientCredentials",
+                    "value": {
+                      "refreshUrl": "",
+                      "scopes": {
+                        "chat": "Chat"
+                      },
+                      "tokenUrl": "https://fixture-peer.example.invalid/token"
+                    }
+                  }
+                },
+                "oauth2MetadataUrl": ""
+              }
+            }
+          },
+          "user": {
+            "scheme": {
+              "$case": "oauth2SecurityScheme",
+              "value": {
+                "description": "",
+                "flows": {
+                  "flow": {
+                    "$case": "authorizationCode",
+                    "value": {
+                      "authorizationUrl": "https://fixture-peer.example.invalid/authorize",
+                      "pkceRequired": true,
+                      "refreshUrl": "",
+                      "scopes": {},
+                      "tokenUrl": "https://fixture-peer.example.invalid/token"
+                    }
+                  }
+                },
+                "oauth2MetadataUrl": ""
+              }
+            }
+          }
+        },
+        "signatures": [
+          {
+            "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImZpeHR1cmUta2V5IiwidHlwIjoiSldUIn0",
+            "signature": "1cKRovWh_tliv2G_2Ulk1UnwS8WhZZ-5BmjDYe6uh_TAy2mFokOcPkv6cth5riydW7DtX_MBPBodnewJtnq2AA"
+          }
+        ],
+        "skills": [
+          {
+            "description": "Café",
+            "examples": [],
+            "id": "chat",
+            "inputModes": [],
+            "name": "Chat",
+            "outputModes": [],
+            "securityRequirements": [],
+            "tags": [
+              "chat"
+            ]
+          }
+        ],
+        "supportedInterfaces": [
+          {
+            "protocolBinding": "JSONRPC",
+            "protocolVersion": "1.0",
+            "tenant": "",
+            "url": "https://fixture-peer.example.invalid/messages"
+          }
+        ],
+        "version": "1"
+      },
+      "expectedError": "card-signature",
+      "kid": "another-key",
+      "name": "wrong-key-id",
+      "source": "https://fixture-peer.example.invalid/.well-known/agent-card.json"
+    },
+    {
+      "card": {
+        "capabilities": {
+          "extensions": [
+            {
+              "description": "",
+              "params": {
+                "display": "🌱",
+                "nested": [
+                  "",
+                  null,
+                  false,
+                  0
+                ]
+              },
+              "required": true,
+              "uri": "urn:fixture:tags"
+            }
+          ],
+          "pushNotifications": true,
+          "streaming": false
+        },
+        "defaultInputModes": [
+          "text/plain"
+        ],
+        "defaultOutputModes": [
+          "text/plain"
+        ],
+        "description": "Other public description",
+        "iconUrl": "https://fixture-peer.example.invalid/symbol.png",
+        "name": "Fixture Agent",
+        "provider": {
+          "organization": "Fixture Org",
+          "url": "https://fixture-peer.example.invalid"
+        },
+        "securityRequirements": [
+          {
+            "schemes": {
+              "user": {
+                "list": [
+                  "chat"
+                ]
+              }
+            }
+          }
+        ],
+        "securitySchemes": {
+          "bearer": {
+            "scheme": {
+              "$case": "httpAuthSecurityScheme",
+              "value": {
+                "bearerFormat": "fixture",
+                "description": "",
+                "scheme": "bearer"
+              }
+            }
+          },
+          "client": {
+            "scheme": {
+              "$case": "oauth2SecurityScheme",
+              "value": {
+                "description": "",
+                "flows": {
+                  "flow": {
+                    "$case": "clientCredentials",
+                    "value": {
+                      "refreshUrl": "",
+                      "scopes": {
+                        "chat": "Chat"
+                      },
+                      "tokenUrl": "https://fixture-peer.example.invalid/token"
+                    }
+                  }
+                },
+                "oauth2MetadataUrl": ""
+              }
+            }
+          },
+          "user": {
+            "scheme": {
+              "$case": "oauth2SecurityScheme",
+              "value": {
+                "description": "",
+                "flows": {
+                  "flow": {
+                    "$case": "authorizationCode",
+                    "value": {
+                      "authorizationUrl": "https://fixture-peer.example.invalid/authorize",
+                      "pkceRequired": true,
+                      "refreshUrl": "",
+                      "scopes": {},
+                      "tokenUrl": "https://fixture-peer.example.invalid/token"
+                    }
+                  }
+                },
+                "oauth2MetadataUrl": ""
+              }
+            }
+          }
+        },
+        "signatures": [
+          {
+            "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImZpeHR1cmUta2V5IiwidHlwIjoiSldUIn0",
+            "signature": "1cKRovWh_tliv2G_2Ulk1UnwS8WhZZ-5BmjDYe6uh_TAy2mFokOcPkv6cth5riydW7DtX_MBPBodnewJtnq2AA"
+          }
+        ],
+        "skills": [
+          {
+            "description": "Café",
+            "examples": [],
+            "id": "chat",
+            "inputModes": [],
+            "name": "Chat",
+            "outputModes": [],
+            "securityRequirements": [],
+            "tags": [
+              "chat"
+            ]
+          }
+        ],
+        "supportedInterfaces": [
+          {
+            "protocolBinding": "JSONRPC",
+            "protocolVersion": "1.0",
+            "tenant": "",
+            "url": "https://fixture-peer.example.invalid/messages"
+          }
+        ],
+        "version": "1"
+      },
+      "expectedError": "card-signature",
+      "kid": "fixture-key",
+      "name": "description-changed",
+      "source": "https://fixture-peer.example.invalid/.well-known/agent-card.json"
+    },
+    {
+      "card": {
+        "capabilities": {
+          "extensions": [
+            {
+              "description": "",
+              "params": {
+                "display": "🌱",
+                "nested": [
+                  "",
+                  null,
+                  false,
+                  0
+                ]
+              },
+              "required": true,
+              "uri": "urn:fixture:tags"
+            }
+          ],
+          "pushNotifications": true,
+          "streaming": false
+        },
+        "defaultInputModes": [
+          "text/plain"
+        ],
+        "defaultOutputModes": [
+          "text/plain"
+        ],
+        "description": "Public protocol example",
+        "iconUrl": "https://fixture-peer.example.invalid/symbol.png",
+        "name": "Fixture Agent",
+        "provider": {
+          "organization": "Fixture Org",
+          "url": "https://fixture-peer.example.invalid"
+        },
+        "securityRequirements": [
+          {
+            "schemes": {
+              "user": {
+                "list": [
+                  "chat"
+                ]
+              }
+            }
+          }
+        ],
+        "securitySchemes": {
+          "bearer": {
+            "scheme": {
+              "$case": "httpAuthSecurityScheme",
+              "value": {
+                "bearerFormat": "fixture",
+                "description": "",
+                "scheme": "bearer"
+              }
+            }
+          },
+          "client": {
+            "scheme": {
+              "$case": "oauth2SecurityScheme",
+              "value": {
+                "description": "",
+                "flows": {
+                  "flow": {
+                    "$case": "clientCredentials",
+                    "value": {
+                      "refreshUrl": "",
+                      "scopes": {
+                        "chat": "Chat"
+                      },
+                      "tokenUrl": "https://fixture-peer.example.invalid/token"
+                    }
+                  }
+                },
+                "oauth2MetadataUrl": ""
+              }
+            }
+          },
+          "user": {
+            "scheme": {
+              "$case": "oauth2SecurityScheme",
+              "value": {
+                "description": "",
+                "flows": {
+                  "flow": {
+                    "$case": "authorizationCode",
+                    "value": {
+                      "authorizationUrl": "https://fixture-peer.example.invalid/authorize",
+                      "pkceRequired": true,
+                      "refreshUrl": "",
+                      "scopes": {},
+                      "tokenUrl": "https://fixture-peer.example.invalid/token"
+                    }
+                  }
+                },
+                "oauth2MetadataUrl": ""
+              }
+            }
+          }
+        },
+        "signatures": [],
+        "skills": [
+          {
+            "description": "Café",
+            "examples": [],
+            "id": "chat",
+            "inputModes": [],
+            "name": "Chat",
+            "outputModes": [],
+            "securityRequirements": [],
+            "tags": [
+              "chat"
+            ]
+          }
+        ],
+        "supportedInterfaces": [
+          {
+            "protocolBinding": "JSONRPC",
+            "protocolVersion": "1.0",
+            "tenant": "",
+            "url": "https://fixture-peer.example.invalid/messages"
+          }
+        ],
+        "version": "1"
+      },
+      "expectedError": "card-signature",
+      "kid": "fixture-key",
+      "name": "unsigned",
+      "source": "https://fixture-peer.example.invalid/.well-known/agent-card.json"
+    },
+    {
+      "card": {
+        "capabilities": {
+          "extensions": [
+            {
+              "description": "",
+              "params": {
+                "display": "🌱",
+                "nested": [
+                  "",
+                  null,
+                  false,
+                  0
+                ]
+              },
+              "required": true,
+              "uri": "urn:fixture:tags"
+            }
+          ],
+          "pushNotifications": true,
+          "streaming": false
+        },
+        "defaultInputModes": [
+          "text/plain"
+        ],
+        "defaultOutputModes": [
+          "text/plain"
+        ],
+        "description": "Public protocol example",
+        "iconUrl": "https://fixture-peer.example.invalid/symbol.png",
+        "name": "Fixture Agent",
+        "provider": {
+          "organization": "Fixture Org",
+          "url": "https://fixture-peer.example.invalid"
+        },
+        "securityRequirements": [
+          {
+            "schemes": {
+              "user": {
+                "list": [
+                  "chat"
+                ]
+              }
+            }
+          }
+        ],
+        "securitySchemes": {
+          "bearer": {},
+          "client": {},
+          "user": {}
+        },
+        "signatures": [
+          {
+            "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImZpeHR1cmUta2V5IiwidHlwIjoiSldUIn0",
+            "signature": "YQAkMo0328OwqTsAJ4Jpr8TLCZ8exVsN0dNq-hX-X3FxW6tWgbb7uZxOw7IlyWghshYl4B7vE6yCqTyaX_vwDw"
+          }
+        ],
+        "skills": [
+          {
+            "description": "Café",
+            "examples": [],
+            "id": "chat",
+            "inputModes": [],
+            "name": "Chat",
+            "outputModes": [],
+            "securityRequirements": [],
+            "tags": [
+              "chat"
+            ]
+          }
+        ],
+        "supportedInterfaces": [
+          {
+            "protocolBinding": "JSONRPC",
+            "protocolVersion": "1.0",
+            "tenant": "",
+            "url": "https://other.example.invalid/messages"
+          }
+        ],
+        "version": "1"
+      },
+      "expectedError": "card-signature",
+      "kid": "fixture-key",
+      "name": "different-origin",
+      "source": "https://fixture-peer.example.invalid/.well-known/agent-card.json"
+    }
+  ],
+  "key": {
+    "crv": "Ed25519",
+    "kty": "OKP",
+    "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+  },
+  "source": "packages/core/src/a2a/peer-card.ts"
+}

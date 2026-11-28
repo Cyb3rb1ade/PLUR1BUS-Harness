@@ -1,0 +1,525 @@
+{
+  "cases": [
+    {
+      "escaped": "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>",
+      "escapedTemplateSha256": "8e37f9a96b6f58bebdb3da228fe712ae348eb21856384d1800623384b6b683b7",
+      "input": {
+        "markdown": "<script>alert(1)</script>",
+        "template": "report"
+      },
+      "sanitized": "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>",
+      "typescriptSha256": "8e37f9a96b6f58bebdb3da228fe712ae348eb21856384d1800623384b6b683b7"
+    },
+    {
+      "escaped": "<p>&quot;&gt;&lt;img src=x onerror=alert(1)&gt;</p>",
+      "escapedTemplateSha256": "751e483da76acc1a9e19f2b68b26fb784d570239869bbd8296ac72b177ea3a7c",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "\"><img src=x onerror=alert(1)>",
+        "template": "report"
+      },
+      "sanitized": "<p>&quot;&gt;&lt;img src=x>",
+      "typescriptSha256": "9a409058a9dd3f25647f2d1d6cc4f37e920c0b03a8fab0b7e8c5c752ef8d8dc2"
+    },
+    {
+      "escaped": "<p>&lt;img src=file:///etc/passwd&gt;</p>",
+      "escapedTemplateSha256": "0f710aed47d077c1377a223b29b5a0c84646e2756eff40cdb5307361dcb746ec",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "<img src=file:///etc/passwd>",
+        "template": "report"
+      },
+      "sanitized": "<p>&lt;img>",
+      "typescriptSha256": "90ea0636ff6333fbfc0c1d497c1ecda6c572785e7a305ddd8f24c83d576a0b94"
+    },
+    {
+      "escaped": "<p>&lt;/style&gt;&lt;style&gt;@import url(http://127.0.0.1:9/x.css)&lt;/style&gt;</p>",
+      "escapedTemplateSha256": "e10969b185caab3909389e62deedfc4fd5855a9a2e4fa5cbb5fca741f040429a",
+      "input": {
+        "markdown": "</style><style>@import url(http://127.0.0.1:9/x.css)</style>",
+        "template": "report"
+      },
+      "sanitized": "<p>&lt;/style&gt;&lt;style&gt;@import url(http://127.0.0.1:9/x.css)&lt;/style&gt;</p>",
+      "typescriptSha256": "e10969b185caab3909389e62deedfc4fd5855a9a2e4fa5cbb5fca741f040429a"
+    },
+    {
+      "escaped": "<p>javascript:alert(1)</p>",
+      "escapedTemplateSha256": "47c41cf082654565d87373906660b481a585c11aae15c2b92df5ab580e60ee30",
+      "input": {
+        "markdown": "javascript:alert(1)",
+        "template": "report"
+      },
+      "sanitized": "<p>javascript:alert(1)</p>",
+      "typescriptSha256": "47c41cf082654565d87373906660b481a585c11aae15c2b92df5ab580e60ee30"
+    },
+    {
+      "escaped": "<p>&lt;iframe src=&quot;file:///etc/hosts&quot;&gt;&lt;/iframe&gt;</p>",
+      "escapedTemplateSha256": "5ff979188f08302af649fb09fba32b9eb49e04a8ae00a2d637c9cb773d685594",
+      "input": {
+        "markdown": "<iframe src=\"file:///etc/hosts\"></iframe>",
+        "template": "report"
+      },
+      "sanitized": "<p>&lt;iframe src=&quot;file:///etc/hosts&quot;&gt;&lt;/iframe&gt;</p>",
+      "typescriptSha256": "5ff979188f08302af649fb09fba32b9eb49e04a8ae00a2d637c9cb773d685594"
+    },
+    {
+      "escaped": "<p>&lt;object data=&quot;http://169.254.169.254/&quot;&gt;&lt;/object&gt;</p>",
+      "escapedTemplateSha256": "d6d9cc265e5f996ae4a708663b7416d4e9859e2d153f971fe96ce3123366cd83",
+      "input": {
+        "markdown": "<object data=\"http://169.254.169.254/\"></object>",
+        "template": "report"
+      },
+      "sanitized": "<p>&lt;object data=&quot;http://169.254.169.254/&quot;&gt;&lt;/object&gt;</p>",
+      "typescriptSha256": "d6d9cc265e5f996ae4a708663b7416d4e9859e2d153f971fe96ce3123366cd83"
+    },
+    {
+      "escaped": "<p>x&#39; style=&#39;background:url(http://127.0.0.1:9/)</p>",
+      "escapedTemplateSha256": "7f33d67708bdb5c0f4f99b090589b437213f1e7b978e79a0316d22e2ecd0f4e6",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "x' style='background:url(http://127.0.0.1:9/)",
+        "template": "report"
+      },
+      "sanitized": "<p>x&#39;>",
+      "typescriptSha256": "22d8cf980775fea6ffd4724d368cb08b408674b89508b8710ef8d29d6eeebc90"
+    },
+    {
+      "escaped": "<p>click) <a href=\"http://a.example/&amp;quot;onmouseover=&amp;quot;x\" rel=\"noopener noreferrer\">ok</a> frag !i</p>",
+      "escapedTemplateSha256": "59db454e6b174325e1192e0ea3b654ad2a6050b616d41169e19bcfc9341025e9",
+      "input": {
+        "markdown": "[click](javascript:alert(1)) [ok](http://a.example/\"onmouseover=\"x) [frag](#a\"b) ![i](file:///etc/passwd)",
+        "template": "report"
+      },
+      "sanitized": "<p>click) <a rel=\"noopener noreferrer\">ok</a> frag !i</p>",
+      "typescriptSha256": "59db454e6b174325e1192e0ea3b654ad2a6050b616d41169e19bcfc9341025e9"
+    },
+    {
+      "escaped": "<p><strong>&lt;b&gt;</strong><code>&lt;i&gt;</code><em>&lt;/em&gt;&lt;script&gt;</em></p>\n<pre><code>&lt;/code&gt;&lt;/pre&gt;&lt;script&gt;x&lt;/script&gt;</code></pre>\n<blockquote>&lt;svg onload=x&gt;</blockquote>\n<h1>&lt;h1&gt;</h1>",
+      "escapedTemplateSha256": "70ccb5f6523e94a0cc2d537316ad5c151b6932231883c427c1b600c86f7209c9",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "**<b>**`<i>`*</em><script>*\n```\n</code></pre><script>x</script>\n```\n> <svg onload=x>\n# <h1>",
+        "template": "report"
+      },
+      "sanitized": "<p><strong>&lt;b&gt;</strong><code>&lt;i&gt;</code><em>&lt;/em&gt;&lt;script&gt;</em></p>\n<pre><code>&lt;/code&gt;&lt;/pre&gt;&lt;script&gt;x&lt;/script&gt;</code></pre>\n<blockquote>&lt;svg>\n<h1>&lt;h1&gt;</h1>",
+      "typescriptSha256": "3d172a7302addf9ac7792b19984e686290f1916dfe8c79069e17e1b0a4017c68"
+    },
+    {
+      "escaped": "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>",
+      "escapedTemplateSha256": "a2b424c435749b077ec436b8c2e5eaac8a982846c9be523dea303b50dfb66f0a",
+      "input": {
+        "markdown": "<script>alert(1)</script>",
+        "template": "letter"
+      },
+      "sanitized": "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>",
+      "typescriptSha256": "a2b424c435749b077ec436b8c2e5eaac8a982846c9be523dea303b50dfb66f0a"
+    },
+    {
+      "escaped": "<p>&quot;&gt;&lt;img src=x onerror=alert(1)&gt;</p>",
+      "escapedTemplateSha256": "2bb4361793505fbe5f93a43139bee582765abd2b10ed5e3aa0140cd33e062cfc",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "\"><img src=x onerror=alert(1)>",
+        "template": "letter"
+      },
+      "sanitized": "<p>&quot;&gt;&lt;img src=x>",
+      "typescriptSha256": "3e59f9abee7775383b185a66d3fce4c94d66ee555d8f66d86dc94b86aa7d7b52"
+    },
+    {
+      "escaped": "<p>&lt;img src=file:///etc/passwd&gt;</p>",
+      "escapedTemplateSha256": "1f95cc37829ad6dfd60ed95cbd3ecd8b62583b7703fb9f984ada5b5fe6466034",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "<img src=file:///etc/passwd>",
+        "template": "letter"
+      },
+      "sanitized": "<p>&lt;img>",
+      "typescriptSha256": "23b9f0c872af8216f294d67be0f17683fb57d66cff4429fa697471ab072bad73"
+    },
+    {
+      "escaped": "<p>&lt;/style&gt;&lt;style&gt;@import url(http://127.0.0.1:9/x.css)&lt;/style&gt;</p>",
+      "escapedTemplateSha256": "a2277b950a25db3ad68a94b017cbc639b635cba36a7918a69b7fcd2e5f520c73",
+      "input": {
+        "markdown": "</style><style>@import url(http://127.0.0.1:9/x.css)</style>",
+        "template": "letter"
+      },
+      "sanitized": "<p>&lt;/style&gt;&lt;style&gt;@import url(http://127.0.0.1:9/x.css)&lt;/style&gt;</p>",
+      "typescriptSha256": "a2277b950a25db3ad68a94b017cbc639b635cba36a7918a69b7fcd2e5f520c73"
+    },
+    {
+      "escaped": "<p>javascript:alert(1)</p>",
+      "escapedTemplateSha256": "9120a902bd0335dd5f1342e473caa32ba63e07d167a01c92bc352edf85ab68a7",
+      "input": {
+        "markdown": "javascript:alert(1)",
+        "template": "letter"
+      },
+      "sanitized": "<p>javascript:alert(1)</p>",
+      "typescriptSha256": "9120a902bd0335dd5f1342e473caa32ba63e07d167a01c92bc352edf85ab68a7"
+    },
+    {
+      "escaped": "<p>&lt;iframe src=&quot;file:///etc/hosts&quot;&gt;&lt;/iframe&gt;</p>",
+      "escapedTemplateSha256": "1ae8766c00169dc77a1e36f0bbb15267f64a2f062bb74061b3b0498cb8dd265b",
+      "input": {
+        "markdown": "<iframe src=\"file:///etc/hosts\"></iframe>",
+        "template": "letter"
+      },
+      "sanitized": "<p>&lt;iframe src=&quot;file:///etc/hosts&quot;&gt;&lt;/iframe&gt;</p>",
+      "typescriptSha256": "1ae8766c00169dc77a1e36f0bbb15267f64a2f062bb74061b3b0498cb8dd265b"
+    },
+    {
+      "escaped": "<p>&lt;object data=&quot;http://169.254.169.254/&quot;&gt;&lt;/object&gt;</p>",
+      "escapedTemplateSha256": "f278b011363ffed7cdc2e4ad71b50cd43c0fe839d00961e405e0cc899b80165c",
+      "input": {
+        "markdown": "<object data=\"http://169.254.169.254/\"></object>",
+        "template": "letter"
+      },
+      "sanitized": "<p>&lt;object data=&quot;http://169.254.169.254/&quot;&gt;&lt;/object&gt;</p>",
+      "typescriptSha256": "f278b011363ffed7cdc2e4ad71b50cd43c0fe839d00961e405e0cc899b80165c"
+    },
+    {
+      "escaped": "<p>x&#39; style=&#39;background:url(http://127.0.0.1:9/)</p>",
+      "escapedTemplateSha256": "ac4493d693d2cd0c46758d7ae6733f177f45c5d2c79d4fe6e50baa3dc08cac74",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "x' style='background:url(http://127.0.0.1:9/)",
+        "template": "letter"
+      },
+      "sanitized": "<p>x&#39;>",
+      "typescriptSha256": "b80e3d5355d4716d3d639396e5f32eaf72b737612bae22d73286019cf8450c90"
+    },
+    {
+      "escaped": "<p>click) <a href=\"http://a.example/&amp;quot;onmouseover=&amp;quot;x\" rel=\"noopener noreferrer\">ok</a> frag !i</p>",
+      "escapedTemplateSha256": "2f2c794aff110ffad1fcf1a9e23295ce72c5f9ba2aaf2178b7c2d8842da35aba",
+      "input": {
+        "markdown": "[click](javascript:alert(1)) [ok](http://a.example/\"onmouseover=\"x) [frag](#a\"b) ![i](file:///etc/passwd)",
+        "template": "letter"
+      },
+      "sanitized": "<p>click) <a rel=\"noopener noreferrer\">ok</a> frag !i</p>",
+      "typescriptSha256": "2f2c794aff110ffad1fcf1a9e23295ce72c5f9ba2aaf2178b7c2d8842da35aba"
+    },
+    {
+      "escaped": "<p><strong>&lt;b&gt;</strong><code>&lt;i&gt;</code><em>&lt;/em&gt;&lt;script&gt;</em></p>\n<pre><code>&lt;/code&gt;&lt;/pre&gt;&lt;script&gt;x&lt;/script&gt;</code></pre>\n<blockquote>&lt;svg onload=x&gt;</blockquote>\n<h1>&lt;h1&gt;</h1>",
+      "escapedTemplateSha256": "0202574f950fc415d2b35b6aebf7375cbb4b171629003f4e891a6191f81334a6",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "**<b>**`<i>`*</em><script>*\n```\n</code></pre><script>x</script>\n```\n> <svg onload=x>\n# <h1>",
+        "template": "letter"
+      },
+      "sanitized": "<p><strong>&lt;b&gt;</strong><code>&lt;i&gt;</code><em>&lt;/em&gt;&lt;script&gt;</em></p>\n<pre><code>&lt;/code&gt;&lt;/pre&gt;&lt;script&gt;x&lt;/script&gt;</code></pre>\n<blockquote>&lt;svg>\n<h1>&lt;h1&gt;</h1>",
+      "typescriptSha256": "cb459560c0bf7dc7d7cd234fd25570c8d3a9fd0ba1f7084b90f3b9bee0f4fc3e"
+    },
+    {
+      "escaped": "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>",
+      "escapedTemplateSha256": "5fd6172972ce55bbddcce2371bb307eb377e8e30143063a1cf7564b1dec3a530",
+      "input": {
+        "markdown": "<script>alert(1)</script>",
+        "template": "invoice"
+      },
+      "sanitized": "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>",
+      "typescriptSha256": "5fd6172972ce55bbddcce2371bb307eb377e8e30143063a1cf7564b1dec3a530"
+    },
+    {
+      "escaped": "<p>&quot;&gt;&lt;img src=x onerror=alert(1)&gt;</p>",
+      "escapedTemplateSha256": "21d0d897263159cb13675d5579c0f73b8be84b391f81e4a14aac9214a1645cef",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "\"><img src=x onerror=alert(1)>",
+        "template": "invoice"
+      },
+      "sanitized": "<p>&quot;&gt;&lt;img src=x>",
+      "typescriptSha256": "2be36a86cff18c5011ca26566e67c8f73cdc10b3518005221f66541622f99eae"
+    },
+    {
+      "escaped": "<p>&lt;img src=file:///etc/passwd&gt;</p>",
+      "escapedTemplateSha256": "613b334ed7841cec9795d785d6b2758e67ef678eebe1137c2da086b5662980af",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "<img src=file:///etc/passwd>",
+        "template": "invoice"
+      },
+      "sanitized": "<p>&lt;img>",
+      "typescriptSha256": "e62c6a0182fcd3ee62658117c1e7c52965972512e723d6f233230758d34ee6c8"
+    },
+    {
+      "escaped": "<p>&lt;/style&gt;&lt;style&gt;@import url(http://127.0.0.1:9/x.css)&lt;/style&gt;</p>",
+      "escapedTemplateSha256": "5872ba85981abb202ed53c55b464c3781c545575f743d2607cd1b516b4e95661",
+      "input": {
+        "markdown": "</style><style>@import url(http://127.0.0.1:9/x.css)</style>",
+        "template": "invoice"
+      },
+      "sanitized": "<p>&lt;/style&gt;&lt;style&gt;@import url(http://127.0.0.1:9/x.css)&lt;/style&gt;</p>",
+      "typescriptSha256": "5872ba85981abb202ed53c55b464c3781c545575f743d2607cd1b516b4e95661"
+    },
+    {
+      "escaped": "<p>javascript:alert(1)</p>",
+      "escapedTemplateSha256": "16505b5f840cd82c0d1df564cc00d93dfaf3dd47a962b7a6e6a12cefcfb33632",
+      "input": {
+        "markdown": "javascript:alert(1)",
+        "template": "invoice"
+      },
+      "sanitized": "<p>javascript:alert(1)</p>",
+      "typescriptSha256": "16505b5f840cd82c0d1df564cc00d93dfaf3dd47a962b7a6e6a12cefcfb33632"
+    },
+    {
+      "escaped": "<p>&lt;iframe src=&quot;file:///etc/hosts&quot;&gt;&lt;/iframe&gt;</p>",
+      "escapedTemplateSha256": "3f18e3d9bf281ba380da2200011c3256b2a9f088d82245ad713908cec962be07",
+      "input": {
+        "markdown": "<iframe src=\"file:///etc/hosts\"></iframe>",
+        "template": "invoice"
+      },
+      "sanitized": "<p>&lt;iframe src=&quot;file:///etc/hosts&quot;&gt;&lt;/iframe&gt;</p>",
+      "typescriptSha256": "3f18e3d9bf281ba380da2200011c3256b2a9f088d82245ad713908cec962be07"
+    },
+    {
+      "escaped": "<p>&lt;object data=&quot;http://169.254.169.254/&quot;&gt;&lt;/object&gt;</p>",
+      "escapedTemplateSha256": "b8dc99effabee74b7dc7760159736797393e5924373fbe7ea83f071bc5ebbdff",
+      "input": {
+        "markdown": "<object data=\"http://169.254.169.254/\"></object>",
+        "template": "invoice"
+      },
+      "sanitized": "<p>&lt;object data=&quot;http://169.254.169.254/&quot;&gt;&lt;/object&gt;</p>",
+      "typescriptSha256": "b8dc99effabee74b7dc7760159736797393e5924373fbe7ea83f071bc5ebbdff"
+    },
+    {
+      "escaped": "<p>x&#39; style=&#39;background:url(http://127.0.0.1:9/)</p>",
+      "escapedTemplateSha256": "43230e05bc0899f95d58af7a234bb02d7e7edcf5aee4b8a6cb2ab8059cd9a1aa",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "x' style='background:url(http://127.0.0.1:9/)",
+        "template": "invoice"
+      },
+      "sanitized": "<p>x&#39;>",
+      "typescriptSha256": "25b16bdbd1fdd22a23676eff548a8372325f3370275701adef5a36e9a2223cd3"
+    },
+    {
+      "escaped": "<p>click) <a href=\"http://a.example/&amp;quot;onmouseover=&amp;quot;x\" rel=\"noopener noreferrer\">ok</a> frag !i</p>",
+      "escapedTemplateSha256": "c53386dfcf903626115ce1a45417cbfed973608a58d6be45e14d219ecad61021",
+      "input": {
+        "markdown": "[click](javascript:alert(1)) [ok](http://a.example/\"onmouseover=\"x) [frag](#a\"b) ![i](file:///etc/passwd)",
+        "template": "invoice"
+      },
+      "sanitized": "<p>click) <a rel=\"noopener noreferrer\">ok</a> frag !i</p>",
+      "typescriptSha256": "c53386dfcf903626115ce1a45417cbfed973608a58d6be45e14d219ecad61021"
+    },
+    {
+      "escaped": "<p><strong>&lt;b&gt;</strong><code>&lt;i&gt;</code><em>&lt;/em&gt;&lt;script&gt;</em></p>\n<pre><code>&lt;/code&gt;&lt;/pre&gt;&lt;script&gt;x&lt;/script&gt;</code></pre>\n<blockquote>&lt;svg onload=x&gt;</blockquote>\n<h1>&lt;h1&gt;</h1>",
+      "escapedTemplateSha256": "286cbd4563d279ea1bd32b7145675077df1d0c98832220d01676a815338adfa2",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "**<b>**`<i>`*</em><script>*\n```\n</code></pre><script>x</script>\n```\n> <svg onload=x>\n# <h1>",
+        "template": "invoice"
+      },
+      "sanitized": "<p><strong>&lt;b&gt;</strong><code>&lt;i&gt;</code><em>&lt;/em&gt;&lt;script&gt;</em></p>\n<pre><code>&lt;/code&gt;&lt;/pre&gt;&lt;script&gt;x&lt;/script&gt;</code></pre>\n<blockquote>&lt;svg>\n<h1>&lt;h1&gt;</h1>",
+      "typescriptSha256": "a61ece0ff601d4ff6e17d49f66e7151e706bdb38c9103efdb7005dd3c208cc5d"
+    },
+    {
+      "escaped": "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>",
+      "escapedTemplateSha256": "d589e2b42f0445f9cbc2592f3e031c0c46b99cca38bf505d8cbe461c8def7aae",
+      "input": {
+        "markdown": "<script>alert(1)</script>",
+        "template": "cv"
+      },
+      "sanitized": "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>",
+      "typescriptSha256": "d589e2b42f0445f9cbc2592f3e031c0c46b99cca38bf505d8cbe461c8def7aae"
+    },
+    {
+      "escaped": "<p>&quot;&gt;&lt;img src=x onerror=alert(1)&gt;</p>",
+      "escapedTemplateSha256": "8e02c13a6319443126ba5c7b5bed20e8398d53b329b141d9008f54cd85154f7d",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "\"><img src=x onerror=alert(1)>",
+        "template": "cv"
+      },
+      "sanitized": "<p>&quot;&gt;&lt;img src=x>",
+      "typescriptSha256": "bb944a4116f972e02eeaeefc89567d3473da2f7a2492884d2ae355246ab70d79"
+    },
+    {
+      "escaped": "<p>&lt;img src=file:///etc/passwd&gt;</p>",
+      "escapedTemplateSha256": "403f55c052d7069fc2dc65b0dbe8b15e8ebfa0a92683ce7a081f024e808f1138",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "<img src=file:///etc/passwd>",
+        "template": "cv"
+      },
+      "sanitized": "<p>&lt;img>",
+      "typescriptSha256": "4b5aa4c33d12fa6591fe8414ecfdd62091bd4cf281821aa421ef345860d3171f"
+    },
+    {
+      "escaped": "<p>&lt;/style&gt;&lt;style&gt;@import url(http://127.0.0.1:9/x.css)&lt;/style&gt;</p>",
+      "escapedTemplateSha256": "9959ae75b02f56346d900e010dc6dac7c3c3b7bd0da9f392dd6eba9d8b4d924f",
+      "input": {
+        "markdown": "</style><style>@import url(http://127.0.0.1:9/x.css)</style>",
+        "template": "cv"
+      },
+      "sanitized": "<p>&lt;/style&gt;&lt;style&gt;@import url(http://127.0.0.1:9/x.css)&lt;/style&gt;</p>",
+      "typescriptSha256": "9959ae75b02f56346d900e010dc6dac7c3c3b7bd0da9f392dd6eba9d8b4d924f"
+    },
+    {
+      "escaped": "<p>javascript:alert(1)</p>",
+      "escapedTemplateSha256": "1593c2c0e596c591e482888b98625f12bb3249654365d4d98973a7ae0600f2ac",
+      "input": {
+        "markdown": "javascript:alert(1)",
+        "template": "cv"
+      },
+      "sanitized": "<p>javascript:alert(1)</p>",
+      "typescriptSha256": "1593c2c0e596c591e482888b98625f12bb3249654365d4d98973a7ae0600f2ac"
+    },
+    {
+      "escaped": "<p>&lt;iframe src=&quot;file:///etc/hosts&quot;&gt;&lt;/iframe&gt;</p>",
+      "escapedTemplateSha256": "07cf154ff4430e35cfe940065331712861e276dc105003f754fce6f88d363f0a",
+      "input": {
+        "markdown": "<iframe src=\"file:///etc/hosts\"></iframe>",
+        "template": "cv"
+      },
+      "sanitized": "<p>&lt;iframe src=&quot;file:///etc/hosts&quot;&gt;&lt;/iframe&gt;</p>",
+      "typescriptSha256": "07cf154ff4430e35cfe940065331712861e276dc105003f754fce6f88d363f0a"
+    },
+    {
+      "escaped": "<p>&lt;object data=&quot;http://169.254.169.254/&quot;&gt;&lt;/object&gt;</p>",
+      "escapedTemplateSha256": "f86fef75b76ccb46e8bf5d7ddec5e1c866d8f5beb5da00f823d1a5817e1e9d43",
+      "input": {
+        "markdown": "<object data=\"http://169.254.169.254/\"></object>",
+        "template": "cv"
+      },
+      "sanitized": "<p>&lt;object data=&quot;http://169.254.169.254/&quot;&gt;&lt;/object&gt;</p>",
+      "typescriptSha256": "f86fef75b76ccb46e8bf5d7ddec5e1c866d8f5beb5da00f823d1a5817e1e9d43"
+    },
+    {
+      "escaped": "<p>x&#39; style=&#39;background:url(http://127.0.0.1:9/)</p>",
+      "escapedTemplateSha256": "dbc2ea7789a5ece54680506b240eaec9a7e29d4ec8db68690c4a608f7fa9382f",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "x' style='background:url(http://127.0.0.1:9/)",
+        "template": "cv"
+      },
+      "sanitized": "<p>x&#39;>",
+      "typescriptSha256": "2db2549c4cbcf2e58a36ac4e2966a85dd0d8c021f4852d18097e8efb362ef647"
+    },
+    {
+      "escaped": "<p>click) <a href=\"http://a.example/&amp;quot;onmouseover=&amp;quot;x\" rel=\"noopener noreferrer\">ok</a> frag !i</p>",
+      "escapedTemplateSha256": "3143050dd95a8e8f5f49445c7cf44a553d5fc13bd0d2e3eecfd23b815d16d744",
+      "input": {
+        "markdown": "[click](javascript:alert(1)) [ok](http://a.example/\"onmouseover=\"x) [frag](#a\"b) ![i](file:///etc/passwd)",
+        "template": "cv"
+      },
+      "sanitized": "<p>click) <a rel=\"noopener noreferrer\">ok</a> frag !i</p>",
+      "typescriptSha256": "3143050dd95a8e8f5f49445c7cf44a553d5fc13bd0d2e3eecfd23b815d16d744"
+    },
+    {
+      "escaped": "<p><strong>&lt;b&gt;</strong><code>&lt;i&gt;</code><em>&lt;/em&gt;&lt;script&gt;</em></p>\n<pre><code>&lt;/code&gt;&lt;/pre&gt;&lt;script&gt;x&lt;/script&gt;</code></pre>\n<blockquote>&lt;svg onload=x&gt;</blockquote>\n<h1>&lt;h1&gt;</h1>",
+      "escapedTemplateSha256": "41ec93bf9fd1ed7019b405637030f37e7dd657abf52de9c8b84e11d778802b65",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "**<b>**`<i>`*</em><script>*\n```\n</code></pre><script>x</script>\n```\n> <svg onload=x>\n# <h1>",
+        "template": "cv"
+      },
+      "sanitized": "<p><strong>&lt;b&gt;</strong><code>&lt;i&gt;</code><em>&lt;/em&gt;&lt;script&gt;</em></p>\n<pre><code>&lt;/code&gt;&lt;/pre&gt;&lt;script&gt;x&lt;/script&gt;</code></pre>\n<blockquote>&lt;svg>\n<h1>&lt;h1&gt;</h1>",
+      "typescriptSha256": "e5fe88f91c6681b695f393654948da62a072bc89351955016cd3f4d14cc93078"
+    },
+    {
+      "escaped": "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>",
+      "escapedTemplateSha256": "705d028b1ecacbbddd9f878d6c1c5c380ec71587b8c3d741061adc4fe16ed5f6",
+      "input": {
+        "markdown": "<script>alert(1)</script>",
+        "template": "slides"
+      },
+      "sanitized": "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>",
+      "typescriptSha256": "705d028b1ecacbbddd9f878d6c1c5c380ec71587b8c3d741061adc4fe16ed5f6"
+    },
+    {
+      "escaped": "<p>&quot;&gt;&lt;img src=x onerror=alert(1)&gt;</p>",
+      "escapedTemplateSha256": "c6f342e296d0d20d8150f74c60867d64fddcc7268ebf585bac7e36762563e427",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "\"><img src=x onerror=alert(1)>",
+        "template": "slides"
+      },
+      "sanitized": "<p>&quot;&gt;&lt;img src=x>",
+      "typescriptSha256": "6e66e31b9919193e7a3ab744bfee91a8328e610ca4e25705e0a432cc82b8dbac"
+    },
+    {
+      "escaped": "<p>&lt;img src=file:///etc/passwd&gt;</p>",
+      "escapedTemplateSha256": "4a74640faa43419584cc8ddf6ff59b45b5ae4e2ccb24b9fab54e2464709ec556",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "<img src=file:///etc/passwd>",
+        "template": "slides"
+      },
+      "sanitized": "<p>&lt;img>",
+      "typescriptSha256": "47a255e04cf7342eac5072fd6691cdeacbe46d84072c2fd9e8e09f8c34bc89a0"
+    },
+    {
+      "escaped": "<p>&lt;/style&gt;&lt;style&gt;@import url(http://127.0.0.1:9/x.css)&lt;/style&gt;</p>",
+      "escapedTemplateSha256": "e3f846487b00dc4cfbda9fc03dec924f6d43d9fcbe630ded3ca62e07f8334bf4",
+      "input": {
+        "markdown": "</style><style>@import url(http://127.0.0.1:9/x.css)</style>",
+        "template": "slides"
+      },
+      "sanitized": "<p>&lt;/style&gt;&lt;style&gt;@import url(http://127.0.0.1:9/x.css)&lt;/style&gt;</p>",
+      "typescriptSha256": "e3f846487b00dc4cfbda9fc03dec924f6d43d9fcbe630ded3ca62e07f8334bf4"
+    },
+    {
+      "escaped": "<p>javascript:alert(1)</p>",
+      "escapedTemplateSha256": "2f2a4e2b47c9290f086b56488a41f8bdffa133c1a83b6a86e45c129f741a4b52",
+      "input": {
+        "markdown": "javascript:alert(1)",
+        "template": "slides"
+      },
+      "sanitized": "<p>javascript:alert(1)</p>",
+      "typescriptSha256": "2f2a4e2b47c9290f086b56488a41f8bdffa133c1a83b6a86e45c129f741a4b52"
+    },
+    {
+      "escaped": "<p>&lt;iframe src=&quot;file:///etc/hosts&quot;&gt;&lt;/iframe&gt;</p>",
+      "escapedTemplateSha256": "ef980a2258453b8d1915c2c7e8636977d9bcce5ba7833c98f77c9cfef7685129",
+      "input": {
+        "markdown": "<iframe src=\"file:///etc/hosts\"></iframe>",
+        "template": "slides"
+      },
+      "sanitized": "<p>&lt;iframe src=&quot;file:///etc/hosts&quot;&gt;&lt;/iframe&gt;</p>",
+      "typescriptSha256": "ef980a2258453b8d1915c2c7e8636977d9bcce5ba7833c98f77c9cfef7685129"
+    },
+    {
+      "escaped": "<p>&lt;object data=&quot;http://169.254.169.254/&quot;&gt;&lt;/object&gt;</p>",
+      "escapedTemplateSha256": "425df664c45f89b91eade547d5c774348f58f2a97cedb11640ae558fec61fb71",
+      "input": {
+        "markdown": "<object data=\"http://169.254.169.254/\"></object>",
+        "template": "slides"
+      },
+      "sanitized": "<p>&lt;object data=&quot;http://169.254.169.254/&quot;&gt;&lt;/object&gt;</p>",
+      "typescriptSha256": "425df664c45f89b91eade547d5c774348f58f2a97cedb11640ae558fec61fb71"
+    },
+    {
+      "escaped": "<p>x&#39; style=&#39;background:url(http://127.0.0.1:9/)</p>",
+      "escapedTemplateSha256": "ec683af83f2b8760f44bbfef8a3d3fd0f2571ddd50d201118841004df44a819d",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "x' style='background:url(http://127.0.0.1:9/)",
+        "template": "slides"
+      },
+      "sanitized": "<p>x&#39;>",
+      "typescriptSha256": "6fc86b491fd7d5e171a5fa727c6aca868573a3dbe4259ea947e3f6afe3e61697"
+    },
+    {
+      "escaped": "<p>click) <a href=\"http://a.example/&amp;quot;onmouseover=&amp;quot;x\" rel=\"noopener noreferrer\">ok</a> frag !i</p>",
+      "escapedTemplateSha256": "6d30a1edf4b7fecc5827fea397ffa2c0c520a9c8c556acb357da93e946e7cdbb",
+      "input": {
+        "markdown": "[click](javascript:alert(1)) [ok](http://a.example/\"onmouseover=\"x) [frag](#a\"b) ![i](file:///etc/passwd)",
+        "template": "slides"
+      },
+      "sanitized": "<p>click) <a rel=\"noopener noreferrer\">ok</a> frag !i</p>",
+      "typescriptSha256": "6d30a1edf4b7fecc5827fea397ffa2c0c520a9c8c556acb357da93e946e7cdbb"
+    },
+    {
+      "escaped": "<p><strong>&lt;b&gt;</strong><code>&lt;i&gt;</code><em>&lt;/em&gt;&lt;script&gt;</em></p>\n<pre><code>&lt;/code&gt;&lt;/pre&gt;&lt;script&gt;x&lt;/script&gt;</code></pre>\n<blockquote>&lt;svg onload=x&gt;</blockquote>\n<h1>&lt;h1&gt;</h1>",
+      "escapedTemplateSha256": "d8675d7922bf10a6701ef59b3593d9e992e566e6d4b4df111bc8d8f13f785add",
+      "expectedDivergence": "P4D-252",
+      "input": {
+        "markdown": "**<b>**`<i>`*</em><script>*\n```\n</code></pre><script>x</script>\n```\n> <svg onload=x>\n# <h1>",
+        "template": "slides"
+      },
+      "sanitized": "<p><strong>&lt;b&gt;</strong><code>&lt;i&gt;</code><em>&lt;/em&gt;&lt;script&gt;</em></p>\n<pre><code>&lt;/code&gt;&lt;/pre&gt;&lt;script&gt;x&lt;/script&gt;</code></pre>\n<blockquote>&lt;svg>\n<h1>&lt;h1&gt;</h1>",
+      "typescriptSha256": "daef5a0b942c69d710715783812c03ff0cac0f98bc7eb033e08f8c565c5c983e"
+    }
+  ],
+  "source": "packages/documents/src/sanitize.ts"
+}
